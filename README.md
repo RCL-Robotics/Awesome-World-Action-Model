@@ -3,7 +3,9 @@
 
 A curated, searchable collection of research on world action models: learning to understand, predict, and act in the physical world.
 
-**[Explore the website](https://beat-in-our-hearts.github.io/Awesome-World-Action-Model/)** · [Browse the data](data/papers.json) · [Suggest a paper](https://github.com/Beat-in-our-hearts/Awesome-World-Action-Model/issues/new?template=paper.yml)
+**Development status: private repository, local preview only. Public hosting and automatic deployment are disabled.**
+
+[Browse the data](data/papers.json) · [Suggest a paper](https://github.com/Beat-in-our-hearts/Awesome-World-Action-Model/issues/new?template=paper.yml)
 
 **174 papers · 9 research categories · 68 with code · 87 with project pages**
 
@@ -276,7 +278,7 @@ npm run build
 
 ## Updating the paper catalog
 
-Notion is the editorial source. The public, versioned catalog in `data/papers.json` is shared by the website and this README. Builds use the committed catalog and need no Notion credentials.
+Notion is the editorial source. The versioned catalog in `data/papers.json` is shared by the website and this README. Builds use the committed catalog and need no Notion credentials.
 
 Configure `NOTION_API_TOKEN` with a read-only Notion integration and `NOTION_DATA_SOURCE_ID` with the intended data source ID in your local environment or GitHub Actions configuration. Neither value belongs in the repository. Give the integration access to the source database.
 
@@ -296,7 +298,7 @@ The exporter reads every result page, retries transient failures, preserves all 
 
 The source fields map as follows:
 
-| Notion field | Public field |
+| Notion field | Catalog field |
 | --- | --- |
 | Paper Name | `title` |
 | Paper URL | `id`, `arxivUrl` |

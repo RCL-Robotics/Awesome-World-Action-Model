@@ -1,6 +1,8 @@
 # 维护与发布
 
-论文内容以 Notion 中的 **Awesome-World-Action-Model** 数据库为准。导出得到 `data/papers.json` 和 `data/meta.json`，网站与 README 共用这份数据。每次导出先经过校验、代码审查和合并，再发布网站。
+当前处于私有开发阶段：仓库保持私有，GitHub Pages 已关闭，部署工作流已停用。仅使用本地预览；必须获得仓库所有者明确同意后才能公开发布。
+
+论文内容以 Notion 中的 **Awesome-World-Action-Model** 数据库为准。导出得到 `data/papers.json` 和 `data/meta.json`，网站与 README 共用这份数据。每次导出先经过校验、代码审查和合并；合并不会发布网站。
 
 ## 本地预览
 
@@ -33,7 +35,7 @@ npm run preview
 1. 查看 GitHub 的论文推荐或纠错 Issue，核对 arXiv 与作者提供的来源。
 2. 在 Notion 更新论文及主次分类。社区提出的论文数据改动也应先落实到 Notion，避免下一次导出覆盖修订。
 3. 使用下面的本地流程或 Actions 手动导出。
-4. 审查新增、删除、分类变动以及生成的 README。确认后合并 PR；`main` 的更新会触发部署。
+4. 审查新增、删除、分类变动以及生成的 README。确认后合并 PR；`main` 的更新仅更新私有仓库，不会触发部署。
 
 `README.md` 由脚本生成，请勿直接维护其中的论文列表。变更 README 的固定文案或排版时，修改生成脚本，再运行 `npm run generate:readme`。
 
@@ -72,18 +74,18 @@ token 直接填入 GitHub Secret 即可，无需交给助手，也不要写进�
 
 由 `GITHUB_TOKEN` 创建的 PR，其检查可能需要维护者在 PR 页面点击 **Approve workflows to run**。同步工作流已经执行检查、测试与构建，但合并前仍应检查 PR 当前状态。[GitHub 工作流触发说明](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)
 
-## 首次发布到 GitHub Pages
+## 未来公开发布（当前关闭）
 
 本项目仓库初始化时为私有仓库。GitHub Free 支持公开仓库的 Pages；私有仓库需要支持 Pages 的套餐，例如 GitHub Pro 或 Team。先检查仓库 **Settings → Pages** 中是否可启用。若当前套餐不支持，需要仓库所有者明确决定公开仓库、使用合适套餐或另选静态托管；本项目的脚本和工作流不会更改仓库可见性。[GitHub Pages 可用范围](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)
 
-具备 Pages 使用条件后：
+以下步骤仅供未来获得仓库所有者明确公开授权后使用。私有仓库的 GitHub Pages 网站也可能是公开的，不能将仓库私有等同于网站私有。
 
 1. 将网站代码、数据、锁文件和 `.github/workflows/` 合并到 `main`。
 2. 打开 **Settings → Pages → Build and deployment → Source**，选择 **GitHub Actions**。
-3. 在 **Actions → Deploy to GitHub Pages** 手动运行一次 `main`。之后每次 `main` 有推送时都会构建并部署。
+3. 明确获得公开发布授权后，重新启用 **Actions → Deploy to GitHub Pages**，手动选择 `main`，并勾选 `publish_publicly`。默认不发布，也不再监听 `main` 推送。
 4. 在部署完成的 job 或 **Settings → Pages** 打开实际发布地址。
 
-按当前 owner 和仓库名，预期地址为 [Awesome World Action Model](https://beat-in-our-hearts.github.io/Awesome-World-Action-Model/)。只有 Pages 部署成功后此地址才可用。PR 检查只构建和测试；不会占用正式站点作为预览。
+当前没有公开站点。PR 检查只构建和测试；本地预览地址见上文。
 
 部署由 GitHub 官方的 `configure-pages`、`upload-pages-artifact` 和 `deploy-pages` actions 完成。构建 job 只有读取权限，部署 job 单独申请 `pages: write` 与 `id-token: write`；只发布 `main` 的构建产物。[GitHub Pages 自定义工作流](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
 
@@ -103,7 +105,7 @@ token 直接填入 GitHub Secret 即可，无需交给助手，也不要写进�
 | Notion 返回未授权或找不到数据源 | 核对 integration 是否连接了数据库、token 是否有效、ID 是否属于 data source；CLI 模式检查当前登录账号。 |
 | 同步因缺少必填字段或分类无效而停止 | 在 Notion 修正对应条目，再导出；不要绕过数据校验。 |
 | `npm ci` 失败 | 确认 Node 版本、网络访问，以及 `package.json` 与锁文件是否一起提交。 |
-| Pages 配置步骤报 404 | 确认套餐支持该仓库的 Pages，并在 Settings → Pages 将 Source 设为 GitHub Actions。 |
+| 原 Pages 地址返回 404 | 当前已关闭公开发布，这是预期状态；请使用本地预览。 |
 | 首页正常，但详情或样式 404 | 检查 `astro.config.mjs` 的 `site` 与 `base`，重新构建发布。 |
 | 同步已推送分支，但没有 PR | 打开该次 Actions Summary 的 compare 链接，检查 Actions 创建 PR 的权限。 |
 

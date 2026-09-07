@@ -27,6 +27,6 @@ npm run build
 
 If the exported paper data or README generator changes, also run `npm run generate:readme` and include the generated README. Preserve `package-lock.json` and commit it with dependency changes. No Notion token is needed to build the site or contribute website code.
 
-Please check keyboard navigation, meaningful link labels, readable contrast, and the `/Awesome-World-Action-Model/` deployment path when relevant. The PR workflow performs validation; publishing happens after maintainers merge to `main`.
+Please check keyboard navigation, meaningful link labels, readable contrast, and the `/Awesome-World-Action-Model/` path when relevant. The PR workflow performs validation. Merging to `main` updates the private repository only; public hosting and automatic deployment are disabled.
 
 For Notion export and deployment instructions, see [维护与发布](MAINTAINING.md).
