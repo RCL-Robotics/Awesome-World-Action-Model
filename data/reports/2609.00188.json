@@ -1,0 +1,550 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.00188",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:03:43.160Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2609.00188",
+      "title": "ZimaBlue: Evolving Generalizable World Action Models through Scalable Video Pre-training",
+      "kind": "pdf",
+      "sha256": "42577f8b8c587b5f192a20dd2f41c79aea05f9733059bc73e9b5a5c10df7fcbe",
+      "wordCount": 15627,
+      "accessedAt": "2026-09-07T13:50:21.565753+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work, including Sections 2.1–2.3",
+      "3 Model Architecture, including Sections 3.1–3.2",
+      "4 Training Pipeline, including Sections 4.1–4.4.2",
+      "5 Acceleration Schemes, including Sections 5.1–5.3",
+      "6 Experiments, including Sections 6.1–6.3.3",
+      "7 Conclusion and Future Work",
+      "8 Authors",
+      "References",
+      "A Real-Robot Evaluation Details, including Sections A.1–A.6",
+      "B Additional Simulation Experiment Details, including Sections B.1–B.3",
+      "C Attention Masks"
+    ],
+    "omissions": [
+      "Reading covered the supplied text extraction. PDF figure images and graphical attention masks were not visually inspected; only their captions and surrounding explanations were available.",
+      "Separate supplemental material availability was not verified.",
+      "The supplied artifact hash was retained as provenance; the PDF binary was not independently rehashed.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: Unified 100D state–action interface",
+      "Table 2: Perturbed-suite conditions",
+      "Table 3: Zero-shot real-robot success rates",
+      "Table 4: Inference latency and task-performance ablation",
+      "Table 5: LIBERO-Plus results",
+      "Table 6: RoboTwin 2.0 results",
+      "Table 7: RoboCasa365 results",
+      "Table 8: DROID adaptation settings",
+      "Table 9: Standard-suite evaluation details",
+      "Table 10: Visually Perturbed-suite evaluation details",
+      "Table 11: LIBERO task-suite results",
+      "Table 12: Fine-grained effects of LIBERO-Plus supervision",
+      "Table 13: RoboTwin 2.0 per-task results",
+      "Table 14: RoboCasa365 per-task results"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "ZimaBlue converts action-free embodied video into robot control through video pre-training, cross-embodiment video–action alignment, and target-domain adaptation. Its deployed controller combines a predictive Slow transformer with a smaller Fast action generator that consumes cached video features and fresh observations. The central evidence is executed Franka manipulation: expanding training raises reported task-macro success from 36.1% to 77.8%. A separately accelerated configuration reaches 33.0 ms inference latency with 75.0% success. The work supports video scaling and asynchronous feedback as useful ingredients, while leaving the specific necessity of predictive cached features insufficiently isolated. [e03, e05, e07, e10, e12, e13]",
+  "readingTimeMinutes": 12,
+  "problem": {
+    "text": "Robot demonstrations are costly and limited in diversity, while abundant embodied videos lack motor labels. The paper asks how video-derived dynamics can transfer to executable manipulation, and how an iterative generative world model can provide that knowledge without delaying corrective control.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A three-stage curriculum separates learning visual dynamics, grounding those dynamics in heterogeneous robot actions, and specializing control to a deployment domain.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07"
+      ]
+    },
+    {
+      "text": "A semantic state–action interface and asynchronous Slow–Fast architecture connect a shared world model to different embodiments and to frequently refreshed control observations.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e08"
+      ]
+    },
+    {
+      "text": "The authors present real-robot scaling experiments and simulation benchmarks as evidence that large-scale embodied video improves generalization, especially under visual shifts and on unseen task compositions.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e10",
+        "e14",
+        "e15",
+        "e16"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "RGB observations packed into a three-view canvas, with missing views masked [e05, e06]",
+      "Proprioceptive state and language instruction [e03, e04]",
+      "Training targets comprising future video latents and, in action-supervised stages, synchronized action chunks [e05, e06]",
+      "Fresh observations, a committed action prefix, and cached Slow video features for Fast inference [e07, e08]"
+    ],
+    "outputs": [
+      "Slow: future video latents, auxiliary action predictions, and layer-wise video key/value features [e04, e06, e09]",
+      "Fast: an action chunk decoded into physical robot commands; this branch supplies deployed real-robot actions [e04, e08]"
+    ],
+    "steps": [
+      {
+        "name": "Standardize observations and robot coordinates",
+        "detail": "State and action share 100 semantic slots covering end-effectors, grippers, joints, torso, base, and hands. Undefined coordinates are zero-filled and loss-masked. End-effector targets are relative to the chunk's initial pose; translations use robust-percentile normalization, while continuous 6D rotations remain unscaled. Camera padding is excluded from attention and video supervision.",
+        "evidenceIds": [
+          "e03",
+          "e05"
+        ]
+      },
+      {
+        "name": "Predict dynamics and expose internal context",
+        "detail": "The 5B Slow DiT jointly denoises future video and action tokens after action grounding. Its block-causal mask allows mutual interaction within the current noisy video–action block while blocking access to clean future outcomes. It exports video key/value features that encode predictive context.",
+        "evidenceIds": [
+          "e04",
+          "e06",
+          "e20"
+        ]
+      },
+      {
+        "name": "Generate actions from predictive context and fresh feedback",
+        "detail": "The 0.5B Fast DiT receives updated observation and state tokens, language, and a noisy action chunk. Action queries also attend to cached features from the first 12 Slow layers. Fast has no future-video query stream; it generates executable actions without waiting for a newly completed Slow rollout or decoded future RGB sequence.",
+        "evidenceIds": [
+          "e04",
+          "e08",
+          "e20"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage I adapts Wan2.2-TI2V-5B using video-only flow matching. A broad mixture of human, simulated, and robot videos is followed by a curated manipulation-focused mixture that includes proprietary human video. The default sample has 33 frames across four temporal chunks. Blockwise noise and teacher forcing permit parallel training with causal context; state/action placeholders carry no supervision.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "text": "Stage II trains only Slow on synchronized video, state, instruction, and 24-step action chunks from DROID, AgiBot, Galaxea, and RoboMIND2-Franka. Video and action noise levels are coupled, and their masked flow losses train a shared backbone. Action prediction grounds the visual representation but is not the deployed Slow branch's control output.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e06"
+        ]
+      },
+      {
+        "text": "Stage III first specializes Slow, then freezes it while training Fast. Fast weights are transferred from Slow's first 12 layers and interpolated to a narrower width. Random observation offsets expose Fast to partially executed trajectories; clean, loss-masked action prefixes teach continuity with previously committed commands.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "text": "Sequential distribution matching distillation reduces Slow and then Fast from eight to two DiT evaluations each. Each stage uses a student, frozen teacher-derived real-score network, and online fake-score network, with five fake-score updates per generator update. Supervised flow losses remain as anchors. Fast distillation uses frozen distilled Slow features matched by denoising-step index.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Slow and Fast run asynchronously. Fast reuses the available Slow cache while receiving newer observations and states. Real-Time Chunking preserves committed prefix actions and replaces only the unexecuted suffix. Decoding restores physical units and composes relative targets with robot state before execution.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e08"
+        ]
+      },
+      {
+        "text": "Distilled deployment retains only the two student generators; score networks are discarded. Slow still predicts latent video and auxiliary actions, whereas Fast supplies robot commands. The simulation benchmarks instead use Slow alone, so their scores do not establish the performance of the accelerated dual-system controller.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09",
+          "e13"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "Δp_h = R_0^{-1}(p_h − p_0),  ΔR_h = R_0^{-1}R_h;  Δq_h = q_h − q_0.",
+        "explanation": "The chunk anchor has position p_0, rotation R_0, and joint configuration q_0. Future targets are expressed relative to it, reducing dependence on absolute scene coordinates. ΔR_h is represented by its first two columns.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "z_t = (1 − σ_t^vid)z + σ_t^vid ε,  v^vid = ε − z;  L_sup^S = λ_vid L_vid + λ_act L_act.",
+        "explanation": "Flow matching learns the velocity between clean data and Gaussian noise. L_vid and L_act are squared velocity errors masked to valid visual tokens and action coordinates. Stage I uses only video loss; Stage II adds analogous action corruption and action loss, with mutually conditioning noisy video and action streams.",
+        "evidenceIds": [
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "expression": "ã = Pad(a_{δ:H});  a^F_{t,i} = ã_i for i < p, otherwise (1 − σ_t^act)ã_i + σ_t^act η_i;  L_sup^F = E[||m_act,F ⊙ (v̂_θ^act,F(a_t^F, c_δ, s_δ, K_slow, ℓ, δ) − (η − ã))||²].",
+        "explanation": "δ selects an updated observation within the original horizon, and p is the committed prefix length. Only the suffix is noised. The combined mask removes invalid coordinates, padded positions, and prefix supervision, teaching Fast to revise remaining actions with fresh feedback and frozen Slow guidance.",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "expression": "g_DMD^b = (x̂_{0,f}^b − x̂_{0,r}^b) / (mean_valid(|x_g^b − x̂_{0,r}^b|) + ε_num),  b ∈ {S,F}.",
+        "explanation": "The normalized difference between fake-score and real-score clean-sample estimates supplies a stopped-gradient distribution-matching direction. Gradients pass through the student sample. Slow samples contain video and actions; Fast samples contain actions only.",
+        "evidenceIds": [
+          "e09"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Zero-shot physical manipulation under increasing pre-training",
+      "setting": "DROID-adapted Franka; eight Standard and four Perturbed tasks; ten rollouts per task, with three separately scored placements per Toys rollout. All ZimaBlue variants share target-domain adaptation and eight-step inference.",
+      "metric": "Task-macro success rate (%)",
+      "value": "Overall: 36.1 → 46.1 → 66.9 → 77.8 for the Wan-initialized baseline, +6K hours multi-embodiment data, +60K hours video, and +120K hours video. Full model: Standard 87.9; Perturbed 57.5.",
+      "comparison": "Official DROID-adapted π0.5: 54.4 overall; DreamZero: 53.6.",
+      "interpretation": "These are reported executed robot outcomes. The cumulative comparison supports the training recipe, with matched downstream schedules, but does not equalize total pre-training compute or external baselines' upstream data.",
+      "evidenceIds": [
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "Contribution of asynchronous Slow–Fast control",
+      "setting": "Same real-robot task suites; eight-step Slow versus eight-step dual-system deployment.",
+      "metric": "Task-macro success rate (%)",
+      "value": "Slow → Dual-System: Standard 80.8 → 87.9; Perturbed 30.0 → 57.5; Overall 63.9 → 77.8.",
+      "comparison": "Reported gains are 7.1 percentage points on Standard and 27.5 on Perturbed.",
+      "interpretation": "The larger perturbation gain is consistent with useful fresh feedback. Because the intervention changes architecture and control latency together, it does not isolate the benefit of predictive K/V content.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Deployment acceleration",
+      "setting": "Real-robot evaluation; RTX 4090 deployment. The accelerated variant combines two-step distillation and compilation.",
+      "metric": "Reported end-to-end inference latency (ms) and overall task-macro success (%)",
+      "value": "Slow: 449.6 ms, 63.9%; undistilled Dual-System: 145.6 ms, 77.8%; distilled and compiled Dual-System: 33.0 ms, 75.0%.",
+      "comparison": "The paper reports 13.6× overall acceleration and a 2.8-percentage-point success reduction relative to undistilled Dual-System.",
+      "interpretation": "The approximately 30 Hz configuration has 75.0% success. Pairing 33.0 ms with the separate 77.8% result would conflate configurations.",
+      "evidenceIds": [
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus robustness",
+      "setting": "Slow-only simulation evaluation on 10,030 episodes. Zero-shot transfer trains on standard LIBERO; supervised fine-tuning additionally uses LIBERO-Plus training data.",
+      "metric": "Unweighted mean success across seven perturbation categories (%)",
+      "value": "Zero-shot transfer: 86.7; supervised fine-tuning: 92.0.",
+      "comparison": "Within the corresponding protocols: InternVLA-A1.5 scores 85.8 and CAC-VLA scores 90.1.",
+      "interpretation": "Episode-weighted scores are separately 86.0 and 91.5. Camera success rises from 58.1 to 95.4, but robot-initial-state success falls from 88.9 to 81.1; aggregate improvement does not imply improvement in every category.",
+      "evidenceIds": [
+        "e13",
+        "e14",
+        "e17"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0 bimanual manipulation",
+      "setting": "One Slow policy post-trained on clean and randomized demonstrations across all 50 tasks; 100 trials per task under each condition.",
+      "metric": "Mean task success (%)",
+      "value": "Clean 94.7; Randomized 94.3; their mean 94.5.",
+      "comparison": "ABot-M0.5: Clean 94.0; Randomized 94.2; mean 94.1.",
+      "interpretation": "This demonstrates simulated robustness on trained tasks under the benchmark's randomization. The average improvement is small, and the table supplies no uncertainty for assessing its significance.",
+      "evidenceIds": [
+        "e13",
+        "e15"
+      ]
+    },
+    {
+      "task": "RoboCasa365 household manipulation and unseen compositions",
+      "setting": "Slow-only policy trained on Human300; 18 Atomic-Seen, 16 Composite-Seen, and 16 Composite-Unseen evaluation tasks, each with 50 rollouts.",
+      "metric": "Split success and overall success (%)",
+      "value": "Atomic-Seen 78.1; Composite-Seen 50.4; Composite-Unseen 16.5; Overall 49.5.",
+      "comparison": "ABot-M0.6: 46.6 overall and 7.9 Composite-Unseen. Xiaomi-Robotics-1: 57.4 overall and 32.1 Composite-Unseen.",
+      "interpretation": "Overall weights the splits by their task counts, rather than averaging three split percentages equally. Unseen-composition performance exceeds the compared WAMs, but remains low in absolute terms and below the strongest compared VLA.",
+      "evidenceIds": [
+        "e13",
+        "e16",
+        "e19"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Physical evaluation covers one Franka platform and a small task suite. Ten rollouts per task provide limited precision, and Toys uses placement-level rather than whole-task success. The appendix establishes exclusion from DROID post-training but supplies no corpus-wide overlap audit for the large video mixtures.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "text": "The scaling experiments control DROID adaptation but add both experience and pre-training work. The baseline already inherits Wan video pre-training despite the appendix's 'From scratch' label. Cross-model RoboCasa comparisons vary architectures and datasets, so they cannot independently establish a causal video-volume scaling law.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e10",
+        "e16",
+        "e18"
+      ]
+    },
+    {
+      "text": "No reported ablation separates future-predictive K/V guidance from ordinary visual features, cache reuse, or increased feedback frequency. Causal attention establishes permissible temporal information flow; the experiments do not directly measure interventional dynamics accuracy.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e12",
+        "e20"
+      ]
+    },
+    {
+      "text": "The authors identify failures to advance from correct intermediate states, lost contact, target displacement, and interaction with the tablecloth. They call for progress-aware replanning and broader evaluation. These remaining errors qualify the claim of generalizable physical knowledge.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e21"
+      ]
+    },
+    {
+      "text": "Some presentation details require reconciliation: Table 4 calls a Standard task 'Basket', whereas Appendix A defines cup selection. Table 7's vague Average caption is clarified by the task-weighted protocol and Table 14. The supplied Figure 8 label removes both pre-training and mid-training, limiting attribution of that qualitative example specifically to video pre-training.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e12",
+        "e16",
+        "e19",
+        "e22"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "The most concrete training specification is DROID adaptation: Slow runs for 60K steps with global batch 256, learning rate 1×10^-4, and 2% warmup; frozen-Slow Fast training runs for 160K steps with batch 64, the same learning rate, and 1% warmup. Both use action horizon 24.",
+      "kind": "source",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "text": "Rebuilding the full recipe requires the Wan initialization, public and proprietary video mixtures, embodiment mappings and normalization statistics, causal/view masks, target-domain data, and sequential distillation. The supplied text does not fully specify Stage I/II mixture weights, optimization budgets, total training compute, or exact normalization percentiles, preventing an exact reconstruction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06",
+        "e09"
+      ]
+    },
+    {
+      "text": "A focused mechanism test would train matched Fast branches using predictive Slow caches, observation-only caches, and no Slow cache, holding action horizon, target data, and feedback rate fixed. Perturbed-suite success, latency, and cache age would test whether predicted dynamics add value beyond frequent visual correction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e12"
+      ]
+    },
+    {
+      "text": "The paper lists project and code links, but no repository contents were supplied or inspected and no experiments were reproduced. The release's completeness, proprietary-data accessibility, and reproducibility of the reported latency remain unverified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e01",
+        "e05",
+        "e13"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "WAM and Dual-system are directly supported: separate Slow and Fast transformers exchange cached video features and run asynchronously. The recorded IDM designation is not established by the described mechanism. Slow jointly predicts video and actions with mutual attention; its action loss is auxiliary for deployed dual-system control. Fast is an action flow model conditioned on fresh observations and predictive internal features, without an explicit generated-frame transition-to-action inverse-dynamics stage. Its behavior may be inverse-dynamics-like in a broad sense, but that does not verify IDM or Q4 as recorded. Preserve the snapshot for editorial review.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e07",
+        "e08",
+        "e20"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Visual planning & IDM",
+        "Efficient inference & real-time control",
+        "Generalization & action alignment"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "81f168af585c57cb29414ef250c4ac1aee88412ad57be419a8c359252791304b"
+    }
+  },
+  "discussionQuestions": [
+    "Does predictive Slow guidance outperform observation-only guidance when Fast capacity and feedback frequency are matched? [e04, e12]",
+    "How much of the video-scaling gain survives fixed-compute training and an explicit overlap audit across video and evaluation tasks? [e05, e10]",
+    "What cache-age threshold causes Fast to lose the benefits of its predictive context under abrupt scene changes? [e07, e08]",
+    "Why does LIBERO-Plus fine-tuning improve camera robustness while reducing robot-initial-state robustness? [e14, e17]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, arXiv version line, and Abstract links; p. 20, Section 8 Authors",
+      "detail": "The supplied title and identifier match the catalog. The text identifies arXiv:2609.00188v1 dated 31 August 2026, and Section 8 lists the catalog's authors. Project and code URLs are printed on page 1."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Section 1 Introduction",
+      "detail": "The motivation connects limited action-labeled experience, abundant action-free embodied video, mismatches in generic video pre-training, and the latency of generative robot control."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.1 Unified Representation, Table 1, Eq. (1)",
+      "detail": "The interface has 100 semantic coordinates with shared state/action layout, validity masks, anchor-relative poses and joints, percentile-normalized translation, unscaled 6D rotation, and inverse transformations for deployment."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.2 Slow-Fast Dual-System",
+      "detail": "Slow is a 5B DiT and Fast a 0.5B DiT. Fast uses updated observations and state plus video K/V from the first 12 Slow layers. Slow action supervision aligns representations; Fast generates deployed real-robot actions."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–8, Sections 4.1, 4.2.1 and 4.2.2, Eqs. (2)–(3)",
+      "detail": "Stage I initializes from Wan2.2-TI2V-5B, uses broad then curated video mixtures including proprietary human video, and trains causal masked video flow matching. Default clips contain 33 frames in four chunks; the three-view interface masks absent cameras."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Sections 4.3.1–4.3.2, Eqs. (4)–(6)",
+      "detail": "Four embodiment families provide synchronized observations, state, language, and 24-step actions. Slow alone learns coupled video/action flow objectives, with validity masking, coupled noise levels, and mutual attention among aligned noisy video/action tokens."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Sections 4.4.1–4.4.2, Eqs. (7)–(8)",
+      "detail": "Target-domain Slow specialization precedes frozen-Slow Fast training. Fast initialization transfers and width-interpolates early Slow weights. Random temporal offsets, padded shifted chunks, and clean masked prefixes train asynchronous action refinement."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 5.2 Asynchronous Inference in Dual-System",
+      "detail": "Slow exports reusable predictive video caches. Fast concurrently predicts from fresh observations and state. Real-Time Chunking preserves committed actions and updates the remaining suffix."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Section 5.3 Step Distillation, Eqs. (9)–(13)",
+      "detail": "Sequential DMD reduces each branch from eight to two evaluations using student, real-score, and fake-score networks. Training uses truncated UniPC, five fake-score updates per generator update, supervised anchors, and matched-step frozen Slow guidance for Fast. Only students remain at deployment."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Sections 6.1.1–6.1.2; p. 14, Table 3 and its caption",
+      "detail": "The real platform is a Franka with two external cameras and one wrist camera. Table 3 reports overall success of 36.1, 46.1, 66.9, and 77.8 across cumulative ZimaBlue configurations, versus 54.4 for π0.5 and 53.6 for DreamZero. All ZimaBlue variants use eight-step inference and matched DROID adaptation."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 26, Appendix A.1–A.3 and Table 8",
+      "detail": "Twelve tasks are held out from DROID post-training. Ten rollouts are used per task; Toys has 30 placement outcomes, and suite scores average task rates. Table 8 specifies Slow/Fast steps, batches, learning rates, warmup, and horizon."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–15, Section 6.2; p. 16, Table 4, suite-average, overall-average, and latency rows",
+      "detail": "Slow, Dual-System, and DMD-distilled configurations score 63.9, 77.8, and 75.0 overall, with latencies 449.6, 145.6, and 33.0 ms. Standard averages are 80.8, 87.9, and 85.0; Perturbed averages are 30.0, 57.5, and 55.0. The table includes a task named Basket."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 1 deployment paragraph; p. 15, Section 6.2 Acceleration Ablation and Section 6.3 opening paragraph; p. 16, Table 4 caption",
+      "detail": "The 33 ms deployment claim specifies RTX 4090. The accelerated configuration includes distillation and compilation and loses 2.8 success points relative to undistilled Dual-System. All three simulation benchmarks evaluate Slow alone."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF pp. 16–17, Section 6.3.1 and Table 5, ZimaBlue, InternVLA-A1.5, and CAC-VLA rows",
+      "detail": "LIBERO-Plus category-macro scores are 86.7 for zero-shot transfer and 92.0 for SFT; corresponding comparison leaders score 85.8 and 90.1. ZimaBlue camera scores are 58.1 and 95.4, while robot-initial-state scores are 88.9 and 81.1."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Section 6.3.2 and Table 6; p. 29, Appendix B.2 and Table 13 caption",
+      "detail": "RoboTwin uses one policy across 50 trained tasks and 100 episodes per task per condition. ZimaBlue scores 94.7 Clean, 94.3 Randomized, and 94.5 Average; ABot-M0.5 scores 94.0, 94.2, and 94.1."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Section 6.3.3 and Table 7",
+      "detail": "Human300 training is followed by 50 rollouts on each of 18 Atomic-Seen, 16 Composite-Seen, and 16 Composite-Unseen tasks. ZimaBlue scores 78.1, 50.4, 16.5, and 49.5 overall. ABot-M0.6 has 7.9 unseen and 46.6 overall; Xiaomi-Robotics-1 has 32.1 unseen and 57.4 overall."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 28, Appendix B.1, Evaluation scope and aggregation, Tables 11–12",
+      "detail": "Both LIBERO-Plus protocols use 10,030 episodes. Episode-weighted overall scores are 86.0 and 91.5, distinct from category-macro scores. Fine-grained results show camera gains alongside robot-initial-state regressions."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 27, Appendix A.4–A.5 and Tables 9–10",
+      "detail": "Per-task counts support the Standard and Perturbed macro averages. Initialization columns include a From scratch label, although Table 3 identifies the baseline as Wan-initialized."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 30, Appendix B.3, Table 14 caption, split-average rows, and Overall row",
+      "detail": "Each RoboCasa task uses 50 episodes. Split means are 78.1, 50.4, and 16.5; the overall 49.5 averages all 50 tasks, confirming task-count weighting across splits."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 31, Appendix C, Slow DiT and Fast DiT prose",
+      "detail": "Slow's mask blocks clean current/future outcomes from noisy transition queries. Fast has no future-video query stream; action queries access local inputs and read-only Slow caches. Its within-request action attention is non-causal, and Slow receives no gradients during Fast training."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Section 6.1.2 Qualitative analysis; p. 19, Section 7; p. 27, Appendix A.6",
+      "detail": "The authors describe stalled task progress, lost contact, target displacement, tablecloth interaction, and failures to recover. Future directions include broader multi-embodiment evaluation and stronger reasoning and self-correction."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Section 6.3.3 final paragraph; p. 19, extracted Figure 8 labels and caption",
+      "detail": "The narrative attributes a qualitative comparison to video pre-training, but the extracted ablation label states that both pre-training and mid-training are removed. This observation relies only on supplied text, not visual inspection."
+    }
+  ]
+}

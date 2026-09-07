@@ -1,0 +1,531 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.24882",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:00:27.332Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.24882",
+      "title": "Latent Action as Intention Enables Efficient Future Imagination for World Action Models",
+      "kind": "pdf",
+      "sha256": "c9bbd43cf12f09a02f88202e18e929de804d603b57621f4c51298b684c3d52e9",
+      "wordCount": 4963,
+      "accessedAt": "2026-09-07T13:50:04.009847+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, authors, and arXiv version footer",
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method",
+      "3.1 Latent Action Tokenizer",
+      "3.2 Latent Action as Intention",
+      "3.3 Training Objective",
+      "4 Experiments",
+      "4.1 Experimental Setup",
+      "4.2 Performance on Simulation Benchmarks",
+      "4.3 Comparison between Paradigms",
+      "4.4 Ablation Study",
+      "4.5 Performance on Real-World Tasks",
+      "5 Conclusion",
+      "References"
+    ],
+    "omissions": [
+      "Figure images were unavailable and were not visually inspected.",
+      "Some perturbation-specific cells in Table 2 are concatenated; uncertain column assignments and values are omitted.",
+      "The main text repeatedly references an appendix that was not supplied. Separate supplemental material availability remains unverified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2: legible overall totals only",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7"
+    ],
+    "appendix": "not-read"
+  },
+  "synopsis": "LAWA retains test-time future prediction through a compact sequence of transition embeddings, jointly denoised with robot actions. A frozen tokenizer supplies discrete training targets, but deployment uses continuous latent states without quantization. Future-video prediction remains a training objective. The complete system improves manipulation success over matched Fast-WAM while reducing latency relative to Joint-WAM; egocentric pre-training is central to this trade-off. [E6, E7, E11, E16, E17]",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "Generating future observations can make world-action policies expensive to deploy. Removing that generation, as in Fast-WAM, is faster but produces weaker generalization in the authors' matched experiments. The paper asks whether an explicit future representation can retain useful predictive conditioning at substantially lower cost than video synthesis.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "E2",
+      "E11",
+      "E17"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A policy architecture jointly predicts latent intentions and executable action chunks while preventing either branch from accessing future-video tokens.",
+      "kind": "source",
+      "evidenceIds": [
+        "E6",
+        "E7"
+      ]
+    },
+    {
+      "text": "A transition tokenizer combines video reconstruction, automatic manipulator/hand mask supervision, and action-free robot/egocentric pre-training.",
+      "kind": "source",
+      "evidenceIds": [
+        "E3",
+        "E4",
+        "E5"
+      ]
+    },
+    {
+      "text": "The authors position the complete system as retaining Joint-WAM-level performance with lower latency. The reported comparisons support a system-level trade-off rather than isolating latent prediction from all other training differences.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E11",
+        "E14",
+        "E16",
+        "E17"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Deployment: current observation o_t, language instruction c, and current proprioception when available.",
+      "Policy training: future observations o_{t+1:t+H} and corresponding executable action chunks.",
+      "Tokenizer pre-training: robot and egocentric video sequences without action labels, with automatically generated mask targets."
+    ],
+    "outputs": [
+      "An executable action chunk a_{t+1:t+H}.",
+      "A predicted continuous latent-intention sequence anchored to discrete codebook targets.",
+      "Training-only future-video predictions; tokenizer training additionally produces next-frame reconstructions and masks."
+    ],
+    "steps": [
+      {
+        "name": "Construct transition targets",
+        "detail": "DINOv2 extracts frame patches. A non-causal transformer contextualizes them with factorized spatial and temporal attention. Differences between successive contextualized features are compressed into L tokens per transition and assigned to nearest codebook embeddings.",
+        "evidenceIds": [
+          "E3"
+        ]
+      },
+      {
+        "name": "Ground the tokenizer",
+        "detail": "A causal forward decoder reconstructs the next observation from the previous frame and latent transition tokens. A mask decoder receives detached reconstruction features and a projected latent-action prompt, encouraging sensitivity to hands and robot manipulators.",
+        "evidenceIds": [
+          "E3",
+          "E4"
+        ]
+      },
+      {
+        "name": "Couple modality-specific experts",
+        "detail": "Video, latent-action, and action experts retain separate Transformer blocks and timestep conditioning while sharing joint attention. Current-observation tokens cannot see future tokens. Latent tokens see current observations and latent tokens; action tokens additionally see the action sequence. Neither control-related branch sees future-video tokens.",
+        "evidenceIds": [
+          "E7"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "First train the tokenizer and forward decoder on action-free videos. Per-source frame sampling aligns motion speeds, and weighted sampling keeps robot videos at approximately 20% of expected samples. Reconstruction uses L1 and LPIPS losses; masks use binary cross-entropy, Dice, and IoU losses. Noise-substitution quantization avoids separate codebook losses, and low-usage entries are refreshed.",
+        "kind": "source",
+        "evidenceIds": [
+          "E4",
+          "E5",
+          "E8"
+        ]
+      },
+      {
+        "text": "Then freeze the tokenizer and train the three policy experts with flow matching. Current observations remain clean; each future modality receives independently sampled Gaussian noise and shifted flow time. Padded targets are masked in the losses.",
+        "kind": "source",
+        "evidenceIds": [
+          "E6",
+          "E9"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Encode the current observation once and cache its features. Omit future-video tokens, initialize latent intentions and action chunks from noise, and jointly denoise their two experts under the training visibility mask. The action expert consumes the evolving continuous latent state; no nearest-neighbor projection occurs during or after denoising.",
+        "kind": "source",
+        "evidenceIds": [
+          "E6",
+          "E7"
+        ]
+      },
+      {
+        "text": "The latent sequence conditions executable action prediction directly rather than feeding a separately described inverse-dynamics stage. Although physical trials are reported, the supplied text does not specify how much of each predicted chunk is executed before obtaining feedback and replanning.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "E6",
+          "E7",
+          "E19"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "j*_{k,p} = argmin_j ||h_{k,p} − e_j||²₂; l_{k,p} = e_{j*_{k,p}}.",
+        "explanation": "Equation (1) assigns compressed transition token h_{k,p} to an embedding e_j in the K-entry codebook. These embeddings define discrete targets, not a requirement to discretize deployment-time predictions.",
+        "evidenceIds": [
+          "E3",
+          "E6"
+        ]
+      },
+      {
+        "expression": "L_tok = L_1 + λ_perc L_perc + λ_mask L_mask.",
+        "explanation": "Equation (2) combines next-frame reconstruction with perceptual and region-supervision terms. The mask term biases what transition information the bottleneck retains.",
+        "evidenceIds": [
+          "E4",
+          "E8"
+        ]
+      },
+      {
+        "expression": "y^m_{τ_m} = (1 − τ_m)y^m + τ_m ε_m; v^m = ε_m − y^m; L_m = E[w_m(τ_m)||v̂^m_θ − v^m||²₂]; L_LAWA = λ_vid L_vid + λ_lat L_lat + λ_act L_act.",
+        "explanation": "For video, latent, and action modalities m, flow matching learns the velocity between clean targets and Gaussian noise. Equations (3)–(4) weight each branch's prediction error and combine the three objectives.",
+        "evidenceIds": [
+          "E9"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboCasa few-shot manipulation",
+      "setting": "24 tasks; 100 demonstrations per task, corresponding to 10% of training trajectories; 50 evaluation trials per task.",
+      "metric": "Average task success rate",
+      "value": "65.6%",
+      "comparison": "Matched Fast-WAM: 56.0%; Joint-WAM: 64.1%; DIAL: 58.3%.",
+      "interpretation": "The improvement over matched Fast-WAM is 9.6 percentage points. This is simulated task completion, not a video prediction metric.",
+      "evidenceIds": [
+        "E10",
+        "E11"
+      ]
+    },
+    {
+      "task": "RoboCasa full-data manipulation",
+      "setting": "24,000 training trajectories across 24 tasks; 50 evaluation trials per task.",
+      "metric": "Average task success rate",
+      "value": "80.8%",
+      "comparison": "Matched Fast-WAM: 76.3%; Joint-WAM: 78.8%.",
+      "interpretation": "LAWA is numerically above both matched alternatives. The table provides no uncertainty establishing statistical superiority or equivalence.",
+      "evidenceIds": [
+        "E10",
+        "E11"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus zero-shot robustness",
+      "setting": "Train on original LIBERO trajectories only; evaluate perturbations across four suites without LIBERO-Plus fine-tuning.",
+      "metric": "Micro-averaged success rate",
+      "value": "74.4%",
+      "comparison": "Matched Fast-WAM: 60.0%; Joint-WAM: 70.4%; OpenVLA-OFT: 69.6%.",
+      "interpretation": "The 14.4-point gain over matched Fast-WAM supports improved robustness under this transfer protocol. Ambiguous perturbation-specific cells are excluded.",
+      "evidenceIds": [
+        "E12",
+        "E13"
+      ]
+    },
+    {
+      "task": "Inference-time latent pathway intervention",
+      "setting": "Full-data RoboCasa; perturb only the model-visible latent-action state.",
+      "metric": "Success rate",
+      "value": "Unperturbed: 80.8%; isotropic Gaussian noise with σ = 1.0: 52.2%; temporal shuffle: 56.4%.",
+      "comparison": "Both interventions reduce success relative to the intact latent sequence.",
+      "interpretation": "The executor uses latent content and temporal organization. These destructive interventions do not establish that the representation has uniquely identifiable intention semantics.",
+      "evidenceIds": [
+        "E15"
+      ]
+    },
+    {
+      "task": "Egocentric pre-training comparison",
+      "setting": "RoboCasa; matched video exposure with paradigm-specific objectives and trainable modules.",
+      "metric": "Few-shot / full-data success rate",
+      "value": "LAWA without ego: 59.7% / 76.3%; with ego: 65.6% / 80.8%.",
+      "comparison": "Fast-WAM gains 1.5 / 1.7 points; Joint-WAM gains 1.0 / 0.5 points. Without ego, Joint-WAM reaches 63.1% / 78.3%.",
+      "interpretation": "LAWA benefits most under these schedules, but latent prediction without egocentric pre-training trails explicit future-video prediction.",
+      "evidenceIds": [
+        "E14",
+        "E16"
+      ]
+    },
+    {
+      "task": "Tokenizer auxiliary-supervision ablation",
+      "setting": "RoboCasa with latent actions and egocentric pre-training enabled.",
+      "metric": "Few-shot / full-data success rate",
+      "value": "No auxiliary loss: 64.8% / 79.3%; flow: 63.5% / 78.6%; mask: 65.6% / 80.8%.",
+      "comparison": "Mask supervision improves the no-auxiliary variant by 0.8 / 1.5 points; optical flow lowers success.",
+      "interpretation": "The tested mask objective helps downstream control modestly. This comparison does not directly measure the semantic content of the learned codes.",
+      "evidenceIds": [
+        "E18"
+      ]
+    },
+    {
+      "task": "Action-chunk inference efficiency",
+      "setting": "End-to-end prediction on one NVIDIA A800 GPU.",
+      "metric": "Latency per action chunk; lower is better",
+      "value": "338.5 ms",
+      "comparison": "Joint-WAM: 593.1 ms; Fast-WAM: 196.5 ms.",
+      "interpretation": "The reported reduction against Joint-WAM is 42.9%. LAWA remains slower than Fast-WAM; chunk latency alone does not establish a robot control frequency.",
+      "evidenceIds": [
+        "E14",
+        "E17"
+      ]
+    },
+    {
+      "task": "Physical assembly and long-horizon manipulation",
+      "setting": "xArm7; Gear, Battery, Block, and Laboratory tasks; 200 demonstrations per task at full data; 20 evaluation trials per task.",
+      "metric": "Average executed-task success rate",
+      "value": "LAWA: 40.0% at 25% data; 67.5% at full data.",
+      "comparison": "Fast-WAM: 8.8% at 25% data; 33.8% at full data.",
+      "interpretation": "With 50 demonstrations per task, LAWA exceeds full-data Fast-WAM's reported average. These are physical execution results, limited to the four tested tasks and reported trial counts.",
+      "evidenceIds": [
+        "E19",
+        "E20"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Matched downstream splits and optimization do not equal matched capacity or compute: branches, objectives, parameter counts, and inference costs differ. The results establish the complete recipe's performance more directly than a representation-only advantage.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E14",
+        "E16"
+      ]
+    },
+    {
+      "text": "Tokenizer targets use non-causal sequence context. Their interpretation as intentions is operational; neither perturbation sensitivity nor mask supervision proves a minimal causal representation of manipulable dynamics.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E3",
+        "E6",
+        "E15",
+        "E18"
+      ]
+    },
+    {
+      "text": "Success tables lack reported confidence intervals or seed variability. Physical evaluation covers one robot platform and four tasks, so broad deployment reliability remains unestablished.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E11",
+        "E13",
+        "E19",
+        "E20"
+      ]
+    },
+    {
+      "text": "Important implementation and data details are deferred to an unavailable appendix, preventing a complete audit of pre-training fairness and inference configuration.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E5",
+        "E14"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Target the supplied arXiv v2 artifact. Reproduction requires the video backbone, tokenizer configuration, action-free corpora and sampling recipe, SAM 2 mask-generation procedure, and labeled downstream trajectories.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E1",
+        "E3",
+        "E4",
+        "E5",
+        "E10"
+      ]
+    },
+    {
+      "text": "Recover codebook size, token dimensions, loss coefficients, optimizer settings, flow-time schedules, denoising steps, action horizon, and execution/replanning policy before comparing performance or latency. These are not fully specified in the supplied main text.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E3",
+        "E8",
+        "E9",
+        "E14",
+        "E17"
+      ]
+    },
+    {
+      "text": "A focused mechanism test would repeat the latent-content and temporal-shuffle interventions using identical evaluation initializations and multiple training seeds, reporting uncertainty alongside success.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E15"
+      ]
+    },
+    {
+      "text": "The abstract promises a future code and model release. No code was supplied or inspected, and no experiments were reproduced in this review.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E21"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Q3 classification is supported by distinct modality-specific Transformer experts coupled through joint attention, with latent future states and executable actions jointly denoised at deployment. This is architecture evidence beyond joint training alone, and the control path is not a separate inverse-dynamics stage. Joint video-action modeling applies during training. The 'Latent prediction & JEPA' tag is supported through latent prediction, but the stated reconstruction and flow-matching objectives do not establish a JEPA-specific mechanism. Lower measured latency supports the efficiency tag without proving a particular real-time control rate.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E6",
+        "E7",
+        "E8",
+        "E9",
+        "E17"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Latent prediction & JEPA",
+        "Joint video-action modeling",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q3 · Dual-system × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "4bd7f3ba4afc627c9936418c972802709dec42c5c53375cea2357fb55b2f833b"
+    }
+  },
+  "discussionQuestions": [
+    "Would temporally aligned ground-truth tokenizer targets improve control over predicted intentions, separating latent-prediction error from action-expert error?",
+    "Does LAWA retain its advantage when parameter counts and pre-training compute are matched across paradigms?",
+    "How do latent horizon and denoising steps affect success, feedback frequency, and physical execution latency?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "E1",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block, and arXiv footer",
+      "detail": "The title and listed authors match the catalog identity; the footer identifies arXiv:2608.24882v2, dated 1 September 2026."
+    },
+    {
+      "id": "E2",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Abstract and Section 1",
+      "detail": "The authors motivate compact future intentions through the latency of future-observation denoising and weaker generalization of their matched Fast-WAM implementation."
+    },
+    {
+      "id": "E3",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1, Architecture, Eq. (1)",
+      "detail": "DINOv2 features receive non-causal spatial/temporal contextualization; successive feature differences are compressed and quantized. A causal forward decoder reconstructs the next observation."
+    },
+    {
+      "id": "E4",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Manipulation-centric Auxiliary Supervision",
+      "detail": "A SAM-style decoder uses detached reconstruction features and latent-action prompts to predict hand/manipulator masks generated with SAM 2."
+    },
+    {
+      "id": "E5",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Action-free Egocentric Pre-training",
+      "detail": "Robot and egocentric clips train the tokenizer and forward decoder. Frame sampling aligns motion speeds; weighted sampling assigns approximately 20% expected samples to robot videos. Further details are deferred to the appendix."
+    },
+    {
+      "id": "E6",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2, opening paragraphs",
+      "detail": "The frozen tokenizer supplies discrete codebook embeddings. The latent expert predicts continuous states jointly with actions, without nearest-neighbor projection at inference."
+    },
+    {
+      "id": "E7",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2, Multi-model Joint Attention",
+      "detail": "Experts retain modality-specific blocks and timestep conditioning. The asymmetric visibility mask excludes future-video information from latent/action branches; inference caches current features and evaluates only latent/action experts."
+    },
+    {
+      "id": "E8",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.3, Eq. (2) and following paragraph",
+      "detail": "Tokenizer training combines L1, LPIPS, and mask losses; mask loss includes binary cross-entropy, Dice, and IoU. Noise-substitution quantization and refreshing low-usage entries manage the codebook."
+    },
+    {
+      "id": "E9",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.3, flow construction and Eqs. (3)–(4)",
+      "detail": "Independent modality noise and shifted flow times define velocity targets. Weighted video, latent, and action flow losses train the policy, excluding padded targets."
+    },
+    {
+      "id": "E10",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 4.1, RoboCasa",
+      "detail": "The protocol uses 24 tasks, 24,000 full-data trajectories, a 10% few-shot subset, and 50 evaluation trials per task."
+    },
+    {
+      "id": "E11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 1, DIAL and matched WAM rows, Few-shot/Full columns",
+      "detail": "LAWA reports 65.6/80.8, Fast-WAM 56.0/76.3, Joint-WAM 64.1/78.8, and DIAL 58.3/70.2 percent success. No uncertainty columns are provided."
+    },
+    {
+      "id": "E12",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1, LIBERO-Plus",
+      "detail": "Models train only on original LIBERO trajectories; evaluation reports perturbation performance across four suites and a micro-average without augmented-data fine-tuning."
+    },
+    {
+      "id": "E13",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2, Total column; PDF p. 5, Section 4.2, Zero-shot Transfer Results",
+      "detail": "Overall success is 74.4% for LAWA, 60.0% for matched Fast-WAM, 70.4% for Joint-WAM, and 69.6% for OpenVLA-OFT."
+    },
+    {
+      "id": "E14",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1, Implementation Details",
+      "detail": "Matched implementations share downstream splits, optimization, batch sizes, and training steps, but differ in branches, objectives, parameter counts, and inference costs. Full latency details are deferred."
+    },
+    {
+      "id": "E15",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 3; PDF p. 5, Section 4.3, The Effectiveness of Latent Action",
+      "detail": "Perturbing only the visible latent state changes success from 80.8% to 52.2% with isotropic Gaussian noise at σ=1.0, or 56.4% with temporal shuffling."
+    },
+    {
+      "id": "E16",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 4 and Section 4.3, The Effectiveness of Egocentric Pre-training",
+      "detail": "Without/with ego, LAWA reports 59.7/65.6 few-shot and 76.3/80.8 full; Fast-WAM 54.5/56.0 and 74.6/76.3; Joint-WAM 63.1/64.1 and 78.3/78.8. Video exposure is matched, objectives and modules differ."
+    },
+    {
+      "id": "E17",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 5 and Section 4.3, Performance–latency Trade-off",
+      "detail": "One A800 yields action-chunk latencies of 196.5 ms for Fast-WAM, 593.1 ms for Joint-WAM, and 338.5 ms for LAWA; the text reports a 42.9% reduction against Joint-WAM."
+    },
+    {
+      "id": "E18",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 6 and Section 4.4",
+      "detail": "With latent actions and ego pre-training, no auxiliary loss gives 64.8/79.3, flow 63.5/78.6, and mask 65.6/80.8 percent few-shot/full success. The authors caution that mask benefits do not prove representation semantics."
+    },
+    {
+      "id": "E19",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.5, Setup and tasks",
+      "detail": "Physical tests use an xArm7 with a gripper, a RealSense D435 base camera, and two fisheye wrist cameras. Four tasks have 200 demonstrations each and 20 evaluation trials per policy and task."
+    },
+    {
+      "id": "E20",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 7, 25% and 100% data rows, Avg. column; Section 4.5, Results",
+      "detail": "At 25% data, LAWA/Fast-WAM average 40.0/8.8 percent success; at full data they average 67.5/33.8. The text identifies 25% data as 50 trajectories per task."
+    },
+    {
+      "id": "E21",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Abstract, final sentence",
+      "detail": "Code and model release is stated as future work; the sentence does not establish present availability."
+    }
+  ]
+}

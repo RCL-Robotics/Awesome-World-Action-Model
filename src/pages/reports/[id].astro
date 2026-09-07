@@ -1,0 +1,166 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import StatusBadge from '../../components/reports/StatusBadge.astro';
+import Claim from '../../components/reports/Claim.astro';
+import EvidenceRefs from '../../components/reports/EvidenceRefs.astro';
+import Equation from '../../components/reports/Equation.astro';
+import { papers, meta, paperPath, pathFor, type Paper } from '../../lib/catalog';
+import { taxonomyLabel } from '../../lib/taxonomy.mjs';
+import { classificationSnapshot } from '../../lib/classification-snapshot.mjs';
+import { reports, reportFor, reportPath, reportStatusToReadingStatus, reportDate, sourceHref, scopeLabel, appendixLabel, assessmentLabel, reportAnchor, type ReadingReport } from '../../lib/reports';
+import '../../styles/reports.css';
+
+export function getStaticPaths() {
+  return reports.map(report => ({ params: { id: report.paperId }, props: { report, paper: papers.find(paper => paper.id === report.paperId)! } }));
+}
+interface Props { report: ReadingReport; paper: Paper; }
+const { report, paper } = Astro.props;
+const sourceById = new Map(report.sources.map(source => [source.id, source]));
+const related = report.relatedPaperIds.map(id => papers.find(item => item.id === id)).filter((item): item is Paper => Boolean(item));
+const hasMechanism = report.method.steps.length || report.method.inputs.length || report.method.outputs.length || report.method.equations.length;
+const hasExecution = report.method.training.length || report.method.inference.length;
+const sections = [
+  { id: 'overview', label: 'The idea' },
+  ...(hasMechanism ? [{ id: 'mechanism', label: 'Mechanism & design' }] : []),
+  ...(hasExecution ? [{ id: 'execution', label: 'Training & inference' }] : []),
+  ...(report.results.length ? [{ id: 'results', label: 'Results in context' }] : []),
+  { id: 'taxonomy', label: 'Taxonomy assessment' },
+  { id: 'boundaries', label: 'Limits & reproduction' },
+  ...(report.discussionQuestions.length ? [{ id: 'discussion', label: 'Questions to take further' }] : []),
+  { id: 'coverage', label: 'What was read' },
+  { id: 'evidence', label: 'Evidence & sources' },
+  ...(related.length ? [{ id: 'related', label: 'Connected reading' }] : []),
+];
+const sectionNumber = (id: string) => String(sections.findIndex(section => section.id === id) + 1).padStart(2, '0');
+const status = reportStatusToReadingStatus(report.reportStatus);
+const recordedClassification = report.taxonomy.recordedClassification;
+// Frontmatter runs at build time; the shared fingerprint helper never reaches the browser.
+const currentClassification = classificationSnapshot(paper, meta.updatedAt);
+const classificationChanged = currentClassification.fingerprint !== recordedClassification.fingerprint;
+---
+
+<BaseLayout title={`${paper.title} — Reading report`} description={report.synopsis} active="reports">
+  <article class="shell rn-report">
+    <nav class="rn-breadcrumb" aria-label="Breadcrumb"><a href={pathFor('reports/')}>Reading reports</a><span aria-hidden="true">/</span><a href={paperPath(paper.id)}>Catalog entry</a><span aria-hidden="true">/</span><span aria-current="page">Research note</span></nav>
+    <header class="rn-report-header">
+      <div class="rn-report-kicker"><span class="rn-eyebrow"><span aria-hidden="true"></span>RESEARCH NOTE</span><code>{paper.id}</code><span>{report.resourceType.replaceAll('-', ' ')}</span></div>
+      <h1>{paper.title}</h1>
+      <details class="rn-authors"><summary>Catalog authors & publication details</summary><p>{paper.authors || 'Authors not listed'}</p><a href={paperPath(paper.id)}>View the full catalog record <Icon name="arrow" size={13}/></a></details>
+      <div class="rn-report-meta"><StatusBadge status={status}/><span>{report.readingTimeMinutes} min read</span><span>Prepared {reportDate(report.generatedAt)}</span></div>
+      <p class="rn-synopsis">{report.synopsis}</p>
+      <div class="rn-report-actions"><a class="button button-primary" href={sourceHref(report.sources[0]?.url)} target="_blank" rel="noopener noreferrer">Open primary source <Icon name="arrow" size={15}/></a><a class="button button-secondary" href="#coverage">Inspect reading coverage</a><button class="rn-print-button" id="print-report" type="button">Print / save PDF</button></div>
+      {report.reportStatus !== 'full-text-reviewed' && <div class="rn-scope-notice"><strong>{scopeLabel[report.coverage.scope]}</strong><p>{report.reportStatus === 'partial-text-reviewed' ? 'This is a partial reading. Its claims are limited to the material listed in the coverage record.' : 'This note reviews a research resource. Its scope is recorded explicitly and is separate from a full-paper review.'}</p></div>}
+    </header>
+
+    <div class="rn-report-grid">
+      <div class="rn-report-body" data-report-body>
+        <section class="rn-section" id="overview" data-report-section>
+          <header class="rn-section-heading"><span>{sectionNumber('overview')}</span><h2>The idea</h2></header>
+          <h3>The problem</h3><Claim claim={report.problem}/>
+          {report.contributions.length > 0 && <div class="rn-contributions"><h3>What this work contributes</h3>{report.contributions.map(claim => <Claim claim={claim}/>)}</div>}
+          <div class="rn-claim-key"><strong>How to read the labels</strong><p><span>Source description</span> summarizes the inspected material. <span>Author claim</span> preserves the authors’ attribution. <span>Reader analysis</span> and <span>Open question</span> are interpretive.</p></div>
+        </section>
+
+        {hasMechanism > 0 && <section class="rn-section" id="mechanism" data-report-section>
+          <header class="rn-section-heading"><span>{sectionNumber('mechanism')}</span><h2>Mechanism & design</h2></header>
+          {(report.method.inputs.length > 0 || report.method.outputs.length > 0) && <div class="rn-io"><div><span class="rn-eyebrow">INPUTS</span>{report.method.inputs.length ? <ul>{report.method.inputs.map(input => <li>{input}</li>)}</ul> : <p>Not recorded in this reading.</p>}</div><span class="rn-flow-arrow" aria-hidden="true">→</span><div><span class="rn-eyebrow">OUTPUTS</span>{report.method.outputs.length ? <ul>{report.method.outputs.map(output => <li>{output}</li>)}</ul> : <p>Not recorded in this reading.</p>}</div></div>}
+          {report.method.steps.length > 0 && <ol class="rn-method-steps">{report.method.steps.map((step, index) => <li><span class="rn-step-number">{String(index + 1).padStart(2, '0')}</span><div><h3>{step.name}</h3><p>{step.detail} <EvidenceRefs ids={step.evidenceIds}/></p></div></li>)}</ol>}
+          {report.method.equations.length > 0 && <div class="rn-equations"><h3>Essential equations</h3>{report.method.equations.map(equation => <Equation {...equation}/>)}</div>}
+        </section>}
+
+        {hasExecution > 0 && <section class="rn-section" id="execution" data-report-section>
+          <header class="rn-section-heading"><span>{sectionNumber('execution')}</span><h2>Training & inference</h2></header>
+          <div class="rn-execution-columns"><div><span class="rn-eyebrow">LEARNING THE SYSTEM</span><h3>Training</h3>{report.method.training.length ? report.method.training.map(claim => <Claim claim={claim}/>) : <p class="rn-unrecorded">Training details were not recorded in this reading.</p>}</div><div><span class="rn-eyebrow">USING THE SYSTEM</span><h3>Inference</h3>{report.method.inference.length ? report.method.inference.map(claim => <Claim claim={claim}/>) : <p class="rn-unrecorded">Inference details were not recorded in this reading.</p>}</div></div>
+        </section>}
+
+        {report.results.length > 0 && <section class="rn-section" id="results" data-report-section>
+          <header class="rn-section-heading"><span>{sectionNumber('results')}</span><h2>Results in context</h2></header>
+          <p class="rn-section-intro">Read each value with its evaluation setting and comparison. Rows may use different protocols.</p>
+          <div class="rn-table-scroll" role="region" aria-label="Reported results and evaluation settings" tabindex="0"><table class="rn-results-table"><thead><tr><th scope="col">Task & setting</th><th scope="col">Metric & value</th><th scope="col">Comparison</th><th scope="col">Evidence</th></tr></thead><tbody>{report.results.map(result => <tr><td><strong>{result.task}</strong><p>{result.setting}</p></td><td><span>{result.metric}</span><strong class="rn-result-value">{result.value}</strong></td><td>{result.comparison}</td><td><EvidenceRefs ids={result.evidenceIds}/></td></tr>)}</tbody></table></div>
+          <div class="rn-result-readings"><h3>Interpreting the results</h3>{report.results.map(result => <div><span class="rn-result-task">{result.task}</span><p>{result.interpretation} <EvidenceRefs ids={result.evidenceIds}/></p></div>)}</div>
+        </section>}
+
+        <section class="rn-section" id="taxonomy" data-report-section>
+          <header class="rn-section-heading"><span>{sectionNumber('taxonomy')}</span><h2>Taxonomy assessment</h2></header>
+          <div class="rn-snapshot-heading"><h3>Catalog at reading time</h3><p>Catalog updated <time datetime={recordedClassification.catalogUpdatedAt} title={recordedClassification.catalogUpdatedAt}>{reportDate(recordedClassification.catalogUpdatedAt)}</time></p></div>
+          {classificationChanged && <div class="rn-snapshot-notice" data-classification-changed><strong>The catalog classification has changed.</strong><p>This assessment applies to the snapshot below. <a href={paperPath(paper.id)}>Check the current catalog entry</a> before reusing it.</p></div>}
+          <dl class="rn-taxonomy" data-taxonomy-snapshot data-classification-fingerprint={recordedClassification.fingerprint}><div><dt>Major category</dt><dd>{recordedClassification.majorCategory}</dd></div><div><dt>Subcategories</dt><dd>{recordedClassification.subcategories.length ? recordedClassification.subcategories.join(' · ') : 'Not recorded'}</dd></div><div><dt>Architecture</dt><dd>{recordedClassification.architecture}</dd></div><div><dt>Prediction paradigm</dt><dd>{recordedClassification.predictionParadigm}</dd></div><div><dt>Quadrant</dt><dd>{recordedClassification.quadrant}</dd></div><div><dt>Classification status</dt><dd>{recordedClassification.classificationStatus}</dd></div></dl>
+          <div class="rn-taxonomy-assessment" data-assessment={report.taxonomy.assessment}><span class="rn-eyebrow">READING ASSESSMENT</span><h3>{assessmentLabel[report.taxonomy.assessment]}</h3><Claim claim={report.taxonomy.reasoning}/></div>
+          <p class="rn-footnote">These labels preserve the catalog snapshot used for this reading. The assessment audits that snapshot without changing the source classification.</p>
+        </section>
+
+        <section class="rn-section" id="boundaries" data-report-section>
+          <header class="rn-section-heading"><span>{sectionNumber('boundaries')}</span><h2>Limits & reproduction</h2></header>
+          <div class="rn-boundaries"><h3>Limitations and open boundaries</h3>{report.limitations.length ? report.limitations.map(claim => <Claim claim={claim}/>) : <p class="rn-unrecorded">No additional limitations were recorded in this reading. This does not establish that the work has none.</p>}</div>
+          <div class="rn-reproduction"><h3>What a reproduction would require</h3>{report.reproduction.length ? report.reproduction.map(claim => <Claim claim={claim}/>) : <p class="rn-unrecorded">Reproduction requirements were not assessed in this reading.</p>}</div>
+        </section>
+
+        {report.discussionQuestions.length > 0 && <section class="rn-section" id="discussion" data-report-section><header class="rn-section-heading"><span>{sectionNumber('discussion')}</span><h2>Questions to take further</h2></header><ol class="rn-questions">{report.discussionQuestions.map(question => <li>{question}</li>)}</ol></section>}
+
+        <section class="rn-section" id="coverage" data-report-section>
+          <header class="rn-section-heading"><span>{sectionNumber('coverage')}</span><h2>What was read</h2></header>
+          <div class="rn-coverage-summary"><strong>{scopeLabel[report.coverage.scope]}</strong><span>{report.coverage.identityVerified ? 'Source identity verified' : 'Source identity not verified'}</span></div>
+          <dl class="rn-coverage-grid"><div><dt>Sections inspected</dt><dd><ul>{report.coverage.sectionsRead.map(section => <li>{section}</li>)}</ul></dd></div><div><dt>Appendix</dt><dd>{appendixLabel[report.coverage.appendix]}</dd></div><div><dt>Figures inspected</dt><dd>{report.coverage.figuresReviewed.length ? report.coverage.figuresReviewed.join(' · ') : 'No figures recorded as inspected'}</dd></div><div><dt>Tables inspected</dt><dd>{report.coverage.tablesReviewed.length ? report.coverage.tablesReviewed.join(' · ') : 'No tables recorded as inspected'}</dd></div></dl>
+          {report.coverage.omissions.length > 0 && <div class="rn-omissions"><h3>Outside this reading</h3><ul>{report.coverage.omissions.map(omission => <li>{omission}</li>)}</ul></div>}
+        </section>
+
+        <section class="rn-section" id="evidence" data-report-section>
+          <header class="rn-section-heading"><span>{sectionNumber('evidence')}</span><h2>Evidence & sources</h2></header>
+          <p class="rn-section-intro">Evidence links resolve to these source locations. Expand an entry to inspect its supporting detail.</p>
+          <div class="rn-evidence-list">{report.evidence.map(evidence => { const source = sourceById.get(evidence.sourceId); return <details class="rn-evidence" id={reportAnchor('evidence', evidence.id)}><summary><span>{evidence.id}</span><strong>{evidence.location}</strong><span class="rn-expand-label">Inspect</span></summary><div><p>{evidence.detail}</p>{source && <a href={`#${reportAnchor('source', source.id)}`}>{source.title} <span aria-hidden="true">↓</span></a>}</div></details>; })}</div>
+          <h3 class="rn-sources-heading">Source record</h3>
+          <div class="rn-sources">{report.sources.map((source, index) => <article class="rn-source" id={reportAnchor('source', source.id)}><span class="rn-source-number">S{index + 1}</span><div><h4><a href={sourceHref(source.url)} target="_blank" rel="noopener noreferrer">{source.title} <Icon name="arrow" size={13}/></a></h4><p>{source.kind.toUpperCase()} · {source.wordCount.toLocaleString('en-US')} extracted words · Accessed {reportDate(source.accessedAt)}</p><details><summary>Source URL & fingerprint</summary><p class="rn-source-url">{source.url}</p><dl><dt>SHA-256</dt><dd><code>{source.sha256}</code></dd></dl></details></div></article>)}</div>
+        </section>
+
+        {related.length > 0 && <section class="rn-section" id="related" data-report-section><header class="rn-section-heading"><span>{sectionNumber('related')}</span><h2>Connected reading</h2></header><div class="rn-related">{related.map(item => <a href={reportFor(item.id) ? reportPath(item.id) : paperPath(item.id)}><span>{taxonomyLabel(item.majorCategory)} · {reportFor(item.id) ? 'Reading report' : 'Catalog entry'}</span><strong>{item.title}</strong><Icon name="arrow" size={17}/></a>)}</div></section>}
+        <footer class="rn-report-end"><span class="rn-eyebrow">END OF NOTE</span><a href={pathFor('reports/')}>Return to the reading queue <Icon name="arrow" size={14}/></a><p>AI-assisted research notes · Private collection · Publishing remains disabled</p></footer>
+      </div>
+
+      <aside class="rn-rail" aria-label="Report navigation and source scope">
+        <div class="rn-rail-sticky">
+          <div class="rn-progress"><div><span>READING PROGRESS</span><output id="report-progress-label">0%</output></div><progress id="report-progress" max="100" value="0" aria-label="Reading progress">0%</progress></div>
+          <details class="rn-contents" open><summary>In this note <span>{sections.length} sections</span></summary><nav aria-label="Report contents">{sections.map((section, index) => <a href={`#${section.id}`} data-toc-link><span>{String(index + 1).padStart(2, '0')}</span>{section.label}</a>)}</nav></details>
+          <div class="rn-rail-scope"><span class="rn-eyebrow">SOURCE SCOPE</span><strong>{scopeLabel[report.coverage.scope]}</strong><p>{report.sources.length} {report.sources.length === 1 ? 'source' : 'sources'} · {report.evidence.length} evidence entries</p><p>Appendix: {appendixLabel[report.coverage.appendix].toLowerCase()}</p><a href="#coverage">View the coverage record <Icon name="arrow" size={12}/></a></div>
+          <a class="rn-rail-back" href={paperPath(paper.id)}>← Back to catalog entry</a>
+        </div>
+      </aside>
+    </div>
+  </article>
+</BaseLayout>
+
+<script>
+  document.querySelector('#print-report')?.addEventListener('click', () => window.print());
+  const body = document.querySelector<HTMLElement>('[data-report-body]');
+  const sections = Array.from(document.querySelectorAll<HTMLElement>('[data-report-section]'));
+  const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-toc-link]'));
+  const progress = document.querySelector<HTMLProgressElement>('#report-progress');
+  const progressLabel = document.querySelector<HTMLOutputElement>('#report-progress-label');
+  let scheduled = false;
+  const updateProgress = () => {
+    scheduled = false;
+    if (!body || !progress || !progressLabel) return;
+    const rect = body.getBoundingClientRect();
+    const total = Math.max(1, rect.height - window.innerHeight);
+    const percent = Math.round(Math.max(0, Math.min(100, -rect.top / total * 100)));
+    progress.value = percent; progress.textContent = `${percent}%`; progressLabel.value = `${percent}%`;
+    let active = sections[0]?.id;
+    sections.forEach(section => { if (section.getBoundingClientRect().top <= window.innerHeight * 0.25) active = section.id; });
+    links.forEach(link => { if (link.hash === `#${active}`) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current'); });
+  };
+  const scheduleProgress = () => { if (!scheduled) { scheduled = true; requestAnimationFrame(updateProgress); } };
+  addEventListener('scroll', scheduleProgress, { passive: true });
+  addEventListener('resize', scheduleProgress);
+  const expandEvidence = (hash: string, focus = false) => {
+    let id = ''; try { id = decodeURIComponent(hash.slice(1)); } catch { return; }
+    const target = document.getElementById(id);
+    if (target instanceof HTMLDetailsElement && target.classList.contains('rn-evidence')) { target.open = true; if (focus) target.querySelector('summary')?.focus({ preventScroll: true }); }
+  };
+  document.querySelectorAll<HTMLAnchorElement>('[data-evidence-link]').forEach(link => link.addEventListener('click', () => expandEvidence(link.hash, true)));
+  addEventListener('hashchange', () => expandEvidence(location.hash));
+  const expandedBeforePrint = new Set<HTMLDetailsElement>();
+  addEventListener('beforeprint', () => { document.querySelectorAll<HTMLDetailsElement>('.rn-report details').forEach(details => { if (!details.open) { expandedBeforePrint.add(details); details.open = true; } }); });
+  addEventListener('afterprint', () => { expandedBeforePrint.forEach(details => details.open = false); expandedBeforePrint.clear(); });
+  expandEvidence(location.hash);
+  updateProgress();
+</script>

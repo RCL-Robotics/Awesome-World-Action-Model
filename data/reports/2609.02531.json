@@ -1,0 +1,526 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.02531",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T13:51:47.570Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2609.02531",
+      "title": "Spatially Aware World Action Model via Geometric Latent Diffusion",
+      "kind": "pdf",
+      "sha256": "1f8731822b7960f7007cff9be8dd73dbab4a12257d829f83106317ee9e7c4569",
+      "wordCount": 6094,
+      "accessedAt": "2026-09-07T13:49:59.608670+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract and I. Introduction, pp. 1–2",
+      "II. Related Work, pp. 2–3",
+      "III-A. 3D Modality Injection for World Action Modeling, p. 3",
+      "III-B. Training Objective, pp. 3–4",
+      "IV-A. Experimental setup, p. 4",
+      "IV-B. Ablations on the depth normalization approach, pp. 4–5",
+      "IV-C. Comparison to the State of the Art, p. 5",
+      "IV-D. World Modeling Quality Analysis, pp. 5–6",
+      "IV-E. Prediction Quality versus Rollout Success, p. 6",
+      "V. Real-World Experiments, pp. 7–8",
+      "VI. Conclusion and Limitations, p. 8",
+      "Acknowledgment and References, pp. 8–9",
+      "Figure captions as supplied text",
+      "Independent PDF visual audit: pp. 2–8, including architecture Figure 2, Equations (1)–(3), the EDM objective, Tables I–IV, and Figures 3–6"
+    ],
+    "omissions": [
+      "The full main text was reviewed; an independent visual audit inspected PDF pp. 2–8. Figure 1 was read as extracted text and caption only.",
+      "No appendix appears in the supplied main paper. Separate supplementary material availability was not verified.",
+      "No supplementary videos, source code, datasets or model executions were inspected.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 2: shared DiT architecture and RGB/depth/action sequence, PDF p. 2",
+      "Figure 3: static simulated-rollout and prediction examples, PDF p. 6",
+      "Figure 4: object-centric 3D error and ROC diagnostic, PDF p. 6",
+      "Figure 5: UR5 partial-credit completion-score charts, PDF p. 7",
+      "Figure 6: static randomized UR5 examples, PDF p. 7"
+    ],
+    "tablesReviewed": [
+      "Table I(a): metric depth reconstruction, visually checked",
+      "Table I(b): policy-level normalization ablation, visually checked",
+      "Table II: RoboCasa success rates and demonstration budgets, visually checked",
+      "Table III: LIBERO-Plus weighted success rates, visually checked",
+      "Table IV: RGB prediction quality, including wrist and masked-wrist cells, visually checked"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "SA-WAM adds metric depth to a pretrained video diffusion policy by encoding log-normalized depth through the same frozen tokenizer used for RGB. A shared transformer jointly predicts actions and future RGB-D observations. Its strongest evidence combines a controlled depth-normalization ablation, improved simulated task success, and physical UR5 evaluations scored with partial credit. The prediction-error analysis establishes an association with failures, without demonstrating a deployed failure detector. [e02, e04, e09, e10, e14, e18]",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "The authors target the lack of explicit metric geometry in RGB-based world action models. The technical challenge is to preserve manipulation-relevant depth precision while mapping depth into a frozen video tokenizer's bounded input domain, avoiding a separately trained geometry encoder.",
+    "kind": "source",
+    "evidenceIds": [
+      "e01",
+      "e04"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A shared diffusion architecture incorporates depth as additional latent frames and generates actions, future RGB, and future depth without dedicated action heads or geometry-specific encoders.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e05"
+      ]
+    },
+    {
+      "text": "The normalization study connects frozen-tokenizer reconstruction fidelity with downstream control: log scaling balances depth-range precision and achieves the highest success among the tested encodings.",
+      "kind": "source",
+      "evidenceIds": [
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "text": "The authors report leading RoboCasa and LIBERO-Plus results among the compared methods, alongside stronger UR5 completion scores and an object-centric diagnostic connecting prediction divergence with rollout failure.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e14",
+        "e18"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Task instruction ℓ and current robot proprioception q_t.",
+      "Current RGB images and aligned metric depth maps; the method notation uses wrist, left, and right cameras.",
+      "Camera-specific depth bounds estimated from training data.",
+      "The physical UR5 setup uses one fixed RGB-D camera and an eight-dimensional end-effector/gripper state."
+    ],
+    "outputs": [
+      "An action chunk occupying dedicated positions in the shared latent sequence.",
+      "Future RGB and depth latents for each camera at the prediction horizon t + H.",
+      "Optionally decoded future images and metric depth; only the selected action prefix is executed."
+    ],
+    "steps": [
+      {
+        "name": "Convert depth into tokenizer-compatible frames",
+        "detail": "For each camera, collect valid training depths, estimate the second and 98th percentiles, and clamp observations to those bounds. Normalize depth, rescale it to [−1, 1], and replicate the scalar into three channels. The retained log encoding emphasizes nearby geometry while preserving more distant resolution than inverse depth.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Assemble the shared representation",
+        "detail": "Encode RGB and normalized depth with the same frozen Wan2.1 VAE. Current RGB/depth pairs, proprioception, and instruction provide conditioning. Actions occupy latent-sequence positions directly; target slots contain the action chunk and horizon-end RGB/depth latents.",
+        "evidenceIds": [
+          "e02",
+          "e03",
+          "e05"
+        ]
+      },
+      {
+        "name": "Jointly denoise actions and future observations",
+        "detail": "Fine-tune the Cosmos-Predict2 diffusion transformer to reconstruct all target slots under one EDM objective. Future geometry participates in the generative target rather than being supplied only through a separate training loss.",
+        "evidenceIds": [
+          "e05"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Simulation training fine-tunes the 2B-parameter DiT while freezing the VAE. RoboCasa/LIBERO use 40 H100 GPUs, effective batches of 800/960, and 45,000/40,000 iterations. AdamW peaks at 10⁻⁴; after warm-up, learning rate decays until step 30,000, drops fivefold, then remains constant. Noise comes from the base log-normal distribution with probability 0.7 and U(1, 85) with probability 0.3.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "text": "The UR5 dataset has 20 demonstrations for each of 10 tasks, with 3–11 semantic key steps per episode. SA-WAM and Cosmos-Policy train for 2,400 iterations on eight H100 GPUs with batch size 192, a 300-step warm-up, and linear learning-rate decay to zero.",
+        "kind": "source",
+        "evidenceIds": [
+          "e15",
+          "e16"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Actions and future RGB-D latents undergo joint denoising; decoding future observations is optional. Simulation predicts 32 actions and executes the first 16 open-loop.",
+        "kind": "source",
+        "evidenceIds": [
+          "e02",
+          "e07"
+        ]
+      },
+      {
+        "text": "UR5 inference predicts three semantic key-step actions and executes two. Each action specifies an absolute end-effector position, quaternion orientation, and gripper aperture in an eight-dimensional vector; these are waypoint commands rather than dense control-rate deltas.",
+        "kind": "source",
+        "evidenceIds": [
+          "e15",
+          "e16"
+        ]
+      },
+      {
+        "text": "The described action path uses directly generated action slots. The supplied method does not introduce inverse dynamics, candidate-trajectory search, or an inference-time controller driven by the later geometric-error diagnostic.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e02",
+          "e05",
+          "e14"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "v_t^c = E(I_t^c),  g_t^c = E(I_{d,t}^c)",
+        "explanation": "Equation (1): E is the shared frozen VAE encoder. RGB and depth produce separate latent frames, with depth first converted into a three-channel image.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "a = P₂(D^c), b = P₉₈(D^c), z = clip(d_t^c(u,v), a, b); f_log(z; a,b) = log(z/a)/log(b/a); I_{d,t}^c(u,v) = (2f_log(z;a,b) − 1) · (1,1,1)",
+        "explanation": "Section III-A and Equations (2)–(3): percentile bounds limit the retained metric interval. Log normalization has sensitivity proportional to 1/z, between linear normalization's constant sensitivity and inverse depth's 1/z² sensitivity. Inversion recovers depth within the retained interval; clamping discards values outside it.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "L_EDM = E[λ(σ) ||D_θ(x₀ + n; σ, C_t) − x₀||₂²],  n ∼ N(0, σ²I)",
+        "explanation": "The unnumbered objective in Section III-B reconstructs a clean sequence x₀ containing actions and future RGB/depth latents. C_t contains current observations, proprioception, and instruction; λ weights noise levels. All target modalities share this objective, without modality-specific losses.",
+        "evidenceIds": [
+          "e05"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Depth reconstruction through the frozen tokenizer",
+      "setting": "Eight-task RoboCasa study; encode–decode reconstruction, aggregated across camera views",
+      "metric": "Absolute Relative Error, %, lower is better",
+      "value": "Log: 0.63",
+      "comparison": "Linear: 1.47; inverse depth: 1.41",
+      "interpretation": "Reported reconstruction measurements support log scaling's overall fidelity. It is not best in every depth range: inverse depth is strongest below 0.3 m and linear scaling beyond 1 m in the wrist-view breakdown. These are tokenizer reconstruction results, not future-prediction or control scores.",
+      "evidenceIds": [
+        "e08"
+      ]
+    },
+    {
+      "task": "Depth-normalization policy ablation",
+      "setting": "Eight RoboCasa tasks; 50 demonstrations per task; 6,000 gradient steps; three evaluation seeds with 50 trials per task per seed",
+      "metric": "Task success rate, %",
+      "value": "RGB-D with log normalization: 61.7",
+      "comparison": "RGB-only: 52.7; linear depth: 56.5; inverse depth: 59.5",
+      "interpretation": "The matched training protocol supports choosing log normalization among these encodings. It does not separately identify the effects of depth conditioning and future-depth supervision.",
+      "evidenceIds": [
+        "e09",
+        "e02"
+      ]
+    },
+    {
+      "task": "RoboCasa manipulation",
+      "setting": "24 atomic tasks; 50 demonstrations per task for SA-WAM and Cosmos-Policy; average across three seeds",
+      "metric": "Average task success rate, %",
+      "value": "76.6",
+      "comparison": "Cosmos-Policy: 67.1; reported improvement: 9.5 percentage points",
+      "interpretation": "This is simulated execution success. Category results favor SA-WAM throughout, with the largest reported gains in pick-and-place and turn/toggle tasks. Other table entries use different demonstration budgets.",
+      "evidenceIds": [
+        "e06",
+        "e10"
+      ]
+    },
+    {
+      "task": "Standard LIBERO",
+      "setting": "Evaluation across the four standard suites",
+      "metric": "Average success rate, %",
+      "value": "98.4",
+      "comparison": "The authors describe performance as comparable to the strongest policies; no accompanying per-suite numerical comparison is supplied here.",
+      "interpretation": "The reported aggregate indicates strong performance on the standard benchmark, but does not establish a suite-specific advantage.",
+      "evidenceIds": [
+        "e06",
+        "e12"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus robustness",
+      "setting": "Zero-shot evaluation after training only on original LIBERO demonstrations; episode-weighted aggregation across seven perturbation axes",
+      "metric": "Weighted-average success rate, %",
+      "value": "86.6",
+      "comparison": "Cosmos-Policy: 81.4; π0.5: 84.6",
+      "interpretation": "Reported gains are 5.2 and 2.0 percentage points, respectively. This aggregate does not establish improvement on every perturbation axis. Sensor-noise evaluation applies the same perturbation to RGB and depth.",
+      "evidenceIds": [
+        "e06",
+        "e11"
+      ]
+    },
+    {
+      "task": "Future RGB prediction",
+      "setting": "24 RoboCasa tasks; wrist-camera predictions compared with simulator renders; masked evaluation covers robot, gripper, and target object",
+      "metric": "PSNR, higher is better; LPIPS, lower is better",
+      "value": "Wrist PSNR: 15.16; wrist LPIPS: 0.354; masked wrist LPIPS: 0.321",
+      "comparison": "Cosmos-Policy: 14.64, 0.417, and 0.381, respectively",
+      "interpretation": "These reported image-prediction metrics improve, including in manipulation-relevant regions. They are separate from executed-task success and do not establish that prediction improvements cause better control.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Diagnosing pick-and-place rollout failures",
+      "setting": "Object-centric wrist-depth error after a grasp attempt, using ground-truth simulator masks and realized future depth",
+      "metric": "ROC AUC and failure-detection operating point",
+      "value": "AUC ≈ 0.88; 80% failure detection at 13% false-positive rate",
+      "comparison": "Successful episodes have lower geometric prediction error than failed episodes.",
+      "interpretation": "These reported values are legible in the body text. The analysis measures retrospective outcome separability with simulator information; deployment as a prospective physical-robot detector is untested.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Physical UR5 manipulation in clean environments",
+      "setting": "Four composite categories; 10 trials per category; object positions differ from demonstrations",
+      "metric": "Aggregate completion score with subgoal partial credit, %",
+      "value": "90.0",
+      "comparison": "Cosmos-Policy: 75.0; π0: 21.3",
+      "interpretation": "This is measured physical execution, but the score credits partially completed tasks and should not be reported as binary episode success.",
+      "evidenceIds": [
+        "e17",
+        "e18"
+      ]
+    },
+    {
+      "task": "Physical UR5 manipulation under randomization",
+      "setting": "Four composite categories; 10 trials per category; added distractors and visual perturbations",
+      "metric": "Aggregate completion score with subgoal partial credit, %",
+      "value": "77.5",
+      "comparison": "Cosmos-Policy: 48.8; π0: 11.3",
+      "interpretation": "The reported physical results support robustness in this tabletop waypoint-control setting. They do not establish performance for dense control or broader robot platforms.",
+      "evidenceIds": [
+        "e15",
+        "e17",
+        "e18"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors acknowledge that predicted futures and actions can remain inconsistent and that inference efficiency needs improvement. Shared generation therefore does not guarantee geometrically consistent outcomes.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e19"
+      ]
+    },
+    {
+      "text": "RGB versus RGB-D changes both conditioning information and prediction targets. The normalization ablation isolates encoding choice more directly than it isolates the benefit of predicting future geometry. Equal demonstration counts also do not establish equal total pretraining or compute across methods.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "text": "The failure diagnostic depends on realized simulator depth and target-object masks. The exact short horizon, error aggregation, and threshold-selection split are not specified in the supplied description, limiting reproducibility and interpretation of the reported AUC.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "text": "The physical evaluation uses few trials per category, semantic waypoints, and partial-credit scoring. The reported aggregate scores lack uncertainty intervals, so the size and reliability of gains should be tested over additional trials.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e15",
+        "e17",
+        "e18"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the pretrained Cosmos-Predict2/Wan2.1 components, RGB-D demonstrations, camera-specific training-depth statistics, and the stated training schedules. Exact checkpoint revisions, numeric depth bounds, action-slot scaling, inference sampler settings, and latency are not established by the supplied main text.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e04",
+        "e05",
+        "e07",
+        "e16"
+      ]
+    },
+    {
+      "text": "A focused reproduction would first repeat the frozen-tokenizer round trip for all three normalizers, then reproduce the eight-task, 6,000-step policy ablation. Additional depth-input-only and future-depth-target ablations would test which geometric pathway drives the control gain.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e02"
+      ]
+    },
+    {
+      "text": "Code was not inspected and experiments were not reproduced in this review. The project link and named software components identify potential starting points; they do not establish availability of runnable SA-WAM code, checkpoints, or datasets.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e01",
+        "e05",
+        "e17"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Q1 classification is supported by architecture evidence: one DiT jointly denoises action and future RGB/depth slots, without a separate action head or inverse-dynamics stage. Future observations participate in inference-time generation even when decoding is skipped. Multiple camera-aligned metric-depth streams support the 3D multiview label, although the method does not establish an explicit fused 3D scene representation or enforce cross-view geometric consistency.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04",
+        "e05",
+        "e19"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Joint video-action modeling",
+        "3D multiview modeling"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q1 · One Model × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "4fd8e59dbb9c0a7ebfe439bff340e90bf41a2369491bba9ec27f4df009a2db4f"
+    }
+  },
+  "discussionQuestions": [
+    "How much of the improvement comes from observing depth versus jointly predicting future depth? [e02, e09]",
+    "How robust are fixed training-percentile depth bounds when deployment changes camera distance or workspace scale? [e04]",
+    "Can a failure signal based on observed physical depth and estimated object masks retain the simulator diagnostic's discrimination under a held-out threshold protocol? [e14]",
+    "Would explicit geometric consistency constraints improve action–future agreement without making inference substantially slower? [e19]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/authors, Abstract, Introduction, and arXiv version line",
+      "detail": "The title and three authors match the catalog. The text identifies arXiv:2609.02531v1, dated 2 September 2026, introduces geometry-aware world action modeling, and supplies a project link."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 2 caption; PDF p. 3, Section III-A, opening paragraphs",
+      "detail": "Current instruction, proprioception, and RGB-D condition joint denoising of action chunks and future observation latents at t + H. Action/proprioception slots are inserted directly. The architecture uses no dedicated action head or geometry encoder, and future-frame decoding is optional. The shared DiT and target-slot layout were visually verified in Figure 2."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section III-A, Equation (1)",
+      "detail": "RGB and three-channel depth representations are encoded by the same frozen VAE into separate latent frames; the camera notation names wrist, left, and right views."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section III-A, Depth Injection, Equations (2)–(3) and sensitivity discussion",
+      "detail": "Per-camera training-depth percentiles P₂ and P₉₈ define clipping bounds. Linear, inverse-depth, and logarithmic mappings produce bounded three-channel inputs. Their sensitivities are constant, proportional to 1/z², and proportional to 1/z, respectively; mappings are invertible within the retained interval. Equation (2) parentheses and channel replication were verified in the rendered PDF, resolving damaged extraction glyphs."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section III-B, Training Objective",
+      "detail": "Cosmos-Predict2 initializes the DiT and Wan2.1 supplies the frozen tokenizer. A Gaussian-corruption EDM reconstruction objective jointly supervises action, future RGB, and future depth slots without dedicated prediction heads or modality-specific losses."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV-A(a), Simulation Benchmarks",
+      "detail": "RoboCasa evaluation covers 24 atomic tasks and averages three seeds. LIBERO covers four standard suites. LIBERO-Plus is evaluated without adaptation after original-LIBERO training, across seven perturbation dimensions; sensor-noise perturbations are applied to depth as well as RGB."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV-A(b), Training Details",
+      "detail": "The 2B DiT is fine-tuned using 40 H100 GPUs, batches 800/960, and 45,000/40,000 iterations for RoboCasa/LIBERO. AdamW peaks at 10⁻⁴; the schedule changes at 30,000 steps. Noise mixes base log-normal and U(1,85) distributions with probabilities 0.7/0.3. Chunks have 32 actions, with 16 executed."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Table I(a), Overall and wrist depth-range columns; Section IV-B(a)",
+      "detail": "Overall reconstruction AbsRel percentages are 1.47 for linear, 1.41 for inverse, and 0.63 for log. Below 0.3 m they are 6.68, 0.62, and 1.25; beyond 1 m they are 1.78, 13.19, and 3.19. Evaluation is a tokenizer encode–decode round trip. The cited table cells were visually verified in the retained PDF."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Table I(b), caption, and Section IV-B(b)",
+      "detail": "The eight-task ablation uses 50 demonstrations per task and 6,000 gradient steps. Success averages three seeds with 50 trials per task per seed. RGB, linear RGB-D, inverse RGB-D, and log RGB-D score 52.7%, 56.5%, 59.5%, and 61.7%. The cited table cells were visually verified in the retained PDF."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table II, SA-WAM and Cosmos-Policy rows; Section IV-C(a)",
+      "detail": "With 50 demonstrations per task, SA-WAM averages 76.6% versus 67.1% for Cosmos-Policy. Pick-and-place scores are 68.5% versus 51.8%; turn/toggle scores are 77.5% versus 66.3%. Other compared methods use 300 or 1,000 demonstrations per task. The cited table cells were visually verified in the retained PDF."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table III, caption and Avg. SR row; Section IV-C(b)",
+      "detail": "LIBERO-Plus success is weighted by episode counts across seven perturbation axes. SA-WAM scores 86.6%, Cosmos-Policy 81.4%, and π0.5 84.6%, yielding reported advantages of 5.2 and 2.0 percentage points. The cited table cells were visually verified in the retained PDF."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section IV-C(b), opening sentence",
+      "detail": "The authors report 98.4% average success on standard LIBERO and describe it as comparable to the strongest policies on that benchmark."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section IV-D; PDF p. 6, Table IV, wrist and masked-wrist columns",
+      "detail": "RGB prediction metrics average 24 RoboCasa tasks; masks cover robot arm, gripper, and target object. SA-WAM/Cosmos-Policy wrist PSNR is 15.16/14.64, wrist LPIPS 0.354/0.417, and masked-wrist LPIPS 0.321/0.381. The cited table cells were visually verified in the retained PDF."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section IV-E and rendered Figure 4(a)–(b), including the labeled ROC operating point",
+      "detail": "The diagnostic back-projects predicted and realized wrist depth within ground-truth target-object masks after grasp attempts. The body reports lower error for successful pick-and-place rollouts, AUC approximately 0.88, and 80% failure detection at 13% false alarms. Figure 4 visually confirms the 0.80 true-positive / 0.13 false-positive operating point."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section V, Real-world UR5 setup",
+      "detail": "The physical platform uses a six-DoF UR5, RG6 gripper, and fixed Orbbec Femto Mega RGB-D camera. State/action vectors contain position, quaternion, and gripper aperture. The dataset provides 20 demonstrations for each of 10 tasks, with 3–11 semantic key steps per episode."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section V, Training details",
+      "detail": "SA-WAM and Cosmos-Policy train for 2,400 iterations on eight H100 GPUs with batch size 192, a 300-step warm-up, and decay to zero. They predict three key-step actions and execute the first two."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section V, UR5 results, evaluation protocol paragraphs",
+      "detail": "Four composite categories receive 10 trials each in clean and randomized settings. Randomization adds distractors and visual perturbations. Completed subgoals earn 0.5 in two-stage tasks and 0.25 in four-stage tasks. π0 is fully fine-tuned from official weights on the same key-step dataset with horizon three using LeRobot."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section V, final UR5 results paragraph and rendered Figure 5 category-score bars",
+      "detail": "The body reports aggregate clean completion scores of 90.0%, 75.0%, and 21.3% for SA-WAM, Cosmos-Policy, and π0. Randomized scores are 77.5%, 48.8%, and 11.3%, respectively. Visually checked Figure 5 shows SA-WAM category totals of 9/10, 10/10, 9/10 and 8/10 in clean scenes, and 6.5/10, 8/10, 8/10 and 8.5/10 under randomization; these retain partial credit."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section VI, Limitations paragraph",
+      "detail": "The authors acknowledge remaining inconsistencies between predicted futures and actions, suggest geometric training and verification as future work, and identify inference efficiency as an unresolved issue."
+    }
+  ]
+}

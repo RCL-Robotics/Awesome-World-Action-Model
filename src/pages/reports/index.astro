@@ -1,0 +1,121 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import StatusBadge from '../../components/reports/StatusBadge.astro';
+import { paperPath, pathFor } from '../../lib/catalog';
+import { taxonomyLabel } from '../../lib/taxonomy.mjs';
+import { readingEntries, readingCounts, readingStatuses, readingStatusLabel, accessStatusLabel, reports, reportPath, reportDate, readingIndexUpdatedAt, sourceHref } from '../../lib/reports';
+import '../../styles/reports.css';
+const orderedEntries = [...readingEntries].sort((a, b) => Number(Boolean(b.report)) - Number(Boolean(a.report)));
+---
+
+<BaseLayout title="Reading reports" description="Source-grounded research notes, with explicit reading coverage, method explanations, results and evidence." active="reports">
+  <div class="shell rn-index">
+    <header class="rn-index-hero">
+      <div>
+        <span class="rn-eyebrow"><span aria-hidden="true"></span>RESEARCH NOTES</span>
+        <h1>Read beyond<br/><em>the abstract.</em></h1>
+        <p>Follow the mechanism. Inspect the evidence. Understand what a result establishes—and what it leaves open.</p>
+        <div class="rn-private-note"><span aria-hidden="true">◈</span> Private collection · Publishing remains disabled</div>
+      </div>
+      <div class="rn-reading-principles">
+        <span class="rn-eyebrow">A NOTE HAS THREE LAYERS</span>
+        <ol>
+          <li><span>01</span><div><strong>The idea</strong><p>A concrete problem and a step-by-step explanation.</p></div></li>
+          <li><span>02</span><div><strong>The evidence</strong><p>Results connected to their setting and source location.</p></div></li>
+          <li><span>03</span><div><strong>The boundaries</strong><p>Reading coverage, limitations and reproduction questions.</p></div></li>
+        </ol>
+      </div>
+    </header>
+
+    <dl class="rn-queue-stats">
+      <div><dt>Catalog entries</dt><dd>{readingEntries.length}</dd></div>
+      <div><dt>Reports available</dt><dd>{reports.length}</dd></div>
+      <div><dt>Full-text reviewed</dt><dd>{readingCounts.reviewed}</dd></div>
+      <div><dt>Partial / resource reviews</dt><dd>{readingCounts.partial + readingCounts.resource}</dd></div>
+    </dl>
+
+    <section class="rn-queue" id="queue" aria-labelledby="queue-heading">
+      <div class="rn-queue-heading">
+        <div><span class="rn-eyebrow">COVERAGE, ENTRY BY ENTRY</span><h2 id="queue-heading">The reading queue</h2></div>
+        {readingIndexUpdatedAt && <span class="rn-muted">Updated {reportDate(readingIndexUpdatedAt)}</span>}
+      </div>
+      <p class="rn-queue-explanation">These AI-assisted research notes track full-text, partial and resource reviews separately. A downloaded source is not a completed reading. Entries without a report retain their catalog page.</p>
+      {reports.length === 0 && <div class="rn-queue-notice"><strong>The first research notes are in preparation.</strong><p>All {readingEntries.length} entries are listed below. Report links will appear as source-grounded notes are completed.</p></div>}
+      <form class="rn-queue-tools" role="search" id="reading-search-form">
+        <label class="rn-search"><Icon name="search" size={18}/><span class="sr-only">Search the reading queue</span><input id="reading-query" type="search" placeholder="Search titles, authors or paper IDs…" autocomplete="off"/></label>
+        <label class="rn-filter"><span>Reading status</span><select id="reading-status"><option value="all">All statuses · {readingEntries.length}</option>{readingStatuses.map(status => <option value={status}>{readingStatusLabel[status]} · {readingCounts[status]}</option>)}</select></label>
+        <button type="reset" class="rn-reset">Reset</button>
+      </form>
+      <div class="rn-queue-caption"><p id="reading-result-count" role="status" aria-live="polite">{readingEntries.length} entries</p><span>Source access is shown separately from reading status.</span></div>
+      <div class="rn-queue-list" id="reading-list">
+        {orderedEntries.map(entry => <article class="rn-queue-entry" data-reading-entry data-status={entry.readingStatus} data-search={`${entry.paper.title} ${entry.paper.authors} ${entry.paper.id} ${taxonomyLabel(entry.paper.majorCategory)}`.toLowerCase()}>
+          <div class="rn-queue-entry-main">
+            <div class="rn-entry-meta"><span>{taxonomyLabel(entry.paper.majorCategory)}</span><code>{entry.paperId}</code></div>
+            <h3><a href={entry.report ? reportPath(entry.paperId) : paperPath(entry.paperId)}>{entry.paper.title}</a></h3>
+            <p class="rn-queue-authors">{entry.paper.authors || 'Authors not listed'}</p>
+            {!entry.report && entry.reason && <p class="rn-queue-reason">{entry.reason}</p>}
+            {entry.report && <p class="rn-queue-synopsis">{entry.report.synopsis}</p>}
+          </div>
+          <div class="rn-queue-entry-side">
+            <StatusBadge status={entry.readingStatus}/>
+            <span class="rn-access">{accessStatusLabel[entry.accessStatus]}</span>
+            {entry.report ? <a class="rn-open-report" href={reportPath(entry.paperId)}>Read the report <Icon name="arrow" size={14}/></a> : <a class="rn-open-report" href={paperPath(entry.paperId)}>View catalog entry <Icon name="arrow" size={14}/></a>}
+            {sourceHref(entry.sourceUrl) && <a class="rn-source-link" href={sourceHref(entry.sourceUrl)} target="_blank" rel="noopener noreferrer">Primary source <Icon name="arrow" size={11}/></a>}
+          </div>
+        </article>)}
+      </div>
+      <div class="rn-queue-empty" id="reading-empty" hidden><h3>No entries match these filters.</h3><p>Try another title or choose a different reading status.</p></div>
+      <nav class="rn-pagination" id="reading-pagination" aria-label="Reading queue pages" hidden><button type="button" id="reading-previous">← Previous</button><span id="reading-page-label"></span><button type="button" id="reading-next">Next →</button></nav>
+      <noscript><p class="rn-queue-notice">All entries are shown. Enable JavaScript to search, filter or paginate this queue.</p></noscript>
+    </section>
+    <div class="rn-index-footer"><a href={pathFor()}>← Back to the paper library</a><p>Reports explain the inspected sources; they do not change the Notion catalog classification.</p></div>
+  </div>
+</BaseLayout>
+
+<script>
+  const entries = Array.from(document.querySelectorAll<HTMLElement>('[data-reading-entry]'));
+  const query = document.querySelector<HTMLInputElement>('#reading-query')!;
+  const status = document.querySelector<HTMLSelectElement>('#reading-status')!;
+  const form = document.querySelector<HTMLFormElement>('#reading-search-form')!;
+  const count = document.querySelector<HTMLElement>('#reading-result-count')!;
+  const empty = document.querySelector<HTMLElement>('#reading-empty')!;
+  const pagination = document.querySelector<HTMLElement>('#reading-pagination')!;
+  const previous = document.querySelector<HTMLButtonElement>('#reading-previous')!;
+  const next = document.querySelector<HTMLButtonElement>('#reading-next')!;
+  const pageLabel = document.querySelector<HTMLElement>('#reading-page-label')!;
+  const pageSize = 25;
+  let page = 1;
+  const initial = new URLSearchParams(location.search);
+  query.value = initial.get('q') || '';
+  if (Array.from(status.options).some(option => option.value === initial.get('status'))) status.value = initial.get('status')!;
+  const render = (updateUrl = true) => {
+    const terms = query.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const matching = entries.filter(entry => (status.value === 'all' || entry.dataset.status === status.value) && terms.every(term => entry.dataset.search?.includes(term)));
+    const pages = Math.max(1, Math.ceil(matching.length / pageSize));
+    page = Math.min(page, pages);
+    const visible = new Set(matching.slice((page - 1) * pageSize, page * pageSize));
+    entries.forEach(entry => entry.hidden = !visible.has(entry));
+    count.textContent = `${matching.length} ${matching.length === 1 ? 'entry' : 'entries'}${matching.length ? ` · Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, matching.length)}` : ''}`;
+    empty.hidden = matching.length > 0;
+    pagination.hidden = matching.length <= pageSize;
+    previous.disabled = page === 1;
+    next.disabled = page >= pages;
+    pageLabel.textContent = `Page ${page} of ${pages}`;
+    if (updateUrl) {
+      const url = new URL(location.href);
+      query.value.trim() ? url.searchParams.set('q', query.value.trim()) : url.searchParams.delete('q');
+      status.value !== 'all' ? url.searchParams.set('status', status.value) : url.searchParams.delete('status');
+      history.replaceState(null, '', url);
+    }
+  };
+  form.addEventListener('submit', event => event.preventDefault());
+  query.addEventListener('input', () => { page = 1; render(); });
+  status.addEventListener('change', () => { page = 1; render(); });
+  form.addEventListener('reset', event => { event.preventDefault(); query.value = ''; status.value = 'all'; page = 1; render(); query.focus(); });
+  const changePage = (direction: number) => { page += direction; render(); document.querySelector('#queue')?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' }); };
+  previous.addEventListener('click', () => changePage(-1));
+  next.addEventListener('click', () => changePage(1));
+  window.addEventListener('popstate', () => { const params = new URLSearchParams(location.search); query.value = params.get('q') || ''; status.value = Array.from(status.options).some(option => option.value === params.get('status')) ? params.get('status')! : 'all'; page = 1; render(false); });
+  render(false);
+</script>

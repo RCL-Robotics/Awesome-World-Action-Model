@@ -1,0 +1,409 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-2624494a0f9cbb4a61d2",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T13:42:36.168270+00:00",
+  "sources": [
+    {
+      "id": "main",
+      "url": "https://openaccess.thecvf.com/content/CVPR2025/papers/Bar_Navigation_World_Models_CVPR_2025_paper.pdf",
+      "title": "Navigation World Models — CVPR 2025 accepted paper",
+      "kind": "pdf",
+      "sha256": "2cfe50f6350a9bd68f8bfa8fbc61d38bf2c186106ecb28fb6e37ab716bf34d26",
+      "wordCount": 8263,
+      "accessedAt": "2026-09-07T13:27:48.834508+00:00"
+    },
+    {
+      "id": "supp",
+      "url": "https://openaccess.thecvf.com/content/CVPR2025/supplemental/Bar_Navigation_World_Models_CVPR_2025_supplemental.pdf",
+      "title": "Navigation World Models — CVPR 2025 supplementary material",
+      "kind": "pdf",
+      "sha256": "72a697ddda5d2a74ecfd5200a33e3b87a9b6df9978942fefdc52bf2bc98bf648",
+      "wordCount": 2458,
+      "accessedAt": "2026-09-07T13:34:47.811074+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Main paper: title, authors, abstract; Sections 1–6; references (PDF pp. 1–11, proceedings pp. 15791–15801)",
+      "Supplement: Sections 7, 8.1 and 8.2, all six pages, including captions for Figures 11–15"
+    ],
+    "omissions": [
+      "Linked animation clips were not watched.",
+      "Supplementary Figures 11–15 were read as captions; their complete image montages were not visually inspected.",
+      "Code, checkpoints, training data and executable experiments were not inspected or run."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Main Figure 2: CDiT architecture",
+      "Main Figures 3–10: static panels, plots and captions"
+    ],
+    "tablesReviewed": [
+      "Main Tables 1–4",
+      "Main Figure 6: FVD comparison table",
+      "Supplementary Tables 5–9"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "A close reading of action-conditioned video prediction for navigation, separating simulated visual quality, offline trajectory accuracy, and the evidence still needed for deployment.",
+  "readingTimeMinutes": 8,
+  "problem": {
+    "text": "Can one visual dynamics model support navigation across environments and embodiments, while allowing test-time action constraints and extra planning computation? NWM separates predicting observations from selecting actions. Its empirical question is whether simulated outcomes help choose trajectories toward a goal image; visually plausible imagination alone does not establish that a robot can safely execute them.",
+    "kind": "analysis",
+    "evidenceIds": [
+      "formulation",
+      "planning",
+      "evaluation"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "CDiT restricts self-attention to the denoised target frame and uses cross-attention to past-frame tokens. This makes its dominant attention cost linear in context length, enabling larger navigation predictors without applying full self-attention to every context token.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture"
+      ]
+    },
+    {
+      "text": "The same learned forward model supports standalone trajectory search and reranking candidates from NoMaD. An additional unlabeled-video training experiment tests whether visual priors transfer to an unseen environment, separately from goal-reaching trajectory evaluation.",
+      "kind": "source",
+      "evidenceIds": [
+        "planning",
+        "generalization"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Recent egocentric RGB observations encoded by a pretrained VAE.",
+      "Candidate planar translation and yaw, plus a temporal shift; a goal image is supplied to the planner."
+    ],
+    "outputs": [
+      "A stochastic prediction of the next visual latent, decoded to an image.",
+      "An action trajectory selected by external optimization or policy-candidate ranking."
+    ],
+    "steps": [
+      {
+        "name": "Observe and encode",
+        "detail": "Encode recent frames into VAE latents. Actions describe planar displacement and yaw; temporal shifts permit prediction at different intervals, including training targets up to 16 seconds before or after the context.",
+        "evidenceIds": [
+          "formulation"
+        ]
+      },
+      {
+        "name": "Predict candidate futures",
+        "detail": "CDiT denoises a target latent conditioned on past latents, action, time shift and diffusion timestep. Rollouts feed predicted states back into the model; the actions are supplied inputs, not jointly predicted outputs.",
+        "evidenceIds": [
+          "formulation",
+          "architecture"
+        ]
+      },
+      {
+        "name": "Score and select actions",
+        "detail": "Decode the terminal predicted state and compare it with the goal using LPIPS. Select low-cost candidates, optionally enforcing action constraints. No inverse-dynamics network recovers actions from the imagined frames.",
+        "evidenceIds": [
+          "planning",
+          "optimizer"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Training minimizes squared error between clean and predicted target latents, with an additional variational lower-bound objective for predicted noise covariance. Action, time-shift and diffusion embeddings modulate CDiT through adaptive layer normalization.",
+        "kind": "source",
+        "evidenceIds": [
+          "architecture"
+        ]
+      },
+      {
+        "text": "Robot data come from SCAND, TartanDrive, RECON and HuRoN. Pose differences provide actions, displacement is normalized by average step size, and backward movement is filtered. Optional Ego4D training omits navigation actions but retains time shift; it uses 1,619 videos totaling over 908 hours.",
+        "kind": "source",
+        "evidenceIds": [
+          "training",
+          "datasets"
+        ]
+      },
+      {
+        "text": "The default model has 1B parameters, four context frames and four sampled targets per context: batch size 1,024 becomes 4,096 target examples. AdamW uses learning rate 8e-5; XL training uses eight machines with eight H100 GPUs each. The paper reports five sampling repetitions for means and standard deviations.",
+        "kind": "source",
+        "evidenceIds": [
+          "training"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The implemented unconstrained search is narrower than arbitrary sequence optimization: it samples 120 straight-line endpoints, distributes translation over eight steps, and applies yaw at the final step. One CEM iteration suffices in the reported experiment; three stochastic rollouts score each candidate. A 0.25-second step gives a two-second trajectory.",
+        "kind": "source",
+        "evidenceIds": [
+          "optimizer"
+        ]
+      },
+      {
+        "text": "The alternative pipeline samples 16 or 32 eight-step trajectories from NoMaD and ranks their predicted final images against the goal. This can improve an existing proposal policy without changing its training. The formal MPC formulation should not be mistaken for a demonstrated closed-loop robot success benchmark.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "planning",
+          "evaluation"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "s_{t+1} \\sim F_\\theta(\\cdot \\mid s_{t:t-m}, a_t)",
+        "explanation": "Forward dynamics predict a future latent conditional on history and a supplied navigation action. Temporal shift is included in the conditioning.",
+        "evidenceIds": [
+          "formulation"
+        ]
+      },
+      {
+        "expression": "\\mathcal{E}=-S(s_T,s^*)+\\sum_{t=0}^{T-1}I(a_t\\notin A_{valid})+\\sum_{t=0}^{T-1}I(s_t\\notin S_{safe})",
+        "explanation": "The planning energy combines terminal visual similarity with constraint penalties. Search minimizes its expectation over stochastic rollouts; the experiments score terminal images using LPIPS.",
+        "evidenceIds": [
+          "planning"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Goal-conditioned navigation",
+      "setting": "RECON; two-second predicted trajectories. Evaluation selects 100 examples least predictable by a forward-only heuristic.",
+      "metric": "ATE / RPE, lower is better; Table 2 does not label units.",
+      "value": "Standalone NWM: 1.13 ± 0.02 / 0.35 ± 0.01.",
+      "comparison": "Main Table 2: NoMaD 1.93 ± 0.04 / 0.52 ± 0.00; NWM reranking 32 candidates 1.78 ± 0.03 / 0.48 ± 0.01.",
+      "interpretation": "These are offline trajectory errors, not navigation success percentages. The curated evaluation distribution matters when interpreting the gain.",
+      "evidenceIds": [
+        "navigation",
+        "evaluation"
+      ]
+    },
+    {
+      "task": "Video prediction and generation",
+      "setting": "RECON, 16-second autoregressive videos at 4 FPS conditioned on ground-truth actions.",
+      "metric": "FVD, lower is better.",
+      "value": "NWM: 200.969 ± 5.629.",
+      "comparison": "DIAMOND: 762.734 ± 3.361.",
+      "interpretation": "The improvement concerns generated-video distributions. Ground-truth action conditioning does not test autonomous action selection.",
+      "evidenceIds": [
+        "generation"
+      ]
+    },
+    {
+      "task": "Conditioning ablation",
+      "setting": "Four-second prediction on RECON.",
+      "metric": "LPIPS, lower is better.",
+      "value": "Action plus time: 0.295 ± 0.002.",
+      "comparison": "Time only: 0.760 ± 0.001; action only: 0.318 ± 0.002.",
+      "interpretation": "Action conditioning supplies most of the improvement; time adds a smaller benefit. This supports conditioning utility, not a direct action-execution claim.",
+      "evidenceIds": [
+        "ablation"
+      ]
+    },
+    {
+      "task": "Unlabeled-data generalization",
+      "setting": "Four-second prediction; 500 randomly selected test examples per dataset.",
+      "metric": "LPIPS, lower is better.",
+      "value": "Adding Ego4D changes unseen GO Stanford from 0.658 ± 0.002 to 0.652 ± 0.003.",
+      "comparison": "Known RECON worsens from 0.295 ± 0.002 to 0.368 ± 0.003.",
+      "interpretation": "Transfer trades off against in-domain accuracy; the reported means do not establish statistical significance.",
+      "evidenceIds": [
+        "generalization",
+        "evaluation"
+      ]
+    },
+    {
+      "task": "Inference acceleration",
+      "setting": "Single four-second trajectory simulation on RTX 6000 Ada, within a proposed parallel ranking setup.",
+      "metric": "Seconds per simulated trajectory.",
+      "value": "30.3 ± 0.2 originally; 14.7 ± 0.1 with time skipping; 0.4 ± 0.1 after distillation.",
+      "comparison": "The additional 0.1-second 4-bit result is explicitly estimated; quantization was not explored.",
+      "interpretation": "This supports measured simulation acceleration, not an end-to-end 32-candidate robot-control latency guarantee.",
+      "evidenceIds": [
+        "runtime"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors report loss of context and drift toward training scenes in unfamiliar environments, imperfect pedestrian dynamics, and restriction to three-degree-of-freedom navigation. More data and longer context are proposed remedies, not demonstrated fixes.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "limitations"
+      ]
+    },
+    {
+      "text": "Appendix Table 7 limits the headline: standalone NWM has HuRoN ATE 4.12 versus NoMaD 3.73, so standalone planning is not uniformly best. Its RECON baseline/ranking values also differ slightly from main Table 2; the appendix header says RTE while its caption says RPE. These discrepancies remain unresolved here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "navigation",
+        "navigation-supp"
+      ]
+    },
+    {
+      "text": "A low image-distance objective and restricted endpoint search cannot establish collision avoidance, interaction safety or long-horizon closed-loop completion. The formal safe-state penalty is broader than the demonstrated action-zeroing constraints.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "planning",
+        "optimizer",
+        "evaluation"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Start with four-second RECON prediction and the action/time ablation, then reproduce two-second planning on the selected evaluation examples. Preserve step normalization, backward-motion filtering, three rollout repeats and the dataset-specific CEM initialization; otherwise the experiment changes.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ablation",
+        "training",
+        "evaluation",
+        "optimizer"
+      ]
+    },
+    {
+      "text": "This review ran no model or code. Full retraining is substantial at the reported 64 H100 GPUs. Independent verification should reconcile main/appendix results and measure complete candidate-ranking latency before claiming real-time deployment.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "training",
+        "runtime",
+        "navigation-supp"
+      ]
+    },
+    {
+      "text": "DINO-WM is a useful related reading because NWM cites its use of CEM planning; DIAMOND is the direct diffusion-world-model baseline. These relationships come from this paper, without implying that either related paper was fully reviewed here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "relations"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The catalog placement outside the four quadrants, under Other mechanisms, is supported: NWM predicts observations from candidate actions, then CEM or a separate NoMaD proposal policy selects actions. It neither jointly generates future states and actions nor applies an inverse-dynamics model. Dual-system describes this planner/world-model separation; it should not be read as two jointly trained neural backbones.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "formulation",
+        "architecture",
+        "planning",
+        "optimizer"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Navigation"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "789adaf496a8fa1977f95cce238e21f9c60143a87e11ed6a91f6923f0e68b144"
+    }
+  },
+  "discussionQuestions": [
+    "How would endpoint search compare with unrestricted sequence search under equal rollout budgets?",
+    "Does improved LPIPS ranking reduce collisions and increase closed-loop goal completion?",
+    "Can unlabeled-video mixing improve unseen environments without the observed in-domain degradation?"
+  ],
+  "relatedPaperIds": [
+    "ref-797a519828bd34873731",
+    "ref-3b350556ce83b51f84c8"
+  ],
+  "evidence": [
+    {
+      "id": "formulation",
+      "sourceId": "main",
+      "location": "PDF p. 3 / proceedings p. 15793, Section 3.1, Equations (1)–(2)",
+      "detail": "Observation/action definition, VAE latents, temporal shifts and forward prediction."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "main",
+      "location": "PDF pp. 3–4 / proceedings pp. 15793–15794, Section 3.2, Figure 2 and training objective",
+      "detail": "Target self-attention, context cross-attention, conditioning and diffusion losses."
+    },
+    {
+      "id": "planning",
+      "sourceId": "main",
+      "location": "PDF pp. 4–5 and 7 / proceedings pp. 15794–15795 and 15797, Sections 3.3 and 4.4, Equations (4)–(5)",
+      "detail": "Energy, constraints, CEM, NoMaD candidate ranking and terminal LPIPS scoring."
+    },
+    {
+      "id": "training",
+      "sourceId": "main",
+      "location": "PDF p. 5 / proceedings p. 15795, Section 4.1, Datasets and Implementation Details",
+      "detail": "Robot preprocessing, architecture size, context/target batch, optimizer and hardware."
+    },
+    {
+      "id": "datasets",
+      "sourceId": "supp",
+      "location": "PDF pp. 1–2, Section 8.1, Datasets",
+      "detail": "Robot dataset splits and Ego4D subset size, duration and action-free use."
+    },
+    {
+      "id": "optimizer",
+      "sourceId": "supp",
+      "location": "PDF p. 1, Section 7; PDF p. 3, Section 8.2, Standalone Planning",
+      "detail": "Straight-line endpoint parameterization, 120 candidates, one iteration, eight steps and three repeated scores."
+    },
+    {
+      "id": "evaluation",
+      "sourceId": "supp",
+      "location": "PDF pp. 1–2, Section 8.1, Evaluation Metrics, Visual Navigation Evaluation Set and Time Prediction Evaluation Set",
+      "detail": "Trajectory metrics; 100 deliberately selected navigation examples versus 500 random prediction examples."
+    },
+    {
+      "id": "navigation",
+      "sourceId": "main",
+      "location": "PDF p. 7 / proceedings p. 15797, Table 2, NoMaD / NWM+NoMaD ×32 / NWM planning rows, ATE and RPE columns",
+      "detail": "Main RECON trajectory results; lower errors are better."
+    },
+    {
+      "id": "generation",
+      "sourceId": "main",
+      "location": "PDF p. 6 / proceedings p. 15796, Figure 6, DIAMOND and NWM FVD cells; Section 4.3 on pp. 6–7",
+      "detail": "16-second, 4-FPS generation uses ground-truth actions."
+    },
+    {
+      "id": "ablation",
+      "sourceId": "main",
+      "location": "PDF p. 6 / proceedings p. 15796, Table 1, time only / action only / action+time rows, LPIPS column",
+      "detail": "Four-second action/time conditioning ablation."
+    },
+    {
+      "id": "generalization",
+      "sourceId": "main",
+      "location": "PDF p. 8 / proceedings p. 15798, Table 4, both training rows, GO Stanford and RECON LPIPS columns",
+      "detail": "Unlabeled Ego4D improves unseen prediction slightly while worsening known RECON."
+    },
+    {
+      "id": "runtime",
+      "sourceId": "supp",
+      "location": "PDF p. 3, Table 8 and Real-World Applicability paragraphs",
+      "detail": "Rendered table confirms 14.7 seconds for time skipping; 0.1-second quantization is estimated, not measured."
+    },
+    {
+      "id": "limitations",
+      "sourceId": "main",
+      "location": "PDF p. 8 / proceedings p. 15798, Section 5 and Figure 10",
+      "detail": "Context drift, unfamiliar-scene failure, pedestrian dynamics and action-space limitations."
+    },
+    {
+      "id": "navigation-supp",
+      "sourceId": "supp",
+      "location": "PDF p. 3, Table 7, RECON and HuRoN columns; header and caption",
+      "detail": "HuRoN standalone ATE is worse than NoMaD; appendix and main RECON entries differ."
+    },
+    {
+      "id": "relations",
+      "sourceId": "main",
+      "location": "PDF p. 5 / proceedings p. 15795, Section 3.3 citation [77] and Section 4.1 DIAMOND baseline; references [1], [77]",
+      "detail": "DINO-WM motivates the CEM comparison; DIAMOND is an experimental baseline."
+    }
+  ]
+}

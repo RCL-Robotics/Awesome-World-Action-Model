@@ -1,0 +1,436 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.22067",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:09:04.196Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.22067",
+      "title": "DELE-w0.5: Inferring Action from Future Latent State for Robotic Manipulation",
+      "kind": "pdf",
+      "sha256": "57eb52707dede1fa6bbbe32036a4bedc12d7871ab35c1465b7be005f21453550",
+      "wordCount": 10239,
+      "accessedAt": "2026-09-07T13:50:11.508538+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and abstract, PDF p. 1",
+      "Contents, PDF p. 2",
+      "Sections 1.1–1.2: limitations of video-based WAMs and proposed formulation, PDF pp. 3–4",
+      "Sections 2.1–2.2: related work, PDF pp. 4–6",
+      "Sections 3.1–3.3: manipulation, tokenization, and timestep embedding, PDF p. 6",
+      "Sections 4.1–4.4: architecture, flow matching, training, and inference, PDF pp. 7–10",
+      "Sections 5.1–5.5: setup, results, stage analysis, failures, and intervention observations, PDF pp. 10–14",
+      "Section 6: conclusion, PDF p. 14",
+      "References, PDF pp. 15–19",
+      "Supplied textual captions for Figures 1–6"
+    ],
+    "omissions": [
+      "Figure images were not visually inspected; only supplied text and captions were read. Numerical coordinates from extracted plots were not reconstructed.",
+      "No appendix appears in the supplied paper. Separate supplemental material availability remains unverified.",
+      "Referenced publications and the linked project page were not independently inspected.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: ordered task stages and complete task conditions, PDF p. 10",
+      "Table 2: real-robot progress and success results, PDF p. 12"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "DELE-w0.5 trains a manipulation policy with action-chunk generation and future visual-latent prediction, then removes future-observation tokens at deployment. A central tension is that the stated attention mask prevents actions from accessing predicted futures, despite the paper's future-to-action narrative. Its concrete deployment description therefore supports action generation with auxiliary future-state training rather than explicit inference from a generated future. The policy completes 50 of 80 physical trials across four fixed-scene tasks; the experiments do not isolate the contribution of future prediction. [E02, E05, E06, E09, E14]",
+  "readingTimeMinutes": 12,
+  "problem": {
+    "text": "The authors argue that dense future-video reconstruction spends capacity on appearance and intermediate transitions that manipulation does not require. They propose predicting a compact endpoint representation alongside actions, aiming to retain useful physical-outcome supervision while reducing visual generation overhead.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "E02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "An integrated condition/noise-stream architecture learns action and future-latent velocity fields using flow matching, with DINO-v3 features as visual targets.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05"
+      ]
+    },
+    {
+      "text": "An asymmetric attention policy allows future tokens to access actions while preventing the reverse connection; future tokens are removed during inference.",
+      "kind": "source",
+      "evidenceIds": [
+        "E06"
+      ]
+    },
+    {
+      "text": "The empirical contribution is a comparison against seven policies using ordered physical completion criteria and stage progress, supplemented by latency, successful-execution timing, and failure analysis.",
+      "kind": "source",
+      "evidenceIds": [
+        "E07",
+        "E08",
+        "E09",
+        "E10",
+        "E11",
+        "E12"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Language instruction L and current RGB observation O_t from one head camera and two wrist cameras. [E03]",
+      "Proprioception q_t in the policy definition and velocity-field equations; its tokenization and architectural injection are unspecified. [E03, E04, E05]",
+      "During training, demonstration action chunk A_t and future observation O_(t+Δt). [E05]"
+    ],
+    "outputs": [
+      "An action chunk with H = 60 future commands; each dual-arm command has 14 dimensions, extending the single-arm displacement, Euler rotation, and gripper representation. [E03]",
+      "During training, a future visual-latent prediction alongside the action prediction; deployment omits future-observation tokens. [E05, E06]"
+    ],
+    "steps": [
+      {
+        "name": "Encode the current context",
+        "detail": "Qwen3 encodes language and DINO-v3 encodes images. Linear projections map their features to a common hidden width of 1024. Concatenated language and current-image tokens pass through a shared self-attention block.",
+        "evidenceIds": [
+          "E03",
+          "E04"
+        ]
+      },
+      {
+        "name": "Construct conditioning attention features",
+        "detail": "The condition stream applies RMS normalization and learned timestep-dependent scaling before QKV projection, with L2 normalization of queries and keys. Its timestep embedding is fixed at τ = 1.",
+        "evidenceIds": [
+          "E04"
+        ]
+      },
+      {
+        "name": "Corrupt both prediction targets",
+        "detail": "The noise stream receives interpolations between Gaussian noise and clean action chunks or encoded future observations. A uniformly sampled τ sets the interpolation level. The paper describes analogous attention processing to obtain noise-stream QKV features.",
+        "evidenceIds": [
+          "E05"
+        ]
+      },
+      {
+        "name": "Predict through coupled attention",
+        "detail": "Condition- and noise-stream QKV tensors are concatenated for masked attention and output projection. Under Section 4.4's visibility rules, context reads context, actions read context and actions, and future tokens read every group. The described direction therefore lets future prediction depend on action information.",
+        "evidenceIds": [
+          "E05",
+          "E06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Training combines squared-error action and future-latent velocity losses with weight λ. The target future representation comes from the vision encoder rather than a pixel or intermediate-video reconstruction objective.",
+        "kind": "source",
+        "evidenceIds": [
+          "E03",
+          "E05"
+        ]
+      },
+      {
+        "text": "The comparison uses common task fine-tuning data. Baselines follow their official configurations for three equivalent epochs; this does not establish matched pretraining or compute. Encoder freezing, the proposed model's detailed training schedule, and the numerical loss weight are not specified.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "E04",
+          "E05",
+          "E07",
+          "E14"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Future-observation groups are removed while context/action visibility remains unchanged. The model produces actions without generating future visual tokens.",
+        "kind": "source",
+        "evidenceIds": [
+          "E06"
+        ]
+      },
+      {
+        "text": "This deployment description does not contain a predicted-goal-to-action inverse-dynamics stage. It also does not specify the flow solver, sampling-step count, executed fraction of each chunk, or replanning schedule; removing visual tokens alone does not establish single-step action sampling.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "E05",
+          "E06"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "A_t^τ = τ A_t + (1 − τ) ε; z_(t+Δt)^τ = τ ẑ_(t+Δt) + (1 − τ) ε",
+        "explanation": "Equations (14)–(16) interpolate action and encoded future-observation targets with Gaussian noise. Here τ is uniform on [0,1], ẑ is the vision encoder output, τ = 0 gives noise, and τ = 1 gives the clean target. Noise tensors must have the corresponding target shapes.",
+        "evidenceIds": [
+          "E05"
+        ]
+      },
+      {
+        "expression": "L = L_a + λ L_o; L_a = E[||u_a − (A_t − ε)||₂²]; L_o = E[||o_a − (ẑ_(t+Δt) − ε)||₂²]",
+        "explanation": "Equations (19)–(21), with function arguments suppressed, regress the constant velocities of those interpolation paths. u_a and o_a are the action and observation velocity predictors. λ balances the objectives, but its value is not reported. Equation (19) lists the noisy future latent as an action-predictor argument even though Section 4.4 denies actions access to future tokens.",
+        "evidenceIds": [
+          "E05",
+          "E06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Overall physical task completion",
+      "setting": "Astribot S1; four fixed-scene tasks; 20 trials per method-task pair; 180-second budget; no physical assistance. The complete comparison contains 640 trials, including 80 for DELE-w0.5.",
+      "metric": "Full-task success",
+      "value": "62.5% (50/80), reported from real-robot execution",
+      "comparison": "XR0 is the strongest baseline on this metric: 30.0% (24/80). The difference is 32.5 percentage points.",
+      "interpretation": "This measures satisfaction of complete physical task conditions, not visual prediction quality. No confidence intervals are reported.",
+      "evidenceIds": [
+        "E07",
+        "E08",
+        "E09"
+      ]
+    },
+    {
+      "task": "Ordered manipulation progress",
+      "setting": "Each trial scores its consecutively completed stages divided by the task's stage count; task means are then equally weighted across four tasks.",
+      "metric": "Macro normalized ordered-stage progress",
+      "value": "81.3%, reported",
+      "comparison": "GWP0.5 obtains 61.3%. The paper reports a 20.1-percentage-point improvement using unrounded values.",
+      "interpretation": "Progress credits valid task prefixes and is distinct from complete success. Add Ice consolidates eight raw annotation stages into six semantic stages.",
+      "evidenceIds": [
+        "E08",
+        "E09"
+      ]
+    },
+    {
+      "task": "Door opening; Pepsi retrieval; Add Ice; microwave popcorn",
+      "setting": "20 real-robot trials per task under the common protocol",
+      "metric": "Task-specific full success",
+      "value": "Door: 80.0% (16/20); Pepsi: 65.0% (13/20); Add Ice: 45.0% (9/20); microwave: 60.0% (12/20)",
+      "comparison": "Best baseline successes are respectively 45.0% (GWP0.5, XR0, and π0.5 tied), 30.0% (XR0), 25.0% (XR0), and 20.0% (XR0).",
+      "interpretation": "DELE-w0.5 leads each task. Add Ice remains its least reliable task, and the stage analysis places remaining difficulty around acquisition, transfer, release, and terminal conditions.",
+      "evidenceIds": [
+        "E09",
+        "E12"
+      ]
+    },
+    {
+      "task": "Policy computation",
+      "setting": "Core-model inference on an NVIDIA RTX 4090",
+      "metric": "Median inference latency",
+      "value": "87.5 ms, reported measurement",
+      "comparison": "The prose reports faster inference than GWP0.5, π0.5, LingBot-VLA2, and HY-VLA, and comparable latency to Spirit-v1.5. Exact baseline plot coordinates are omitted.",
+      "interpretation": "Timing excludes network transfer, image decoding, action projection, inverse kinematics, trajectory processing, and robot execution. It is not end-to-end control latency.",
+      "evidenceIds": [
+        "E10"
+      ]
+    },
+    {
+      "task": "Successful task execution duration",
+      "setting": "DELE-w0.5's successful trials only: Door n = 16, Pepsi n = 13, Add Ice n = 9, microwave n = 12",
+      "metric": "Mean measured completion time",
+      "value": "Door: 16.66 s; Pepsi: 45.92 s; Add Ice: 46.27 s; microwave: 39.50 s",
+      "comparison": "The paper states that methods share a runtime measurement protocol; numerical baseline means are not recoverable from the supplied prose.",
+      "interpretation": "These are physical execution times conditional on success. They exclude failed trials and should not be interpreted as expected time to accomplish a task.",
+      "evidenceIds": [
+        "E11"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The central future-to-action explanation conflicts with the explicit action-to-future attention direction and action-only deployment. Equation (19)'s arguments and the noise-stream self-attention description also leave the exact implementation of visibility insufficiently resolved. The report follows the explicit Section 4.4 rules without treating them as code-verified behavior.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E02",
+        "E05",
+        "E06"
+      ]
+    },
+    {
+      "text": "No mechanism ablation removes future prediction or compares endpoint and dense-video targets within a matched architecture. No future-latent accuracy or physical-state validation is reported. Consequently, the policy comparison does not establish that future supervision causes the gains or that its representation captures sufficient physical state.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E14"
+      ]
+    },
+    {
+      "text": "Four tasks on one robot in fixed scenes with predefined resets provide limited evidence about distribution shifts or cross-embodiment transfer. Common fine-tuning data and evaluation rules do not control differences in pretrained models. Training-cost savings are asserted without a quantitative training-compute comparison.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E02",
+        "E07",
+        "E14"
+      ]
+    },
+    {
+      "text": "The authors describe retaining popcorn while reopening an intervened microwave door, and using the held package to widen a narrow opening. They present these as preliminary adaptive behaviors rather than a quantitative emergence result; intervention counts, baseline comparisons, and success frequencies are absent.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E13"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "The supplied artifact is arXiv:2608.22067v4. Its title and all eight catalog authors match, but the title page additionally lists Cong Fang. This is an older or incomplete catalog author list; the recorded metadata is preserved.",
+      "kind": "source",
+      "evidenceIds": [
+        "E01"
+      ]
+    },
+    {
+      "text": "Implementation requires the exact Qwen3 and DINO-v3 variants, trainable/frozen module choices, future offset Δt, token layouts, attention-mask scope, proprioception integration, and λ. These details are not sufficiently specified to reconstruct the reported model faithfully.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05",
+        "E06"
+      ]
+    },
+    {
+      "text": "Evaluation replication also needs demonstration counts and splits, the proposed policy's optimization settings, reset poses, sampling configuration, and chunk-execution schedule. Preserve the ordered terminal-state rules and distinguish core latency from physical execution time. No code was inspected and no experiments were reproduced in this review.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E06",
+        "E07",
+        "E08",
+        "E10",
+        "E11"
+      ]
+    },
+    {
+      "text": "A minimal mechanism test would compare the reported objective against λ = 0 using matched initialization, data, action architecture, and deployment settings. Measure physical success and stage retention across repeated training runs, and verify that future tokens cannot influence action outputs under the intended mask.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E05",
+        "E06",
+        "E14"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "One Model has architectural support: the streams feed concatenated QKV tensors into a common masked-attention prediction block, rather than a separately described world model and inverse-dynamics controller. Joint prediction describes the two training targets, but deployment predicts actions alone. The complete snapshot therefore needs qualification: Joint video-action modeling overstates endpoint-latent prediction, and latent prediction is documented without establishing a JEPA-specific objective. Q1 is defensible if it includes training-time auxiliary future prediction; it should not imply inference-time future-conditioned action generation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05",
+        "E06"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Latent prediction & JEPA",
+        "Joint video-action modeling",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q1 · One Model × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "f4b0fca254c8d08b388d44e1e1e5d99290dc14aea8265759565afaf9c7434da7"
+    }
+  },
+  "discussionQuestions": [
+    "Does future-latent supervision improve action learning when the future-to-action attention path is absent, and how much of the gain survives λ = 0? [E05, E06, E14]",
+    "How are the noise-stream preprocessing and Equation (19) reconciled with Section 4.4's visibility rules? [E05, E06]",
+    "Would endpoint prediction retain its advantage under randomized object poses, contact conditions, and intermediate interventions evaluated quantitatively? [E07, E13]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "E01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title page and arXiv version line",
+      "detail": "The title page identifies arXiv:2608.22067v4, dated 31 August 2026, and lists all eight catalog authors plus Cong Fang."
+    },
+    {
+      "id": "E02",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Sections 1.1–1.2",
+      "detail": "The authors motivate endpoint-state prediction by the dimensional and computational burden of video trajectories and describe actions as inferred from future states."
+    },
+    {
+      "id": "E03",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Sections 3.1–3.2, Equations (1)–(2)",
+      "detail": "The formulation specifies H = 60, seven-dimensional single-arm and fourteen-dimensional dual-arm actions, three camera views, proprioception, Qwen3 language encoding, and DINO-v3 vision encoding."
+    },
+    {
+      "id": "E04",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Sections 4.1.1–4.1.3, Equations (6)–(13)",
+      "detail": "Language and vision are projected to width 1024, concatenated for self-attention, and transformed into normalized QKV features using condition-stream timestep 1."
+    },
+    {
+      "id": "E05",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Sections 4.2–4.3, Equations (14)–(21)",
+      "detail": "Action and future-image latents receive interpolated Gaussian noise. Stream QKV tensors are concatenated for masked attention. Action and observation velocity losses are combined with λ; Equation (19) includes the noisy future latent among action-predictor arguments."
+    },
+    {
+      "id": "E06",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 4.4; PDF p. 9, Figure 3 textual caption",
+      "detail": "Condition tokens cannot access targets; action tokens access context and actions but not future observations; future tokens access every group. Future-observation groups are removed at inference."
+    },
+    {
+      "id": "E07",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 5.1, robot/tasks, baselines, and evaluation protocol",
+      "detail": "Eight methods use one Astribot S1, fixed scenes, common task data and reset conditions. Baselines train for three equivalent epochs. Twenty trials per method-task pair yield 640 trials, with a 180-second limit and unsafe terminations counted as failures."
+    },
+    {
+      "id": "E08",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 1; PDF p. 11, Section 5.1, Metrics",
+      "detail": "Door, Pepsi, Add Ice, and microwave tasks have four, five, six, and five ordered stages with explicit physical terminal conditions. Progress averages consecutive-stage fractions equally across tasks; Add Ice remaps eight raw stages into six semantic stages."
+    },
+    {
+      "id": "E09",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Table 2, DELE-w0.5 and baseline rows; PDF p. 11, Section 5.2",
+      "detail": "DELE-w0.5 reports 81.3% macro progress and 62.5% overall success. Its task successes are 80%, 65%, 45%, and 60%. XR0 leads baseline overall success at 30%; GWP0.5 leads baseline macro progress at 61.3%. The prose gives improvements of 32.5 and 20.1 percentage points."
+    },
+    {
+      "id": "E10",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Section 5.2, latency discussion; PDF p. 12, Figure 5 textual caption",
+      "detail": "The reported median core latency is 87.5 ms on RTX 4090. The prose provides qualitative baseline comparisons and excludes transfer, decoding, action projection, IK, trajectory processing, and robot execution."
+    },
+    {
+      "id": "E11",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Section 5.2, final paragraph",
+      "detail": "For 16, 13, 9, and 12 successful trials, mean task times are respectively 16.66, 45.92, 46.27, and 39.50 seconds. Times are conditional on successful completion."
+    },
+    {
+      "id": "E12",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Sections 5.3–5.4",
+      "detail": "The prose reports task completion counts and identifies coordination, transfer, ice acquisition and pouring, insertion, closure, and final-state maintenance as major bottlenecks."
+    },
+    {
+      "id": "E13",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Section 5.5",
+      "detail": "Additional intervention rollouts qualitatively show reopening a closed microwave while retaining popcorn and pushing a narrow door opening with the package. The authors explicitly limit these observations to preliminary evidence."
+    },
+    {
+      "id": "E14",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–14, Sections 5.1–5.5",
+      "detail": "The experimental section contains policy comparisons, latency and completion timing, stage/failure analyses, and intervention observations. It reports no future-loss ablation, matched endpoint/video-target comparison, future-latent prediction metric, or quantitative training-compute comparison."
+    }
+  ]
+}

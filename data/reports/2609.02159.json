@@ -1,0 +1,549 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.02159",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T13:51:47.570Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2609.02159",
+      "title": "World-Coherent Decoding: Self-Verifying Test-Time Planning for World Action Models",
+      "kind": "pdf",
+      "sha256": "494799f282381378f1f454595d7cbe427ea3c994ae09afd419d07cc008850713",
+      "wordCount": 5953,
+      "accessedAt": "2026-09-07T13:50:00.825448+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, authors, and arXiv version identifier, p. 1",
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3.1 Preliminary: Chunked World Model and the Falsifiability Opportunity",
+      "3.2 Test-Time Candidate Selection via Internal Generative Signals",
+      "3.3 Delayed Self-Verification via Backward Error",
+      "3.4 Online Calibration: Amortizing Delayed Error into a Learned Proxy",
+      "4.1 Experiment Setup",
+      "4.2 Main Results",
+      "4.3 Ablation Study",
+      "5 Conclusion",
+      "References, pp. 11–13",
+      "Supplied figure captions as text only",
+      "Independent PDF visual audit: pp. 5–10, including Equations (2–10), Tables 1–3 and static Figures 3–6"
+    ],
+    "omissions": [
+      "The complete main text was reviewed; independent visual verification covered PDF pp. 5–10. Figures 1–2 were read as extracted text and captions, without visual inspection.",
+      "No appendix appears in the supplied 13-page artifact, despite repeated unresolved Appendix?? references. Separate supplements and rollout videos were not supplied or verified.",
+      "Merged horizon-specific cells in the Table 1 text extraction were resolved by inspecting the retained PDF, but no horizon-specific Table 1 values are reported. Standard-protocol results retain the precise Section 4.2 prose values.",
+      "No code was inspected and no experiments were reproduced.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 3: method diagram, PDF p. 6",
+      "Figure 4: static Franka setup and visual-shift examples, PDF p. 7",
+      "Figure 5: diagnostic distributions, quartile rates and episode counts, PDF p. 8",
+      "Figure 6: candidate-count scaling plots, PDF p. 9"
+    ],
+    "tablesReviewed": [
+      "Table 1: rendered cells and overall-result context visually checked; no horizon-specific values reported",
+      "Table 2: limited-randomization Hard cells visually checked",
+      "Table 3: module labels and Hard Avg. cells visually checked"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "World-Coherent Decoding selects among a frozen WAM's imagined futures and associated action chunks, then uses observed prediction errors to improve later selections. It raises simulated Hard success from 55.80% to 60.90% under limited randomized-scene supervision. Its central contribution is a feedback-calibrated decoding procedure; physical-robot evidence is qualitative, and missing implementation appendices constrain reproducibility. [E03, E08, E11, E14, E19]",
+  "readingTimeMinutes": 12,
+  "problem": {
+    "text": "A causal WAM can generate different visual futures from identical history and instruction, then decode different actions from those futures. The control problem is to choose a reliable candidate before execution reveals its consequences. The authors identify within-prefix variation in hindsight prediction error and an association between early mismatch and eventual failure; neither observation alone supplies a usable pre-execution selector.",
+    "kind": "source",
+    "evidenceIds": [
+      "E02",
+      "E03",
+      "E12"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "WCD combines video flow surprisal and action denoising effort to rank sampled future–action candidates without changing the backbone weights.",
+      "kind": "source",
+      "evidenceIds": [
+        "E04",
+        "E05",
+        "E06"
+      ]
+    },
+    {
+      "text": "Executed observations provide delayed supervision for a small predictor of future imagination–reality error. After warm-up, this predictor replaces expensive divergence-based video scoring.",
+      "kind": "source",
+      "evidenceIds": [
+        "E07",
+        "E08",
+        "E09"
+      ]
+    },
+    {
+      "text": "The experiments support the usefulness of structured selection on this backbone, especially under limited randomization. They do not establish that latent reliability is a universally sufficient control objective.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E12",
+        "E14",
+        "E15"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Language instruction and shared task conditioning",
+      "Causal cache C_m containing realized visual latents and previously executed actions",
+      "Stochastic video/action generation traces",
+      "After execution: realized observation chunk encoded by E"
+    ],
+    "outputs": [
+      "One selected low-level action chunk for execution",
+      "Selected imagined visual future retained for subsequent auditing",
+      "Updated reliability predictor, replay buffer, and video/action fusion weight"
+    ],
+    "steps": [
+      {
+        "name": "Generate coupled candidates",
+        "detail": "From the same causal cache, sample N visual futures and decode an action chunk conditioned on each future. The modality order is visual prediction followed by action generation; the paper explicitly distinguishes this from simultaneous video/action denoising.",
+        "evidenceIds": [
+          "E03"
+        ]
+      },
+      {
+        "name": "Score video density and action-generation effort",
+        "detail": "Initially, estimate each visual future's negative log density using base-distribution surprisal plus accumulated flow divergence, estimated with Hutchinson's method. Separately, sum squared action denoising updates normalized by solver-step size. These measure model density and generation-path effort, respectively; neither directly measures task success.",
+        "evidenceIds": [
+          "E04",
+          "E05"
+        ]
+      },
+      {
+        "name": "Fuse scores and execute",
+        "detail": "Standardize both scores within the current candidate pool, combine them using weight λ_m, and execute the minimum-score candidate's action chunk. Save its imagined future and generation features. Only the chosen action is physically executed.",
+        "evidenceIds": [
+          "E06"
+        ]
+      },
+      {
+        "name": "Audit the selected prediction",
+        "detail": "Encode the resulting observations and compute framewise latent MSE against the selected imagination. Average this error into b_m. If it exceeds the historical baseline, reduce the video-score weight for the next decision.",
+        "evidenceIds": [
+          "E07"
+        ]
+      },
+      {
+        "name": "Learn a planning-time mismatch estimate",
+        "detail": "Store the executed candidate's features and error vector in a replay buffer. Regress framewise error from video velocity norms, pooled future latents, and pooled frame differences using separate feature encoders and a shared prediction head.",
+        "evidenceIds": [
+          "E08"
+        ]
+      },
+      {
+        "name": "Switch after sufficient feedback",
+        "detail": "Once the buffer reaches a threshold, replace video surprisal with predicted mean mismatch and disable divergence replay. Action effort remains active. Predictor weights and the buffer persist across episodes of the same task; the fusion weight and autoregressive cache reset.",
+        "evidenceIds": [
+          "E09"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The standard backbone uses 2.5k clean and 25k heavily randomized demonstrations. The limited-randomization backbone receives 18k clean-scene training steps followed by 18k steps with a 70% clean / 30% randomized mixture. These are distinct backbone-training protocols.",
+        "kind": "source",
+        "evidenceIds": [
+          "E10"
+        ]
+      },
+      {
+        "text": "During WCD deployment, backbone weights remain frozen. Only the reliability predictor is trained online, using squared regression error on outcomes of executed candidates. This is supervised calibration from interaction, without task rewards or policy-gradient updates.",
+        "kind": "source",
+        "evidenceIds": [
+          "E03",
+          "E07",
+          "E08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Selection is genuinely pre-execution: current backward error is unavailable when choosing the current candidate. It influences subsequent decisions through the fusion update and learned predictor.",
+        "kind": "source",
+        "evidenceIds": [
+          "E06",
+          "E07",
+          "E08"
+        ]
+      },
+      {
+        "text": "The inference budget includes multiple backbone samples. Cold-start scoring additionally stores traces and replays the velocity field with gradients. Switching to the predictor removes that scoring operation, but retains candidate-generation cost.",
+        "kind": "source",
+        "evidenceIds": [
+          "E08",
+          "E09",
+          "E18"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "ẑ_m,1:K ∼ qᵛ_θ(· | C_m); a_m,1:K ∼ qᵃ_θ(· | ẑ_m,1:K, C_m); z_real = E(o_m,1:K).",
+        "explanation": "Equation (1) separates learned visual prediction, future-conditioned action decoding, and encoding of observations obtained after actual execution. K indexes frames within the chunk.",
+        "evidenceIds": [
+          "E03"
+        ]
+      },
+      {
+        "expression": "d log p_τ(x_τ | C_m)/dτ = −∇·uᵛ_θ; sᵛ,surp_m,n = −log p_base(xᵛ_m,n,0) + Σ_r estimated_divergence_r Δτᵛ_r.",
+        "explanation": "Equations (2–3) use the source-to-data coordinate τ = 1 − σ. Positive accumulated divergence raises surprisal. The base-density term is part of the score; divergence alone is not the stated likelihood estimate.",
+        "evidenceIds": [
+          "E04"
+        ]
+      },
+      {
+        "expression": "sᵃ_m,n = Σ_q mean[(Δa_m,n,q)²] / (|Δσᵃ_q| + ε).",
+        "explanation": "Equation (4) measures squared motion along the action denoising trajectory, normalized by scheduler spacing. It is not the physical energy or smoothness of the executed robot trajectory.",
+        "evidenceIds": [
+          "E05"
+        ]
+      },
+      {
+        "expression": "s̃ʲ_m,n = (sʲ_m,n − mean_n sʲ_m,n)/(std_n sʲ_m,n + ε_s); n*_m = argmin_n [λ_m s̃ᵛ_m,n + (1 − λ_m)s̃ᵃ_m,n].",
+        "explanation": "Equations (5–6) make the video and action scores comparable within a pool. Lower fused score determines which action chunk is executed.",
+        "evidenceIds": [
+          "E06"
+        ]
+      },
+      {
+        "expression": "eᵛᵇ_m,k = MSE(ẑ_m,n_exec,k, z_real_m,k); b_m = mean_k eᵛᵇ_m,k; λ_m+1 = λ_base min(1, b̄_hist_m/max(b_m, ε_b)).",
+        "explanation": "Equations (7–8) turn observed prediction error into delayed feedback. Above-baseline mismatch reduces subsequent video weighting; the rule caps that weight at λ_base.",
+        "evidenceIds": [
+          "E07"
+        ]
+      },
+      {
+        "expression": "êᵛᵇ_m,n,k = f_ψ(ϕ_m,n)_k; sᵛ,pred_m,n = mean_k êᵛᵇ_m,n,k; L(ψ) = E_(ϕ,y)∼B ||f_ψ(ϕ) − y||²₂.",
+        "explanation": "Equations (9–10) regress the observed framewise mismatch vector y. The resulting video score estimates prediction error, not a calibrated probability of task success.",
+        "evidenceIds": [
+          "E08"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboTwin 2.0 manipulation",
+      "setting": "Standard training protocol; frozen pretrained LingBot-VA backbone; overall Hard evaluation",
+      "metric": "Average task success rate",
+      "value": "92.28%",
+      "comparison": "Base WAM: 91.55%; reader-computed improvement: 0.73 percentage points.",
+      "interpretation": "A modest improvement in the stronger training regime. Precise values come from Section 4.2 prose; the visually checked Table 1 displays rounded values of 91.6% and 92.3%. No horizon-specific Table 1 values are reported.",
+      "evidenceIds": [
+        "E10",
+        "E13"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0 manipulation",
+      "setting": "Limited-randomization training; Hard evaluation",
+      "metric": "Average task success rate",
+      "value": "60.90%",
+      "comparison": "LingBot-VA: 55.80%; reported gain: 5.10 percentage points.",
+      "interpretation": "This is simulated task execution success, not a video-quality metric. It measures WCD's selection benefit with the backbone fixed within this protocol.",
+      "evidenceIds": [
+        "E10",
+        "E14"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0 Horizon-3 manipulation",
+      "setting": "Limited-randomization training; Hard evaluation; Table 2 H3 column",
+      "metric": "Task success rate",
+      "value": "46.43%",
+      "comparison": "LingBot-VA: 30.00%; reported gain: 16.43 percentage points.",
+      "interpretation": "The strongest horizon-specific gain supports usefulness on longer tasks, but does not isolate error accumulation as its causal mechanism.",
+      "evidenceIds": [
+        "E14"
+      ]
+    },
+    {
+      "task": "Candidate-selection module ablation",
+      "setting": "RoboTwin 2.0 hard generalization protocol; Table 3 Hard Avg. column",
+      "metric": "Average task success rate",
+      "value": "WCD: 60.9%; Predictor-only: 59.3%; Surprisal-only: 55.4%; Action-only: 55.1%; Random-N: 53.5%.",
+      "comparison": "Reader-computed WCD margins: 7.4 percentage points over Random-N and 1.6 over Predictor-only.",
+      "interpretation": "Structured selection beats random selection in this experiment. The prose's claimed 5.50-point margin over the strongest single branch contradicts the table; 5.5 instead matches the margin over Surprisal-only.",
+      "evidenceIds": [
+        "E15",
+        "E16"
+      ]
+    },
+    {
+      "task": "Early prediction-error diagnostic",
+      "setting": "Online rollouts; task- and depth-normalized log error over the first three executed chunks. Figure 5 labels 4,565 successful and 529 failed episodes (5,094 total).",
+      "metric": "Episode failure rate by early-error quartile",
+      "value": "4.9% (62/1,274) in the lowest quartile; 21.2% (270/1,274) in the highest.",
+      "comparison": "The authors report a monotonic increase across quartiles.",
+      "interpretation": "This is an association between latent mismatch and failure. It does not demonstrate causal identification or establish a calibrated failure predictor.",
+      "evidenceIds": [
+        "E12"
+      ]
+    },
+    {
+      "task": "Physical Franka tabletop hammering",
+      "setting": "Clean-only demonstration training; unseen colored illumination, camera blur, and clutter",
+      "metric": "Qualitative execution outcome",
+      "value": "The authors report an executable WCD trajectory under colored light; no numerical success rate is supplied.",
+      "comparison": "The text reports failure of the frozen base WAM and π0.5 in the colored-light example.",
+      "interpretation": "This is author-reported qualitative physical-robot evidence. Figure 4 static setup images were inspected; supplementary execution videos were not. The source does not establish aggregate robustness across the three shifts.",
+      "evidenceIds": [
+        "E11"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Higher model density and lower latent prediction error need not imply task progress. The early-error diagnostic supports relevance to failure, but supplies neither causal validation nor a success-probability calibration.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E04",
+        "E07",
+        "E12"
+      ]
+    },
+    {
+      "text": "The predictor receives realized labels only for executed candidates. Its accuracy on rejected candidates is therefore unestablished, and deployment-time selection can change the feature distribution on which it must rank candidates.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E07",
+        "E08"
+      ]
+    },
+    {
+      "text": "Table 3 bundles warm-up, learned video scoring, action fusion, and online feedback in the full method. It does not cleanly isolate every component, and the prose overstates the gain over the strongest single-branch variant.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E09",
+        "E15",
+        "E16"
+      ]
+    },
+    {
+      "text": "Trial counts for the main benchmark comparisons, confidence intervals, and seed variation are not specified in the supplied evaluation account. Figure 5 does report episode counts for its separate error diagnostic. Persistent cross-episode calibration also makes task episode order and buffer initialization relevant to fair comparison.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E09",
+        "E10",
+        "E13",
+        "E14",
+        "E15",
+        "E12"
+      ]
+    },
+    {
+      "text": "Additional parallel candidate generation remains a compute trade-off. The authors describe post-warm scoring overhead as negligible, but the supplied body contains no quantitative latency or high-frequency control benchmark.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E18"
+      ]
+    },
+    {
+      "text": "Repeated unresolved appendix references leave scheduler equivalence, estimator settings, exploration, predictor architecture details, and real-robot protocol details unavailable. Franka conclusions consequently remain preliminary.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E11",
+        "E19"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction needs the corresponding LingBot-VA checkpoints and training regime, RoboTwin 2.0 task configurations, access to video/action solver traces, and synchronized imagined/real latent chunks. Standard and limited-randomization results should remain separate.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05",
+        "E10"
+      ]
+    },
+    {
+      "text": "Missing settings include the main evaluation candidate count and chunk horizon, solver grids, Hutchinson probe configuration, score stabilizers, fusion initialization, warm-up threshold, exact feature dimensions, predictor optimizer, replay sampling, and evaluation episode ordering. These should be recovered before claiming numerical replication.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E04",
+        "E06",
+        "E07",
+        "E08",
+        "E09",
+        "E19"
+      ]
+    },
+    {
+      "text": "A small mechanism test would compare Random-N, surprisal-only, predictor-only, and full WCD at matched candidate counts on an unsaturated task, recording task success, selected-candidate mismatch, calibration history, and end-to-end latency. Equal feedback budgets and explicit buffer resets would test selection gains without confounding adaptation exposure.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E09",
+        "E15",
+        "E17",
+        "E18"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "WAM is supported by inference-time visual-future generation followed by future-conditioned action decoding. Other mechanisms / Outside quadrants and architecture Not applicable are defensible for WCD as a selection framework applied to an existing backbone. The underlying generation order has an inverse-dynamics interpretation, however, and should not be mistaken for simultaneous future/action prediction or evidence of a One Model architecture. The subcategory labels are less secure: WCD trains a reliability regressor without updating the policy or using rewards, so WM-RL is not established. Replacing divergence replay supports an inference-efficiency motivation, but multiple samples remain necessary and real-time control is not quantitatively demonstrated. The supplied snapshot is preserved rather than revised.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E02",
+        "E03",
+        "E08",
+        "E09",
+        "E18"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Policy post-training & WM-RL",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "310f0863f36703e0bc5f10926e978ec87af2ddabf349541265025357cbf08977"
+    }
+  },
+  "discussionQuestions": [
+    "Does predicted mismatch rank useful task progress, or can it favor predictable but unproductive actions? [E07, E08, E12]",
+    "How much does cross-episode predictor persistence contribute relative to within-pool selection? [E09, E15]",
+    "What happens when visual shifts raise latent error without changing physical controllability? [E07, E11]",
+    "At matched wall-clock budgets, does WCD outperform fewer candidates with more frequent feedback? [E17, E18]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "E01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block and arXiv identifier",
+      "detail": "Title and all five authors match the catalog. The supplied artifact identifies arXiv:2609.02159v1, dated 2 September 2026."
+    },
+    {
+      "id": "E02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Section 1, future-conditioned decoding discussion and pilot motivation",
+      "detail": "The authors interpret future-conditioned action decoding through inverse dynamics and describe differing hindsight errors among samples sharing an observation prefix."
+    },
+    {
+      "id": "E03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Sections 3.1–3.2, Eq. (1) and footnote 1",
+      "detail": "The frozen causal WAM generates visual latents before conditioned action chunks. Executed observations enter the causal history; candidates share history and task conditioning."
+    },
+    {
+      "id": "E04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Video-side flow surprisal, Eqs. (2–3)",
+      "detail": "Video surprisal combines base negative log density with integrated velocity-field divergence in τ = 1 − σ coordinates; divergence uses a Hutchinson estimator."
+    },
+    {
+      "id": "E05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Action-side path effort, Eq. (4)",
+      "detail": "Action scoring sums mean squared denoising updates divided by absolute scheduler increments plus a stabilizer and is described as a relative reliability proxy."
+    },
+    {
+      "id": "E06",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Fusion and selection, Eqs. (5–6)",
+      "detail": "Scores are standardized across candidates and fused with λ_m. The minimum-score action is executed, while its future and generation features are retained."
+    },
+    {
+      "id": "E07",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.3, Eqs. (7–8) and continuation paragraph",
+      "detail": "Selected imagined and realized latents yield framewise MSE and mean backward error. This updates video weighting and supplies labels for executed-candidate replay entries without rewards. Equations (7–8) were checked against the rendered PDF; damaged text-extraction parentheses were resolved visually."
+    },
+    {
+      "id": "E08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.4, feature description and Eqs. (9–10)",
+      "detail": "A predictor regresses framewise error from velocity norms and pooled latent/motion features. Surprisal requires saved traces and gradient-based replay; the predictor estimates mean future mismatch."
+    },
+    {
+      "id": "E09",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 3.4, Warm-up curriculum",
+      "detail": "A buffer-size threshold triggers replacement of surprisal by predictor scoring. Predictor and buffer persist across same-task episodes; fusion weight and cache reset."
+    },
+    {
+      "id": "E10",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1, RoboTwin 2.0 simulation",
+      "detail": "The benchmark has 50 tasks. Standard training uses 2.5k clean and 25k randomized demonstrations; limited training uses 18k clean steps then 18k mixture steps at 70%/30%. The text mentions multiple trials without a count."
+    },
+    {
+      "id": "E11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1, Real-robot Franka evaluation; p. 8, Section 4.2, Real-robot Franka stress test",
+      "detail": "Clean-trained hammering is tested under colored light, blur, and clutter. The qualitative colored-light account reports baseline failures and an executable WCD trajectory, without success-rate statistics. Figure 4 was visually inspected as static setup imagery; it does not show aggregate execution outcomes."
+    },
+    {
+      "id": "E12",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4.2, Imagination error is behaviorally meaningful; rendered Figure 5, group counts and quartile bars",
+      "detail": "Early error aggregates the first three decision chunks with task/depth normalization. Figure 5 labels 4,565 successes and 529 failures. Quartile failure counts are 62/1,274, 75/1,273, 122/1,273 and 270/1,274; displayed endpoint rates are 4.9% and 21.2%."
+    },
+    {
+      "id": "E13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.2, Standard setting with a strong pretrained WAM",
+      "detail": "The prose explicitly reports overall Hard success increasing from 91.55% to 92.28% with the pretrained backbone frozen. Rendered Table 1 rounds these overall Hard values to 91.6% and 92.3%."
+    },
+    {
+      "id": "E14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2, LingBot-VA/WCD/Δ rows, H3 and Avg. columns",
+      "detail": "Hard averages are 55.80% and 60.90%, with a 5.10-point gain. H3 values are 30.00% and 46.43%, with a 16.43-point gain. The cited cells were checked visually in the retained PDF."
+    },
+    {
+      "id": "E15",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 3, module labels and Hard Avg. column",
+      "detail": "Hard averages are Random-N 53.5%, Action-only 55.1%, Surprisal-only 55.4%, Predictor-only 59.3%, and WCD 60.9%. The cited cells were checked visually in the retained PDF."
+    },
+    {
+      "id": "E16",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.3, Module ablation paragraph; Table 3, Predictor-only/WCD Hard Avg. cells",
+      "detail": "The prose claims a 5.50-point gain over the strongest single branch, while the table lists Predictor-only at 59.3% and WCD at 60.9%. The cited cells were checked visually in the retained PDF."
+    },
+    {
+      "id": "E17",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.3, Effect of candidate count N",
+      "detail": "The prose reports no consistent scaling trend for random selection and greater benefits from structured selectors on tasks with remaining headroom."
+    },
+    {
+      "id": "E18",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 5, final paragraph",
+      "detail": "The authors acknowledge additional parallel generation cost, describe post-warm scoring overhead as negligible, and identify faster generation and high-frequency deployment as future work."
+    },
+    {
+      "id": "E19",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–7, Sections 3.1–3.4 and 4.1, unresolved appendix references; pp. 10–13, conclusion and references",
+      "detail": "Implementation and protocol details are repeatedly deferred to unresolved Appendix?? references. The supplied artifact ends with references and contains no appendix text."
+    }
+  ]
+}
