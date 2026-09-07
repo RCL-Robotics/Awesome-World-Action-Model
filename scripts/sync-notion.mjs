@@ -2,17 +2,17 @@
 import { open, mkdir, unlink } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
-import { atomicWriteFiles, coverage, guardDecrease, mapNotionPage, planCatalogUpdate, readJson, sortPapers, validatePapers } from './lib/data.mjs';
+import { atomicWriteFiles, coverage, guardDecrease, mapNotionPage, migrateLegacyCatalog, planCatalogUpdate, readJson, sortPapers, validatePapers } from './lib/data.mjs';
 import { createNotionReader, queryAllPages, validateSourceId } from './lib/notion.mjs';
 import { privateSnapshotPath } from './lib/paths.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
-const help = `Export the public paper catalog from Notion (read-only).
+const help = `Export the paper catalog from Notion (read-only).
 
 Usage: node scripts/sync-notion.mjs [options]
   --cli                    Use the locally authenticated ntn CLI
   --input <snapshot.json>   Map a complete local Notion snapshot, without network access
-  --source <UUID>           Override NOTION_DATA_SOURCE_ID (never saved to public data)
+  --source <UUID>           Override NOTION_DATA_SOURCE_ID (never saved to catalog data)
   --snapshot <path>         Save the raw snapshot outside this repository for private auditing
   --check / --dry-run       Fetch, map, and validate without writing files
   --allow-large-decrease   Explicitly allow a paper-count decrease of more than 20%
@@ -58,7 +58,12 @@ async function main() {
       await lock.writeFile(String(process.pid));
     }
     let previous = [];
-    try { previous = await readJson(papersPath); validatePapers(previous, { allowEmpty: true }); }
+    let needsSchemaMigration = false;
+    try {
+      const existing = await readJson(papersPath);
+      previous = migrateLegacyCatalog(existing);
+      needsSchemaMigration = existing.some((paper) => !Object.hasOwn(paper, 'paperUrl'));
+    }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
     let previousMeta;
     try { previousMeta = await readJson(metaPath); }
@@ -78,9 +83,13 @@ async function main() {
     const papers = sortPapers(snapshot.results.map(mapNotionPage));
     validatePapers(papers, { allowEmpty });
     guardDecrease(previous.length, papers.length, { allowEmpty, allowLargeDecrease });
-    const { changed, meta } = planCatalogUpdate(papers, previous, previousMeta, snapshot.fetchedAt ?? new Date().toISOString());
+    const update = planCatalogUpdate(papers, previous, previousMeta, snapshot.fetchedAt ?? new Date().toISOString());
+    const changed = update.changed || needsSchemaMigration;
+    const meta = update.meta;
     const summary = coverage(papers);
-    console.log(`${dryRun ? 'Validated (no files written)' : 'Validated'}: ${summary.papers} papers; code ${summary.code}, project pages ${summary.project}, venues ${summary.venue}.`);
+    console.log(`${dryRun ? 'Validated (no files written)' : 'Validated'}: ${summary.papers} papers (${summary.arxiv} arXiv, ${summary.nonArxiv} other); code ${summary.code}, projects ${summary.project}, PDFs ${summary.pdf}, DOIs ${summary.doi}, venues ${summary.venue}.`);
+    console.log(`Recorded years ${summary.publicationYear}, BibTeX ${summary.bibtex}; uncategorized ${summary.uncategorized}, missing dates ${summary.unknownDate}, missing abstracts ${summary.missingAbstract}.`);
+    if (needsSchemaMigration) console.log('Legacy catalog will be migrated to the current catalog schema.');
     if (!changed) console.log('No catalog changes.');
     if (dryRun) return;
     const json = (value) => `${JSON.stringify(value, null, 2)}\n`;

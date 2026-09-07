@@ -3,19 +3,34 @@ export function normalize(text) {
   return String(text).normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
 }
 
+// A recorded year is enough to order a paper, but is never turned into a date.
+// Within a year, dated records precede year-only records. Missing dates and years
+// stay last in both chronological directions.
+export function comparePapers(a, b, sort = 'newest') {
+  if (sort === 'title') return a.title.localeCompare(b.title) || a.id.localeCompare(b.id);
+  const yearOf = paper => paper.submittedDate ? Number(paper.submittedDate.slice(0, 4)) : paper.publicationYear ?? null;
+  const aYear = yearOf(a);
+  const bYear = yearOf(b);
+  if (aYear === null && bYear !== null) return 1;
+  if (bYear === null && aYear !== null) return -1;
+  if (aYear === null && bYear === null) return a.title.localeCompare(b.title) || a.id.localeCompare(b.id);
+  const direction = sort === 'oldest' ? 1 : -1;
+  if (aYear !== bYear) return (aYear - bYear) * direction;
+  if (a.submittedDate && !b.submittedDate) return -1;
+  if (!a.submittedDate && b.submittedDate) return 1;
+  return ((a.submittedDate || '').localeCompare(b.submittedDate || '') || a.id.localeCompare(b.id)) * direction;
+}
+
 export function filterPapers(papers, filters) {
   const words = normalize(filters.query || '').trim().split(/\s+/).filter(Boolean);
   const result = papers.filter(paper => {
     if (filters.category && paper.primaryCategory !== filters.category) return false;
     if (filters.secondary && !paper.secondaryCategories.includes(filters.secondary)) return false;
-    if (filters.month && !paper.submittedDate.startsWith(filters.month)) return false;
+    if (filters.month && !paper.submittedDate?.startsWith(filters.month)) return false;
+    if (filters.year && String(paper.publicationYear ?? '') !== String(filters.year)) return false;
     if (filters.code && !paper.codeUrls.length) return false;
-    const searchable = normalize([paper.title, paper.authors, paper.affiliations, paper.contribution, paper.abstract, paper.id, paper.bibtexKey, paper.primaryCategory, ...paper.secondaryCategories].join(' '));
+    const searchable = normalize([paper.title, paper.authors, paper.affiliations, paper.contribution, paper.abstract, paper.id, paper.bibtexKey, paper.bibtex, paper.paperUrl, paper.arxivUrl, paper.pdfUrl, paper.doi, paper.publicationYear, paper.venue, paper.primaryCategory, ...paper.secondaryCategories].join(' '));
     return words.every(word => searchable.includes(word));
   });
-  return result.sort((a, b) => {
-    if (filters.sort === 'title') return a.title.localeCompare(b.title);
-    const order = a.submittedDate.localeCompare(b.submittedDate) || a.id.localeCompare(b.id);
-    return filters.sort === 'oldest' ? order : -order;
-  });
+  return result.sort((a, b) => comparePapers(a, b, filters.sort));
 }

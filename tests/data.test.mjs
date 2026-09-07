@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile, mkdir, symlink, cp } from 'node:fs/pr
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CATEGORIES, PUBLIC_FIELDS, arxivIdentity, atomicWriteFiles, buildMeta, guardDecrease, mapNotionPage, planCatalogUpdate, propertyUrls, validateMeta, validatePapers } from '../scripts/lib/data.mjs';
+import { CATEGORIES, LEGACY_PUBLIC_FIELDS, PUBLIC_FIELDS, arxivIdentity, atomicWriteFiles, buildMeta, guardDecrease, mapNotionPage, migrateLegacyCatalog, normalizeDoi, paperIdentity, planCatalogUpdate, propertyUrls, sortPapers, validateMeta, validatePapers } from '../scripts/lib/data.mjs';
 import { createNotionReader, paginate, queryAllPages, withRetry } from '../scripts/lib/notion.mjs';
 import { privateSnapshotPath } from '../scripts/lib/paths.mjs';
 
@@ -34,6 +34,18 @@ function fixture() {
   };
 }
 function paper() { return mapNotionPage(fixture()); }
+function referenceFixture() {
+  const source = fixture();
+  source.properties['Paper URL'].url = 'https://proceedings.example.org/2022/reference.html';
+  source.properties['Submitted Date'].date = null;
+  source.properties['Primary Category'].select = null;
+  source.properties['English Abstract'] = rich();
+  source.properties['Publication Year'] = { type: 'number', number: 2022 };
+  source.properties['PDF URL'] = { type: 'url', url: 'https://proceedings.example.org/2022/reference.pdf' };
+  source.properties.DOI = rich('https://doi.org/10.12345/example.2022');
+  source.properties.BibTeX = rich('@inproceedings{reference2022,\n', '  title={Test world action model},\n  year={2022}\n}');
+  return source;
+}
 
 test('mapping exports only the allowed fields and turns None/optional fields into empty values', () => {
   const actual = paper();
@@ -44,7 +56,104 @@ test('mapping exports only the allowed fields and turns None/optional fields int
   assert.equal(actual.venue, null);
   assert.equal(actual.arxivUrl, 'https://arxiv.org/abs/2605.12345');
   assert.equal(actual.id, '2605.12345');
+  assert.equal(actual.paperUrl, actual.arxivUrl);
+  assert.equal(actual.publicationYear, null);
+  assert.equal(actual.pdfUrl, null);
+  assert.equal(actual.doi, null);
+  assert.equal(actual.bibtex, '');
+  assert.equal(PUBLIC_FIELDS.length, 19);
   assert.doesNotMatch(JSON.stringify(actual), /private|created_by/);
+});
+
+test('unclassified references preserve supplied PDF, DOI, year and BibTeX without inventing missing metadata', () => {
+  const actual = mapNotionPage(referenceFixture());
+  assert.match(actual.id, /^ref-[0-9a-f]{20}$/);
+  assert.equal(actual.arxivUrl, null);
+  assert.equal(actual.paperUrl, 'https://proceedings.example.org/2022/reference.html');
+  assert.equal(actual.submittedDate, null);
+  assert.equal(actual.abstract, '');
+  assert.equal(actual.primaryCategory, 'Uncategorized');
+  assert.equal(actual.publicationYear, 2022);
+  assert.equal(actual.pdfUrl, 'https://proceedings.example.org/2022/reference.pdf');
+  assert.equal(actual.doi, 'https://doi.org/10.12345/example.2022');
+  assert.equal(actual.bibtex, '@inproceedings{reference2022,\n  title={Test world action model},\n  year={2022}\n}');
+  validatePapers([actual]);
+});
+
+test('reference IDs depend on normalized public URLs, not Notion identities or fragments', () => {
+  const canonical = paperIdentity('https://example.org/paper?q=world');
+  assert.deepEqual(paperIdentity('https://EXAMPLE.org:443/paper?q=world#abstract'), canonical);
+  assert.notEqual(paperIdentity('https://example.org/another-paper?q=world').id, canonical.id);
+  const first = referenceFixture();
+  const second = referenceFixture();
+  second.id = '00000000-0000-4000-8000-000000000099';
+  assert.equal(mapNotionPage(first).id, mapNotionPage(second).id);
+  assert.deepEqual(paperIdentity('https://arxiv.org/pdf/2605.12345v3.pdf#page=2'), { id: '2605.12345', arxivUrl: 'https://arxiv.org/abs/2605.12345', paperUrl: 'https://arxiv.org/abs/2605.12345' });
+});
+
+test('a PDF hosted by arXiv and a submitted date do not imply arxivUrl or publicationYear', () => {
+  const source = referenceFixture();
+  source.properties['PDF URL'].url = 'https://arxiv.org/pdf/2605.12345';
+  source.properties['Submitted Date'].date = { start: '2026-05-04' };
+  source.properties['Publication Year'].number = null;
+  const actual = mapNotionPage(source);
+  assert.equal(actual.arxivUrl, null);
+  assert.equal(actual.publicationYear, null);
+  assert.equal(actual.submittedDate, '2026-05-04');
+  assert.equal(actual.pdfUrl, 'https://arxiv.org/pdf/2605.12345');
+  validatePapers([actual]);
+});
+
+test('DOIs normalize to a standard HTTPS URL and reject unrelated or unsafe URLs', () => {
+  assert.equal(normalizeDoi('doi:10.12345/Example'), 'https://doi.org/10.12345/Example');
+  assert.equal(normalizeDoi('http://dx.doi.org/10.12345/Example'), 'https://doi.org/10.12345/Example');
+  assert.equal(normalizeDoi(''), null);
+  assert.throws(() => normalizeDoi('https://example.org/10.12345/Example'), /DOI/);
+  assert.throws(() => normalizeDoi('javascript:alert(1)'), /HTTP/);
+});
+
+test('mixed-catalog sorting uses known dates or recorded years without manufacturing dates', () => {
+  const dated = paper();
+  const knownYear = { ...mapNotionPage(referenceFixture()), publicationYear: 2025, title: 'Known year' };
+  const unknown = { ...mapNotionPage(referenceFixture()), publicationYear: null, title: 'Unknown date and year' };
+  assert.deepEqual(sortPapers([unknown, knownYear, dated]).map((entry) => entry.title), [dated.title, knownYear.title, unknown.title]);
+  assert.equal(knownYear.submittedDate, null);
+  assert.equal(unknown.submittedDate, null);
+  assert.deepEqual(buildMeta([unknown, dated, knownYear]).sourceDateRange, { start: '2026-05-04', end: '2026-05-04' });
+  const unknownMeta = buildMeta([unknown, knownYear]);
+  assert.deepEqual(unknownMeta.sourceDateRange, { start: null, end: null });
+  validateMeta(unknownMeta, [unknown, knownYear]);
+});
+
+test('legacy catalogs migrate all former fields intact without inferring any new information', () => {
+  const current = paper();
+  const legacy = Object.fromEntries(LEGACY_PUBLIC_FIELDS.map((field) => [field, current[field]]));
+  const migrated = migrateLegacyCatalog([legacy]);
+  assert.deepEqual(migrated, [current]);
+  assert.equal(migrated[0].id, legacy.id);
+  assert.equal(migrated[0].paperUrl, legacy.arxivUrl);
+  assert.equal(migrated[0].publicationYear, null);
+  assert.equal(migrated[0].pdfUrl, null);
+  assert.equal(migrated[0].bibtex, '');
+  assert.equal(Object.keys(legacy).length, 14);
+  assert.throws(() => migrateLegacyCatalog([{ ...legacy, notionPageId: PAGE }]), /exactly/);
+  assert.deepEqual(migrateLegacyCatalog([current]), [current]);
+});
+
+test('reference validation rejects duplicate normalized URLs, unsafe links and invalid years', () => {
+  const first = referenceFixture();
+  const same = referenceFixture();
+  same.properties['Paper URL'].url += '#different-section';
+  assert.throws(() => validatePapers([mapNotionPage(first), mapNotionPage(same)]), /duplicate/);
+  const current = mapNotionPage(first);
+  assert.throws(() => validatePapers([{ ...current, pdfUrl: 'javascript:alert(1)' }]), /HTTP/);
+  assert.throws(() => validatePapers([{ ...current, paperUrl: 'https://user:password@example.org/paper' }]), /credentials/);
+  assert.throws(() => paperIdentity('https://example.org/paper\u0000'), /control characters/);
+  assert.throws(() => validatePapers([{ ...current, arxivUrl: 'https://arxiv.org/abs/2605.12345' }]), /disagree/);
+  assert.throws(() => validatePapers([{ ...current, id: PAGE }]), /disagree/);
+  for (const year of [0, 9999, 2022.5, '2022']) assert.throws(() => validatePapers([{ ...current, publicationYear: year }]), /publicationYear/);
+  assert.throws(() => validatePapers([{ ...current, doi: 'http://doi.org/10.12345/example' }]), /canonical/);
+  assert.throws(() => validatePapers([{ ...current, privateNotes: 'not public' }]), /exactly/);
 });
 
 test('rich-text fragments preserve full long author, contribution and abstract text', () => {
@@ -182,6 +291,30 @@ test('sync keeps catalog files stable while refreshing a private snapshot, then 
     assert.match(execFileSync(process.execPath, args, { encoding: 'utf8', timeout: 10000 }), /Updated data/);
     assert.equal(JSON.parse(await readFile(papersPath, 'utf8'))[0].abstract, 'A corrected abstract.');
     assert.equal(JSON.parse(await readFile(metaPath, 'utf8')).updatedAt, snapshot.fetchedAt);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('sync upgrades an unchanged legacy catalog once, then retains no-change behavior', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'wam-migration-test-'));
+  try {
+    const repository = join(dir, 'repo');
+    await cp(new URL('../scripts/', import.meta.url), join(repository, 'scripts'), { recursive: true });
+    await mkdir(join(repository, 'data'));
+    const legacy = Object.fromEntries(LEGACY_PUBLIC_FIELDS.map((field) => [field, paper()[field]]));
+    const papersPath = join(repository, 'data/papers.json');
+    const metaPath = join(repository, 'data/meta.json');
+    const inputPath = join(dir, 'input.json');
+    const originalMeta = buildMeta([paper()], '2026-09-07T08:00:00.000Z');
+    await writeFile(papersPath, JSON.stringify([legacy]));
+    await writeFile(metaPath, JSON.stringify(originalMeta));
+    await writeFile(inputPath, JSON.stringify({ results: [fixture()], fetchedAt: '2026-09-08T08:00:00.000Z', has_more: false }));
+    const args = [join(repository, 'scripts/sync-notion.mjs'), '--input', inputPath];
+    const first = execFileSync(process.execPath, args, { encoding: 'utf8', timeout: 10000 });
+    assert.match(first, /Legacy catalog/);
+    assert.match(first, /Updated data/);
+    assert.deepEqual(JSON.parse(await readFile(papersPath, 'utf8')), [paper()]);
+    assert.deepEqual(JSON.parse(await readFile(metaPath, 'utf8')), originalMeta);
+    assert.match(execFileSync(process.execPath, args, { encoding: 'utf8', timeout: 10000 }), /No catalog changes/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

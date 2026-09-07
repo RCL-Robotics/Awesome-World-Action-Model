@@ -2,15 +2,19 @@
 
 We welcome paper recommendations, metadata corrections, and improvements to the website. English and Chinese contributions are both welcome.
 
+The repository is private and the website is available through local preview only. GitHub Issues and pull requests require repository access; public hosting and automatic deployment remain disabled.
+
 ## Recommend or correct a paper
 
-Search the catalog and existing issues first. Open a **Recommend a paper / 推荐论文** issue with the paper title, arXiv URL, primary category, and a short explanation of its relevance. Add an official code or project link when available.
+Search the catalog and existing issues first. Open a **Recommend a paper / 推荐论文** issue with the paper title, authors, and a source URL that identifies the paper. Sources may include arXiv, DOI links, publisher pages, or paper PDFs. Add a suggested category, explanation of relevance, and official code or project links when available.
 
 For an existing entry, use **Correct an entry / 条目纠错** and include the paper URL, proposed correction, and supporting source. Prefer the original paper or the authors' project page.
 
 Maintainers curate paper content in Notion, then export a validated catalog to GitHub. Paper-data changes proposed in a PR must also be reflected in Notion before the next export. The website and README are generated from the same data; editing the generated README paper list directly will not preserve your change.
 
-请优先通过 Issue 推荐或纠错，并附 arXiv、作者项目页等依据。维护者在 Notion 确认修改后同步至 GitHub，确保下一次导出保留修订。
+The export reads the entire Notion data source without writing back to Notion. A missing abstract, category, or submission date does not exclude a paper. Missing primary categories are kept as `Uncategorized`, an editing queue alongside the nine research directions. Leave missing information empty and add it in Notion only after checking the source. Record a publication year only when it is explicitly provided in Notion; do not infer it from an identifier or URL. Existing PDF links, DOI URLs, and BibTeX can also be preserved.
+
+请通过有访问权限的仓库 Issue 推荐或纠错，填写标题、作者和论文来源 URL，并附 DOI、出版方论文页、PDF 或作者项目页等依据。摘要、分类和提交日期可暂缺，维护者会保留条目并在 Notion 核对补充；不要为了通过同步而编造信息。
 
 ## Improve the website
 

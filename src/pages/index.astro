@@ -3,11 +3,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
 import WorldDiagram from '../components/WorldDiagram.astro';
 import PaperCard from '../components/PaperCard.astro';
-import { papers, meta, categories, repoUrl, pathFor, formatDate } from '../lib/catalog';
-const months = [...new Set(papers.map(p => p.submittedDate.slice(0, 7)))].sort().reverse();
-const earliest = papers.at(-1)?.submittedDate || '';
-const latest = papers[0]?.submittedDate || '';
-const rangeLabel = `${formatDate(earliest, { month: 'short' })} – ${formatDate(latest, { month: 'short', year: 'numeric' })}`;
+import { papers, meta, categories, uncategorizedCategory, pendingCount, repoUrl, pathFor, formatDate } from '../lib/catalog';
+const dates = papers.map(p => p.submittedDate).filter((date): date is string => Boolean(date)).sort();
+const months = [...new Set(dates.map(date => date.slice(0, 7)))].sort().reverse();
+const years = [...new Set(papers.map(p => p.publicationYear).filter((year): year is number => Number.isInteger(year)))].sort((a, b) => b - a);
+const earliest = dates[0] || null;
+const latest = dates.at(-1) || null;
+const rangeLabel = years.length ? `${years.at(-1)}${years.length > 1 ? ` – ${years[0]}` : ''}` : earliest && latest ? `${formatDate(earliest, { month: 'short', year: 'numeric' })} – ${formatDate(latest, { month: 'short', year: 'numeric' })}` : 'Not recorded';
+const rangeCaption = years.length ? 'recorded publication years' : 'known submission dates';
 ---
 <BaseLayout>
   <section class="hero shell">
@@ -19,7 +22,7 @@ const rangeLabel = `${formatDate(earliest, { month: 'short' })} – ${formatDate
     </div>
     <WorldDiagram/>
   </section>
-  <div class="collection-bar shell"><div><strong>{papers.length}</strong><span>research papers</span></div><div><strong>{categories.length.toString().padStart(2, '0')}</strong><span>research directions</span></div><div class="date-stat"><strong>{rangeLabel}</strong><span>submission coverage</span></div><a href={pathFor('map/')}>Discover the research map <Icon name="right" size={16}/></a></div>
+  <div class="collection-bar shell"><div><strong>{papers.length}</strong><span>research papers</span></div><div><strong>{categories.length.toString().padStart(2, '0')}</strong><span>research directions</span></div><div class="date-stat"><strong>{rangeLabel}</strong><span>{rangeCaption}</span></div><a href={pathFor('map/')}>Discover the research map <Icon name="right" size={16}/></a></div>
 
   <section class="library shell" id="library" aria-labelledby="library-heading">
     <aside class="catalog-sidebar">
@@ -28,14 +31,17 @@ const rangeLabel = `${formatDate(earliest, { month: 'short' })} – ${formatDate
         <a href="#library" data-category="" class="selected" aria-current="true"><span><Icon name="grid" size={15}/>All papers</span><b>{papers.length}</b></a>
         {categories.map(category => <a href={`?category=${encodeURIComponent(category.name)}#library`} data-category={category.name}><span><i style={`--category-color:${category.color}`}></i>{category.label}</span><b>{category.count}</b></a>)}
       </nav>
+      {pendingCount > 0 && <div class="pending-filter"><div class="sidebar-heading">CURATION STATUS</div><nav class="category-nav" aria-label="Filter papers awaiting classification"><a href={`?category=${uncategorizedCategory.name}#library`} data-category={uncategorizedCategory.name}><span><i style={`--category-color:${uncategorizedCategory.color}`}></i>{uncategorizedCategory.label}</span><b>{pendingCount}</b></a></nav></div>}
       <div class="sidebar-note"><Icon name="book" size={21}/><h3>Find your next direction.</h3><p>Explore how the field connects through geometry, memory, representation, and control.</p><a href={pathFor('map/')}>Browse the map <Icon name="right" size={14}/></a></div>
       <a class="download-link" href={pathFor('papers.json')} download="world-action-model-papers.json">Download collection <Icon name="arrow" size={13}/></a>
     </aside>
     <div class="catalog-main">
       <div class="section-heading"><div><div class="eyebrow small">THE PAPER INDEX</div><h2 id="library-heading">Explore the literature<span>.</span></h2></div><span class="collection-update"><span class="status-dot"></span> Updated {meta.updatedAt.slice(0, 10)}</span></div>
+      {pendingCount > 0 && <p class="catalog-coverage"><a href={`?category=${uncategorizedCategory.name}#library`} data-category={uncategorizedCategory.name}>{pendingCount} papers await classification</a>. All records are searchable; some summaries and publication details are still to be added.</p>}
       <form id="catalog-form" class="catalog-tools" role="search">
-        <div class="search-box"><Icon name="search" size={21}/><label class="sr-only" for="paper-search">Search papers, authors, abstracts, or arXiv IDs</label><input id="paper-search" name="q" type="search" autocomplete="off" placeholder="Search papers, authors, or an idea…"/><kbd aria-hidden="true">/</kbd></div>
+        <div class="search-box"><Icon name="search" size={21}/><label class="sr-only" for="paper-search">Search papers, authors, abstracts, identifiers, or source URLs</label><input id="paper-search" name="q" type="search" autocomplete="off" placeholder="Search papers, authors, DOI, or an idea…"/><kbd aria-hidden="true">/</kbd></div>
         <div class="filter-row">
+          <div class="filter-select"><label for="year-filter">Publication year</label><select id="year-filter" name="year" aria-label="Filter by recorded publication year"><option value="">All publication years</option>{years.map(year => <option value={year}>{year}</option>)}</select></div>
           <div class="filter-select"><label for="month-filter">Submitted</label><select id="month-filter" name="month"><option value="">All months</option>{months.map(month => <option value={month}>{formatDate(`${month}-01`, { month: 'long', year: 'numeric' })}</option>)}</select></div>
           <div class="filter-select secondary-select"><label for="secondary-filter">Also explores</label><select id="secondary-filter" name="secondary"><option value="">Any direction</option>{categories.map(category => <option value={category.name}>{category.label}</option>)}</select></div>
           <label class="code-filter"><input type="checkbox" id="code-filter" name="code"/><span>With code</span></label>
@@ -52,11 +58,12 @@ const rangeLabel = `${formatDate(earliest, { month: 'short' })} – ${formatDate
   </section>
 </BaseLayout>
 <script>
-  import { papers, categories } from '../lib/catalog';
+  import { papers, categories, uncategorizedCategory } from '../lib/catalog';
   import { filterPapers } from '../lib/search.mjs';
   const PAGE_SIZE = 12;
   const search = document.querySelector<HTMLInputElement>('#paper-search')!;
   const month = document.querySelector<HTMLSelectElement>('#month-filter')!;
+  const year = document.querySelector<HTMLSelectElement>('#year-filter')!;
   const secondary = document.querySelector<HTMLSelectElement>('#secondary-filter')!;
   const code = document.querySelector<HTMLInputElement>('#code-filter')!;
   const sort = document.querySelector<HTMLSelectElement>('#sort-order')!;
@@ -75,8 +82,9 @@ const rangeLabel = `${formatDate(earliest, { month: 'short' })} – ${formatDate
   function readURL() {
     const params = new URLSearchParams(location.search);
     search.value = params.get('q') || '';
-    category = categories.some(c => c.name === params.get('category')) ? params.get('category')! : '';
+    category = [...categories, uncategorizedCategory].some(c => c.name === params.get('category')) ? params.get('category')! : '';
     month.value = params.get('month') || '';
+    year.value = params.get('year') || '';
     secondary.value = params.get('secondary') || '';
     code.checked = params.get('code') === '1';
     sort.value = ['newest', 'oldest', 'title'].includes(params.get('sort') || '') ? params.get('sort')! : 'newest';
@@ -85,7 +93,7 @@ const rangeLabel = `${formatDate(earliest, { month: 'short' })} – ${formatDate
   }
 
   function render(writeURL = true) {
-    const matching = filterPapers(papers, { query: search.value, category, month: month.value, secondary: secondary.value, code: code.checked, sort: sort.value });
+    const matching = filterPapers(papers, { query: search.value, category, month: month.value, year: year.value, secondary: secondary.value, code: code.checked, sort: sort.value });
     totalPages = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
     page = Math.min(page, totalPages);
     const start = (page - 1) * PAGE_SIZE;
@@ -108,7 +116,7 @@ const rangeLabel = `${formatDate(earliest, { month: 'short' })} – ${formatDate
     document.querySelector<HTMLElement>('#page-position')!.textContent = `${page} / ${totalPages}`;
     previous.disabled = page <= 1;
     next.disabled = page >= totalPages;
-    reset.hidden = !(search.value || category || month.value || secondary.value || code.checked);
+    reset.hidden = !(search.value || category || month.value || year.value || secondary.value || code.checked);
     categoryLinks.forEach(link => {
       const active = link.dataset.category === category;
       link.classList.toggle('selected', active);
@@ -123,6 +131,7 @@ const rangeLabel = `${formatDate(earliest, { month: 'short' })} – ${formatDate
       if (search.value) params.set('q', search.value);
       if (category) params.set('category', category);
       if (month.value) params.set('month', month.value);
+      if (year.value) params.set('year', year.value);
       if (secondary.value) params.set('secondary', secondary.value);
       if (code.checked) params.set('code', '1');
       if (sort.value !== 'newest') params.set('sort', sort.value);
@@ -132,10 +141,10 @@ const rangeLabel = `${formatDate(earliest, { month: 'short' })} – ${formatDate
       history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}${location.hash}`);
     }
   }
-  function clearFilters() { search.value = ''; month.value = ''; secondary.value = ''; code.checked = false; category = ''; page = 1; render(); }
+  function clearFilters() { search.value = ''; month.value = ''; year.value = ''; secondary.value = ''; code.checked = false; category = ''; page = 1; render(); }
   let debounce: ReturnType<typeof setTimeout>;
   search.addEventListener('input', () => { clearTimeout(debounce); debounce = setTimeout(() => { page = 1; render(); }, 120); });
-  [month, secondary, code, sort].forEach(input => input.addEventListener('change', () => { page = 1; render(); }));
+  [month, year, secondary, code, sort].forEach(input => input.addEventListener('change', () => { page = 1; render(); }));
   categoryLinks.forEach(link => link.addEventListener('click', event => { event.preventDefault(); category = link.dataset.category || ''; page = 1; render(); }));
   document.querySelector<HTMLFormElement>('#catalog-form')!.addEventListener('submit', event => { event.preventDefault(); clearTimeout(debounce); page = 1; render(); });
   reset.addEventListener('click', clearFilters);

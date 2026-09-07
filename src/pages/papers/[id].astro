@@ -1,7 +1,8 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Icon from '../../components/Icon.astro';
-import { papers, categoryFor, formatDate, paperPath, pathFor, repoUrl, type Paper } from '../../lib/catalog';
+import PaperDate from '../../components/PaperDate.astro';
+import { papers, categoryFor, formatDate, paperSourceUrl, paperPath, pathFor, repoUrl, type Paper } from '../../lib/catalog';
 
 export function getStaticPaths() {
   return papers.map(paper => ({ params: { id: paper.id }, props: { paper } }));
@@ -12,11 +13,12 @@ const { paper } = Astro.props;
 const category = categoryFor(paper.primaryCategory);
 const categoryHref = (name: string) => `${pathFor()}?category=${encodeURIComponent(name)}#library`;
 const secondaryHref = (name: string) => `${pathFor()}?secondary=${encodeURIComponent(name)}#library`;
-const related = papers.filter(item => item.id !== paper.id && item.primaryCategory === paper.primaryCategory).slice(0, 3);
-const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper correction: ${paper.title}`)}&body=${encodeURIComponent(`Paper: ${paper.title}\nSource: ${paper.arxivUrl}\n\nSuggested correction:\n`)}`;
+const related = paper.primaryCategory === 'Uncategorized' ? [] : papers.filter(item => item.id !== paper.id && item.primaryCategory === paper.primaryCategory).slice(0, 3);
+const sourceUrl = paperSourceUrl(paper);
+const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper correction: ${paper.title}`)}&body=${encodeURIComponent(`Paper: ${paper.title}\nSource: ${sourceUrl}\n\nSuggested correction:\n`)}`;
 ---
 
-<BaseLayout title={paper.title} description={paper.contribution || paper.abstract}>
+<BaseLayout title={paper.title} description={paper.contribution || paper.abstract || `Research paper: ${paper.title}. Explore the source and available publication details.`}>
   <article class="shell paper-page">
     <nav class="breadcrumbs" aria-label="Breadcrumb">
       <a href={pathFor()}>Library</a><span aria-hidden="true">/</span>
@@ -25,13 +27,15 @@ const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper c
     </nav>
 
     <header class="paper-header">
-      <div class="paper-kicker"><span class="eyebrow">RESEARCH PAPER</span><span class="kicker-dot" aria-hidden="true"></span><time datetime={paper.submittedDate}>Submitted {formatDate(paper.submittedDate)}</time></div>
+      <div class="paper-kicker"><span class="eyebrow">RESEARCH PAPER</span><span class="kicker-dot" aria-hidden="true"></span><PaperDate paper={paper} prefix/></div>
       <h1>{paper.title}</h1>
       {paper.authors.length > 360 ? (
         <details class="authors-disclosure"><summary>View all authors</summary><p class="authors">{paper.authors}</p></details>
       ) : <p class="authors">{paper.authors || 'Authors not listed'}</p>}
       <div class="paper-actions">
-        <a class="button button-primary" href={paper.arxivUrl} target="_blank" rel="noopener noreferrer">Read on arXiv <Icon name="arrow" size={16} /></a>
+        <a class="button button-primary" href={paper.arxivUrl || sourceUrl} target="_blank" rel="noopener noreferrer">{paper.arxivUrl ? 'Read on arXiv' : 'Read paper'} <Icon name="arrow" size={16} /></a>
+        {paper.pdfUrl && <a class="button button-secondary" href={paper.pdfUrl} target="_blank" rel="noopener noreferrer">PDF <Icon name="arrow" size={15}/></a>}
+        {paper.doi && <a class="button button-secondary" href={paper.doi} target="_blank" rel="noopener noreferrer">DOI <Icon name="arrow" size={15}/></a>}
         {paper.codeUrls.map((url, index) => <a class="button button-secondary" href={url} target="_blank" rel="noopener noreferrer"><Icon name="code" size={17} /> {paper.codeUrls.length > 1 ? `Code ${index + 1}` : 'Code'}</a>)}
         {paper.projectUrl && <a class="button button-secondary" href={paper.projectUrl} target="_blank" rel="noopener noreferrer">Project page <Icon name="arrow" size={15} /></a>}
       </div>
@@ -54,22 +58,30 @@ const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper c
           <h2 id="affiliations-heading">Affiliations</h2>
           <p>{paper.affiliations || 'Not listed in the collection.'}</p>
         </section>
+        {paper.bibtex && <section class="text-section bibtex-section" aria-labelledby="bibtex-heading" data-copy-region>
+          <h2 id="bibtex-heading">BibTeX</h2>
+          <label class="sr-only" for="paper-bibtex">Recorded BibTeX citation</label>
+          <textarea id="paper-bibtex" readonly rows={Math.min(Math.max(paper.bibtex.split('\n').length, 5), 14)} spellcheck="false">{paper.bibtex}</textarea>
+          <button class="copy-button bibtex-copy" type="button" data-copy-target="paper-bibtex" data-copy-label="BibTeX"><Icon name="copy" size={15}/><span>Copy BibTeX</span></button>
+          <p class="copy-status" data-copy-status role="status" aria-live="polite"></p>
+        </section>}
       </div>
 
       <aside class="paper-sidebar" aria-label="Paper information">
         <section class="metadata-card">
           <h2>Paper details</h2>
           <dl>
-            <div><dt>Submission date</dt><dd><time datetime={paper.submittedDate}>{formatDate(paper.submittedDate)}</time></dd></div>
+            <div><dt>Submission date</dt><dd>{paper.submittedDate ? <time datetime={paper.submittedDate}>{formatDate(paper.submittedDate)}</time> : <span class="muted">Date not recorded</span>}</dd></div>
+            {paper.publicationYear && <div><dt>Publication year</dt><dd>{paper.publicationYear}</dd></div>}
             <div><dt>Primary category</dt><dd><a class="category-link" href={categoryHref(paper.primaryCategory)} style={`--category-color:${category?.color || '#82929f'}`}><span class="category-dot" aria-hidden="true"></span>{paper.primaryCategory}<Icon name="arrow" size={13}/></a></dd></div>
             <div><dt>Secondary categories</dt><dd class="secondary-categories">{paper.secondaryCategories.length ? paper.secondaryCategories.map(name => <a class="tag" href={secondaryHref(name)}>{name}</a>) : <span class="muted">None listed</span>}</dd></div>
             {paper.venue && <div><dt>Venue</dt><dd>{paper.venue}</dd></div>}
             <div><dt>BibTeX key</dt><dd class="bibtex-key"><code>{paper.bibtexKey || 'Not listed'}</code></dd></div>
           </dl>
-          <div class="source-reference">
-            <label for="paper-source-url">arXiv reference link</label>
-            <input id="paper-source-url" value={paper.arxivUrl} readonly aria-label="arXiv reference link" />
-            <button class="copy-button" type="button" data-copy-source><Icon name="copy" size={15} /><span>Copy reference link</span></button>
+          <div class="source-reference" data-copy-region>
+            <label for="paper-source-url">Paper reference link</label>
+            <input id="paper-source-url" value={sourceUrl} readonly aria-label="Paper reference link" />
+            <button class="copy-button" type="button" data-copy-target="paper-source-url" data-copy-label="Reference link"><Icon name="copy" size={15} /><span>Copy reference link</span></button>
             <p class="copy-status" data-copy-status role="status" aria-live="polite"></p>
           </div>
         </section>
@@ -79,25 +91,26 @@ const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper c
 
     {related.length > 0 && <section class="related-section" aria-labelledby="related-heading">
       <div class="related-heading"><div><span class="eyebrow">KEEP EXPLORING</span><h2 id="related-heading">More in this direction</h2></div><a href={categoryHref(paper.primaryCategory)}>View category <Icon name="right" size={17}/></a></div>
-      <div class="related-grid">{related.map(item => <a class="related-card" href={paperPath(item.id)}><time datetime={item.submittedDate}>{formatDate(item.submittedDate)}</time><h3>{item.title}</h3><div class="related-card-footer"><span>{category?.label || item.primaryCategory}</span><Icon name="arrow" size={17}/></div></a>)}</div>
+      <div class="related-grid">{related.map(item => <a class="related-card" href={paperPath(item.id)}><PaperDate paper={item}/><h3>{item.title}</h3><div class="related-card-footer"><span>{category?.label || item.primaryCategory}</span><Icon name="arrow" size={17}/></div></a>)}</div>
     </section>}
   </article>
 </BaseLayout>
 
 <script>
-  const button = document.querySelector<HTMLButtonElement>('[data-copy-source]');
-  const input = document.querySelector<HTMLInputElement>('#paper-source-url');
-  const status = document.querySelector<HTMLElement>('[data-copy-status]');
-  button?.addEventListener('click', async () => {
-    if (!input || !status) return;
-    try {
-      await navigator.clipboard.writeText(input.value);
-      status.textContent = 'Reference link copied.';
-    } catch {
-      input.focus();
-      input.select();
-      status.textContent = 'Link selected. Press Ctrl+C or ⌘C to copy.';
-    }
+  document.querySelectorAll<HTMLButtonElement>('[data-copy-target]').forEach(button => {
+    button.addEventListener('click', async () => {
+      const input = document.getElementById(button.dataset.copyTarget || '');
+      const status = button.closest('[data-copy-region]')?.querySelector<HTMLElement>('[data-copy-status]');
+      if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) || !status) return;
+      try {
+        await navigator.clipboard.writeText(input.value);
+        status.textContent = `${button.dataset.copyLabel || 'Text'} copied.`;
+      } catch {
+        input.focus();
+        input.select();
+        status.textContent = 'Text selected. Press Ctrl+C or ⌘C to copy.';
+      }
+    });
   });
 </script>
 
@@ -127,6 +140,8 @@ const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper c
   .affiliations-section { border-top:1px solid #e7ebee; margin-top:34px; }
   .affiliations-section h2 { font-size:16px; }
   .affiliations-section p { color:#71808e; font-size:13px; }
+  .bibtex-section textarea { display:block; resize:vertical; width:100%; max-width:100%; min-height:120px; padding:17px; border:1px solid #dce5ed; border-radius:4px; background:#f3f7fa; color:#607587; font:11px/1.8 ui-monospace,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .bibtex-copy { width:auto !important; padding-inline:14px !important; }
   .metadata-card { border:1px solid #e2e8ed; border-radius:6px; background:white; padding:24px 22px 12px; }
   .metadata-card h2 { font-size:15px; margin-bottom:22px; }
   dl { margin:0; }
@@ -154,7 +169,7 @@ const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper c
   .related-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:17px; }
   .related-card { display:flex; flex-direction:column; border:1px solid #e0e7ed; border-radius:5px; text-decoration:none; padding:23px; background:white; transition:border-color .2s,transform .2s; }
   .related-card:hover { border-color:#90aec7; transform:translateY(-2px); }
-  .related-card time { color:#8994a0; font-size:10px; }
+  .related-card time, .related-card :global(.paper-date) { color:#8994a0; font-size:10px; }
   .related-card h3 { color:#28455e; font-size:14px; font-weight:600; line-height:1.6; margin:13px 0 24px; }
   .related-card-footer { display:flex; gap:10px; justify-content:space-between; align-items:center; margin-top:auto; color:#83919f; font-size:10px; }
   @media (max-width:900px) { .paper-grid { grid-template-columns:minmax(0,1fr) 250px; gap:26px; }.related-card { padding:18px; } }

@@ -4,6 +4,27 @@
 
 论文内容以 Notion 中的 **Awesome-World-Action-Model** 数据库为准。导出得到 `data/papers.json` 和 `data/meta.json`，网站与 README 共用这份数据。每次导出先经过校验、代码审查和合并；合并不会发布网站。
 
+## 来源与缺失字段
+
+同步默认读取目标 Notion 数据源的全部条目，包括 arXiv、DOI、出版方论文页、PDF 和其他论文来源。它只读取 Notion，不会回写数据库，也不会因为条目缺少摘要、分类或提交日期而将其排除。
+
+本次扩展对应 479 条记录：原有 174 条与新增 305 条，其中 180 条为非 arXiv 来源。新增 305 条暂缺分类和摘要，191 条记录缺少 `Submitted Date`。这些是来源中尚未填写的信息，导出时保留缺失状态，不能据此推断论文没有摘要或不存在提交日期。后续数量以实际导出数据为准。
+
+条目使用 19 个明确的导出字段。原有 14 个字段保留，新增 `paperUrl`、`pdfUrl`、`doi`、`publicationYear` 和 `bibtex`：
+
+| 字段 | 维护规则 |
+| --- | --- |
+| `title`、`authors`、`paperUrl` | 必须填写标题、作者和可识别论文的主来源 URL。`paperUrl` 不限于 arXiv，可使用 DOI URL、出版方论文页或论文 PDF。 |
+| `arxivUrl` | 有 arXiv 来源时保存对应链接；没有时为 `null`，不为非 arXiv 论文构造链接。 |
+| `submittedDate` | 有完整提交日期时保存日期；缺失时为 `null`，不使用出版年份或同步日期补齐。 |
+| `abstract` | 忠实保留 Notion 中的摘要；未填写时为空字符串，不自动生成。 |
+| `primaryCategory`、`secondaryCategories` | 主分类未填写时归入 `Uncategorized`（待分类）；待分类是整理入口，研究方向仍为原有 9 类。后续在 Notion 补齐主次分类。 |
+| `pdfUrl`、`doi` | 保存已记录的 PDF 链接和 DOI 链接；`doi` 使用 `https://doi.org/…` 形式，缺失时不猜测。 |
+| `publicationYear` | 数字或 `null`，只使用 Notion 中明确记录的年份，不从 URL、提交日期或其他字段推算。 |
+| `bibtex` | 保留 Notion 中已有的完整 BibTeX；与 `bibtexKey` 分开保存，不根据不完整信息编造引用。 |
+
+摘要为空、待分类和日期未知的条目都应留在目录中。日期筛选与排序应保留可查看这些条目的入口；论文来源按钮优先使用通用的 `paperUrl`。同步仍会校验 URL、重复条目和已填写字段的格式，并拒绝空结果及未经确认的大幅减少。
+
 ## 本地预览
 
 使用 Node.js 22.12 或更新的 22.x 版本，并保留 `package-lock.json`：
@@ -32,7 +53,7 @@ npm run preview
 
 ## 日常论文更新
 
-1. 查看 GitHub 的论文推荐或纠错 Issue，核对 arXiv 与作者提供的来源。
+1. 查看 GitHub 的论文推荐或纠错 Issue，核对论文原文、DOI、出版方论文页或作者提供的来源。
 2. 在 Notion 更新论文及主次分类。社区提出的论文数据改动也应先落实到 Notion，避免下一次导出覆盖修订。
 3. 使用下面的本地流程或 Actions 手动导出。
 4. 审查新增、删除、分类变动以及生成的 README。确认后合并 PR；`main` 的更新仅更新私有仓库，不会触发部署。
@@ -55,7 +76,7 @@ git diff -- data/papers.json data/meta.json README.md
 
 也可用 `npm run sync:notion -- --cli --source your-data-source-id` 显式指定来源。CLI 使用本机现有登录状态，不需要将凭据复制进仓库或聊天。
 
-同步脚本会拒绝空结果；若条目数比现有数据减少超过 20%，会停止写入。先核对 Notion 访问权限、过滤条件和数据源是否正确。只有确认删除符合预期时，才在本地加上 `--allow-large-decrease` 重试，再审核 diff。
+同步脚本默认全量读取，不按 arXiv 来源、分类或摘要完整性筛选。它会拒绝空结果；若条目数比现有数据减少超过 20%，会停止写入。先核对 Notion 访问权限、分页结果和数据源是否正确。只有确认删除符合预期时，才在本地加上 `--allow-large-decrease` 重试，再审核 diff。
 
 ### 通过 GitHub Actions 手动导出
 
@@ -103,7 +124,9 @@ token 直接填入 GitHub Secret 即可，无需交给助手，也不要写进�
 | 现象 | 处理方式 |
 | --- | --- |
 | Notion 返回未授权或找不到数据源 | 核对 integration 是否连接了数据库、token 是否有效、ID 是否属于 data source；CLI 模式检查当前登录账号。 |
-| 同步因缺少必填字段或分类无效而停止 | 在 Notion 修正对应条目，再导出；不要绕过数据校验。 |
+| 同步因缺少必填字段而停止 | 检查 Notion 中的标题、作者和 Paper URL；这三项为必填。摘要、分类和 Submitted Date 可以缺失，不应因此排除条目。 |
+| 条目显示待分类、无摘要或日期未知 | 这是来源字段未填写的状态。条目仍已收录；需要补充时先在 Notion 核对填写，再同步。 |
+| 同步因 URL、重复条目或已填写字段格式无效而停止 | 核对通用论文来源 URL、重复记录和报错字段。分类可以为空；若填写，则使用既有研究分类。不要绕过校验或编造缺失信息。 |
 | `npm ci` 失败 | 确认 Node 版本、网络访问，以及 `package.json` 与锁文件是否一起提交。 |
 | 原 Pages 地址返回 404 | 当前已关闭公开发布，这是预期状态；请使用本地预览。 |
 | 首页正常，但详情或样式 404 | 检查 `astro.config.mjs` 的 `site` 与 `base`，重新构建发布。 |
