@@ -1,0 +1,163 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { papers, categoryFor, formatDate, paperPath, pathFor, repoUrl, type Paper } from '../../lib/catalog';
+
+export function getStaticPaths() {
+  return papers.map(paper => ({ params: { id: paper.id }, props: { paper } }));
+}
+
+interface Props { paper: Paper; }
+const { paper } = Astro.props;
+const category = categoryFor(paper.primaryCategory);
+const categoryHref = (name: string) => `${pathFor()}?category=${encodeURIComponent(name)}#library`;
+const secondaryHref = (name: string) => `${pathFor()}?secondary=${encodeURIComponent(name)}#library`;
+const related = papers.filter(item => item.id !== paper.id && item.primaryCategory === paper.primaryCategory).slice(0, 3);
+const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper correction: ${paper.title}`)}&body=${encodeURIComponent(`Paper: ${paper.title}\nSource: ${paper.arxivUrl}\n\nSuggested correction:\n`)}`;
+---
+
+<BaseLayout title={paper.title} description={paper.contribution || paper.abstract}>
+  <article class="shell paper-page">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href={pathFor()}>Library</a><span aria-hidden="true">/</span>
+      <a href={categoryHref(paper.primaryCategory)}>{category?.label || paper.primaryCategory}</a>
+      <span aria-hidden="true">/</span><span aria-current="page">Paper</span>
+    </nav>
+
+    <header class="paper-header">
+      <div class="paper-kicker"><span class="eyebrow">RESEARCH PAPER</span><span class="kicker-dot" aria-hidden="true"></span><time datetime={paper.submittedDate}>Submitted {formatDate(paper.submittedDate)}</time></div>
+      <h1>{paper.title}</h1>
+      {paper.authors.length > 360 ? (
+        <details class="authors-disclosure"><summary>View all authors</summary><p class="authors">{paper.authors}</p></details>
+      ) : <p class="authors">{paper.authors || 'Authors not listed'}</p>}
+      <div class="paper-actions">
+        <a class="button button-primary" href={paper.arxivUrl} target="_blank" rel="noopener noreferrer">Read on arXiv <Icon name="arrow" size={16} /></a>
+        {paper.codeUrls.map((url, index) => <a class="button button-secondary" href={url} target="_blank" rel="noopener noreferrer"><Icon name="code" size={17} /> {paper.codeUrls.length > 1 ? `Code ${index + 1}` : 'Code'}</a>)}
+        {paper.projectUrl && <a class="button button-secondary" href={paper.projectUrl} target="_blank" rel="noopener noreferrer">Project page <Icon name="arrow" size={15} /></a>}
+      </div>
+    </header>
+
+    <div class="paper-grid">
+      <div class="paper-body">
+        <section class="contribution-panel" aria-labelledby="contribution-heading">
+          <span class="eyebrow">AT A GLANCE</span>
+          <h2 id="contribution-heading">Contribution</h2>
+          <p>{paper.contribution || 'A contribution summary has not been added yet.'}</p>
+        </section>
+
+        <section class="text-section" aria-labelledby="abstract-heading">
+          <h2 id="abstract-heading">Abstract</h2>
+          <p class="abstract">{paper.abstract || 'An abstract has not been added yet.'}</p>
+        </section>
+
+        <section class="text-section affiliations-section" aria-labelledby="affiliations-heading">
+          <h2 id="affiliations-heading">Affiliations</h2>
+          <p>{paper.affiliations || 'Not listed in the collection.'}</p>
+        </section>
+      </div>
+
+      <aside class="paper-sidebar" aria-label="Paper information">
+        <section class="metadata-card">
+          <h2>Paper details</h2>
+          <dl>
+            <div><dt>Submission date</dt><dd><time datetime={paper.submittedDate}>{formatDate(paper.submittedDate)}</time></dd></div>
+            <div><dt>Primary category</dt><dd><a class="category-link" href={categoryHref(paper.primaryCategory)} style={`--category-color:${category?.color || '#82929f'}`}><span class="category-dot" aria-hidden="true"></span>{paper.primaryCategory}<Icon name="arrow" size={13}/></a></dd></div>
+            <div><dt>Secondary categories</dt><dd class="secondary-categories">{paper.secondaryCategories.length ? paper.secondaryCategories.map(name => <a class="tag" href={secondaryHref(name)}>{name}</a>) : <span class="muted">None listed</span>}</dd></div>
+            {paper.venue && <div><dt>Venue</dt><dd>{paper.venue}</dd></div>}
+            <div><dt>BibTeX key</dt><dd class="bibtex-key"><code>{paper.bibtexKey || 'Not listed'}</code></dd></div>
+          </dl>
+          <div class="source-reference">
+            <label for="paper-source-url">arXiv reference link</label>
+            <input id="paper-source-url" value={paper.arxivUrl} readonly aria-label="arXiv reference link" />
+            <button class="copy-button" type="button" data-copy-source><Icon name="copy" size={15} /><span>Copy reference link</span></button>
+            <p class="copy-status" data-copy-status role="status" aria-live="polite"></p>
+          </div>
+        </section>
+        <a class="correction-link" href={correctionUrl} target="_blank" rel="noopener noreferrer">Suggest a correction <Icon name="arrow" size={14} /></a>
+      </aside>
+    </div>
+
+    {related.length > 0 && <section class="related-section" aria-labelledby="related-heading">
+      <div class="related-heading"><div><span class="eyebrow">KEEP EXPLORING</span><h2 id="related-heading">More in this direction</h2></div><a href={categoryHref(paper.primaryCategory)}>View category <Icon name="right" size={17}/></a></div>
+      <div class="related-grid">{related.map(item => <a class="related-card" href={paperPath(item.id)}><time datetime={item.submittedDate}>{formatDate(item.submittedDate)}</time><h3>{item.title}</h3><div class="related-card-footer"><span>{category?.label || item.primaryCategory}</span><Icon name="arrow" size={17}/></div></a>)}</div>
+    </section>}
+  </article>
+</BaseLayout>
+
+<script>
+  const button = document.querySelector<HTMLButtonElement>('[data-copy-source]');
+  const input = document.querySelector<HTMLInputElement>('#paper-source-url');
+  const status = document.querySelector<HTMLElement>('[data-copy-status]');
+  button?.addEventListener('click', async () => {
+    if (!input || !status) return;
+    try {
+      await navigator.clipboard.writeText(input.value);
+      status.textContent = 'Reference link copied.';
+    } catch {
+      input.focus();
+      input.select();
+      status.textContent = 'Link selected. Press Ctrl+C or ⌘C to copy.';
+    }
+  });
+</script>
+
+<style>
+  .paper-page { padding-top: 34px; padding-bottom: 84px; }
+  .breadcrumbs { display:flex; flex-wrap:wrap; align-items:center; gap:11px; color:#8a939f; font-size:12px; margin-bottom:40px; }
+  .breadcrumbs a { color:#697583; text-decoration:none; }
+  .breadcrumbs a:hover { color:#244c75; }
+  .paper-header { max-width:1000px; padding-bottom:39px; }
+  .paper-kicker { display:flex; align-items:center; gap:12px; color:#778391; font-size:12px; margin-bottom:19px; }
+  .kicker-dot { width:3px; height:3px; background:#a0aab4; border-radius:50%; }
+  h1 { margin:0 0 21px; color:#18344e; font-size:clamp(28px,3.05vw,43px); letter-spacing:-1.3px; line-height:1.22; font-weight:600; text-wrap:balance; }
+  .authors { color:#687583; font-size:14px; line-height:1.85; margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .authors-disclosure { color:#53677c; font-size:14px; }
+  .authors-disclosure summary { cursor:pointer; width:fit-content; }
+  .authors-disclosure .authors { margin-top:12px; }
+  .paper-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:25px; }
+  .paper-grid { display:grid; grid-template-columns:minmax(0,1fr) 296px; gap:52px; border-top:1px solid #e7ebee; padding-top:35px; }
+  .paper-body { min-width:0; }
+  h2 { color:#233d54; font-size:20px; font-weight:600; letter-spacing:-.35px; margin:0 0 15px; }
+  .contribution-panel { border:1px solid #dce6ee; border-left:3px solid #7297b8; background:#f5f8fb; border-radius:4px; padding:24px 26px; }
+  .contribution-panel .eyebrow { font-size:10px; }
+  .contribution-panel h2 { margin-top:9px; font-size:18px; }
+  .contribution-panel p { color:#536779; line-height:1.85; font-size:14px; margin:0; white-space:pre-wrap; }
+  .text-section { padding-top:34px; }
+  .text-section p { font-size:14px; line-height:1.95; color:#5b6978; margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .affiliations-section { border-top:1px solid #e7ebee; margin-top:34px; }
+  .affiliations-section h2 { font-size:16px; }
+  .affiliations-section p { color:#71808e; font-size:13px; }
+  .metadata-card { border:1px solid #e2e8ed; border-radius:6px; background:white; padding:24px 22px 12px; }
+  .metadata-card h2 { font-size:15px; margin-bottom:22px; }
+  dl { margin:0; }
+  dl > div { margin-bottom:24px; }
+  dt, .source-reference label { font-size:10px; letter-spacing:1px; text-transform:uppercase; color:#84909c; font-weight:600; margin-bottom:8px; }
+  dd { margin:0; font-size:12px; color:#40566a; line-height:1.65; }
+  .category-link { display:inline-flex; align-items:center; gap:7px; text-decoration:none; color:#486780; }
+  .category-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; background:var(--category-color); }
+  .secondary-categories { display:flex; flex-wrap:wrap; gap:6px; }
+  .secondary-categories a { text-decoration:none; font-size:10px; padding:4px 7px; line-height:1.4; }
+  .muted { color:#8b959f; }
+  .bibtex-key { overflow-wrap:anywhere; }
+  .bibtex-key code { font-size:11px; }
+  .source-reference { border-top:1px solid #e9edf0; padding-top:21px; }
+  .source-reference label { display:block; }
+  .source-reference input { box-sizing:border-box; width:100%; border:1px solid #e2e8ed; background:#f8fafb; color:#66788a; padding:9px; font-size:11px; border-radius:3px; }
+  .copy-button { cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; width:100%; border:1px solid #dce4eb; border-radius:4px; background:white; color:#4a6580; font:inherit; font-size:11px; padding:9px; margin-top:9px; }
+  .copy-button:hover { background:#f3f7fa; }
+  .copy-status { min-height:28px; color:#627d6e; font-size:10px; margin:7px 0 0; line-height:1.5; }
+  .correction-link { display:flex; justify-content:center; align-items:center; gap:6px; margin-top:17px; text-decoration:none; color:#7d8a96; font-size:11px; }
+  .related-section { margin-top:65px; border-top:1px solid #e3e9ee; padding-top:35px; }
+  .related-heading { display:flex; justify-content:space-between; align-items:end; gap:20px; margin-bottom:23px; }
+  .related-heading h2 { margin:9px 0 0; font-size:23px; }
+  .related-heading > a { display:flex; gap:7px; align-items:center; text-decoration:none; color:#5a748d; font-size:12px; white-space:nowrap; }
+  .related-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:17px; }
+  .related-card { display:flex; flex-direction:column; border:1px solid #e0e7ed; border-radius:5px; text-decoration:none; padding:23px; background:white; transition:border-color .2s,transform .2s; }
+  .related-card:hover { border-color:#90aec7; transform:translateY(-2px); }
+  .related-card time { color:#8994a0; font-size:10px; }
+  .related-card h3 { color:#28455e; font-size:14px; font-weight:600; line-height:1.6; margin:13px 0 24px; }
+  .related-card-footer { display:flex; gap:10px; justify-content:space-between; align-items:center; margin-top:auto; color:#83919f; font-size:10px; }
+  @media (max-width:900px) { .paper-grid { grid-template-columns:minmax(0,1fr) 250px; gap:26px; }.related-card { padding:18px; } }
+  @media (max-width:680px) { .paper-page { padding-top:24px; padding-bottom:55px; }.breadcrumbs { margin-bottom:28px; }.paper-grid { grid-template-columns:1fr; gap:30px; }.paper-header { padding-bottom:28px; }h1 { letter-spacing:-.7px; }.paper-kicker { flex-wrap:wrap; gap:9px; }.contribution-panel { padding:21px; }.related-grid { grid-template-columns:1fr; }.related-heading { align-items:start; }.related-heading > a { margin-top:28px; }.related-heading h2 { font-size:20px; }.related-section { margin-top:42px; }.metadata-card { padding:24px; }.copy-status { min-height:15px; } }
+  @media (prefers-reduced-motion:reduce) { .related-card { transition:none; }.related-card:hover { transform:none; } }
+</style>

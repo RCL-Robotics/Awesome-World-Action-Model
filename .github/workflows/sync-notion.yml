@@ -1,0 +1,82 @@
+name: Sync papers from Notion
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: notion-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    # Secrets are only consumed by the trusted main branch.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - run: npm ci
+      - name: Export and validate Notion papers
+        env:
+          NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+          NOTION_DATA_SOURCE_ID: ${{ vars.NOTION_DATA_SOURCE_ID }}
+        run: |
+          if [ -z "$NOTION_API_TOKEN" ] || [ -z "$NOTION_DATA_SOURCE_ID" ]; then
+            echo '::error::Configure the NOTION_API_TOKEN secret and NOTION_DATA_SOURCE_ID repository variable first. See docs/MAINTAINING.md.'
+            exit 1
+          fi
+          npm run sync:notion
+      - run: npm run generate:readme
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Open a pull request for the exported data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          git add -- data/papers.json data/meta.json README.md
+          if git diff --cached --quiet; then
+            echo 'No paper data changed.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          sync_branch="automation/notion-sync-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git switch -c "$sync_branch"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Update papers from Notion'
+          gh auth setup-git
+          git push --set-upstream origin "$sync_branch"
+
+          cat > "$RUNNER_TEMP/notion-sync-pr.md" <<'BODY'
+          Refresh the paper catalog from the maintained Notion data source and regenerate the README from the same exported data.
+
+          Validation completed in the sync workflow:
+          - `npm run check`
+          - `npm test`
+          - `npm run build`
+
+          Review additions, removals, and category changes before merging. If GitHub requests approval to run this PR's checks, use **Approve workflows to run**. Merging into `main` publishes the reviewed catalog through the Pages workflow.
+          BODY
+
+          if pr_url=$(gh pr create --base main --head "$sync_branch" --title 'Sync papers from Notion' --body-file "$RUNNER_TEMP/notion-sync-pr.md"); then
+            printf 'Created pull request: %s\n' "$pr_url" >> "$GITHUB_STEP_SUMMARY"
+          else
+            compare_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/main...${sync_branch}?expand=1"
+            printf 'Data branch is ready. Create the PR manually: %s\n' "$compare_url" >> "$GITHUB_STEP_SUMMARY"
+            echo '::error::The data branch was pushed, but GitHub could not create the PR. Check Actions PR permissions in docs/MAINTAINING.md or use the compare link in this run summary.'
+            exit 1
+          fi
