@@ -58,6 +58,6 @@ try {
     '## License', '',
     'Repository code is provided under the [MIT License](LICENSE). Paper abstracts and other attributed research content remain the work of their respective authors and rights holders.', '',
   );
-  await atomicWriteFiles([[fileURLToPath(new URL('README.md', ROOT)), `${lines.join('\n')}\n`]]);
+  await atomicWriteFiles([[fileURLToPath(new URL('README.md', ROOT)), `${lines.join('\n').trimEnd()}\n`]]);
   console.log(`Generated README.md from ${papers.length} papers.`);
 } catch (error) { console.error(`README generation failed: ${error.message}`); process.exitCode = 1; }

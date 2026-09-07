@@ -317,4 +317,3 @@ See [deployment and synchronization setup](docs/MAINTAINING.md) for GitHub Pages
 ## License
 
 Repository code is provided under the [MIT License](LICENSE). Paper abstracts and other attributed research content remain the work of their respective authors and rights holders.
-
