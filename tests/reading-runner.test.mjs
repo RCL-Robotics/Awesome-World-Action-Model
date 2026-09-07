@@ -44,6 +44,9 @@ async function fixture(t, scopes = ['full-paper', 'full-paper', 'full-paper']) {
   for (const file of files) { await mkdir(dirname(join(repo, file)), { recursive: true }); await copyFile(join(repository, file), join(repo, file)); }
   const papers = scopes.map((_, index) => ({ id: `fixture-${index}`, title: `Fixture paper ${index}`, authors: 'Example Author', venue: null, paperUrl: `https://example.org/paper-${index}`, majorCategory: 'WAM', subcategories: [], architecture: 'One Model', predictionParadigm: 'IDM', quadrant: 'Q2 · One Model × IDM', classificationStatus: null }));
   await put(join(repo, 'data/papers.json'), papers); await put(join(repo, 'data/meta.json'), { updatedAt: '2026-09-07T00:00:00Z' });
+  // These isolated fixtures exercise lifecycle behavior after a review checkpoint.
+  // The actual repository remains paused and is covered by illustrated-reports.test.mjs.
+  await put(join(repo, 'data/report-pilot.json'), { state: 'approved', paperIds: [] });
   const text = 'Fixture source text.\n';
   for (const [index, paper] of papers.entries()) {
     const textPath = join(work, 'sources', paper.id, 'source.txt');

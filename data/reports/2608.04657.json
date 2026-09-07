@@ -1,0 +1,496 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.04657",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T17:02:33.831Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.04657",
+      "title": "MobileWAM: Bridging World Action Models to Mobile Manipulation with Chain-of-Foresight",
+      "kind": "pdf",
+      "sha256": "0663dc1eaa91fcbd6a224872201072b52b53ac1cdac6e9ab0bbeba9d199bb118",
+      "wordCount": 8461,
+      "accessedAt": "2026-09-07T13:54:04.462977+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "2.1 World Action Models",
+      "2.2 Mobile Manipulation",
+      "2.3 Future Prediction as Auxiliary Supervision",
+      "3 Method",
+      "3.1 Overview",
+      "3.2 World Expert",
+      "3.3 Action Expert and Mobile MoE",
+      "3.4 Chain-of-Foresight",
+      "3.5 Attention Mask and CoF Interaction",
+      "3.6 Losses",
+      "4 Experiments",
+      "4.1 Setup",
+      "4.2 Comparison with the State of the Art",
+      "4.3 Ablation Studies",
+      "4.4 Real-Robot Experiments",
+      "4.5 Qualitative Analysis of Generated Futures",
+      "4.6 Failure Analysis and Limitations",
+      "5 Conclusion",
+      "References",
+      "A Implementation Details",
+      "B Benchmark and Data Details",
+      "C Real-Robot System and Task Suite",
+      "D Additional Qualitative Results",
+      "E Mobile MoE Expert Routing Analysis"
+    ],
+    "omissions": [
+      "All supplied main text and appendix text were read. Figure captions were read, but figure images were not inspected.",
+      "Tables were inspected through the supplied text; original PDF layout was not visually checked.",
+      "Supplementary videos and any separate supplements were not supplied or inspected.",
+      "Code was not inspected and experiments were not reproduced.",
+      "The identifier, title and all 17 catalog authors match the supplied title page. It labels the artifact arXiv:2608.04657v2, dated 6 August 2026, while the document date is August 7, 2026; no revision history was supplied to resolve that date difference.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7",
+      "Table 8"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "MobileWAM trains a video-derived representation for whole-body mobile control, then deploys it without generating futures. Its distinctive additions are a recurrent future-latent supervision branch and soft mixtures of locomotion, manipulation and shared action experts. Reported evidence includes 73.0% mean simulated subtask success and improvements over π0.5 on five physical tasks. However, inconsistent state-input descriptions and limited evaluation reporting qualify the claims of unprivileged sensing and long-horizon generalization. [E03–E06, E10, E16, E18]",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "The authors argue that mobile manipulation requires representations that handle camera ego-motion, multiple feasible base–arm trajectories, and navigation errors whose consequences appear during later manipulation. They seek to transfer video-model dynamics priors into coordinated control without paying for future-video generation during deployment.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "E02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A pretrained video transformer and a smaller action transformer interact through layerwise attention, with an asymmetric mask permitting cached current-observation features during action generation.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E06"
+      ]
+    },
+    {
+      "text": "Chain-of-Foresight supplies recurrent future-latent supervision, while a three-expert feed-forward mixture provides soft specialization within the action pathway.",
+      "kind": "source",
+      "evidenceIds": [
+        "E04",
+        "E05"
+      ]
+    },
+    {
+      "text": "Component ablations connect these additions to improved executed simulation success; physical experiments establish limited transfer on randomized initial conditions within the training distribution.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E11",
+        "E16"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current head and wrist RGB images, composited side by side at 384 × 640 resolution.",
+      "A language instruction encoded by a frozen T5-family encoder.",
+      "Robot-state conditioning; its definition differs between Section 3.1 and Appendix A.",
+      "Training only: demonstration action chunks and future video latents."
+    ],
+    "outputs": [
+      "Deployment: a four-step chunk of 13-dimensional whole-body commands.",
+      "Training: action and future-video velocity estimates, plus auxiliary foresight velocity estimates and beliefs."
+    ],
+    "steps": [
+      {
+        "name": "Encode the present",
+        "detail": "A frozen 3D VAE compresses the paired-camera video by 16 spatially and 4 temporally. The current observation remains clean; future training latents receive noise. The world transformer has 30 blocks of width 3072. One visual latent tick aligns with one four-action chunk.",
+        "evidenceIds": [
+          "E03"
+        ]
+      },
+      {
+        "name": "Denoise coordinated actions",
+        "detail": "A separate 30-block action transformer of width 1024 joins visual tokens through shared attention at every layer, using separate projections. The 13 command dimensions cover seven arm joints, gripper, head pan/tilt, torso lift and base linear/angular velocities. State conditioning enters the cross-attention context.",
+        "evidenceIds": [
+          "E03",
+          "E04"
+        ]
+      },
+      {
+        "name": "Mix motion experts",
+        "detail": "Every action feed-forward layer contains three cloned experts. A zero-initialized linear router reads mean-pooled noisy-action embeddings and produces temperature-1 softmax weights. Their outputs are combined densely; expert names describe intended specialization rather than hard assignments to command dimensions.",
+        "evidenceIds": [
+          "E04"
+        ]
+      },
+      {
+        "name": "Train a chain of future beliefs",
+        "detail": "A two-layer MLP fuses current-observation features from backbone layers 4, 12, 20 and 30. Three independently parameterized foresight modules sequentially receive the preceding belief and a noised future latent. Each contains three backbone-width transformer blocks and predicts both a flow velocity and the next belief. Gradients propagate through the entire chain into the backbone.",
+        "evidenceIds": [
+          "E05"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Benchmark adaptation jointly fine-tunes both transformer experts in one stage, keeping the VAE and text encoder frozen. AdamW uses learning rate 10^-5, batch size 256, cosine decay, 5% warmup and bf16. The principal objective weights video and action equally, with CoF coefficient 0.1 and depth weights (0.4, 0.2, 0.1).",
+        "kind": "source",
+        "evidenceIds": [
+          "E07",
+          "E08"
+        ]
+      },
+      {
+        "text": "Video and action use independently sampled noise levels. CoF uses noise-schedule shift 10, compared with 5 for the main branches. This supervision shapes current-frame features; it does not provide executed future observations to the policy.",
+        "kind": "source",
+        "evidenceIds": [
+          "E05",
+          "E06",
+          "E07"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Each replanning cycle runs the world backbone once on clean current-observation tokens and caches per-layer keys and values. The action transformer then performs 20 flow-matching steps against this cache. The robot executes all four actions before receiving a new observation and replanning.",
+        "kind": "source",
+        "evidenceIds": [
+          "E06"
+        ]
+      },
+      {
+        "text": "The world backbone remains as an encoder, but future-video tokens, the foresight modules and their fusion MLP are absent. There is no generated-video planner, inverse-dynamics conversion or deployed recurrent CoF memory. The policy predicts commands; physical execution occurs outside the learned model.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "E03",
+          "E06"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "h_0 = g([H^(4); H^(12); H^(20); H^(30)]); (v_hat_k, h_k) = F_k(h_(k-1), z_k^(tau_k); ell, s_t, o_t)",
+        "explanation": "Equations (2)–(3): H denotes current-observation hidden states, g fuses selected depths, and z_k^(tau_k) is a noised future latent. The preceding belief is the inter-step information channel; each step also receives present-observation, language and state conditioning.",
+        "evidenceIds": [
+          "E05"
+        ]
+      },
+      {
+        "expression": "x_tau = (1-tau)x + tau*epsilon; v = epsilon-x; L = L_v + L_a + lambda*sum_(k=1)^K w_k E[||v_hat_k-v_k||^2]",
+        "explanation": "Equations (4)–(5) use flow-matching velocity regression for video, actions and foresight. Here x is a clean action chunk or video latent, epsilon is Gaussian noise, and decreasing w_k discounts farther targets. This is supervised prediction, not a reward or online planning objective.",
+        "evidenceIds": [
+          "E07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "ManiSkill-HAB SetTable",
+      "setting": "Seven subtask combinations; closed-loop completion predicates; three independent evaluation runs.",
+      "metric": "Mean subtask success rate",
+      "value": "73.0%",
+      "comparison": "AC-DiT: 55.6%, a reported difference of 17.4 percentage points. AnchorVLA: 64.0%, averaged over only six reported subtasks.",
+      "interpretation": "The seven-task comparison favors MobileWAM. Its mean cannot be directly compared with AnchorVLA's six-task mean as a matched nine-point gain. These are simulated executions, not video-quality scores.",
+      "evidenceIds": [
+        "E09",
+        "E10"
+      ]
+    },
+    {
+      "task": "Component contribution",
+      "setting": "Table 2, principal evaluation protocol.",
+      "metric": "Mean simulated success rate",
+      "value": "Plain WAM 65.4%; +CoF 68.9%; +CoF and Mobile MoE 73.0%.",
+      "comparison": "Sequential improvements of 3.5 and 4.1 percentage points.",
+      "interpretation": "Both additions improve the aggregate in this sequence. Without a MoE-only condition, the table does not isolate their interaction or establish synergistic effects.",
+      "evidenceIds": [
+        "E11"
+      ]
+    },
+    {
+      "task": "Foresight mechanism",
+      "setting": "Table 3; reduced 5,000-step training budget.",
+      "metric": "Mean simulated success rate",
+      "value": "Transformer CoF 58.2%.",
+      "comparison": "Plain WAM 50.2%; parallel foresight 52.3%; MLP CoF 46.3%.",
+      "interpretation": "Expressive recurrent supervision performs best here. Recurrence alone is insufficient, and changing the foresight architecture also changes capacity, limiting a purely causal interpretation.",
+      "evidenceIds": [
+        "E12"
+      ]
+    },
+    {
+      "task": "Belief initialization and action specialization",
+      "setting": "Tables 4 and 6; reduced training budget.",
+      "metric": "Mean simulated success rate",
+      "value": "Uniform four-layer taps: 58.2%; Mobile MoE: 58.2% in its respective comparison.",
+      "comparison": "All 30 layer taps: 37.1%. Split action experts: 48.8% with bidirectional attention, 46.9% when manipulation reads locomotion, and 44.6% for the reverse.",
+      "interpretation": "The results favor sparse depth-spanning fusion and a shared action representation over the tested alternatives. They do not independently verify the proposed geometry/semantics explanation or semantic expert roles.",
+      "evidenceIds": [
+        "E13",
+        "E14"
+      ]
+    },
+    {
+      "task": "Prediction-cycle latency",
+      "setting": "Table 7; NVIDIA A800 timing.",
+      "metric": "Milliseconds per prediction cycle, lower is better",
+      "value": "938 ms",
+      "comparison": "Motus 4,950 ms; LingBot-VA 8,126 ms; reported speedups approximately 5.3× and 8.7×.",
+      "interpretation": "This measures prediction-cycle speed, not control frequency or autonomous onboard operation. Physical deployment uses a remote server with two 80GB A800 GPUs; communication overhead is not itemized.",
+      "evidenceIds": [
+        "E15"
+      ]
+    },
+    {
+      "task": "Physical ARX Lift2 manipulation",
+      "setting": "Identical fine-tuning data for both methods; randomized initial conditions within the training distribution; full-task completion required.",
+      "metric": "Physical task success rate",
+      "value": "Ta drawer opening: 55%; Tb shelf-to-target: 35%; Tc pick-to-shelf: 25%; Td deposit-and-close: 20%; Te compound sequence: 15%.",
+      "comparison": "π0.5 respectively: 35%, 25%, 10%, 10%, 0%.",
+      "interpretation": "MobileWAM improves all five tasks, but trial counts and uncertainty are absent. The longest task still fails frequently. Gains do not grow monotonically with horizon: the largest absolute margin is 20 percentage points on Ta, versus 15 on Te.",
+      "evidenceIds": [
+        "E16"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The sensing specification is internally inconsistent. Section 3.1 describes joint positions, velocities and base odometry, whereas Appendix A defines an 18-dimensional state containing goal position, grasp status, object pose and end-effector pose. Without explaining how these quantities are obtained, the claim of no privileged states cannot be verified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E18"
+      ]
+    },
+    {
+      "text": "Section 4.1 describes 1,000 demonstrations per subtask with 100 held out; Appendix B instead specifies 1,000 training plus 100 validation trajectories. The exact training split therefore remains unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E09"
+      ]
+    },
+    {
+      "text": "The statement that every baseline falls to single-digit success somewhere conflicts with Table 1: neither AC-DiT nor AnchorVLA has a reported single-digit entry. The physical results also do not support the asserted monotonic growth of advantage with task horizon or establish out-of-distribution generalization.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E10",
+        "E16"
+      ]
+    },
+    {
+      "text": "The authors identify localization near workspace limits, collision interference and lack of recovery as prominent failure modes. Their descriptions of improved generated perspective and motion-correlated expert routing are qualitative evidence, not quantitative dynamics validation.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E17",
+        "E19"
+      ]
+    },
+    {
+      "text": "What breaks symmetry between initially cloned experts under a zero-initialized router? Expert-specific stochasticity or another asymmetric mechanism might suffice, but the supplied implementation description does not identify one.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "E04"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A faithful implementation requires the specified backbone/VAE/text encoder, asymmetric attention masks, per-layer visual caching, independent noise schedules, differentiable CoF recurrence and dense expert mixing. The exact pretrained checkpoint, full-training step count and numerical flow integrator are not identified in the supplied implementation details.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05",
+        "E06",
+        "E08"
+      ]
+    },
+    {
+      "text": "Reproduction also needs resolved state provenance and demonstration splits, evaluation episode counts and seeds, and real-robot demonstration counts and fine-tuning settings. The paper promises code upon acceptance; this statement does not establish availability.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E01",
+        "E09",
+        "E16",
+        "E18"
+      ]
+    },
+    {
+      "text": "A focused mechanism test would compare serial transformer CoF with a parameter-matched parallel head using identical data, optimization steps, layer taps and loss weights, then evaluate paired closed-loop initial conditions. A separate state-input audit should determine whether success depends on simulator-provided object or goal information.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E05",
+        "E12",
+        "E18"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "Other mechanisms and Outside quadrants fit the deployment mechanism: foresight is auxiliary supervision, actions read current visual features, and neither joint future/action sampling nor inverse dynamics drives execution. Dual-system is convention-dependent here: the source specifies distinct world and action transformer stacks, but they interact at every layer within an integrated mixture-of-transformers. Without a catalog rule for this architecture, joint training alone cannot settle Dual-system versus One Model. Navigation and inference-efficiency tags are supported. Memory should refer to the training-time future-belief chain, not persistent deployment memory.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05",
+        "E06",
+        "E15",
+        "E16"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Navigation",
+        "Memory & long-horizon modeling",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "8f0f0b8f853f96c105c75f44cb216c822a6848deb9a247b3c1462d65c0b40c47"
+    }
+  },
+  "discussionQuestions": [
+    "How much success remains when state conditioning contains only quantities available from the deployed robot's sensors? [E18]",
+    "Does serial CoF retain its advantage after matching auxiliary-head capacity and training compute? [E12]",
+    "What breaks expert symmetry, and do intervention tests establish locomotion/manipulation specialization beyond routing correlations? [E04, E19]",
+    "Would persistent observation history improve recovery more than extending the training-only foresight chain? [E06, E17]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "E01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title page, abstract and arXiv footer",
+      "detail": "Title, identifier and authors match the catalog; the footer specifies v2 and 6 August 2026, the document date says August 7, and the abstract promises code upon acceptance."
+    },
+    {
+      "id": "E02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Sections 1 and 2.3",
+      "detail": "The motivation emphasizes moving viewpoints, multimodal base–arm trajectories and delayed navigation consequences; future prediction is proposed as training supervision."
+    },
+    {
+      "id": "E03",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Sections 3.1–3.2; p. 6, Section 4.1",
+      "detail": "Defines two-camera observations, language/state conditioning, 13-dimensional actions, four-action chunks, the 30-block width-3072 backbone, frozen VAE/T5 and 384 × 640 composited images."
+    },
+    {
+      "id": "E04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3; p. 14, Appendix A, Architecture and Mobile MoE",
+      "detail": "The width-1024 action stack interacts layerwise through joint attention. Three cloned FFNs are softly mixed by a zero-initialized router over mean-pooled noisy-action embeddings, without balancing loss."
+    },
+    {
+      "id": "E05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.4, Eqs. (2)–(3); p. 14, Appendix A, Chain-of-Foresight",
+      "detail": "CoF fuses layers 4/12/20/30 and chains independent three-block transformer modules through beliefs, without stop-gradient. Foresight noise shift is 10 versus 5 for main branches."
+    },
+    {
+      "id": "E06",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.5; p. 14, Appendix A, Decoupled inference",
+      "detail": "Current visual tokens exclude future/action information. Inference caches one current-frame backbone pass, denoises actions for 20 steps and executes four actions; future tokens and CoF are absent."
+    },
+    {
+      "id": "E07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.6, Eqs. (4)–(5); p. 14, Appendix A, Optimization",
+      "detail": "Defines Gaussian interpolation, velocity targets, independent branch timesteps and weighted video/action/CoF losses; CoF coefficient is 0.1 with weights 0.4/0.2/0.1."
+    },
+    {
+      "id": "E08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, Training; p. 14, Appendix A, Optimization",
+      "detail": "Reports joint expert fine-tuning, frozen VAE/text encoder, AdamW at 10^-5, batch 256, cosine decay, 5% warmup, bf16 and 5,000-step reduced ablations."
+    },
+    {
+      "id": "E09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1; p. 14, Appendix B",
+      "detail": "Seven SetTable combinations use official closed-loop completion predicates and three evaluation runs. Main text describes 100 held out from 1,000 trajectories; Appendix B lists 1,000 training and 100 validation."
+    },
+    {
+      "id": "E10",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.2; p. 7, Table 1, all subtask rows and Mean row",
+      "detail": "Means are MobileWAM 73.0, AC-DiT 55.6 and AnchorVLA 64.0; AnchorVLA lacks Open Drawer. AC-DiT and AnchorVLA have no reported single-digit subtask, contrary to the prose."
+    },
+    {
+      "id": "E11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2, Mean row and component columns",
+      "detail": "Plain WAM, added CoF, and subsequently added Mobile MoE score 65.4%, 68.9% and 73.0%; no MoE-only condition is listed."
+    },
+    {
+      "id": "E12",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3, caption and Mean row",
+      "detail": "At 5,000 steps, plain WAM scores 50.2%, parallel foresight 52.3%, MLP CoF 46.3% and transformer CoF 58.2%."
+    },
+    {
+      "id": "E13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4, All 30 layers and Uniform 4 layers rows",
+      "detail": "Under reduced training, all-layer fusion scores 37.1% and uniform four-layer fusion scores 58.2%."
+    },
+    {
+      "id": "E14",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 6, caption and Mean S.R. row",
+      "detail": "MoE scores 58.2%; split action experts score 48.8% bidirectionally, 46.9% with manipulation attending locomotion and 44.6% in the reverse direction."
+    },
+    {
+      "id": "E15",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Deployment efficiency; p. 10, Table 7; p. 16, Appendix C, Platform",
+      "detail": "A800 prediction-cycle latencies are 938, 4,950 and 8,126 ms. The approximately 6.5B-parameter physical policy runs remotely on two 80GB A800 GPUs over Wi-Fi."
+    },
+    {
+      "id": "E16",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.4; p. 10, Table 8; pp. 16–17, Appendix C",
+      "detail": "Ta–Te success is 55/35/25/20/15% for MobileWAM versus 35/25/10/10/0% for π0.5. Both use identical fine-tuning data; evaluation randomizes within the training distribution and requires complete task success."
+    },
+    {
+      "id": "E17",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.6",
+      "detail": "Reported failures include localization at workspace boundaries, collisions, absent recovery, rest-pose failures and premature drops."
+    },
+    {
+      "id": "E18",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1; p. 6, Section 4.1; p. 14, Appendix A, Architecture",
+      "detail": "Main text describes joint/odometry state and claims no privileged states; Appendix A instead defines 18-dimensional conditioning using goal position, grasp indicator, object pose and end-effector pose."
+    },
+    {
+      "id": "E19",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.5; p. 17, Appendix D; p. 18, Appendix E",
+      "detail": "The authors qualitatively describe improved generated geometry and routing weights tracking motion phases. Appendix E derives phase labels from base and arm speeds; these descriptions are not independent visual inspection."
+    }
+  ]
+}

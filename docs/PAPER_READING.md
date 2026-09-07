@@ -4,7 +4,17 @@ The reading library is separate from the Notion catalog. `data/papers.json` rema
 
 The website and repository remain private. These commands do not publish the site or write to Notion.
 
-The chapter-based reading experience was informed by the [OpenMOSS VLP report](https://openmoss.ai/Awesome-WAM/report/2310.10625/index.en.html). This site's Research Notes design uses its own blue-gray and amber palette, right-side navigation, mechanism flow, linked evidence, explicit reading coverage and preserved classification snapshots.
+The illustrated reading format follows the [OpenMOSS UniPi report](https://openmoss.ai/Awesome-WAM/report/2302.00111/index.html): a narrow fixed chapter directory on desktop, a full paper title and metadata panel, a paper-overview table, centered numbered sections, and original figures embedded in the explanation. Below 980 px, the directory appears beneath the title panel. The eight sections cover overview, motivation, research context, formulation, method, experiments, limitations and reproducibility. The collection retains its green and ivory palette and heading typography. Our source-attributed reading notes, WAM classification assessment and proposed reproduction checks remain distinct from the reference report's prose. Title-block authors and affiliations are verified from each original PDF and recorded in `data/illustrated-report-metadata.json`.
+
+## Ten-paper review checkpoint
+
+The user requested ten redesigned reports before approving the remaining catalog. `data/report-pilot.json` records those IDs and the `awaiting-user-review` state. The earlier text-only batch has been stopped, and the runner refuses to start while that state is active. Do not remove the checkpoint or infer approval from elapsed time.
+
+The ten illustrated editions are in `data/illustrated-reports/`, with original figure/table crops in `public/report-assets/<paper-id>/`. They supplement the existing evidence records in `data/reports/`; older text notes retain their pages and are labeled separately. The reading index presents the ten samples together. Every Explore card has a bottom-right reading link: completed reports open directly; queued entries open their filtered reading status.
+
+Follow the [illustrated edition guide](../skills/wam-paper-reader/references/illustrated-report-guide.md). Each sample contains 4–6 original visuals, three substantial tutorial steps, two proposed reproduction checks and a visual audit. Each crop records its original PDF hash, page, figure/table number, normalized bounds and image dimensions. Visually inspect both the source page and final crop. Preserve scientific content, headers, axes, legends and relevant footnotes. Never replace the paper's graphics with generated illustrations or reconstructed numbers.
+
+Figures enlarge inside the current page with an accessible dialog and Escape-to-close support. The main report retains equations, training/inference distinctions, results with evaluation settings, classification evidence, limitations and the source ledger. Raw PDFs and intermediate page renders remain outside the repository. Original figures and tables are attributed to the paper's authors.
 
 ## The reusable skill
 
@@ -12,7 +22,7 @@ The versioned skill is [WAM Paper Reader](../skills/wam-paper-reader/SKILL.md). 
 
 Example prompt:
 
-> Use $wam-paper-reader to read this catalog paper from its primary source. Write an original English research report with a mechanism explanation, separate training and inference, source-located experimental results, limitations, reproducibility requirements and a review of its recorded taxonomy. Record the actual reading coverage. Do not infer missing details from the title or abstract, and do not update Notion or publish the website.
+> Use $wam-paper-reader and its illustrated edition guide to read this catalog paper from its verified primary PDF. Inspect the method figure, original quantitative tables and ablations, then create faithful attributed crops and verify their legibility. Explain how to read each visual, what it supports and where the evidence stops. Write the English tutorial and trace every scientific claim to source evidence. Preserve separate training/inference explanations, equations, evaluation conditions, taxonomy analysis and proposed reproduction checks. Respect the ten-paper checkpoint; leave remaining work paused until the user approves the samples. Do not update Notion or publish the website.
 
 ## Source preparation
 
@@ -30,6 +40,8 @@ python3 -m venv ../reading_work/.venv
 Only a verified, readable primary source can enter the reading runner. Identity mismatches and inaccessible sources remain visible in the queue. A source file is not proof that the resource was fully read.
 
 ## Read and resume
+
+**Currently paused for user review.** The commands below describe the preliminary text-note runner, not the completed illustrated workflow. A text-only run cannot produce a finished illustrated report. Resume catalog-wide work only after the user approves the ten samples and the visual workflow is included in that work.
 
 The runner uses the existing authenticated Codex CLI and its configured model. On macOS it prefers the CLI bundled with the desktop app when available. Set `CODEX_BIN` to choose another compatible executable; no API key is embedded in the project.
 
@@ -80,4 +92,4 @@ npm run check
 npm run build
 ```
 
-Validation checks schema fields, catalog identities, source fingerprints, safe URLs, evidence/source references, coverage/status consistency and private-path leakage. It cannot prove the scientific interpretation is correct. Independently inspect important numerical results, primary-source locations, classification assessments and extraction ambiguities. Keep unavailable and partial items visible when reporting batch coverage; do not describe the entire catalog as fully read until the recorded coverage supports that statement.
+Validation checks schema fields, catalog identities, source fingerprints, safe URLs, evidence/source references, coverage/status consistency and private-path leakage. Illustrated validation additionally checks the ten-paper scope, original visual types, PDF-page links, normalized crop bounds, PNG dimensions, attribution and recorded inspection of every cropped page. It cannot prove the scientific interpretation is correct. Independently inspect important numerical results, primary-source locations, classification assessments and extraction ambiguities. Keep unavailable and partial items visible when reporting batch coverage; do not describe the entire catalog as fully read until the recorded coverage supports that statement.

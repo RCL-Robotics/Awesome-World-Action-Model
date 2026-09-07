@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { validateIllustratedReport } from '../scripts/lib/illustrated-reports.mjs';
+const base = JSON.parse(await readFile(new URL('../data/reports/2608.08839.json', import.meta.url), 'utf8'));
+const original = JSON.parse(await readFile(new URL('../data/illustrated-reports/2608.08839.json', import.meta.url), 'utf8'));
+const mutate = fn => { const clone = structuredClone(original); fn(clone); return clone; };
+test('accepts an illustrated edition tied to a verified paper', () => assert.equal(validateIllustratedReport(original, base), original));
+test('rejects a figure attributed to a different PDF', () => assert.throws(() => validateIllustratedReport(mutate(r => r.visuals[0].sourceSha256 = '0'.repeat(64)), base), /fingerprint/));
+test('rejects page links that do not match the crop location', () => assert.throws(() => validateIllustratedReport(mutate(r => r.visuals[0].sourceUrl += '2'), base), /source URL/));
+test('rejects traversal outside published figure assets', () => assert.throws(() => validateIllustratedReport(mutate(r => r.visuals[0].asset = '../reading_work/source.pdf'), base), /private source paths|unsafe asset/));
+test('rejects impossible crop bounds', () => assert.throws(() => validateIllustratedReport(mutate(r => r.visuals[0].crop = [.8, .1, .2, .7]), base), /crop/));
+test('requires an actual quantitative table', () => assert.throws(() => validateIllustratedReport(mutate(r => r.visuals.forEach(v => v.kind = 'figure')), base), /quantitative table/));
+test('requires every visual to have been inspected', () => assert.throws(() => validateIllustratedReport(mutate(r => r.visualAudit.inspectedPages = []), base), /visual audit/));
+test('requires traceable scientific explanations', () => assert.throws(() => validateIllustratedReport(mutate(r => r.visuals[0].evidenceIds = ['invented']), base), /evidence/));
+test('batch refuses to start while the user review checkpoint is active', () => {
+  const result = spawnSync(process.execPath, [new URL('../scripts/reading/run-reports.mjs', import.meta.url).pathname, '--limit', '1'], { encoding: 'utf8' });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /ten illustrated pilot reports require user review/);
+});

@@ -1,0 +1,478 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.03244",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T17:10:12.558Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.03244",
+      "title": "UniNav: A Unified World-Action Diffusion Model for Visual Navigation",
+      "kind": "pdf",
+      "sha256": "da1a0751d15c5cd81b1258d534b703007b6dc63771a4ae76e5bb23e89848a601",
+      "wordCount": 5060,
+      "accessedAt": "2026-09-07T13:54:16.377652+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, authors and arXiv version stamp",
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "2.1 Image-Goal Conditioned Visual Navigation",
+      "2.2 Navigation World Models",
+      "2.3 Unified World-Action Models",
+      "3 Method",
+      "3.1 Overview",
+      "3.2 Geometry-Aware Token Representation",
+      "3.3 Unified Flow-Matching Objective",
+      "3.4 UniNav-Full and UniNav-Fast",
+      "4 Experiments",
+      "4.1 Experimental Setup",
+      "4.2 Main Results",
+      "4.3 Ablation Studies",
+      "4.4 Qualitative Results",
+      "5 Conclusion, including Limitations and Future Work",
+      "References"
+    ],
+    "omissions": [
+      "The supplied title, four authors and identifier match the catalog. The observed source is arXiv:2608.03244v1, dated 4 August 2026; other revisions were not inspected.",
+      "Figure captions and surrounding discussion were read, but figure images were not supplied or visually inspected.",
+      "The main text refers to an Appendix containing additional prediction comparisons, visual metrics and robot-collected-data evaluations. That appendix was not supplied, and separate supplemental availability remains unverified.",
+      "Code was not inspected and experiments were not reproduced.",
+      "Source provenance was supplied with the task; the artifact hash was not independently recomputed.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: Action prediction comparison on four navigation benchmarks",
+      "Table 2: Camera-token geometry supervision on RECON",
+      "Table 3: Video-only data and camera-token supervision on RECON",
+      "Table 4: Denoising steps, accuracy and efficiency on RECON"
+    ],
+    "appendix": "not-read"
+  },
+  "synopsis": "UniNav adapts a pretrained video transformer to predict local navigation waypoints together with future visual latents and learned camera-geometry tokens. Its distinctive mechanism is auxiliary denoising of geometry targets extracted from training images, which also makes video-only training useful in the reported RECON ablation. A separately trained Fast variant blocks waypoint dependence on future-video tokens and removes those tokens at deployment. The experiments establish improvements in offline waypoint error and a practical latency trade-off; they do not establish closed-loop goal-reaching or collision avoidance. [e3–e8, e11–e15]",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "The authors seek to combine the direct waypoint generation of navigation policies with the visual anticipation of world models, while avoiding separate imagined rollouts for each candidate trajectory. They also ask whether videos lacking waypoint labels can improve navigation through shared visual and geometric supervision.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e2",
+      "e7"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "One denoising transformer processes future-video, waypoint and camera tokens, giving image-goal navigation a shared generative representation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e3",
+        "e6",
+        "e7"
+      ]
+    },
+    {
+      "text": "Frozen geometry-model features serve as camera-token denoising targets. Supervision masks allow video-only samples to train visual and geometric prediction without fabricated waypoint labels.",
+      "kind": "source",
+      "evidenceIds": [
+        "e5",
+        "e7"
+      ]
+    },
+    {
+      "text": "The separately trained Fast variant uses asymmetric attention to retain video supervision during training while eliminating future-video generation during inference.",
+      "kind": "source",
+      "evidenceIds": [
+        "e8"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "History images and a goal image; the default history contains three frames. [e3, e9]",
+      "Training targets: future frames and, for navigation samples, local waypoint annotations; camera targets are extracted from history and future images. [e4, e5, e7]"
+    ],
+    "outputs": [
+      "A local trajectory of six waypoints by default, each containing relative translation and yaw change. [e3, e9]",
+      "UniNav-Full additionally predicts future-video latents that support decoded visual foresight; UniNav-Fast omits future-video output. [e4, e8]"
+    ],
+    "steps": [
+      {
+        "name": "Encode visual context",
+        "detail": "A frozen video VAE encodes history, goal and training future frames into patchified latent tokens. History and goal tokens condition prediction; future tokens are denoising targets.",
+        "evidenceIds": [
+          "e4"
+        ]
+      },
+      {
+        "name": "Represent motion and geometry",
+        "detail": "An MLP embeds each noisy three-component waypoint. A frozen geometry model extracts normalized camera-aware features from the combined history/future image sequence; future-view features become noisy camera tokens through another MLP. These are learned geometric targets, rather than supplied ground-truth camera poses.",
+        "evidenceIds": [
+          "e3",
+          "e4",
+          "e5"
+        ]
+      },
+      {
+        "name": "Share the denoising backbone",
+        "detail": "The sequence contains camera, future-video, waypoint, history, goal and learnable register tokens. All pass through the same transformer with modality-specific output heads. Visual tokens retain pretrained positional encoding; camera, waypoint and register tokens receive identity positional encodings.",
+        "evidenceIds": [
+          "e6",
+          "e7"
+        ]
+      },
+      {
+        "name": "Choose the inference dependency",
+        "detail": "Full jointly refines the predicted modalities. Fast is trained with a mask preventing every non-future token from attending to noisy future-video tokens, while future-video tokens may attend to the remaining sequence. Removing future-video tokens therefore preserves Fast's trained waypoint information path.",
+        "evidenceIds": [
+          "e8"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Video and camera velocities use squared-error losses; waypoint velocities use SmoothL1. Navigation samples activate all three losses. Video-only samples deactivate the trajectory loss and require no pseudo-trajectories.",
+        "kind": "source",
+        "evidenceIds": [
+          "e7"
+        ]
+      },
+      {
+        "text": "Training initializes Wan2.1-T2V-1.3B and fine-tunes its transformer plus new modules, keeping the VAE and geometry model frozen. AdamW learning rates are 5×10^-6 and 5×10^-5 for pretrained and new modules respectively. Training uses four RTX 4090 GPUs, two epochs, batch size one per GPU and four accumulation iterations.",
+        "kind": "source",
+        "evidenceIds": [
+          "e5",
+          "e10"
+        ]
+      },
+      {
+        "text": "Loss weights are 1 for video, 5 for trajectory and 0.01 for camera supervision. The implementation paragraph calls the trajectory weight λ_act, whereas the objective uses λ_traj. Images are resized to 256×192. Video-only sources include ScanNet, DL3DV, CityWalker and LAVN, but the main benchmark comparison excludes this additional data.",
+        "kind": "source",
+        "evidenceIds": [
+          "e9",
+          "e10",
+          "e11"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Conditioned on history and goal images, Full iteratively denoises its predicted modalities, starting future-image and trajectory states from random noise. The default evaluation uses two sampling steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "e3",
+          "e8",
+          "e10"
+        ]
+      },
+      {
+        "text": "Fast removes future-video tokens and skips future-frame VAE decoding. Its visual prediction objective supplies training supervision; it does not generate visual rollouts for inference-time trajectory scoring.",
+        "kind": "source",
+        "evidenceIds": [
+          "e8"
+        ]
+      },
+      {
+        "text": "The described output is a waypoint sequence. A low-level tracking controller, replanning cadence and complete robot feedback loop are not specified in the supplied method, so executable-format predictions should not be equated with demonstrated robot execution.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e3",
+          "e8",
+          "e15"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "z_m = (1 − σ_m)x_m + σ_m ε_m; u_m = ε_m − x_m, for m ∈ {vid, traj, cam}.",
+        "explanation": "Equation (4) interpolates each clean modality target x_m with Gaussian noise ε_m. The network predicts the interpolation velocity u_m from the joint token state and noise levels. At σ_m=1 the state is noise; at σ_m=0 it is the clean target.",
+        "evidenceIds": [
+          "e7"
+        ]
+      },
+      {
+        "expression": "L = λ_vid m_vid L_vid + λ_traj m_traj L_traj + λ_cam m_cam L_cam.",
+        "explanation": "Equation (8) combines modality losses using weights λ and supervision-availability indicators m. Setting m_traj=0 allows an unlabeled video to contribute visual and geometric learning without asserting a corresponding action target.",
+        "evidenceIds": [
+          "e7"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Offline local waypoint prediction",
+      "setting": "Four navigation datasets; navigation-only training; two-step UniNav sampling. Exact evaluation splits and sample counts are not supplied.",
+      "metric": "ATE, lower is better; units are not specified",
+      "value": "RECON: Full 0.314; SaCSoN: Full 0.464; GO Stanford: Fast 0.687; SCAND: Full 0.463.",
+      "comparison": "Best baseline ATE respectively: NWM 0.326, ViNT 0.616, NavDP 0.840 and NWM 0.497. The text reports relative reductions of 3.7%, 24.7%, 18.2% and 6.8%.",
+      "interpretation": "The best UniNav variant leads ATE on each dataset, but the winning variant changes. These are measured offline trajectory errors, not navigation success rates.",
+      "evidenceIds": [
+        "e9",
+        "e11",
+        "e15"
+      ]
+    },
+    {
+      "task": "Relative pose accuracy",
+      "setting": "RECON main comparison with two-step UniNav sampling",
+      "metric": "RPE, lower is better",
+      "value": "Full 0.121; Fast 0.122.",
+      "comparison": "NWM achieves 0.115.",
+      "interpretation": "UniNav's RECON ATE advantage does not extend to the best RPE; the claim of improvement should remain metric-specific.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Geometry-supervision ablation",
+      "setting": "RECON; camera-token design comparison",
+      "metric": "ATE / RPE, lower is better",
+      "value": "Camera-token denoising: 0.314 / 0.121.",
+      "comparison": "Without camera tokens: 0.321 / 0.125. Clean future-camera conditioning: 0.299 / 0.102.",
+      "interpretation": "Denoising provides a modest observed improvement. Clean conditioning is an oracle using ground-truth future images and is unavailable in practical inference.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Transfer from video-only data",
+      "setting": "RECON; camera denoising enabled or disabled, with or without additional video-only training",
+      "metric": "ATE / RPE, lower is better",
+      "value": "With camera denoising, additional videos change 0.314 / 0.121 to 0.302 / 0.109.",
+      "comparison": "Without camera denoising, additional videos change 0.321 / 0.125 to 0.330 / 0.125.",
+      "interpretation": "The observed interaction supports geometry supervision as a useful component of video transfer in this setting. It does not establish universal benefits from more video data or isolate all effects of training exposure.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Accuracy–latency trade-off",
+      "setting": "RECON; latency measured on one NVIDIA RTX 4090",
+      "metric": "Latency in seconds; ATE / RPE",
+      "value": "One-step Fast: 0.109 s and 0.318 / 0.123.",
+      "comparison": "Two-step Fast: 0.212 s and 0.316 / 0.122; two-step Full: 0.389 s and 0.314 / 0.121. ViNT is faster at 0.015 s, with errors 0.659 / 0.215.",
+      "interpretation": "One-step Fast nearly preserves its two-step offline accuracy while reducing latency. It is not the fastest listed policy, and model latency alone does not establish closed-loop performance.",
+      "evidenceIds": [
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors explicitly limit the present system to short-horizon local waypoint prediction and primarily offline evaluation; long-horizon planning and broader closed-loop deployment remain future work.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "text": "The main comparison excludes extra video-only data, but the supplied text does not document exact train/test partitions, sample counts, baseline retraining procedures or uncertainty across runs. Small differences cannot be interpreted as statistically established gains.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e9",
+        "e10",
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "text": "Camera-token ablations measure waypoint errors rather than camera-pose, depth or metric reconstruction accuracy. They support a useful auxiliary target, but do not independently establish the claimed metric geometric understanding.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e5",
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "text": "PSNR, SSIM and LPIPS are named, but their numerical results are absent from the supplied main text. Visual fidelity and correspondence between generated views and predicted waypoints therefore cannot be quantitatively assessed from this material.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e9",
+        "e16"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction requires the Wan transformer/VAE, the frozen DA3 geometry model, image-goal navigation sequences with local waypoint labels, and the listed video datasets for the mixed-data experiment. Full and Fast require separate training configurations.",
+      "kind": "source",
+      "evidenceIds": [
+        "e5",
+        "e8",
+        "e9",
+        "e10",
+        "e12"
+      ]
+    },
+    {
+      "text": "Resolve the unspecified frame spacing, goal sampling, waypoint scaling, geometry-feature selection and normalization, register-token count, data mixture proportions, sampler schedule and camera-token initialization before expecting comparable results.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e3",
+        "e5",
+        "e6",
+        "e7",
+        "e8",
+        "e9",
+        "e10"
+      ]
+    },
+    {
+      "text": "The abstract promises a code release. That statement alone does not establish that implementation files or checkpoints are available.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e1"
+      ]
+    },
+    {
+      "text": "The smallest useful mechanism check is the RECON camera-denoising × video-only-data ablation, holding navigation exposure and optimization budget fixed and repeating seeds. This would test whether the reported transfer interaction persists under controlled training exposure.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e12",
+        "e13"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The core Q1 classification is supported by architecture evidence: a single shared denoising transformer processes both future-video and waypoint targets through one flow-matching formulation. This is direct joint prediction, not inverse dynamics applied to generated images. Frozen VAE and geometry encoders supply representations rather than separate action and world predictors. Fast retains joint supervision but removes visual-future prediction at inference. The Navigation and Joint video-action modeling tags are supported; 3D multiview modeling is less explicit because the paper uses geometry features across temporal views without demonstrating a dedicated multiview reconstruction output or simultaneous multi-camera architecture.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e3",
+        "e4",
+        "e5",
+        "e6",
+        "e7",
+        "e8"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Navigation",
+        "Joint video-action modeling",
+        "3D multiview modeling"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q1 · One Model × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "c4984959a049500b4a00c1b1eecd4a590cebb2deee265c496a669fcaf08a92dd"
+    }
+  },
+  "discussionQuestions": [
+    "Does the camera-supervision benefit survive repeated seeds and matched training exposure when video-only data are added? [e12, e13]",
+    "How much of Fast's accuracy comes from video supervision, geometry supervision and pretrained features individually? The supplied ablations do not fully separate these sources. [e8, e10, e13]",
+    "Do lower offline waypoint errors translate into higher closed-loop goal-reaching success when controller, replanning rate and latency are held fixed? [e11, e14, e15]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e1",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, arXiv version stamp and Abstract",
+      "detail": "The title and four authors match the catalog. The stamp identifies arXiv:2608.03244v1, dated 4 August 2026. The abstract states that code will be released."
+    },
+    {
+      "id": "e2",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Section 1 Introduction",
+      "detail": "The motivation contrasts direct waypoint policies with world models that generate and evaluate separate candidate rollouts, then proposes joint world-action generation and video-only supervision."
+    },
+    {
+      "id": "e3",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1 Overview",
+      "detail": "Inputs are history frames and a goal image. Outputs include K local waypoints with relative x/y translation and yaw change, plus optional future observations. Image and trajectory inference states begin from random initialization."
+    },
+    {
+      "id": "e4",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.2, Visual tokens and Waypoint tokens; Eq. (1)",
+      "detail": "A frozen video VAE supplies visual latents. Noisy waypoints are embedded with an MLP, processed by the shared transformer and decoded into trajectory velocities."
+    },
+    {
+      "id": "e5",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.2, Camera tokens; Eq. (2)",
+      "detail": "A frozen geometry model processes history and future images. Normalized features for future views become camera denoising targets, which are noised and projected into transformer tokens."
+    },
+    {
+      "id": "e6",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2, Unified token sequence; Eq. (3)",
+      "detail": "Camera, future-video, waypoint, history, goal and register tokens share one denoising transformer. Visual positional encoding is retained; other listed prediction/register tokens receive identity positional encodings."
+    },
+    {
+      "id": "e7",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.3; Eqs. (4)–(8) and supervision-mask explanation",
+      "detail": "Targets interpolate clean samples with Gaussian noise and use noise-minus-clean velocities. Video/camera losses are squared errors; trajectory loss is SmoothL1. Availability masks disable trajectory supervision for video-only samples."
+    },
+    {
+      "id": "e8",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.4 UniNav-Full and UniNav-Fast",
+      "detail": "Full jointly denoises video, waypoint and camera tokens. Fast is separately trained with asymmetric attention blocking non-future tokens from reading future-video tokens; inference removes future-video tokens and their decoding."
+    },
+    {
+      "id": "e9",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1, Datasets and Metrics",
+      "detail": "Evaluation datasets are RECON, SaCSoN, GO Stanford and SCAND. Additional video sources are ScanNet, DL3DV, CityWalker and LAVN. Defaults are three history frames, six future frames/waypoints and 256×192 images. Metrics include ATE, RPE, PSNR, SSIM and LPIPS."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1, Implementation details",
+      "detail": "Initialization uses Wan2.1-T2V-1.3B with frozen VAE. AdamW rates are 5×10^-6 and 5×10^-5. Training uses four RTX 4090 GPUs for two epochs, batch size one per GPU and four accumulation iterations. Weights are 1, 5 and 0.01; default inference uses two steps."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.2; PDF p. 6, Table 1, ATE columns and RECON RPE column",
+      "detail": "Main results exclude extra video-only data. Best UniNav ATEs are 0.314, 0.464, 0.687 and 0.463, versus strongest baseline values 0.326, 0.616, 0.840 and 0.497. RECON RPE is 0.121 for Full, 0.122 for Fast and 0.115 for NWM. Section 4.2 reports relative ATE reductions of 3.7%, 24.7%, 18.2% and 6.8%."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2 and Effect of Camera-Token Geometry Supervision",
+      "detail": "ATE/RPE are 0.321/0.125 without camera tokens, 0.299/0.102 with clean conditioning and 0.314/0.121 with denoising. The text identifies DA3 and explicitly labels clean future-frame conditioning as an oracle."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 3; PDF pp. 6–7, Effect of Mixed Navigation and Video-Only Training",
+      "detail": "Without camera denoising, adding video changes ATE/RPE from 0.321/0.125 to 0.330/0.125. With denoising, it changes 0.314/0.121 to 0.302/0.109."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 4, ViNT and one-/two-step UniNav rows; Model Profile",
+      "detail": "On one RTX 4090, one-step Fast has ATE/RPE 0.318/0.123 and latency 0.109 s. Two-step Fast has 0.316/0.122 and 0.212 s; two-step Full has 0.314/0.121 and 0.389 s. ViNT has 0.659/0.215 and 0.015 s."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5, Limitations and Future Work",
+      "detail": "The authors describe short-horizon local prediction, primarily offline evaluation, and future work on long-horizon planners and broader closed-loop deployment."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.3 opening; PDF p. 7, Section 4.4",
+      "detail": "The paper directs visual-prediction metrics, alternative prediction designs and robot-collected-data evaluations to an Appendix. The supplied main text discusses qualitative figures without numerical visual-quality results."
+    }
+  ]
+}

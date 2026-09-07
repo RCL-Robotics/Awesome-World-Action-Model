@@ -1,0 +1,528 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.00793",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T17:02:33.830Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.00793",
+      "title": "DynamicWAM: Dual-Path Motion Conditioning for World-Action Models in Dynamic Manipulation",
+      "kind": "pdf",
+      "sha256": "39833e174e8732fd18c25c4a0b287fbc00b7c0567d5bdab88eda290173cd2acf",
+      "wordCount": 8765,
+      "accessedAt": "2026-09-07T13:54:02.475187+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method, including 3.1–3.4",
+      "4 Simulation Experiments, including 4.1–4.4",
+      "5 Real-World Experiments, including 5.1–5.5",
+      "6 Conclusion",
+      "References",
+      "A Experimental Details, including A.1–A.5",
+      "B Architecture and Training Details, including B.1–B.6",
+      "C Motion Representation Construction, including C.1–C.4",
+      "D Extended Experimental Results, including D.1–D.8",
+      "Figure captions 1–9"
+    ],
+    "omissions": [
+      "Review used the complete supplied text. Figure images were not supplied or visually inspected; captions do not establish visual verification.",
+      "Ambiguous merged cells in extracted Tables 6, 7, and 12 were not used for numerical conclusions.",
+      "Separate supplemental material availability was not verified.",
+      "Code was not inspected, and experiments were not reproduced.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1, supplied text",
+      "Table 2, supplied text",
+      "Table 3, supplied text",
+      "Table 4, supplied text",
+      "Table 5, supplied text",
+      "Table 6, legible supplied text",
+      "Table 7, legible supplied text",
+      "Table 8, supplied text",
+      "Table 9, supplied text",
+      "Table 10, supplied text",
+      "Table 11, supplied text",
+      "Table 12, legible supplied text"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "DynamicWAM addresses moving-target interception by giving a coupled video/action model two views of recent motion: normalized optical-flow images preserve spatial patterns, while numerical tokens restore displacement scale and elapsed time. Its separate experts jointly predict future visual latents and robot actions, with cached video computation and asynchronous execution supporting deployment. Reported success reaches 38.2% on DOMINO and 46.67% on twelve physical tasks. The evidence supports complementary conditioning benefits, but deployment comparisons require accounting for RealCore and RTC, and the paper contains a contradictory baseline-speed claim. [E02, E03, E04, E05, E10, E12, E15, E16]",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "A current image can correspond to different target velocities and therefore different interception actions. Normalized flow images add motion direction and structure but discard displacement scale and interval duration. Meanwhile, a moving target can leave its observed position during inference and chunk execution. The authors seek to address both motion ambiguity and delayed control.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "E02",
+      "E04",
+      "E09"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "History-flow conditioning encodes observed motion images alongside current RGB observations through a frozen pretrained video VAE.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E02",
+        "E04"
+      ]
+    },
+    {
+      "text": "Kinematic tokens supplement normalized flow with image-plane displacement, duration, velocity, and acceleration, without changing the robot action representation.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E02",
+        "E05"
+      ]
+    },
+    {
+      "text": "A distilled video expert, cached denoising, and RTC execution combine motion-conditioned prediction with a practical robot deployment procedure.",
+      "kind": "source",
+      "evidenceIds": [
+        "E07",
+        "E09",
+        "E10"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current multi-view RGB observations, language instruction, and proprioception. [E03]",
+      "Five timestamped head-camera endpoints defining four recent motion intervals. [E04]",
+      "Noisy future visual latents and noisy action tokens during flow matching and sampling. [E03, E06]"
+    ],
+    "outputs": [
+      "A chunk of 16 joint-position actions, with gripper control included in the documented real-robot representation. [E03]",
+      "Future visual latents representing eight RGB frames; these are predictions, not executed robot outcomes. [E03, E18]"
+    ],
+    "steps": [
+      {
+        "name": "Construct timestamped motion history",
+        "detail": "Use four intervals with endpoints at t−16, t−12, t−8, t−4, and t policy steps. Compute Farnebäck flow on 64×64 grayscale head-camera images. Forward–backward consistency filtering removes unreliable vectors; an interval becomes invalid when fewer than 10% of pixels pass.",
+        "evidenceIds": [
+          "E04"
+        ]
+      },
+      {
+        "name": "Encode spatial motion through the video pathway",
+        "detail": "Render flow direction as hue and magnitude relative to each interval's valid-pixel 99th percentile. Concatenate the four rendered images with the current observation along time and encode them with the frozen Wan VAE. This preserves spatial motion patterns while intentionally normalizing their magnitude.",
+        "evidenceIds": [
+          "E04"
+        ]
+      },
+      {
+        "name": "Restore scale and timing through action tokens",
+        "detail": "Summarize each valid field with a 12-dimensional descriptor: signed mean displacement, mean and 99th-percentile magnitude, elapsed time, corresponding velocity statistics, and acceleration vector and magnitude. Standardize using training statistics and project through a two-layer MLP with position/type embeddings. Missing intervals and unavailable acceleration histories receive learned embeddings. Units remain image-plane pixels and seconds, not 3D object coordinates.",
+        "evidenceIds": [
+          "E05"
+        ]
+      },
+      {
+        "name": "Couple distinct prediction experts",
+        "detail": "A 12-layer, width-2048 video expert interacts with a 12-layer, width-768 action expert. Both streams attend to concatenated video/action keys and values. The action stream contains one state token, sixteen action tokens, four kinematic tokens, and four registers; its decoder reads only state/action positions. Frozen UMT5 text features enter video cross-attention and reach actions indirectly through joint attention.",
+        "evidenceIds": [
+          "E03",
+          "E05"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage 1 distills Wan2.2-TI2V-5B into the compact video expert using ground-truth flow matching, projected hidden-state regression, and temporal-difference distillation. The teacher is frozen; the action expert is absent.",
+        "kind": "source",
+        "evidenceIds": [
+          "E07"
+        ]
+      },
+      {
+        "text": "The action expert is then initialized from a pretrained history-flow-only DynamicWAM checkpoint, with inherited action normalization; the kinematic module starts randomly. Stage 2 freezes the video expert and trains action prediction. Stage 3 jointly refines both experts while freezing the VAE and text encoder.",
+        "kind": "source",
+        "evidenceIds": [
+          "E07",
+          "E08"
+        ]
+      },
+      {
+        "text": "DOMINO stages run for 80,000, 80,000, and 40,000 steps; real-robot stages use 8,000, 15,000, and 8,000. During joint refinement, the video-loss weight decreases from 0.01 to 0.001 over the first 2,000 steps. Training uses eight H100 GPUs and global batch size 128.",
+        "kind": "source",
+        "evidenceIds": [
+          "E08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Sampling uses ten action-denoising steps, but full video forwards occur only at steps 0 and 1. Later steps reuse cached video keys/values while updating actions. Actions are decoded directly from the action stream; the described pipeline does not recover them through an inverse-dynamics model.",
+        "kind": "source",
+        "evidenceIds": [
+          "E03",
+          "E10"
+        ]
+      },
+      {
+        "text": "Physical deployment maintains a rolling action queue, querying asynchronously below a four-step prefetch threshold and merging chunks over four steps with maximum guidance weight 0.5. Updated camera history supplies feedback at subsequent queries. RTC overlaps inference and execution without shortening an individual query. DOMINO instead executes complete chunks synchronously.",
+        "kind": "source",
+        "evidenceIds": [
+          "E09",
+          "E11"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "r_k(p) = min(‖Û_k(p)‖₂ / q₉₉(Û_k), 1); ρ(αU) = ρ(U), α > 0",
+        "explanation": "Equations (4) and (7): dividing by the interval-specific percentile makes rendering approximately invariant to displacement scaling, subject to masking and quantization. This explains why rendered flow alone cannot identify motion magnitude.",
+        "evidenceIds": [
+          "E04"
+        ]
+      },
+      {
+        "expression": "v_k = d_k / Δτ_k; a_k = (v_k − v_{k−1}) / (c_k − c_{k−1}); c_k = (τ_{k−1}+τ_k)/2",
+        "explanation": "Equations (9)–(10): d_k is mean signed pixel displacement, Δτ_k is measured elapsed time, and c_k is the interval center. Acceleration compares successive interval velocities; missing predecessors require masking.",
+        "evidenceIds": [
+          "E05"
+        ]
+      },
+      {
+        "expression": "x_q^σ = (1−σ_q)x_q + σ_q ε_q; u_q* = ε_q − x_q; L = E‖û_a−u_a*‖₂² + λ_v E‖û_v−u_v*‖₂²",
+        "explanation": "Equations (14)–(15): for action and video modalities q, the network learns vector fields along interpolations between clean targets and Gaussian noise. The video term supplies an auxiliary training objective, while the video stream also participates during the initial inference denoising steps.",
+        "evidenceIds": [
+          "E06",
+          "E10"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Simulated dynamic manipulation",
+      "setting": "All 35 DOMINO Level-1 tasks; clean dynamic evaluation, unseen instructions, 100 accepted episodes/task; 10,500 training demonstrations; synchronous execute-16 protocol.",
+      "metric": "Success rate; manipulation score",
+      "value": "38.2%; 53.2",
+      "comparison": "InternVLA-A1.5: 29.3%; 42.5, giving reported gains of 8.9 percentage points and 10.7 score points.",
+      "interpretation": "Best reported aggregate performance among evaluated baselines. MS measures partial task progress. Simulation pauses during inference, so this protocol does not test compensation for target movement during model computation.",
+      "evidenceIds": [
+        "E11",
+        "E12",
+        "E21"
+      ]
+    },
+    {
+      "task": "Motion-conditioning ablation",
+      "setting": "Matched DynamicWAM backbone and training schedule on the same DOMINO evaluation.",
+      "metric": "Success rate; manipulation score",
+      "value": "Neither path: 22.7%, 38.3; flow only: 27.2%, 41.6; kinematics only: 30.5%, 47.2; both: 38.2%, 53.2.",
+      "comparison": "Both paths exceed the stronger single-path variant by 7.7 success percentage points and 6.0 score points.",
+      "interpretation": "Supports complementary information at aggregate level. The kinematics-only variant retains input geometry using black flow frames, making its comparison with the full model particularly informative.",
+      "evidenceIds": [
+        "E13"
+      ]
+    },
+    {
+      "task": "Physical moving-target grasping",
+      "setting": "Twelve Franka tasks, 20 trials/task; matched 1,200-demonstration fine-tuning dataset. DynamicWAM uses RTC; external baselines use synchronous deployment.",
+      "metric": "Success rate",
+      "value": "46.67% overall; linear 70.00%, circular 51.25%, compound 18.75%.",
+      "comparison": "π0.5: 23.75% overall; DynamicVLA: 21.25%; InternVLA-A1.5: 0.00%. The strongest external-baseline gap is 22.92 percentage points.",
+      "interpretation": "These are executed robot outcomes: stable grasp and lift within 30 seconds without a collision-induced reset. The main comparison combines model and execution-system differences.",
+      "evidenceIds": [
+        "E14",
+        "E15"
+      ]
+    },
+    {
+      "task": "Execution-system ablation",
+      "setting": "Same full DynamicWAM weights, histories, horizons, and inference settings across the twelve physical tasks.",
+      "metric": "Average success rate",
+      "value": "Standard synchronous: 37.50%; RealCore only: 42.08%; RealCore plus RTC: 46.67%.",
+      "comparison": "Reported gains are 4.58 percentage points from RealCore and another 4.59 from RTC.",
+      "interpretation": "Table 3's 'without RTC' configuration already includes RealCore. Attributing the entire 9.17-point gain over standard synchronous execution to RTC would therefore be incorrect.",
+      "evidenceIds": [
+        "E16"
+      ]
+    },
+    {
+      "task": "Appearance-shift generalization",
+      "setting": "Four linear-motion physical tasks; background, lighting, and object-color changes; 20 trials/task/condition.",
+      "metric": "OOD success rate; OOD/ID retention",
+      "value": "36.3%; 0.52",
+      "comparison": "π0.5: 17.5%, 0.54; current-frame DynamicWAM: 20.0%, 0.53.",
+      "interpretation": "Higher absolute shifted-condition success accompanies similar relative degradation. This supports stronger underlying manipulation performance, without establishing improved relative robustness.",
+      "evidenceIds": [
+        "E17"
+      ]
+    },
+    {
+      "task": "Inference efficiency",
+      "setting": "Latency protocol: 1,000 policy queries on one RTX 5090, including preprocessing, flow, descriptor construction, and denoising.",
+      "metric": "Per-query latency",
+      "value": "173.7 ms with video caching; approximately 550 ms for full joint denoising.",
+      "comparison": "Table 1 lists InternVLA-A1.5 at 158.4 ms.",
+      "interpretation": "The approximately 3.2× reduction applies to cached versus full DynamicWAM denoising. The prose claim that DynamicWAM is 3.2× faster than InternVLA-A1.5 contradicts the table, where DynamicWAM is slower.",
+      "evidenceIds": [
+        "E10",
+        "E11",
+        "E12"
+      ]
+    },
+    {
+      "task": "Stage-1 future-video reconstruction",
+      "setting": "500 held-out DOMINO packed windows; ten sampling steps; frozen-VAE decoding under a shared first-latent protocol; RGB evaluated at 192×160 in [0,1].",
+      "metric": "Latent RMSE; pixel RMSE; PSNR",
+      "value": "0.291; 0.0565; 25.0 dB",
+      "comparison": "Compared against ground-truth future latents and their VAE-decoded frames; no competing-model result is supplied.",
+      "interpretation": "Measures future reconstruction for the distilled video expert. It neither measures executed manipulation nor establishes the causal contribution of visual prediction to control.",
+      "evidenceIds": [
+        "E18"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors acknowledge dependence on 2D motion from a fixed external camera and lack of instructed-target isolation. Distractor motion, occlusion, and viewpoint changes can corrupt the conditioning; global flow statistics can mix target and manipulator motion.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E05",
+        "E19"
+      ]
+    },
+    {
+      "text": "Aggregate gains are not universal. Full-model success is 7% versus 17% for flow-only on Put Object Cabinet, and 5% versus 13% on Place Can Basket. Complementarity therefore does not imply every task benefits from adding kinematics.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E13"
+      ]
+    },
+    {
+      "text": "Physical evaluation uses only 20 trials per task, while simulation reports a fixed evaluation seed. The supplied results lack confidence intervals and repeated-training-seed estimates, limiting conclusions about modest differences such as the incremental RTC gain.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E11",
+        "E14",
+        "E16"
+      ]
+    },
+    {
+      "text": "Compound-motion success remains 18.75%, and appearance-shift retention is approximately half of in-distribution success. These results leave substantial gaps for reliable interception and broader environmental generalization.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E15",
+        "E17"
+      ]
+    },
+    {
+      "text": "The cache-based acceleration description supplies latency but no paired control-quality comparison against full joint denoising. It therefore does not establish that skipping later video updates preserves policy behavior.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E10"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required assets include the DOMINO demonstrations, physical teleoperation dataset, Wan teacher/VAE, UMT5 encoder, and the prerequisite history-flow-only action checkpoint with its normalization statistics. The recipe names that prerequisite but does not fully establish its construction history.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E07",
+        "E08",
+        "E11",
+        "E14"
+      ]
+    },
+    {
+      "text": "Temporal preprocessing must preserve recorded timestamps: the four-step interval corresponds to twelve converted-video frames under downsampling rate three. Flow uses specified Farnebäck parameters and consistency thresholds. Appendix Table 5 documents 14-D simulation and 8-D physical state/actions; the main text's 7-D physical-state shorthand must be reconciled with explicit gripper inclusion.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03",
+        "E04"
+      ]
+    },
+    {
+      "text": "Exact deployment reproduction needs further definition of RealCore, the physical control frequency, and the RTC guidance decay beyond its stated maximum and overlap. Separating standard synchronous, RealCore-only, and RTC configurations is essential to reproduce the reported execution gains.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E09",
+        "E14",
+        "E16"
+      ]
+    },
+    {
+      "text": "A focused mechanism check would compare the full model against the geometry-matched black-flow control and perturb descriptor timestamps to test timing dependence. A separate evaluation allowing simulation to advance during inference would test latency compensation under a deliberately changed protocol.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E04",
+        "E05",
+        "E13",
+        "E21"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "Distinct video and action experts, different widths, separate decoding paths, and explicit cross-stream attention support the recorded Dual-system architecture. Both future visual latents and actions have learned flow predictions, while actions are decoded directly, supporting Joint prediction rather than inverse dynamics. Video prediction participates at inference, although later action steps reuse cached video states. Efficiency and appearance generalization are evaluated, with the comparison limits documented above.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E06",
+        "E10",
+        "E17"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Efficient inference & real-time control",
+        "Joint video-action modeling",
+        "Generalization & action alignment"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q3 · Dual-system × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "a00a124c196475b78033505d451dc646ec775ee7ff1eb5a2dd72236f4a26979f"
+    }
+  },
+  "discussionQuestions": [
+    "Would target-conditioned flow statistics reduce distractor sensitivity without sacrificing the useful contribution of manipulator motion?",
+    "How much of the kinematic-token benefit depends on accurate timestamps rather than displacement statistics alone?",
+    "Does cached video inference preserve interception performance when speed or acceleration changes abruptly?",
+    "How would baseline rankings change under matched execution infrastructure and continuously advancing simulation?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "E01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title page and arXiv version stamp",
+      "detail": "The title and all nine authors match the catalog identity. The supplied artifact identifies itself as arXiv:2608.00793v2, dated 6 August 2026."
+    },
+    {
+      "id": "E02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Section 1, motivation and contribution bullets",
+      "detail": "The authors identify current-frame motion ambiguity, rendering-induced loss of magnitude/timing, and delayed action execution; they propose history-flow conditioning, kinematic tokens, and compact responsive deployment."
+    },
+    {
+      "id": "E03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1, Eqs. (1)–(2); p. 11, Appendix B.1 and Table 5",
+      "detail": "The backbone has separate video/action experts with joint attention and a 16-action horizon. Table 5 specifies expert dimensions, frozen encoders, eight future frames, and state/action dimensions of 14/14 in simulation and 8/8 on the robot; Section 3.1 instead lists 7-D or 14-D proprioception."
+    },
+    {
+      "id": "E04",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.2, Eqs. (3)–(7); pp. 12–13, Appendix C.1–C.3, Eq. (16)",
+      "detail": "Four stride-four history intervals feed masked Farnebäck flow and percentile-normalized RGB rendering through the frozen VAE. Preprocessing uses 64×64 grayscale frames; consistency thresholds are 0.01 relative and 0.5 absolute, with minimum accepted fraction 0.1. Downsampling rate three gives twelve raw frames per interval."
+    },
+    {
+      "id": "E05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2, Eqs. (8)–(13); p. 13, Appendix C.4 and Table 7",
+      "detail": "Valid-pixel statistics form a 12-D displacement/time/velocity/acceleration descriptor. Standardized descriptors become action-stream tokens with learned invalid-data embeddings. Table 7 identifies units as flow-grid pixels and simulator seconds."
+    },
+    {
+      "id": "E06",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.3, Eqs. (14)–(15)",
+      "detail": "Both modalities use Gaussian-noise interpolation and conditional vector-field regression; joint training combines action squared error with a weighted video squared-error term."
+    },
+    {
+      "id": "E07",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Appendix B.3 and B.4, Stage 1 and checkpoint initialization",
+      "detail": "Video distillation combines ground-truth flow matching, projected teacher hidden states, and temporal-difference matching. Subsequent initialization uses a pretrained DynamicWAM without motion tokens, inheriting its action normalization."
+    },
+    {
+      "id": "E08",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix B.4–B.5 and Table 6",
+      "detail": "Training stages use 80k/80k/40k steps, shortened to 8k/15k/8k for physical data. Stage 2 freezes video; Stage 3 jointly refines experts with video weight annealed from 0.01 to 0.001. Hardware is eight H100s with global batch 128."
+    },
+    {
+      "id": "E09",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.4; p. 12, Appendix B.6, execution and implementation paragraphs",
+      "detail": "RTC overlaps chunk prediction with execution using a rolling queue, four-step prefetch threshold, four-step overlap, and maximum guidance 0.5. It hides query latency rather than reducing it; DOMINO disables RTC."
+    },
+    {
+      "id": "E10",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix B.6, Inference acceleration",
+      "detail": "Of ten action-denoising steps, only steps 0 and 1 run full video forwards. Later steps cache video activations, reducing reported query latency from approximately 550 ms to 173.7 ms."
+    },
+    {
+      "id": "E11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1; p. 10, Appendix A.1, A.4, and A.5",
+      "detail": "DOMINO uses 35 tasks, 10,500 clean/randomized demonstrations, and 100 accepted unseen-instruction episodes per task. Evaluation starts at seed 100,000, uses 100-ms control intervals and execute-16 chunks. MS measures partial progress. Latency is measured over 1,000 RTX 5090 queries including preprocessing and denoising."
+    },
+    {
+      "id": "E12",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 1, DynamicWAM and InternVLA-A1.5 rows; Section 4.2 latency paragraph",
+      "detail": "DynamicWAM reports 38.2 SR, 53.2 MS, and 173.7 ms; InternVLA-A1.5 reports 29.3 SR, 42.5 MS, and 158.4 ms. The subsequent prose nevertheless describes DynamicWAM as approximately 3.2 times faster than that baseline."
+    },
+    {
+      "id": "E13",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.3; p. 11, Appendix A.5 ablation definitions; p. 14, Table 8, Overall and named task rows",
+      "detail": "Overall SR/MS are 22.7/38.3 without either path, 27.2/41.6 with flow only, 30.5/47.2 with kinematics only, and 38.2/53.2 with both. The no-flow variant uses black frames. Cabinet and can-basket full-model SRs are 7 and 5, versus flow-only 17 and 13."
+    },
+    {
+      "id": "E14",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Sections 5.1–5.2; pp. 10–11, Appendix A.2–A.5",
+      "detail": "Physical experiments use Franka Research 3 arms, parallel-jaw grippers, and two D435i cameras. Training contains 1,200 GELLO demonstrations collected at 20 FPS. Each of twelve tasks receives twenty evaluation trials; success requires stable grasp and lift within thirty seconds without collision reset. External baselines deploy synchronously."
+    },
+    {
+      "id": "E15",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2; p. 15, Table 9, level and overall averages",
+      "detail": "Full DynamicWAM achieves 70.00/51.25/18.75 across motion levels and 46.67 overall. External averages are 23.75 for π0.5, 21.25 for DynamicVLA, and 0.00 for InternVLA-A1.5."
+    },
+    {
+      "id": "E16",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3; p. 13, Appendix D.4; p. 16, Table 11",
+      "detail": "Fixed-model execution configurations score 37.50 without RealCore or RTC, 42.08 with RealCore alone, and 46.67 with both. Table 3's without-RTC value is the RealCore-only result."
+    },
+    {
+      "id": "E17",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5.5 and Table 4; p. 13, Appendix D.3; p. 15, Table 10",
+      "detail": "Four linear tasks undergo background, lighting, and color shifts with twenty trials per condition. Full-model OOD success/retention are 36.3/0.52, versus 17.5/0.54 for π0.5 and 20.0/0.53 for current-frame DynamicWAM."
+    },
+    {
+      "id": "E18",
+      "sourceId": "primary",
+      "location": "PDF pp. 13 and 16, Appendix D.5, Future-Frame Reconstruction Quality",
+      "detail": "On 500 held-out packed windows, Stage-1 ten-step video sampling reports latent RMSE 0.291, pixel RMSE 0.0565, and PSNR 25.0 dB. Pixel evaluation uses VAE-decoded predictions and targets under a shared first-latent protocol."
+    },
+    {
+      "id": "E19",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 6; p. 16, Appendix D.8",
+      "detail": "The authors identify fixed-camera 2D motion and absent target isolation as limitations. Failure analysis describes mistimed contact, spatial misalignment after occlusion, tracking loss, and post-contact slipping."
+    },
+    {
+      "id": "E21",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Appendix A.5, Sim2Real Performance Gap",
+      "detail": "The appendix states that DOMINO suspends simulation progression during inference, whereas physical targets continue moving. It proposes perception–execution mismatch as an explanation for the baseline's simulation-to-robot gap."
+    }
+  ]
+}

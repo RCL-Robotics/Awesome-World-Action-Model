@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.10860",
+  "shortTitle": "FLEX-π",
+  "thesis": "FLEX-π trains one action model to read optional RGB, semantic and geometric futures, letting inference spend more computation on imagined context while preserving an action-only route.",
+  "standfirst": "Predicting several kinds of future is expensive, and a controller may not need all of them on every call. FLEX-π turns that tension into an architectural choice: one trained model can generate actions alone or let the action stream read selected visual futures. RGB carries appearance, DINO features provide semantic information, and pointmaps describe geometry. The key is to distinguish missing current observations, attention among future streams, and computation actually removed at inference. The diagrams below make those distinctions explicit. RoboTwin results show what the flexible checkpoint achieves at scale; the compute ablation and real gripper-repair experiment help locate when extra future prediction is useful and what it costs.",
+  "evidenceIds": [
+    "E02",
+    "E03",
+    "E04",
+    "E05",
+    "E14",
+    "E15",
+    "E19",
+    "E22"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2608.10860/architecture.png",
+      "width": 1106,
+      "height": 405,
+      "sourceSha256": "666b96878c212ad90c8226606b20d24e24ee171085219f7469d1ee17f61d0548",
+      "sourceUrl": "https://arxiv.org/pdf/2608.10860#page=4",
+      "crop": [
+        0.174,
+        0.101,
+        0.825,
+        0.285
+      ],
+      "alt": "Current RGB, pointmap and DINO representations enter a five-billion-parameter visual transformer with a separate one-billion-parameter action expert; two masks govern observation presence and future generation.",
+      "caption": "Three visual representations supply context to a separate action expert.",
+      "readingGuide": "Follow the left-hand rows by representation. RGB and pointmaps enter Wan VAE encoders with shared weights, while DINOv3 extracts a different feature stream from RGB. Learned adapters bring those representations into the visual transformer. The vertical input mask marks which current streams are available; the horizontal output mask selects which future streams actions may use. The conditioning box supplies proprioceptive state and language. On the right, three future representations align with a continuous action chunk. The arrow from the visual trunk into the action expert reflects asymmetric attention: actions can read visual information, but visual streams do not read action tokens.",
+      "takeaway": "The model does not simply concatenate every sensor into a conventional action head. It trains distinct future representations around a separate action expert, with explicit control over their visibility. This creates a route for richer imagined context to influence actions and a cheaper route that generates only the action stream.",
+      "caution": "Current pointmaps have different provenance across experiments: pre-training uses estimated depth, while the main real-robot setup uses sensed stereo depth. An action-only output setting also does not imply RGB-only observations or removal of the current visual encoders.",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05",
+        "E07",
+        "E08",
+        "E26"
+      ]
+    },
+    {
+      "id": "stream-masks",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 6,
+      "asset": "report-assets/2608.10860/stream-masks.png",
+      "width": 1108,
+      "height": 524,
+      "sourceSha256": "666b96878c212ad90c8226606b20d24e24ee171085219f7469d1ee17f61d0548",
+      "sourceUrl": "https://arxiv.org/pdf/2608.10860#page=6",
+      "crop": [
+        0.173,
+        0.1,
+        0.825,
+        0.338
+      ],
+      "alt": "Four rows contrast full-joint, action-only, pointmap-plus-action and cross-modality-forcing regimes through input masks, output masks, future-attention graphs and inference computation.",
+      "caption": "The output mask changes information flow during training and work during inference.",
+      "readingGuide": "Read each row from the two masks toward the final column. The input mask controls present observations; the output mask controls which future group the action tokens read. Solid links show mutually visible future streams, arrows point into actions, and magenta crosses block attention. In the action-only row, future visual streams are unread by the action expert and omitted at inference. During training, however, all future targets still receive their losses. The highlighted last row illustrates cross-modality forcing: the current pointmap is absent, but its predicted future remains available to actions. The model must infer that missing modality through the remaining observations.",
+      "takeaway": "The training objective teaches one checkpoint several information patterns rather than training a separate model for each output mode. Cross-modality forcing also distinguishes reconstructing an absent input modality from merely tolerating its absence. The potential computation saving appears at inference, when unneeded visual futures are no longer denoised.",
+      "caution": "Dashed future nodes do not mean their training loss is removed. Confusing attention masking with loss masking would implement a different objective and could invalidate the reported ability to switch generation modes without retraining.",
+      "evidenceIds": [
+        "E05",
+        "E06",
+        "E27"
+      ]
+    },
+    {
+      "id": "robotwin-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 9,
+      "asset": "report-assets/2608.10860/robotwin-results.png",
+      "width": 907,
+      "height": 994,
+      "sourceSha256": "666b96878c212ad90c8226606b20d24e24ee171085219f7469d1ee17f61d0548",
+      "sourceUrl": "https://arxiv.org/pdf/2608.10860#page=9",
+      "crop": [
+        0.174,
+        0.412,
+        0.441,
+        0.638
+      ],
+      "alt": "RoboTwin table separates VLA and WAM baselines, listing clean, randomized and average success, with FLEX-π action-only and full-joint rows in their corresponding groups.",
+      "caption": "One flexible checkpoint reaches the same reported average in both output modes.",
+      "readingGuide": "The Clean and Rand. columns correspond to the two RoboTwin evaluation settings; Avg. summarizes them. Read the two green FLEX-π rows together despite the visual split into VLA and WAM blocks. They are inference modes of the same flexible checkpoint, not separately trained category-specific models. Action-only reports 94.5 and 94.6; full joint reports 94.3 and 94.8. Both average to 94.6 at the table’s precision. The baseline rows supply task context, but the most controlled contrast in this table is the mode switch within FLEX-π. The experiment covers 50 tasks and uses the larger demonstration setting described in the protocol.",
+      "takeaway": "At this data scale, joint future generation has nearly the same aggregate success as action-only inference: the table reports 94.6% average for both. The result supports retaining a low-compute mode without an obvious aggregate penalty in this setting, while leaving room for task-specific differences hidden by the mean.",
+      "caution": "An equal rounded average is not a statistical equivalence result. The table does not quantify uncertainty for the within-checkpoint mode difference, and aggregate results can conceal tasks where additional future streams help or hurt.",
+      "evidenceIds": [
+        "E15"
+      ]
+    },
+    {
+      "id": "compute-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 11",
+      "page": 11,
+      "asset": "report-assets/2608.10860/compute-ablation.png",
+      "width": 1106,
+      "height": 343,
+      "sourceSha256": "666b96878c212ad90c8226606b20d24e24ee171085219f7469d1ee17f61d0548",
+      "sourceUrl": "https://arxiv.org/pdf/2608.10860#page=11",
+      "crop": [
+        0.174,
+        0.1,
+        0.825,
+        0.256
+      ],
+      "alt": "Left bars add DINO and pointmap input streams; right success-versus-latency plot adds video, DINO and pointmap future outputs to action-only generation and includes a compiled Fast-WAM point.",
+      "caption": "Input richness and output computation are two different ablations.",
+      "readingGuide": "The left panel changes the available representations cumulatively: video, video plus DINO, then all three visual streams. Its vertical axis starts at zero. The right panel instead fixes RGB-only input and changes generated future streams from the same checkpoint. Moving right spends more inference time while success rises from action-only through video, DINO and pointmaps. Notice the break in the right vertical axis between the low baseline point and the FLEX-π points; its distances cannot be compared directly with the left panel. The green curve is the relevant within-model tradeoff. The orange compiled baseline also changes architecture and implementation.",
+      "takeaway": "The paper reports 40.2% success for action-only generation, 60.4% after adding video futures, and 63.8% with all future streams in this diagnostic. The visible curve therefore supports a gain from imagined context under this restricted-input setting, with most of the displayed improvement arriving when video prediction is enabled.",
+      "caution": "Section 4.5 and Appendix G.5 specify five tasks, 50 demonstrations per task and five epochs from scratch. Figure 11b varies outputs from that checkpoint without further training. Its restricted protocol must remain separate from the 50-task RoboTwin comparison.",
+      "evidenceIds": [
+        "E19",
+        "E28"
+      ]
+    },
+    {
+      "id": "gripper-repair",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 19",
+      "page": 33,
+      "asset": "report-assets/2608.10860/gripper-repair.png",
+      "width": 1105,
+      "height": 361,
+      "sourceSha256": "666b96878c212ad90c8226606b20d24e24ee171085219f7469d1ee17f61d0548",
+      "sourceUrl": "https://arxiv.org/pdf/2608.10860#page=33",
+      "crop": [
+        0.17,
+        0.101,
+        0.82,
+        0.265
+      ],
+      "alt": "Left horizontal bars allocate credit across eight gripper-repair stages; right bars compare normalized score and complete-task success for π0.5, ManiFlow and the two FLEX-π modes.",
+      "caption": "Partial task credit and full completion tell different stories in precision assembly.",
+      "readingGuide": "Start with the rubric panel: each stage earns a different amount of the three available points, so completing an early easy step is not equivalent to completing an insertion or fastening step. The green stages identify the precision operations. Then read the performance panel in its two groups. Normalized score measures accumulated partial credit; full-task success requires completion of the entire sequence. The two FLEX-π modes improve both measures, but a 76.0 normalized score does not mean 76% of trials finish. For full completion, action-only reaches 45% and joint generation reaches 55%. The appendix evaluates each method over 20 rollouts.",
+      "takeaway": "Joint generation achieves a 76.0 normalized score and 55% full-task success, compared with 66.9 and 45% for action-only. These are distinct outcomes: the latter difference corresponds to two additional complete trials out of twenty. The result provides task-level evidence that extra predicted context can help beyond an already strong action-only policy.",
+      "caution": "Twenty rollouts give a limited estimate of the mode difference, and the figure shows no uncertainty intervals. The training uses demonstrations plus corrective data; comparisons should retain that data protocol rather than interpreting the result as zero-shot precision manipulation.",
+      "evidenceIds": [
+        "E13",
+        "E14",
+        "E29"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Align appearance, semantics and geometry before fusion",
+      "text": "FLEX-π begins with three representations that carry different information about the same scene. RGB and pointmaps share a frozen Wan VAE, while frozen DINOv3 produces semantic patch features. A two-by-two spatial fold combines four DINO tokens into a wider token without discarding entries; learned projection then matches the transformer width. The visual trunk shares parameters across streams, but the action expert has its own attention, feedforward and normalization weights. Fusion occurs in the middle sixteen of thirty blocks. The important directional constraint is that actions read current observations and selected futures, while visual tokens never read actions. My interpretation is that this preserves a reusable visual prediction pathway while letting control benefit from it, although the ablations do not independently isolate every representation and architectural choice.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05",
+        "E26"
+      ]
+    },
+    {
+      "heading": "Train every target while varying what actions are allowed to read",
+      "text": "Two sampled masks serve different purposes. The input mask removes current visual streams, with sampling constrained to retain at least one. The output mask partitions future attention and determines which visual futures the action expert may read. It does not switch off their training losses: RGB, DINO, pointmap and action targets are all supervised on each sample with equal loss weights. This is why a future pointmap can be useful even when no current pointmap was supplied. At inference, the unread future streams can finally be omitted from computation, turning the learned attention pattern into a practical mode switch. Actions still condition on available current observations. Calling this action-only generation describes the outputs computed, not the full set of sensors, encoders or conditioning features required by the controller.",
+      "kind": "source",
+      "evidenceIds": [
+        "E05",
+        "E06",
+        "E22",
+        "E27"
+      ]
+    },
+    {
+      "heading": "Relate the mode switch to the actual control cycle",
+      "text": "A lower model latency matters only within the controller that consumes its action chunk. The main real-robot setup executes thirty-two commands at 30 Hz, about 1.07 seconds, then holds position while synchronously computing the next chunk. Joint prediction can improve action quality while increasing that pause. The optimized measurements use caching and compilation as well as the architecture; the paper reports approximately 60 ms for action-only and 193 ms for full joint under its default four-step setting. My reading is that a deployment decision should compare success, observation age and total control-cycle timing together. The main RoboTwin averages suggest little aggregate benefit from joint prediction at high data scale, whereas restricted-input and gripper-repair diagnostics show larger gains. Those experiments motivate a task-dependent choice, not a universal preference for either mode.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E08",
+        "E09",
+        "E14",
+        "E15",
+        "E19",
+        "E22",
+        "E23"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Is the output-mode gain stable across training seeds?",
+      "text": "Reader-proposed experiment: repeat Appendix G.5’s five-task, 50-demonstration-per-task, five-epoch from-scratch recipe across training seeds, keeping initialization policy and optimization settings fixed. Evaluate identical episodes with RGB-only input under action-only, video-plus-action and full-joint outputs from each checkpoint. Record paired successes and inference latency with the same hardware and optimizations. A repeatable gain after enabling futures would support the intended computation-quality tradeoff; a gain that disappears across seeds would narrow that claim.",
+      "evidenceIds": [
+        "E15",
+        "E19",
+        "E22",
+        "E28"
+      ]
+    },
+    {
+      "title": "Does a faster mode improve the closed-loop system or only the model call?",
+      "text": "Reader-proposed experiment: on a fixed real task, compare both output modes with identical observations, action-chunk length, Euler steps and compilation. Log acquisition-to-command delay, hold time, partial rubric score and full completion. Add a control that delays action-only execution to match the joint-mode cycle. If joint mode still improves completion under matched timing, richer future context is a plausible explanation; if differences track delay instead, controller scheduling is an essential mediator. This is a proposed test, not a new result.",
+      "evidenceIds": [
+        "E08",
+        "E09",
+        "E14",
+        "E22",
+        "E23"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      4,
+      6,
+      9,
+      11,
+      33
+    ],
+    "notes": "Visually inspected Figures 2, 4, 11 and 19 and Table 1 in the source PDF, then inspected all five final crops. Table 1 was additionally rendered at 400 DPI for a legible enlargement of its narrow column, following the pilot’s explicit resolution adjustment; other pages use 200 DPI. Figure 11 retains its broken vertical axis. Section 4.5 and Appendix G.5 specify the five-task from-scratch recipe, and G.5 clarifies that Figure 11b switches outputs from one checkpoint without further training. No experiment, model code, or external implementation was run or inspected in this visual pass."
+  }
+}

@@ -1,10 +1,13 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import ReadingLayout from '../../layouts/ReadingLayout.astro';
 import Icon from '../../components/Icon.astro';
 import StatusBadge from '../../components/reports/StatusBadge.astro';
 import Claim from '../../components/reports/Claim.astro';
 import EvidenceRefs from '../../components/reports/EvidenceRefs.astro';
 import Equation from '../../components/reports/Equation.astro';
+import IllustratedReport from '../../components/reports/IllustratedReport.astro';
+import { illustratedFor } from '../../lib/illustrated-reports';
 import { papers, meta, paperPath, pathFor, type Paper } from '../../lib/catalog';
 import { taxonomyLabel } from '../../lib/taxonomy.mjs';
 import { classificationSnapshot } from '../../lib/classification-snapshot.mjs';
@@ -16,6 +19,8 @@ export function getStaticPaths() {
 }
 interface Props { report: ReadingReport; paper: Paper; }
 const { report, paper } = Astro.props;
+const illustrated = illustratedFor(paper.id);
+const PageLayout = illustrated ? ReadingLayout : BaseLayout;
 const sourceById = new Map(report.sources.map(source => [source.id, source]));
 const related = report.relatedPaperIds.map(id => papers.find(item => item.id === id)).filter((item): item is Paper => Boolean(item));
 const hasMechanism = report.method.steps.length || report.method.inputs.length || report.method.outputs.length || report.method.equations.length;
@@ -40,7 +45,8 @@ const currentClassification = classificationSnapshot(paper, meta.updatedAt);
 const classificationChanged = currentClassification.fingerprint !== recordedClassification.fingerprint;
 ---
 
-<BaseLayout title={`${paper.title} — Reading report`} description={report.synopsis} active="reports">
+<PageLayout title={`${paper.title} — Reading report`} description={report.synopsis} active="reports">
+  {illustrated ? <IllustratedReport paper={paper} report={report} edition={illustrated}/> : <>
   <article class="shell rn-report">
     <nav class="rn-breadcrumb" aria-label="Breadcrumb"><a href={pathFor('reports/')}>Reading reports</a><span aria-hidden="true">/</span><a href={paperPath(paper.id)}>Catalog entry</a><span aria-hidden="true">/</span><span aria-current="page">Research note</span></nav>
     <header class="rn-report-header">
@@ -127,7 +133,8 @@ const classificationChanged = currentClassification.fingerprint !== recordedClas
       </aside>
     </div>
   </article>
-</BaseLayout>
+  </>}
+</PageLayout>
 
 <script>
   document.querySelector('#print-report')?.addEventListener('click', () => window.print());
@@ -139,13 +146,16 @@ const classificationChanged = currentClassification.fingerprint !== recordedClas
   let scheduled = false;
   const updateProgress = () => {
     scheduled = false;
-    if (!body || !progress || !progressLabel) return;
+    if (!body) return;
     const rect = body.getBoundingClientRect();
     const total = Math.max(1, rect.height - window.innerHeight);
     const percent = Math.round(Math.max(0, Math.min(100, -rect.top / total * 100)));
-    progress.value = percent; progress.textContent = `${percent}%`; progressLabel.value = `${percent}%`;
+    if (progress) { progress.value = percent; progress.textContent = `${percent}%`; }
+    if (progressLabel) progressLabel.value = `${percent}%`;
+    const headerBottom = document.querySelector<HTMLElement>('.reading-report > .site-header')?.getBoundingClientRect().bottom ?? 0;
+    const activeThreshold = headerBottom + (window.innerHeight - headerBottom) * 0.25;
     let active = sections[0]?.id;
-    sections.forEach(section => { if (section.getBoundingClientRect().top <= window.innerHeight * 0.25) active = section.id; });
+    sections.forEach(section => { if (section.getBoundingClientRect().top <= activeThreshold) active = section.id; });
     links.forEach(link => { if (link.hash === `#${active}`) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current'); });
   };
   const scheduleProgress = () => { if (!scheduled) { scheduled = true; requestAnimationFrame(updateProgress); } };

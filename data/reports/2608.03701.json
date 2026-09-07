@@ -1,0 +1,548 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.03701",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T17:10:12.558Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.03701",
+      "title": "LiLa-WAM: Lightweight Latent Reasoning World-Action Model for Robotic Manipulation",
+      "kind": "pdf",
+      "sha256": "3a936110b132dbb91b7e98a8649f24fa4afd96fa060d472806de1af4ce314ead",
+      "wordCount": 8182,
+      "accessedAt": "2026-09-07T13:54:13.600163+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "2.1 Vision-Language-Action Models",
+      "2.2 World-Action Models",
+      "2.3 Visual Task Specification",
+      "3 Method",
+      "3.1 Problem Formulation",
+      "3.2 Foresight-Aware Action Expert",
+      "3.3 Visual Transition Token",
+      "3.4 Training Objective",
+      "4 Experiments",
+      "4.1 Implementation Details",
+      "4.2 Simulation Environments",
+      "4.3 Ablation Study",
+      "4.4 What Do the VTT and Action Tokens Attend To?",
+      "4.5 Action Conditioning in the Action Expert",
+      "4.6 Real-Robot Experiments",
+      "5 Conclusion",
+      "References",
+      "A Real-Robot Experiment Details, including Table 8"
+    ],
+    "omissions": [
+      "The complete supplied text across PDF pages 1–16 was read. Identity matches the catalog title, identifier, and ten authors; page 1 identifies arXiv v1.",
+      "Figure captions and surrounding analysis were read, but figure images were not inspected. Corrupted plot glyphs were not used to recover numerical values.",
+      "Tables were reviewed through the supplied extraction. Numerical claims use legible entries or explicit accompanying prose.",
+      "Availability and contents of any separate supplementary material were not verified.",
+      "The linked repository and code were not inspected; no experiments were reproduced.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: RoboTwin aggregate results",
+      "Table 2: LIBERO results",
+      "Table 3: Foresight, task-conditioning, and backbone ablations",
+      "Table 4: Adapter query count",
+      "Table 5: Encoder feature layers",
+      "Table 6: Attention mask ablation",
+      "Table 7: Real-robot results",
+      "Table 8: RoboTwin per-task results"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "LiLa-WAM uses one compact transformer stream to generate action chunks and predict future visual latents from frozen DINOv3 features. Future-feature supervision shapes the policy during training; deployment retains the shared computation but discards the feature decoder. A demonstration-derived Visual Transition Token supplies task identity without runtime language or goal images. The most persuasive evidence is the controlled removal of future supervision: success falls on both the simulation subset and physical robot. This supports the usefulness of predictive training, while leaving accurate counterfactual dynamics and explicit planning unestablished. [e04, e05, e06, e13, e17]",
+  "readingTimeMinutes": 12,
+  "problem": {
+    "text": "The authors seek manipulation policies that benefit from predicting future state without the training and inference costs of large vision-language or video-generation backbones. Their proposed solution concentrates trainable capacity in a shared action-and-latent predictor built around an existing frozen visual encoder.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e04"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A Foresight-Aware Action Expert reads action velocities and future-state latents from different positions of the same transformer sequence, coupling their representations directly.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04"
+      ]
+    },
+    {
+      "text": "The Visual Transition Token represents a task through its average demonstration endpoint displacement in visual embedding space.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05"
+      ]
+    },
+    {
+      "text": "The authors report competitive benchmark performance with 0.5B total parameters and policy training within a 24 GB GPU memory budget. This budget concerns adaptation using a pretrained frozen encoder, not the cost of producing that encoder.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e11",
+        "e12"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current RGB observation o_t and proprioceptive state q_t",
+      "Selected task's fixed Visual Transition Token, projected to c_τ",
+      "Noisy action chunk x_s and flow time s",
+      "Training only: demonstrated action chunk x_1 and future observation o_{t+Δ}",
+      "Offline task construction: initial and final demonstration frames"
+    ],
+    "outputs": [
+      "Action-token velocity estimates, integrated into an action chunk",
+      "Future-state latent at observation-token positions",
+      "Training only: decoded future patch features for supervision",
+      "Execution: a scheduled sequence of robot commands"
+    ],
+    "steps": [
+      {
+        "name": "Compress current visual context",
+        "detail": "Frozen DINOv3 patch features from selected layers are concatenated and linearly projected. An adapter with interleaved self-attention and cross-attention compresses them through learned queries into a fixed-size visual token set Z_v, bounding downstream sequence length.",
+        "evidenceIds": [
+          "e04",
+          "e07"
+        ]
+      },
+      {
+        "name": "Construct the task cue",
+        "detail": "Average final-minus-initial global image embeddings across demonstrations of a task. An MLP projects this fixed vector into the expert's width. Deployment selects the vector corresponding to the requested task.",
+        "evidenceIds": [
+          "e05",
+          "e09"
+        ]
+      },
+      {
+        "name": "Jointly compute actions and foresight",
+        "detail": "The DiT processes [Z_a; Z_q; c_τ; Z_v] with bidirectional self-attention. A linear head reads velocity at action positions; observation-side outputs supply the predicted future latent. This is joint latent/action prediction through shared computation, without an inverse-dynamics action-extraction stage.",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e16"
+        ]
+      },
+      {
+        "name": "Supervise the future representation",
+        "detail": "A lightweight query-based decoder reconstructs future encoder patch features from the predicted latent. Per-token cosine loss against frozen-encoder features of the actual future observation updates the shared representation alongside the action objective.",
+        "evidenceIds": [
+          "e04",
+          "e06"
+        ]
+      },
+      {
+        "name": "Generate and execute commands",
+        "detail": "Euler integration converts noise into an action chunk. The feature decoder is removed; predicted future features are not decoded for candidate scoring or planning. The default policy executes an action prefix, while the physical deployment uses an asynchronous action queue.",
+        "evidenceIds": [
+          "e04",
+          "e07",
+          "e09",
+          "e18"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The configuration uses DINOv3-ViT-L/16 blocks 17 and 21, a four-layer adapter with 64 queries, a 12-layer DiT with eight heads and width 768, and a four-layer decoder. Of 0.5B parameters, 0.2B are trainable and 0.3B frozen.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "text": "Training combines conditional flow matching with foresight loss weighted by 0.5. AdamW uses batch size 128, β=(0.9, 0.99), weight decay 0.01, gradient clipping at 1.0, logit-normal flow-time sampling, and stage-wise cosine learning rates peaking at 2×10⁻⁴ and later 5×10⁻⁵. Joint RoboTwin training reportedly takes approximately 110 GPU hours on an RTX 5090.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Deployment uses ten Euler ODE steps and reportedly takes 85 ms on an RTX 4090. Each step jointly computes action and visual-token states; the paper's single-forward-pass description does not mean that complete action generation uses only one transformer evaluation.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e04",
+          "e09"
+        ]
+      },
+      {
+        "text": "The default configuration predicts 32 actions and executes the first 16, with future offset Δ=32. LIBERO instead specifies 12-action chunks. On the physical arm, 32-action chunks feed a queue operating at 30 Hz; inference starts when eight queued actions remain. The command frequency therefore differs from the rate of generating fresh chunks.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e10",
+          "e18"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "p_θ(a_{t:t+H}, ẑ_{t+Δ} | o_t, q_t, c_τ)",
+        "explanation": "Equation (1) expresses joint action-chunk and future-latent prediction. H is the action horizon, Δ the future observation offset, and c_τ the task cue. The future output is a compact latent; action generation is implemented through flow matching.",
+        "evidenceIds": [
+          "e03",
+          "e06"
+        ]
+      },
+      {
+        "expression": "u_τ = (1/|E_τ|) ∑_{e∈E_τ}(g_T^e − g_0^e)",
+        "explanation": "Equation (4) averages endpoint embedding differences over task demonstrations E_τ. The frozen encoder produces initial embedding g_0^e and final embedding g_T^e; an MLP converts u_τ into c_τ.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "x_s = (1−s)x_0 + sx_1; v* = x_1−x_0; L_fm = E_{x_0,s}‖v̂_s−v*‖²; L = L_fm + λ_ff L_ff",
+        "explanation": "Equations (5)–(6) train velocity along a linear path from Gaussian noise x_0 to demonstrated actions x_1. L_ff is the per-token cosine loss on decoded future features. Both objectives update the shared expert, while the visual encoder remains frozen.",
+        "evidenceIds": [
+          "e04",
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboTwin 2.0 manipulation",
+      "setting": "One model across 50 tasks; 50 clean and 500 randomized demonstrations collected per task; 50 evaluation rollouts per task.",
+      "metric": "Average success rate",
+      "value": "90.48% clean; 89.04% randomized",
+      "comparison": "Being-H0.7: 90.20% clean and 89.60% randomized.",
+      "interpretation": "Reported simulated execution success is competitive: LiLa-WAM leads this comparator by 0.28 percentage points on clean tasks and trails by 0.56 on randomized tasks. The table does not establish compute-matched superiority.",
+      "evidenceIds": [
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "LIBERO manipulation",
+      "setting": "Separate policy per suite; four suites of ten tasks; two camera views at 256×256; 50 rollouts per task.",
+      "metric": "Average success rate across suites",
+      "value": "97.1%",
+      "comparison": "OpenVLA-OFT: 97.1%; π0: 94.1%.",
+      "interpretation": "The reported average matches OpenVLA-OFT and exceeds π0 by 3.0 percentage points. This protocol trains separate suite policies, unlike the single model across RoboTwin tasks.",
+      "evidenceIds": [
+        "e10",
+        "e12"
+      ]
+    },
+    {
+      "task": "Contribution of foresight supervision",
+      "setting": "Ten-task RoboTwin ablation subset.",
+      "metric": "Average success rate",
+      "value": "70.0% with foresight loss; 54.4% without",
+      "comparison": "Removing L_ff reduces success by 15.6 percentage points.",
+      "interpretation": "This directly supports the utility of future supervision under the ablation setup. It does not separate accurate dynamics learning from other representation-regularization benefits.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Task representation",
+      "setting": "Ten-task RoboTwin ablation subset with DINOv3 and foresight supervision.",
+      "metric": "Average success rate",
+      "value": "70.0% with VTT; 61.4% with CLIP language conditioning",
+      "comparison": "VTT improves the reported average by 8.6 percentage points.",
+      "interpretation": "The result favors the demonstration-derived task vector in this trained-task setting; it does not establish an advantage for unseen instructions or new tasks.",
+      "evidenceIds": [
+        "e05",
+        "e13"
+      ]
+    },
+    {
+      "task": "Compact latent budget",
+      "setting": "Ten-task RoboTwin adapter-query ablation.",
+      "metric": "Average success rate and training memory",
+      "value": "64 queries: 70.0%, 18.0 GB",
+      "comparison": "96 queries: 67.6%, 21.3 GB.",
+      "interpretation": "The larger token budget increases memory without improving reported success. No uncertainty is supplied to determine whether the success difference is stable.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Action information entering visual tokens",
+      "setting": "Ten-task RoboTwin ablation masking visual queries from attending to action keys and values.",
+      "metric": "Average success rate",
+      "value": "70.0% bidirectional; 64.8% masked",
+      "comparison": "Masking reduces success by 5.2 percentage points.",
+      "interpretation": "Action-to-visual information flow benefits the shared policy. Because the intervention changes shared computation, it does not independently establish the accuracy of its future predictions.",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "task": "Sensitivity of predicted future features to actions",
+      "setting": "Replace the action chunk with one from another trajectory during the flow trajectory; compare decoded future features.",
+      "metric": "Cosine similarity between original and perturbed predictions",
+      "value": "Approximately 0.85 at s=1, as stated in the prose",
+      "comparison": "Similarity of 1 denotes insensitivity; added Gaussian noise reportedly has much smaller effects.",
+      "interpretation": "This measures action sensitivity, not future-state accuracy or robot success. The numerical approximation comes from Section 4.5, not visual inspection of Figure 6.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "Physical robot manipulation",
+      "setting": "AgileX PiPer arm; four tasks with randomized object placements, 60 demonstrations and 50 evaluation rollouts per task; matched processing for both variants.",
+      "metric": "Executed-task success rate",
+      "value": "82.0% average: Button 86%, Block 90%, Banana 96%, Basketball 56%",
+      "comparison": "Without L_ff: 74.0% average; respective task rates 72%, 84%, 92%, and 48%.",
+      "interpretation": "Future supervision improves the reported physical-execution average by 8.0 percentage points. All four tasks improve, but the basketball task remains difficult.",
+      "evidenceIds": [
+        "e17",
+        "e18"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "VTT removes runtime text and goal-image requirements but still assumes an externally selected task and demonstrations defining its vector. The evaluations do not establish unseen-task composition or language-based generalization.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e09",
+        "e10",
+        "e17"
+      ]
+    },
+    {
+      "text": "Future supervision is auxiliary at training time. Perturbation sensitivity and policy ablations support useful coupling, but no reported counterfactual prediction-accuracy test establishes that the latent is a reliable simulator for planning.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e15",
+        "e16"
+      ]
+    },
+    {
+      "text": "The benchmark tables do not establish matched pretraining, training compute, and data across competitors. Reported success rates lack confidence intervals or variation across training seeds. The larger-backbone ablation also changes task conditioning, limiting attribution to backbone size.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "text": "Aggregate performance hides task-specific failures: Hanging Mug reaches only 56% clean and 44% randomized success. The physical study covers one arm and four tasks, restricting conclusions about broader deployment.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e17",
+        "e19"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the frozen DINOv3 encoder, demonstration images and action/proprioception alignment, task-specific endpoint embeddings, future-frame sampling, the query adapter, shared DiT, and training-only feature decoder. Construct VTTs from training demonstrations when evaluating held-out rollouts.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e07",
+        "e10"
+      ]
+    },
+    {
+      "text": "The default implementation specifies 16-dimensional proprioception, 14-dimensional actions, and 320×240 input images. LIBERO changes views, resolution, and chunk length; the physical setup uses absolute joint positions and continuous gripper commands. These configurations should not be treated as interchangeable.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07",
+        "e10",
+        "e18"
+      ]
+    },
+    {
+      "text": "Exact training-step counts, learning-rate stage boundaries, action normalization, logit-normal distribution parameters, and multi-view fusion details need clarification. The LIBERO-specific future offset and execution-prefix length are not explicitly restated. Physical reproduction also needs precise queue-refresh and stale-action handling.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e10",
+        "e18"
+      ]
+    },
+    {
+      "text": "A focused follow-up would repeat the ten-task foresight ablation across seeds and add shuffled future targets at matched compute. Comparing correct targets, shuffled targets, and no future loss would test whether temporal prediction supplies more than a generic auxiliary objective.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e13"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Q1 quadrant is supported by architecture evidence: one DiT stream jointly produces action velocities and future latents, with bidirectional token interaction. Separate encoder, adapter, and training decoder modules do not constitute separate world and action predictors. Joint prediction here means latent/action outputs, without inverse dynamics or an inference-time planning stage. The latent-prediction label fits; the 'Joint video-action modeling' subcategory is imprecise because the model predicts a future feature representation rather than video frames. Efficiency is supported by reported resource measurements, while physical command continuity additionally depends on asynchronous execution.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e06",
+        "e08",
+        "e09",
+        "e16",
+        "e18"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Latent prediction & JEPA",
+        "Joint video-action modeling",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q1 · One Model × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "f4b0fca254c8d08b388d44e1e1e5d99290dc14aea8265759565afaf9c7434da7"
+    }
+  },
+  "discussionQuestions": [
+    "Would shuffled or current-frame targets preserve the foresight gain, or does success require temporally correct future supervision? [e06, e13]",
+    "Can predicted features accurately distinguish the actual consequences of alternative actions, beyond merely changing when action tokens change? [e15, e16]",
+    "How does VTT behave for previously unseen tasks, multimodal task outcomes, or demonstrations whose endpoint differences contain nuisance changes? [e05, e10]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block, and arXiv identifier",
+      "detail": "The title and ten authors match the catalog. The identifier is arXiv:2608.03701v1 dated 4 August 2026; the title-page date is August 5, 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "The authors motivate lightweight latent prediction by the costs of large backbones, pixel synthesis, and multi-stage latent construction, and introduce a shared expert and visual task cue."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1, Eq. (1)",
+      "detail": "The policy jointly models an action chunk and future compact latent conditioned on current image, proprioception, and visual task cue."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2, Eq. (2), Eq. (3), and Future-state prediction",
+      "detail": "Frozen multi-level DINOv3 features pass through a query adapter. One DiT stream produces action velocities and future latents. A training-only feature decoder provides future supervision and is discarded at inference."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Eq. (4)",
+      "detail": "VTT averages final-minus-initial global embeddings over a task's demonstrations and is projected by an MLP into a fixed task token."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.4, Eqs. (5)–(6)",
+      "detail": "The objective combines flow-matching velocity regression along a noise-to-action interpolation with per-token cosine loss on decoded future DINOv3 patch features."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, first paragraph",
+      "detail": "Architecture uses DINOv3-L/16 layers 17 and 21, 64 queries, four adapter layers, 12 DiT layers, eight heads, width 768, and four decoder layers. Default proprioception/action dimensions are 16/14, chunk length and future offset 32, executed prefix 16, and resolution 320×240. Parameters total 0.5B, including 0.2B trainable."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, optimization paragraph",
+      "detail": "The paper specifies AdamW, batch size 128, β values 0.9/0.99, weight decay 0.01, clipping 1.0, foresight weight 0.5, logit-normal flow times, and learning-rate peaks 2×10⁻⁴ and 5×10⁻⁵. It reports approximately 110 RTX 5090 GPU hours within a 24 GB memory budget."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, deployment paragraph",
+      "detail": "Deployment selects the target task's VTT, uses ten Euler ODE steps, and reportedly takes 85 ms on an RTX 4090."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.2, RoboTwin 2.0 and LIBERO protocol paragraphs",
+      "detail": "RoboTwin uses 50 tasks, 50 clean and 500 randomized demonstrations per task, joint training, and 50 rollouts per task. LIBERO trains separate policies for four ten-task suites, uses third-person and wrist views at 256×256 and 12-action chunks, and evaluates 50 rollouts per task."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, Ours and Being-H0.7 rows, Clean and Random columns",
+      "detail": "LiLa-WAM reports 90.48% clean and 89.04% randomized average success; Being-H0.7 reports 90.20% and 89.60%."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2, AVG column and Results on LIBERO paragraph",
+      "detail": "LiLa-WAM and OpenVLA-OFT both report 97.1% average success; π0 reports 94.1%."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.3 and Table 3",
+      "detail": "On ten RoboTwin tasks, full DINOv3/VTT reaches 70.0%, removing foresight gives 54.4%, CLIP language gives 61.4%, and the Qwen3VL/language variant gives 61.0%."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 4, 64-query and 96-query columns",
+      "detail": "The 64-query variant reports 70.0% success and 18.0 GB training memory; 96 queries reports 67.6% and 21.3 GB."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 4.5, Action perturbation probe prose",
+      "detail": "Replacing action chunks changes decoded future features more strongly late in denoising; the prose reports cosine similarity approximately 0.85 at s=1. Added Gaussian noise has smaller effects."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.5, Table 6 and Attention dynamics across denoising steps",
+      "detail": "Default attention is bidirectional across token groups. Masking visual queries from action keys/values changes ten-task success from 70.0% to 64.8%."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 4.6 and Table 7",
+      "detail": "Four physical tasks use randomized placements, 60 demonstrations and 50 rollouts each. Full-model Button/Block/Banana/Basketball success is 86/90/96/56%, versus 72/84/92/48% without foresight; averages are 82.0% and 74.0%."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A, Hardware platform and Asynchronous inference",
+      "detail": "The PiPer arm uses absolute joint positions, continuous gripper commands, and third-person RealSense RGB. A 30 Hz queue executes 32-action chunks; separate-thread inference starts with eight actions remaining. Both variants use identical preprocessing and postprocessing."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Table 8, Hanging Mug row, LiLa-WAM Clean and Rand. columns",
+      "detail": "LiLa-WAM reports 56% clean and 44% randomized success on Hanging Mug."
+    }
+  ]
+}

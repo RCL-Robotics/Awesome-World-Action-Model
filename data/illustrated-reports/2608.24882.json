@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.24882",
+  "shortTitle": "LAWA",
+  "thesis": "LAWA replaces test-time future-video generation with continuous latent transition prediction, preserving tested control performance at intermediate inference cost.",
+  "standfirst": "LAWA explores a middle option between generating an entire imagined future and discarding future prediction at deployment. It first learns compact transition targets from action-free videos, then trains latent and action experts to denoise together. The future-video branch still contributes during training, but an attention mask prevents the deployable branches from depending on its future tokens. Read the architecture and tokenizer diagrams together: the first explains what runs on the robot, while the second explains where its training targets come from. The result tables then test performance, functional use of the latent sequence, latency and physical execution, with the limits of each comparison kept explicit.",
+  "evidenceIds": [
+    "E3",
+    "E6",
+    "E7",
+    "E9",
+    "E11",
+    "E15",
+    "E17",
+    "E20"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "crop": [
+        0.122,
+        0.064,
+        0.913,
+        0.364
+      ],
+      "width": 1345,
+      "height": 660,
+      "asset": "report-assets/2608.24882/architecture.png",
+      "sourceSha256": "c9bbd43cf12f09a02f88202e18e929de804d603b57621f4c51298b684c3d52e9",
+      "sourceUrl": "https://arxiv.org/pdf/2608.24882#page=3",
+      "alt": "Video, latent-action and action branches share attention during training; mask matrices show future-video slots absent at inference.",
+      "caption": "The latent branch preserves a future representation after video generation is removed.",
+      "readingGuide": "Read the colored branches as different token types: green video, purple latent actions and blue executable actions. Training includes current and future observations, tokenizer-derived targets and demonstrated actions. The attention matrices on the right specify which keys each query can access. Current observation z_0 remains isolated from future information. Latent tokens can use current observations and other latent tokens; action tokens can also use the evolving latent sequence. At inference, future-video tokens disappear but purple and blue tokens are still denoised. The compact matrix therefore exposes the intended deployment interface more directly than the broad label “joint attention” does.",
+      "takeaway": "LAWA retains future-conditioned control without denoising future images at deployment. Its latent and action experts remain distinct modules connected by structured attention. The architecture supports an inference-time latent prediction pathway; it does not support the claim that future prediction is only an auxiliary training task.",
+      "caution": "The tokenizer’s targets are discrete embeddings, while predicted latent states remain continuous during inference and are not projected back to the codebook. The diagram omits language conditioning; the source text states that it is provided.",
+      "evidenceIds": [
+        "E6",
+        "E7",
+        "E9",
+        "E22"
+      ]
+    },
+    {
+      "id": "tokenizer",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 3,
+      "crop": [
+        0.52,
+        0.447,
+        0.914,
+        0.57
+      ],
+      "width": 1303,
+      "height": 526,
+      "asset": "report-assets/2608.24882/tokenizer.png",
+      "sourceSha256": "c9bbd43cf12f09a02f88202e18e929de804d603b57621f4c51298b684c3d52e9",
+      "sourceUrl": "https://arxiv.org/pdf/2608.24882#page=3",
+      "alt": "An observation sequence enters a DINO encoder and attention/quantization module; a forward decoder predicts the next observation and a manipulation mask.",
+      "caption": "Action-free video supplies transition targets through reconstruction and mask supervision.",
+      "readingGuide": "Begin with current and future observations on the left. DINOv2 features are contextualized across space and time, then successive feature differences are compressed and quantized into codebook embeddings. The forward decoder receives the previous observation as well as these transition tokens, making next-frame reconstruction a check on what the tokens retain. The mask output adds hand or manipulator supervision generated with SAM 2. The detailed method uses detached reconstruction features and latent-action prompts for this auxiliary prediction. During action-free pretraining the tokenizer and decoder learn together; during robot-policy training the tokenizer is frozen and supplies latent targets.",
+      "takeaway": "The pipeline converts unlabeled robot and egocentric videos into supervision for future transitions. It can train the representation without low-level robot action labels. The mask objective encourages attention to manipulation regions, but its benefit is an empirical design choice rather than a definition of what every latent code means.",
+      "caution": "The tokenizer uses non-causal sequence context to form training targets. Calling the targets “intentions” is operational: reconstruction and mask prediction do not prove that the codes isolate causal actions, goals or a minimal sufficient representation.",
+      "evidenceIds": [
+        "E3",
+        "E4",
+        "E5",
+        "E8",
+        "E23"
+      ]
+    },
+    {
+      "id": "robocasa-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 5,
+      "crop": [
+        0.097,
+        0.066,
+        0.468,
+        0.319
+      ],
+      "width": 1302,
+      "height": 1149,
+      "asset": "report-assets/2608.24882/robocasa-results.png",
+      "sourceSha256": "c9bbd43cf12f09a02f88202e18e929de804d603b57621f4c51298b684c3d52e9",
+      "sourceUrl": "https://arxiv.org/pdf/2608.24882#page=5",
+      "alt": "RoboCasa success table compares few-shot and full data settings; LAWA reaches 65.6% and 80.8% against matched Fast-WAM and Joint-WAM rows.",
+      "caption": "The final three rows make the main performance comparison; daggers mark the authors’ implementations.",
+      "readingGuide": "Compare methods within the same data column. Few-shot uses 10% of 24,000 training trajectories, corresponding to 100 per task; full uses 1,000 per task. Evaluation covers 24 tasks with 50 trials per task. The matched Fast-WAM and Joint-WAM implementations in the final block are especially informative because they share downstream splits, optimization, batches and training steps with LAWA. Fast-WAM supplies the faster performance baseline, while Joint-WAM retains explicit future-observation generation. Other rows provide context, but many lack few-shot results, and their broader training histories are not controlled by this table.",
+      "takeaway": "LAWA scores 65.6% few-shot and 80.8% full, compared with Fast-WAM’s 56.0% and 76.3%. The gains are 9.6 and 4.5 percentage points. Joint-WAM reaches 64.1% and 78.8%, making the comparison consistent with retaining its performance level through a less expensive future representation.",
+      "caution": "The matched downstream recipe does not match parameter counts, modality branches or pretraining objectives. No seed variability or confidence interval appears in the table, so the smaller margins over Joint-WAM should not be treated as established statistical superiority.",
+      "evidenceIds": [
+        "E10",
+        "E11",
+        "E14"
+      ]
+    },
+    {
+      "id": "latent-intervention",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 6,
+      "crop": [
+        0.111,
+        0.304,
+        0.456,
+        0.35
+      ],
+      "width": 1302,
+      "height": 224,
+      "asset": "report-assets/2608.24882/latent-intervention.png",
+      "sourceSha256": "c9bbd43cf12f09a02f88202e18e929de804d603b57621f4c51298b684c3d52e9",
+      "sourceUrl": "https://arxiv.org/pdf/2608.24882#page=6",
+      "alt": "Three inference conditions compare intact latent states with Gaussian corruption and temporal shuffling; success falls from 80.8% to 52.2% and 56.4%.",
+      "caption": "The action expert uses both the latent content and its temporal arrangement.",
+      "readingGuide": "This intervention table changes the model-visible latent-action state at inference while leaving the learned policy in place. The unperturbed column is the reference. Gaussian corruption uses isotropic noise with sigma = 1.0, disrupting latent content; temporal shuffling disrupts sequence order. Read the success drop as a test of functional dependence, rather than as another training ablation. It asks whether action generation would behave similarly if the latent pathway carried altered information. Both perturbed columns show substantial degradation. Their comparison does not rank the two interventions by inherent severity because their distributions and affected structure differ.",
+      "takeaway": "RoboCasa full-data success falls from 80.8% to 52.2% under noise and to 56.4% under temporal shuffling. The executor therefore does not simply ignore latent predictions. The results support a useful, temporally organized conditioning pathway, without proving that its representation is uniquely optimal.",
+      "caution": "Large corruptions can damage any used feature stream. Without norm-matched controls or alternative latent representations, the drops do not independently establish interpretable intentions, causal disentanglement or robustness to modest prediction errors.",
+      "evidenceIds": [
+        "E15"
+      ]
+    },
+    {
+      "id": "inference-latency",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 5",
+      "page": 6,
+      "crop": [
+        0.536,
+        0.304,
+        0.898,
+        0.35
+      ],
+      "width": 1302,
+      "height": 214,
+      "asset": "report-assets/2608.24882/inference-latency.png",
+      "sourceSha256": "c9bbd43cf12f09a02f88202e18e929de804d603b57621f4c51298b684c3d52e9",
+      "sourceUrl": "https://arxiv.org/pdf/2608.24882#page=6",
+      "alt": "Action-chunk latency on one A800 is 196.5 ms for Fast-WAM, 593.1 ms for Joint-WAM and 338.5 ms for LAWA.",
+      "caption": "Compact future prediction occupies the middle of the measured speed tradeoff.",
+      "readingGuide": "The unit is milliseconds per end-to-end action-chunk prediction, measured on one NVIDIA A800. Read lower values as faster inference, and pair this table with the success comparison rather than treating latency as an isolated objective. Fast-WAM removes test-time future prediction and is fastest. Joint-WAM predicts future observations and is slowest. LAWA predicts latent intentions plus actions, avoiding future-video denoising while retaining an extra branch beyond Fast-WAM. The important comparison is therefore two-sided: how much success LAWA retains relative to Joint-WAM, and how much inference time it adds relative to Fast-WAM.",
+      "takeaway": "LAWA requires 338.5 ms versus Joint-WAM’s 593.1 ms, a reported reduction of 42.9%. It remains slower than Fast-WAM at 196.5 ms. Together with Table 1, the measurements support an intermediate performance-latency tradeoff, not the fastest action generator among the tested variants.",
+      "caution": "The supplied main text defers full latency details to an unavailable appendix. Chunk prediction latency alone does not give the executed control frequency, and batching, denoising-step counts, feedback cadence and timing variability remain unresolved.",
+      "evidenceIds": [
+        "E14",
+        "E17"
+      ]
+    },
+    {
+      "id": "physical-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 7",
+      "page": 7,
+      "crop": [
+        0.527,
+        0.066,
+        0.908,
+        0.194
+      ],
+      "width": 1302,
+      "height": 566,
+      "asset": "report-assets/2608.24882/physical-results.png",
+      "sourceSha256": "c9bbd43cf12f09a02f88202e18e929de804d603b57621f4c51298b684c3d52e9",
+      "sourceUrl": "https://arxiv.org/pdf/2608.24882#page=7",
+      "alt": "Four physical xArm7 tasks are evaluated at 25%, 50% and 100% demonstration budgets, comparing Fast-WAM and LAWA success.",
+      "caption": "The proposed system’s advantage extends to the four tested physical tasks.",
+      "readingGuide": "Read the table in three pairs of rows, one pair for each demonstration budget. At full data, each of Gear, Battery, Block and Laboratory has 200 demonstrations; 25% therefore means 50 per task. Evaluation uses 20 trials per task and policy. Gear and Battery emphasize assembly, while Block and Laboratory require multistage manipulation. Comparing within a pair holds the stated robot demonstration proportion fixed. Comparing LAWA at 25% with Fast-WAM at 100% asks a different question about the complete recipe’s sample efficiency. The Avg column summarizes task successes, not visual-prediction accuracy or partial subgoal credit.",
+      "takeaway": "At 25% data, LAWA averages 40.0% success versus Fast-WAM’s 8.8%; at full data the values are 67.5% and 33.8%. LAWA’s 50-demonstration result exceeds the full-data Fast-WAM average. These measurements concern physical execution on the xArm7, strengthening the evidence beyond simulation.",
+      "caution": "Twenty trials per task leave substantial sampling uncertainty, and only one platform with four tasks is tested. The comparison evaluates the complete training recipe, including action-free pretraining, rather than isolating the latent architecture under equal total data exposure.",
+      "evidenceIds": [
+        "E19",
+        "E20"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Learn transition targets before learning robot control",
+      "text": "LAWA first learns a tokenizer from action-free video. A DINOv2 encoder and a non-causal transformer represent the observation sequence, after which successive contextual feature differences are compressed and assigned to codebook entries. A causal forward decoder must reconstruct the next observation from the previous one and the transition tokens. Mask prediction adds region-level supervision around hands and manipulators, with targets generated by SAM 2. This stage can use both robot and egocentric videos without robot action labels. The source aligns motion speeds through frame sampling and rebalances robot videos to about 20% of expected samples. The tokenizer is then frozen. Its outputs become training targets for the latent expert, while labeled demonstrations teach the separate executable-action expert.",
+      "kind": "source",
+      "evidenceIds": [
+        "E3",
+        "E4",
+        "E5",
+        "E6",
+        "E8"
+      ]
+    },
+    {
+      "heading": "Keep the future pathway while removing future pixels",
+      "text": "Robot-policy training jointly denoises video, latent-action and action targets with independent noise and flow times. The structured attention mask matters as much as the losses: latent and action queries cannot read future-video tokens, so their deployment interface does not depend on those tokens remaining available. At inference, the current observation is encoded once and cached; only latent and action experts are repeatedly evaluated. The latent expert moves continuously through embedding space toward codebook-derived training targets. It does not select discrete codes by nearest-neighbor projection during or after sampling. My interpretation is that the method retains a compact prediction of task transitions while avoiding the cost of rendering their appearance. The information flow supports that interpretation more directly than the word “intention” alone.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E6",
+        "E7",
+        "E9"
+      ]
+    },
+    {
+      "heading": "Attribute the benefit to the tested recipe",
+      "text": "The main success and latency results should be interpreted together with the egocentric-pretraining comparison. Without that pretraining, LAWA reports 59.7% few-shot and 76.3% full success, below Joint-WAM’s corresponding 63.1% and 78.3%. After pretraining, LAWA reaches 65.6% and 80.8%. Thus compact latent prediction by itself is not uniformly stronger than explicit future-observation prediction in the tested settings. Mask supervision adds a smaller improvement over the no-auxiliary variant, whereas optical-flow supervision reduces performance. My reading is that representation, data and objective choices cooperate in the reported recipe. The latent perturbation experiment shows that the resulting pathway is used; it does not assign the whole improvement to architecture while holding every other factor fixed.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E15",
+        "E16",
+        "E18"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Control the severity of latent interventions",
+      "text": "Reader-proposed: repeat temporal shuffling and Gaussian corruption with fixed initial states and action-sampling noise. Add norm-preserving latent permutations, small-noise sweeps and an equally sized corruption of a non-latent conditioning stream. Report success and action divergence over shared seeds. A disproportionately large dependence on temporal latent order would strengthen the transition-sequence interpretation beyond generic sensitivity to damaged features.",
+      "evidenceIds": [
+        "E7",
+        "E15"
+      ]
+    },
+    {
+      "title": "Match data and compute in the efficiency comparison",
+      "text": "Reader-proposed: train the three paradigms with the same action-free clips, downstream splits and measured accelerator budget, then sweep denoising steps to produce success-versus-latency curves on one device. Record parameter counts and action-feedback cadence. If LAWA’s advantage persists on a shared compute frontier, it would support the compact future interface independently of unequal optimization cost; otherwise the improvement should remain attributed to the complete recipe.",
+      "evidenceIds": [
+        "E14",
+        "E16",
+        "E17",
+        "E18"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      3,
+      5,
+      6,
+      7
+    ],
+    "notes": "Original PDF pages 3, 5, 6 and 7 were visually inspected. Final 200-DPI crops reproduce Figures 2 and 3 plus Tables 1, 3, 5 and 7. Every final crop was re-opened after extraction, including the architecture legend and both attention matrices. Other visible tables were read with the relevant source text for context. Appendix material referenced by the main text was not supplied; code and experiments were not inspected or run."
+  }
+}

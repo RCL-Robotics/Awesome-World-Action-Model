@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.28995",
+  "shortTitle": "Hydra",
+  "thesis": "Hydra searches learned discrete visual, pose and action intents before continuous execution, trading expensive candidate rendering for latent costs whose uncertainty signals can miss semantic hazards.",
+  "standfirst": "A world model can imagine what happens next, yet using it to evaluate many candidate actions may be too slow for navigation. Hydra puts a learned discrete vocabulary between prediction and execution. A shared model predicts visual, pose and action intents; a planner samples and scores alternatives in that representation; continuous heads decode the selected plan. The architecture and search diagrams explain where computation is saved. The physical planning table shows the reported operating point, while the uncertainty plot and cost ablation reveal the assumptions behind obstacle avoidance. Read those diagnostics together: representation mismatch can warn about unfamiliar futures, but it is neither a calibrated collision probability nor a guarantee that the model represents every hazard.",
+  "evidenceIds": [
+    "e02",
+    "e03",
+    "e07",
+    "e08",
+    "e09",
+    "e12",
+    "e16",
+    "e18",
+    "e21"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2608.28995/architecture.png",
+      "width": 1248,
+      "height": 343,
+      "sourceSha256": "aae873a09a7810fd81ee431e3e0b89cd8809c8cc935441ae0088a4e07505f1d6",
+      "sourceUrl": "https://arxiv.org/pdf/2608.28995#page=4",
+      "crop": [
+        0.133,
+        0.51,
+        0.867,
+        0.666
+      ],
+      "alt": "Four architecture panels compare ViNT, NWM, VertiFormer and Hydra; Hydra fuses action, pose and image history and routes predicted intent into three colored discrete codebooks.",
+      "caption": "Hydra inserts modality-specific vocabularies into a joint predictive model.",
+      "readingGuide": "Read the four panels as differences in model interfaces, not as an experimental ranking. The teal blocks represent visual observations, green blocks poses, and yellow blocks actions. ViNT maps visual history and a goal toward future poses; NWM predicts an observation conditioned on context and pose. VertiFormer and Hydra both combine aligned action, pose and visual history into a shared state representation. Hydra’s distinguishing blocks are the three purple-bordered codebooks below its future intent. The diagram also allows future action or pose conditions to enter the decoder. Its bottom outputs remain continuous predictions after the discrete representation has been selected and decoded.",
+      "takeaway": "Hydra combines forward-looking perception and control variables in one shared model, then quantizes their predicted intents into separate vocabularies. The codes are learned representations, not a hand-authored list of safe motor commands. This is the architectural basis for searching alternatives without rendering a full future image for every candidate.",
+      "caution": "The comparison diagram summarizes interfaces and cannot establish which component causes a performance difference. Codebook membership constrains representation but does not certify physical feasibility, collision avoidance or cross-platform generalization on its own.",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04",
+        "e23"
+      ]
+    },
+    {
+      "id": "latent-planning",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 6,
+      "asset": "report-assets/2608.28995/latent-planning.png",
+      "width": 1248,
+      "height": 444,
+      "sourceSha256": "aae873a09a7810fd81ee431e3e0b89cd8809c8cc935441ae0088a4e07505f1d6",
+      "sourceUrl": "https://arxiv.org/pdf/2608.28995#page=6",
+      "crop": [
+        0.133,
+        0.413,
+        0.867,
+        0.615
+      ],
+      "alt": "History enters Hydra, predicted intents expand into top-k code candidates, KPC scores them, an argmin feeds an iterative loop, and flow-matching heads decode the selected action, pose and visual future.",
+      "caption": "Candidate search precedes the expensive continuous generation stage.",
+      "readingGuide": "Start at the left with aligned action, pose and image history compressed into S. The transformer predicts future intent, which is mapped into the three colored vocabularies. The top-k bracket marks candidate retrieval and sampling. Candidate sequences meet at the KPC cost, and the argmin selects the best one before the lower feedback arrow begins another optimization iteration. After the configured iterations, the right-hand flow-matching heads transform Gaussian samples into continuous predictions conditioned on the selected codes. The method caches the observation encoding across this loop. Its practical saving is avoiding repeated pixel-level generation during candidate evaluation, rather than eliminating every form of decoding.",
+      "takeaway": "The planner can explore discrete candidates while retaining continuous action output. The reported physical configuration uses three search iterations, eighteen samples and a twelve-step horizon. Delaying visual generation until after selection reduces an expensive part of candidate evaluation, while cached history encoding avoids recomputing the same observation context each iteration.",
+      "caution": "The geometric goal term still needs a pose trajectory, so literal claims that no candidate decoding occurs are too strong. The quality of the final action also depends on the continuous decoder and the search prior, not only the selected code indices.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09",
+        "e12",
+        "e24"
+      ]
+    },
+    {
+      "id": "planning-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 9,
+      "asset": "report-assets/2608.28995/planning-results.png",
+      "width": 1303,
+      "height": 145,
+      "sourceSha256": "aae873a09a7810fd81ee431e3e0b89cd8809c8cc935441ae0088a4e07505f1d6",
+      "sourceUrl": "https://arxiv.org/pdf/2608.28995#page=9",
+      "crop": [
+        0.115,
+        0.846,
+        0.882,
+        0.912
+      ],
+      "alt": "Three model rows list parameter counts, continuous or discrete search, iteration/sample/horizon budgets, planning time and success counts for unobstructed, obstructed and corner-turn settings.",
+      "caption": "The reported discrete planner fits a subsecond operating point with higher task success.",
+      "readingGuide": "Begin with the search-budget columns before comparing the success columns. NWM and Hydra each use three iterations, eighteen samples and a twelve-step horizon; VertiFormer uses one iteration with the same sample count and horizon. Planning time is therefore not a model-size comparison alone. The final three columns contain counts out of ten trials, not percentages. Hydra records ten unobstructed successes and eight each for obstructed and corner-turn cases. The source protocol uses physical navigation with a nearby geometric goal, a time limit and collision-free completion. Inference is offloaded to an A5000 workstation, so these times should be read as that reported system configuration.",
+      "takeaway": "Hydra reports approximately 0.9 seconds per plan and 10/10, 8/10 and 8/10 successes across the three settings. VertiFormer is faster at approximately 0.7 seconds but succeeds only in four unobstructed trials; NWM exceeds 500 seconds and records no successes. This is a concrete operating-point comparison of complete planning systems.",
+      "caution": "The rows change model, search method, costs and sometimes iteration count, so they do not isolate discretization as the sole cause. Ten trials per setting are limited, and workstation offloading does not demonstrate the same latency on an onboard robot computer.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "id": "collision-diagnostic",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 4",
+      "page": 10,
+      "asset": "report-assets/2608.28995/collision-diagnostic.png",
+      "width": 1301,
+      "height": 625,
+      "sourceSha256": "aae873a09a7810fd81ee431e3e0b89cd8809c8cc935441ae0088a4e07505f1d6",
+      "sourceUrl": "https://arxiv.org/pdf/2608.28995#page=10",
+      "crop": [
+        0.502,
+        0.343,
+        0.879,
+        0.483
+      ],
+      "alt": "A rollout plot overlays blue visual quantization error and dashed orange predictive entropy on separate vertical axes, with paired actual and imagined scene thumbnails near early steps.",
+      "caption": "Latent uncertainty can rise near a hazard and then fall when the imagined hazard disappears.",
+      "readingGuide": "The horizontal axis is rollout step. Read the solid blue curve against the left scale, which measures visual quantization error as one minus cosine similarity. Read the dashed orange curve against the right scale in nats; their heights cannot be compared numerically because the axes differ. The paired thumbnails juxtapose actual observations and imagined views at selected steps. The surrounding analysis identifies an early vegetation-related warning and a later obstacle encounter, followed by a drop after the model imagines free pavement. Thus the useful question is not simply whether a curve rises, but whether the represented scene still contains the relevant physical obstacle.",
+      "takeaway": "The diagnostic illustrates both the appeal and weakness of latent safety costs. Unfamiliar futures can increase representation error or entropy, giving the planner a signal to avoid them. But a confident hallucination can reduce that signal while the real hazard remains. The plot therefore explains a failure mechanism rather than validating a reliable collision detector.",
+      "caution": "This is one illustrative rollout with dual axes, not a detection benchmark or a calibrated probability curve. The paper also reports false positives from visual texture and semantic omissions such as pedestrians; low uncertainty must not be equated with safety.",
+      "evidenceIds": [
+        "e18",
+        "e21",
+        "e25"
+      ]
+    },
+    {
+      "id": "cost-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 6",
+      "page": 12,
+      "asset": "report-assets/2608.28995/cost-ablation.png",
+      "width": 1076,
+      "height": 240,
+      "sourceSha256": "aae873a09a7810fd81ee431e3e0b89cd8809c8cc935441ae0088a4e07505f1d6",
+      "sourceUrl": "https://arxiv.org/pdf/2608.28995#page=12",
+      "crop": [
+        0.184,
+        0.139,
+        0.817,
+        0.248
+      ],
+      "alt": "Spot and Jackal columns compare time and collision measures for the full cost and three leave-one-term-out settings: no prior, no quantization error, and no entropy.",
+      "caption": "Removing each avoidance term worsens the reported collision measure.",
+      "readingGuide": "Compare each ablated row with the Original row within the same robot. The first pair of columns belongs to Spot and the second to Jackal. Setting a lambda to zero removes that cost while retaining the other terms; all rows retain geometric goal progress. The original collision measure is 0.20 for both robots. Removing the expert-prior term raises it to 0.70 for each, while removing quantization error or entropy also increases it. Timing does not move uniformly: some ablations are faster despite more collisions. The experiment uses ten trials per configuration, with blind-corner and frontal-obstacle scenarios, and disables the visual-goal term.",
+      "takeaway": "The reported ablation supports using several complementary avoidance terms rather than assuming one uncertainty measure is sufficient. Every single-term removal increases the collision measure in both robot settings. The table also shows that shorter completion time can accompany worse collision outcomes, making speed alone an inadequate objective for this comparison.",
+      "caution": "The displayed collision quantities and plus/minus values should be retained as reported, not converted into percentages or confidence intervals without a defined denominator and uncertainty convention. These limited scenarios do not establish coverage of semantic hazards or dynamic people.",
+      "evidenceIds": [
+        "e16",
+        "e18",
+        "e21"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Learn discrete intent without making motor commands discrete",
+      "text": "Hydra first aligns images, odometric poses and executed velocity commands in time. A frozen visual VAE supplies image features; Fourier-mapped pose and action features are broadcast and added before sequence modeling. The shared encoder summarizes history, and the decoder predicts future intent under action, pose or masked conditions. Separate codebooks quantize visual, pose and action representations into vocabularies of 2,048, 64 and 64 entries. The continuous heads then learn rectified flow from Gaussian noise to each target modality, conditioned on those codes. A deterministic anchoring objective trains concurrently to stabilize representation learning. The important distinction is that the planner’s search representation is discrete while the resulting pose and command trajectories remain continuous. Discretization limits the candidate representation; it does not replace the robot’s continuous control space with predefined symbolic actions.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04",
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "heading": "Search for progress while penalizing poorly supported futures",
+      "text": "Discrete latent planning begins from masked future conditions and an observation-conditioned expert prior. Query perturbations diversify trajectory shape, and temporally smoothed Gumbel perturbations diversify nearby code choices. The algorithm retains the best candidate across iterations. KPC ranks candidates using geometric progress, optional visual-goal similarity, the expert-prior likelihood, visual-token entropy and visual quantization error. The last two terms attempt to avoid poorly represented futures without generating all candidate images. My interpretation is that this transfers part of the safety burden into the learned representation: a hazard must affect the code distribution or reconstruction relationship to influence those costs. The diagnostic plot shows why that assumption can fail when the model confidently omits an obstacle. The cost ablation supports combining signals, but it cannot establish that their combination recognizes every relevant hazard.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e16",
+        "e18",
+        "e21",
+        "e25"
+      ]
+    },
+    {
+      "heading": "Keep planner mode, decoding and hardware in the result",
+      "text": "After candidate selection, the DLP pathway decodes the chosen kinodynamic trajectory through flow matching and blends overlapping predictions through temporal ensembling. The reported configuration uses ten flow evaluations for kinodynamic outputs and fifty for visual generation. Those costs sit alongside a cached observation encoder and three iterations of eighteen latent candidates. The physical comparison reports subsecond planning on an offloaded workstation, not onboard inference. Hydra also describes a separate local-following mode with external guidance, deterministic pose decoding and omitted visual-codebook safety terms. A reader should therefore avoid merging its different operating modes into one universal algorithm or latency claim. My reading is that reproducing the physical planning table requires fixing the precise mode, geometric and visual costs, sampling budget, decoding settings and hardware before interpreting either success or speed.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e12"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Do uncertainty costs detect hazards beyond texture novelty?",
+      "text": "Reader-proposed experiment: create matched routes that independently vary obstacle presence and visual texture, then repeat with static objects and crossing pedestrians. Keep goals, speed, viewpoints, candidate budget and the learned checkpoint fixed. Log entropy, quantization error, selected cost and actual collision outcomes, including cases where imagined objects disappear. If the signals respond primarily to texture or become low before collisions, that falsifies their use as a general safety proxy. Compare the full cost with the existing leave-one-term-out conditions rather than introducing a new detector silently.",
+      "evidenceIds": [
+        "e08",
+        "e16",
+        "e18",
+        "e21",
+        "e25"
+      ]
+    },
+    {
+      "title": "Where does the discrete planning speedup actually come from?",
+      "text": "Reader-proposed experiment: profile Hydra under fixed hardware, horizon, sample count and goal costs with history caching enabled or disabled, and with candidate images decoded only after selection or for every candidate. Preserve identical candidate seeds where possible and record wall time, selected actions and success. The claimed computation mechanism predicts that repeated image decoding substantially increases runtime without improving a cost that never reads those images. Separately report the cost of pose decoding required by geometric scoring; this would test the boundary between latent search and continuous evaluation.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09",
+        "e12",
+        "e24"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      4,
+      6,
+      9,
+      10,
+      12
+    ],
+    "notes": "Visually inspected Figures 2, 3 and 4 and Tables 2 and 6 in the immutable PDF, then inspected all five final PNG crops. Figure 4 retains its two vertical scales and scene insets. Table 6 retains reported collision and plus/minus quantities without imposing an undocumented normalization. This pass does not test calibration, execute navigation code, inspect external weights, or establish onboard performance; appendix failure descriptions remain important context for the selected visuals."
+  }
+}

@@ -8,6 +8,11 @@ import { ROOT, classificationSnapshot, hashText, readJSON, writeJSON, validateRe
 import { privateWorkDirectory } from '../lib/paths.mjs';
 import { taxonomyLabel } from '../../src/lib/taxonomy.mjs';
 const repository = fileURLToPath(ROOT);
+const pilot = await readJSON(join(repository, 'data/report-pilot.json'));
+if (pilot.state === 'awaiting-user-review') {
+  console.error('Reading batch paused: the ten illustrated pilot reports require user review before the remaining catalog is processed.');
+  process.exit(2);
+}
 const argv = process.argv.slice(2);
 function option(name, fallback) { const index = argv.indexOf(name); return index < 0 ? fallback : argv[index + 1]; }
 const requestedWorkDir = resolve(option('--work-dir', resolve(repository, '../reading_work')));

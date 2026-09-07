@@ -1,0 +1,223 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.29937",
+  "shortTitle": "AcrossWAM 1.0",
+  "thesis": "AcrossWAM separates transition prediction, future-feature decoding and action generation so a compact backbone can be substituted, but the reported substitution still adapts the decoder and action stack.",
+  "standfirst": "A smaller vision-language backbone is useful only if the surrounding robot policy continues to work. AcrossWAM makes that surrounding structure explicit: the backbone predicts an intended transition, a retained world decoder turns it into a spatial future feature, and a flow model produces the action chunk. Its most informative experiment compares two backbone configurations on the same LIBERO episodes, then audits what remains in an exported compact checkpoint. Read the diagram to separate training supervision from inference dependencies, the paired tables to judge retained control performance, and the latent rollout as a representation diagnostic. The evidence supports one concrete scaling experiment; broad plug-and-play portability and deployment speed remain open.",
+  "evidenceIds": [
+    "E02",
+    "E05",
+    "E07",
+    "E09",
+    "E11",
+    "E16",
+    "E17"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 2,
+      "asset": "report-assets/2608.29937/architecture.png",
+      "width": 1071,
+      "height": 605,
+      "sourceSha256": "f5374df7cc5aa1230ab10c6adb34be934a660f1b25ba7b83a1a2a1aee1eeab42",
+      "sourceUrl": "https://arxiv.org/pdf/2608.29937#page=2",
+      "crop": [
+        0.19,
+        0.108,
+        0.82,
+        0.383
+      ],
+      "alt": "Two-stage diagram: frozen DINOv3 features train an inverse-dynamics latent and world decoder; a backbone then predicts a latent subgoal that conditions a Flow-DiT action expert.",
+      "caption": "The interface passes a predicted transition and spatial subgoal into control.",
+      "readingGuide": "Start in the upper panel with two observed endpoints. Frozen DINOv3 produces current and future feature tokens; the inverse-dynamics Q-Former compresses their transition into the purple teacher latent. The orange world decoder reconstructs the future feature, with state grounding supplying extra training supervision. Then follow the lower panel from current images and language. Purple ACT queries support transition prediction, while turquoise flow queries provide action context. The predicted latent and current DINOv3 tokens meet at the retained decoder. Its orange future-feature output enters the green action expert. Snowflakes indicate frozen components, and dashed paths identify supervision that is unnecessary when the policy runs.",
+      "takeaway": "The diagram places an explicit predicted future feature between intended change and action generation. At inference, the world decoder remains active even though the future observation and inverse-dynamics teacher disappear. That distinction explains why removing training-only weights does not mean removing the world-model pathway from the deployed policy.",
+      "caution": "A clean interface does not establish frozen-module portability. In the compact experiment, the backbone, mapper, decoder and action expert are optimized together; the figure alone cannot predict behavior after an arbitrary backbone swap.",
+      "evidenceIds": [
+        "E04",
+        "E05",
+        "E06",
+        "E07",
+        "E20"
+      ]
+    },
+    {
+      "id": "paired-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "asset": "report-assets/2608.29937/paired-results.png",
+      "width": 972,
+      "height": 125,
+      "sourceSha256": "f5374df7cc5aa1230ab10c6adb34be934a660f1b25ba7b83a1a2a1aee1eeab42",
+      "sourceUrl": "https://arxiv.org/pdf/2608.29937#page=7",
+      "crop": [
+        0.215,
+        0.5273,
+        0.787,
+        0.584
+      ],
+      "alt": "Two backbone rows report LIBERO Long, Object, Goal, Spatial and pooled success, with parameter totals in the last column.",
+      "caption": "Matched episodes show a small pooled change when the backbone shrinks.",
+      "readingGuide": "Read the two rows as complete policy configurations rather than isolated language models. The four middle columns contain suite success percentages; Pooled includes both the percentage and successful-episode count. Each configuration is evaluated on the same 2,000 episodes, with 500 per suite. The compact row reaches 1,949 successes, compared with 1,960 for the larger row. Long and Spatial decline, Object increases slightly, and Goal is unchanged. Keep the rightmost parameter column separate from the success comparison: Table 3 identifies different checkpoint accounting categories, so its relationship to the label “Deploy params” here needs scrutiny.",
+      "takeaway": "The compact configuration attains 97.45% pooled success versus 98.00%, a decrease of 0.55 percentage points over matched episodes. That is within the paper’s prespecified two-point retention tolerance. It supports retained performance for these two trained checkpoints and evaluation episodes, with a modest suite-dependent pattern.",
+      "caution": "This is one checkpoint per configuration, so the comparison does not establish training-seed robustness. The 2,555.2M figure is called deployment parameters here but raw policy parameters in Table 3; a deployment-to-deployment reduction is therefore not cleanly established.",
+      "evidenceIds": [
+        "E08",
+        "E09",
+        "E12"
+      ]
+    },
+    {
+      "id": "latent-rollout",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 2",
+      "page": 8,
+      "asset": "report-assets/2608.29937/latent-rollout.png",
+      "width": 1045,
+      "height": 902,
+      "sourceSha256": "f5374df7cc5aa1230ab10c6adb34be934a660f1b25ba7b83a1a2a1aee1eeab42",
+      "sourceUrl": "https://arxiv.org/pdf/2608.29937#page=8",
+      "crop": [
+        0.195,
+        0.1,
+        0.81,
+        0.51
+      ],
+      "alt": "A four-column rollout at steps 0, 11, 22 and 33 compares simulator frames, decoded ground-truth latents, decoded predicted latents and latent-change heatmaps.",
+      "caption": "The latent rollout preserves scene layout while arm detail drifts.",
+      "readingGuide": "Read downward within a column before moving through time. The first row is the actual simulator observation; the second decodes its ground-truth latent through an auxiliary RGB decoder. Their difference reveals the visualization decoder’s own reconstruction limits. The third row instead decodes the model’s autoregressive predicted latent. Compare that row with the second to isolate additional prediction drift. Across the four displayed steps, the arm becomes less sharply localized while the table and several objects remain recognizable. The bottom row visualizes the magnitude of predicted latent changes, with warmer regions near the moving arm and manipulated area. It has no numerical color scale.",
+      "takeaway": "The visualization supports a narrow representational observation: the predicted latent retains substantial scene structure across the displayed rollout, while fine arm appearance degrades. The change map is consistent with localized motion information, but it does not quantify object tracking accuracy, physical consistency or the quality of the actions generated from those features.",
+      "caution": "The RGB decoder is an auxiliary visualization tool and is absent from policy inference and success evaluation. This single held-out trajectory is not a closed-loop control trial, and the uncalibrated heatmap should not be read as a probability.",
+      "evidenceIds": [
+        "E16",
+        "E21"
+      ]
+    },
+    {
+      "id": "export-audit",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 8,
+      "asset": "report-assets/2608.29937/export-audit.png",
+      "width": 1299,
+      "height": 247,
+      "sourceSha256": "f5374df7cc5aa1230ab10c6adb34be934a660f1b25ba7b83a1a2a1aee1eeab42",
+      "sourceUrl": "https://arxiv.org/pdf/2608.29937#page=8",
+      "crop": [
+        0.265,
+        0.673,
+        0.735,
+        0.742
+      ],
+      "alt": "Three checkpoint artifacts list unique parameter counts: 2B raw policy, 0.8B raw policy and 0.8B deployment export, with reductions relative to the first row.",
+      "caption": "Backbone scaling and export pruning contribute different parameter reductions.",
+      "readingGuide": "The first row supplies the denominator for both percentages: the larger backbone’s raw policy contains 2,555.2 million unique parameters. The second row changes to the compact backbone while retaining a raw checkpoint, producing 1,883.8 million. The final row additionally exports the compact policy, leaving 1,472.6 million. Thus the final percentage combines a backbone change with removal of training-only state. The accompanying audit reports 1,078 retained tensors with identical values and identifies 321 removed training-only keys. Reconstructible aliases are tracked separately, which matters because counting checkpoint keys is not equivalent to counting unique learned parameters.",
+      "takeaway": "The compact raw checkpoint is reported as 26.3% smaller than the larger raw checkpoint; its deployment export is 42.4% smaller than that same baseline. The export audit provides evidence about retained tensor values and checkpoint structure. It does not itself measure GPU memory, inference latency or executed robot behavior.",
+      "caution": "The baseline is a raw checkpoint, despite Table 2 labeling the same count as deployment parameters. Export verification is reported on CPU; the paper does not supply a corresponding GPU or simulator parity test or a measured deployment speedup.",
+      "evidenceIds": [
+        "E11",
+        "E12"
+      ]
+    },
+    {
+      "id": "suite-diagnostic",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 12,
+      "asset": "report-assets/2608.29937/suite-diagnostic.png",
+      "width": 1305,
+      "height": 368,
+      "sourceSha256": "f5374df7cc5aa1230ab10c6adb34be934a660f1b25ba7b83a1a2a1aee1eeab42",
+      "sourceUrl": "https://arxiv.org/pdf/2608.29937#page=12",
+      "crop": [
+        0.275,
+        0.316,
+        0.725,
+        0.414
+      ],
+      "alt": "LIBERO suite rows show paired success percentages, compact-minus-large percentage-point differences and paired-test p-values, followed by the pooled result.",
+      "caption": "The suite breakdown makes the pooled retention claim more interpretable.",
+      "readingGuide": "Use the delta column to compare the compact configuration with the larger configuration within each suite. A negative value means fewer compact-model successes. Long has the largest decrease at 1.6 percentage points; Spatial decreases by 0.8, Object improves by 0.2, and Goal is unchanged. The final column reports the paper’s paired tests, using the matched episode outcomes rather than treating all successes as independent between models. The pooled test combines the suites; the main text gives 46 episodes solved only by the larger configuration and 35 solved only by the compact one. Those discordant outcomes determine the paired comparison.",
+      "takeaway": "The aggregate decrease is not uniform across task families. Long-horizon tasks contribute the largest visible suite loss, while the two other object/goal categories remain close. The pooled p-value of 0.266 does not supply evidence of a significant difference under the reported test, but it also does not prove equality or universal interchangeability.",
+      "caution": "A non-significant paired test is not an equivalence test. These figures characterize evaluation variation for the reported checkpoints; repeated training runs and a prespecified noninferiority analysis would be needed to strengthen a general retention claim.",
+      "evidenceIds": [
+        "E09",
+        "E10"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Learn change before asking the backbone to predict it",
+      "text": "The first stage creates a target for intended change from paired observations. DINOv3 is frozen, so the current and future patch features inhabit a stationary representation space. The inverse-dynamics Q-Former sees both endpoints and returns a Gaussian transition posterior with a 32-dimensional latent. The world decoder must reconstruct future features from the current features plus that latent. A state-displacement loss, applied only where state dimensions are valid, gives the bottleneck motion-related supervision, while KL regularization restricts the posterior. The causal idea is that the current image already explains persistent scene appearance, leaving the latent to carry the transition. That is the authors’ representation rationale; the reconstruction objective alone does not prove the latent has isolated physical action factors.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E04",
+        "E18",
+        "E20"
+      ]
+    },
+    {
+      "heading": "Replace future access with a learned transition prediction",
+      "text": "The second stage removes the teacher’s privileged access to the future from the policy pathway. Current images and language enter a backbone adapter with two groups of eight queries. One group feeds a mapper that predicts the transition latent; the other supplies context to the flow-based action expert. Distillation aligns the predicted latent with the frozen teacher, and subgoal supervision aligns the decoder output with actual future features. During inference, current DINOv3 tokens and the predicted latent are sufficient to produce the spatial subgoal. The flow expert then transforms Gaussian noise into a 50-action chunk using both current and predicted future features. The architectural separation is explicit, but the compact training run updates the decoder as well as the new backbone, mapper and action expert.",
+      "kind": "source",
+      "evidenceIds": [
+        "E05",
+        "E06",
+        "E07",
+        "E18"
+      ]
+    },
+    {
+      "heading": "Separate the control experiment from the artifact audit",
+      "text": "The scaling claim combines two kinds of evidence that answer different questions. Matched LIBERO episodes compare behavior: the compact configuration loses eleven successes out of 2,000, with the largest suite decrease in Long. The checkpoint audit compares stored parameters: changing the backbone reduces the raw count, and exporting removes additional training-only state. My reading is that these results establish a promising compact configuration, while leaving the cost of obtaining and deploying it incompletely characterized. The paper supplies one checkpoint per configuration, no measured latency or memory comparison, and an inconsistent label for the larger parameter baseline. The auxiliary latent rollout helps explain what is represented, but cannot fill those experimental gaps. A faithful reproduction should preserve these distinctions when reporting retention, footprint and visual prediction quality.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E09",
+        "E10",
+        "E11",
+        "E12",
+        "E16",
+        "E17"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does the world decoder really transfer across backbones?",
+      "text": "Reader-proposed experiment: repeat the compact backbone substitution with matched data, training steps, initialization policy and evaluation episodes under two conditions: freeze the retained world decoder, or fine-tune it as in the paper. Repeat training seeds and report paired task success plus future-feature error. If freezing preserves the success distribution and subgoal accuracy, the interface supports stronger module portability. A reproducible drop restricted to the frozen condition would show that decoder adaptation is an essential part of the reported substitution.",
+      "evidenceIds": [
+        "E05",
+        "E07",
+        "E09",
+        "E13"
+      ]
+    },
+    {
+      "title": "Does the exported checkpoint preserve executed behavior?",
+      "text": "Reader-proposed experiment: load the compact raw checkpoint and its deployment export on the same GPU with identical precision, preprocessing, random action noise and controller settings. Compare retained tensors, generated action chunks, peak device memory and end-to-end latency before running the same paired LIBERO episodes. Export should preserve actions within a declared numerical tolerance and retain episode outcomes; a systematic deviation would falsify behavioral parity even if tensor names and counts pass the CPU audit. Report raw-to-raw and export-to-export parameter comparisons separately.",
+      "evidenceIds": [
+        "E08",
+        "E11",
+        "E12"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      2,
+      7,
+      8,
+      12
+    ],
+    "notes": "Visually inspected Figure 1, Table 2, Figure 2, Table 3 and Table 4 in the immutable source PDF, then inspected all five final PNG crops. Tables 2 and 3 retain the source’s inconsistent raw/deployment baseline labels; Figure 2 is an auxiliary RGB visualization. Table 1’s RoboTwin/body-text inconsistency remains unresolved and is not used as an accepted result here. This pass does not execute code, verify external repository contents, or add training seeds."
+  }
+}
