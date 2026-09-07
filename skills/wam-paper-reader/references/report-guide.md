@@ -16,6 +16,8 @@ An unavailable or mismatched source is a queue record, not a report. Dates and h
 
 Catalog metadata can predate a paper revision. An exact matching primary identifier/title with a substantially matching author list may still establish identity when the newer title page adds an author. Record the observed version and specific catalog discrepancy in coverage or evidence. Do not equate this with a different paper, and do not change the catalog as a side effect. Conflicting identifiers, different works with similar titles, or incompatible authors still require identity resolution before reading.
 
+A changed title requires an explicit primary-source revision chain: for example, the official venue lists the catalog title and links a stable submission whose author revision history identifies the new title and PDF. Verify author continuity and the revised PDF itself before accepting this resolution. Record the original catalog title, observed title, revision identifier/date, and added authors in `identityNotes`. Read and label the verified revision; do not claim the original version was recovered or that the versions are identical.
+
 ## Questions by resource
 
 **Method paper:** identify observations, state/latent representation, prediction target, action extraction, feedback, objectives, training stages, frozen modules, inference sequence, relevant equations, data and compute. Extract the strongest result and a mechanism-relevant ablation. Discuss what the experiments do and do not establish.

@@ -1,0 +1,589 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.06008",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T16:46:34.466Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.06008",
+      "title": "Adaptive-WAM: Quality-Guided Early-Exit Planning from Intermediate Video-Diffusion Features",
+      "kind": "pdf",
+      "sha256": "b8388c34a262ebbad0794c3da58afa1f81117d158728d3eea82f96e804094094",
+      "wordCount": 9599,
+      "accessedAt": "2026-09-07T13:54:02.125079+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and arXiv version stamp",
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Motivating Analysis",
+      "4 Method",
+      "5 Experiments",
+      "6 Conclusion",
+      "References",
+      "A Appendix Roadmap",
+      "B.1 NAVSIM Protocol",
+      "B.2 nuScenes Zero-Shot Protocol",
+      "C.1 Clip Construction and Temporal Filtering",
+      "C.2 Image Preprocessing",
+      "C.3 Programmatic Text Descriptions",
+      "D.1 Fixed Video-Noise Index and Multi-Exit Readout",
+      "D.2 Single-Trajectory Diffusion Head",
+      "D.3 Actor, Scorer, and Gradient Isolation",
+      "D.4 LoRA Placement and Reproducibility Manifest",
+      "E Auxiliary Fixed-B22 64-Proposal Model",
+      "F Extended Video-Noise Analysis",
+      "G.1–G.4 Extended DiT-Depth Analysis",
+      "H.1–H.3 Trajectory-Quality Scorer",
+      "I Additional Ablations",
+      "J Adaptive Routing",
+      "K Latency Scope and Profiling",
+      "L Detailed nuScenes Comparison",
+      "M Failure Analysis and Interpretation"
+    ],
+    "omissions": [
+      "Figure images were not supplied or visually inspected; only their extracted captions and surrounding text were read.",
+      "Table 3's tightly concatenated component columns were not used; its overall EPDMS entries are legible.",
+      "Separate supplemental material availability was not verified.",
+      "Code was not inspected and experiments were not reproduced.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3: overall EPDMS column only",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7",
+      "Table 8",
+      "Table 9",
+      "Table 10",
+      "Table 11",
+      "Table 12",
+      "Table 13",
+      "Table 14",
+      "Table 15",
+      "Table 16",
+      "Table 17",
+      "Table 18",
+      "Table 19",
+      "Table 20",
+      "Table 21",
+      "Table 22",
+      "Table 23",
+      "Table 24",
+      "Table 25",
+      "Table 26"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Adaptive-WAM uses intermediate features of a Wan video-diffusion backbone to generate driving trajectories, then stops computation when a separate quality scorer accepts the best candidate accumulated so far. Future-video supervision remains during training, while deployment incrementally executes one conditional backbone pass. The adaptive planner reports 90.79 PDMS at 170 ms; the higher 92.6 result belongs to a separately trained, fixed-exit 64-proposal model. These are benchmark planning results, not physical driving demonstrations. [e03, e04, e06, e09, e11, e13]",
+  "readingTimeMinutes": 12,
+  "problem": {
+    "text": "The authors ask how much video-model computation is necessary to produce a reliable four-second driving plan. They distinguish the latent noise index from transformer depth: neither completing future-video synthesis nor always using the same readout depth necessarily matches the computation required by an individual scene.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A controlled study separates video-noise sensitivity from readout depth using independent trajectory heads with matched architectures and training budgets. Intermediate exits perform strongly, while incomplete overlap between their high-quality scene sets motivates retaining deeper alternatives.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e10",
+        "e20"
+      ]
+    },
+    {
+      "text": "The proposed controller combines incremental backbone execution, one trajectory per attempted exit, and component-based quality verification. The authors claim this improves the measured planning–latency frontier over their fixed single-trajectory exits.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e11"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Latest front-camera image I",
+      "Deployment-available current and historical ego states S_ego",
+      "Route-level navigation command L_nav",
+      "Programmatic text description d(o), constructed from current or historical observations and metadata"
+    ],
+    "outputs": [
+      "Deployment: one selected four-second ego trajectory containing eight rear-axle-frame poses (x, y, θ), spaced 0.5 seconds apart",
+      "Training: per-exit trajectory predictions and the native Wan video-diffusion prediction"
+    ],
+    "steps": [
+      {
+        "name": "Construct a conditional video representation",
+        "detail": "The current image supplies the conditioned latent slice; future latent positions contain scheduler noise at index 17 of the 40-step video schedule. Cached text embeddings provide context. The planner receives no observed future video.",
+        "evidenceIds": [
+          "e03",
+          "e07"
+        ]
+      },
+      {
+        "name": "Decode trajectories at selected depths",
+        "detail": "Readouts follow Wan blocks 5, 9, 15, 18, 22, and 30. Each has an independent projection and action DiT, conditioned on backbone features, ego state, and navigation. Starting from Gaussian trajectory noise, each head performs five DDIM updates and produces one eight-pose trajectory.",
+        "evidenceIds": [
+          "e03",
+          "e08"
+        ]
+      },
+      {
+        "name": "Estimate candidate quality",
+        "detail": "A fine-tuned DINOv2-Small encoder processes the current image at 832×480. An MLP embeds the flattened trajectory; six separate MLP heads predict NC, DAC, DDC, TTC, EP, and comfort. The scorer receives neither ego state nor navigation command.",
+        "evidenceIds": [
+          "e05",
+          "e07"
+        ]
+      },
+      {
+        "name": "Accept or extend computation",
+        "detail": "The controller retains the highest predicted score across attempted exits. It stops when that score reaches the validation-selected threshold, defaulting to 90. Otherwise, it resumes from the cached hidden state. At block 30 it returns the best accumulated candidate, which can originate from an earlier exit. The pool contains at most six trajectories.",
+        "evidenceIds": [
+          "e04",
+          "e11"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Temporal filtering retains 82,555 nine-frame clips from 103,288 navtrain candidates. Each clip contains the anchor and eight future frames at 2 Hz; Wan inputs are resized to 1280×704. Captions use information available by the anchor time, including speed and historical motion, rather than future trajectory labels.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "text": "During imitation learning, frozen base Wan parameters are adapted through LoRA, while projections and trajectory heads are trainable. Video and trajectory losses share the conditional forward at index 17. Scorer updates alternate with actor updates and use detached generated trajectories with evaluator-provided soft component targets.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e08"
+        ]
+      },
+      {
+        "text": "Planner-only DiffGRPO subsequently trains only the action DiTs, keeping Wan, projections, and scorer fixed. A complete five-step denoising chain is a composite action. Groups contain eight trajectories; advantages are standardized within groups, step contributions use discount 0.6, and behavior cloning has weight 0.1.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e08"
+        ]
+      },
+      {
+        "text": "The auxiliary 64-proposal system uses a different learned-token trajectory decoder at fixed block 22. Its coverage supervision includes evaluator-filtered pseudo-experts constructed using training-time map and future occupancy information. It is separate from the adaptive diffusion-head training protocol.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The single video-feature forward is distinct from the five action-denoising updates at every attempted exit. Deployment omits the iterative video-denoising loop, unconditional classifier-free-guidance branch, and future-video VAE decoding; it reuses evaluated backbone prefixes and cached candidate scores.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e18"
+        ]
+      },
+      {
+        "text": "The returned output is a planned path. NAVSIM evaluates it using a controller and recorded background-actor futures; this provides simulated trajectory-execution evidence under a non-reactive protocol.",
+        "kind": "source",
+        "evidenceIds": [
+          "e13"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "h_ℓ = F_{1:ℓ}(I, d(o); s*=17); τ_ℓ = G_ℓ(P_ℓ(h_ℓ), S_ego, L_nav).",
+        "explanation": "F is the conditional Wan prefix, P projects its hidden representation, and G is the independent trajectory diffuser. Backbone depth changes the conditioning representation without changing head architecture.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "L_actor = λ_vid L_vid + Σ_{ℓ∈E} λ_ℓ L_traj^ℓ; L_score = Σ_{i,c} BCElogit(a_{i,c}, r^oracle_{i,c}); ∇_{θ_Wan,θ_G} L_score = 0.",
+        "explanation": "Video and trajectory objectives adapt the actor together. Equal-weight soft-label component fitting trains the scorer separately; the zero gradient prevents its loss from reshaping actor trajectories.",
+        "evidenceIds": [
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "expression": "Q_v1(r̂) = 100 × NĈ × DAĈ × (5 EP̂ + 5 TTĈ + 2 Comf̂) / 12.",
+        "explanation": "The v1 composition converts predicted normalized components into a 100-point quality score. Multiplicative safety terms and saturated components create ties. Although the scorer also predicts DDC, that component is absent from the stated v1 formula.",
+        "evidenceIds": [
+          "e05",
+          "e13"
+        ]
+      },
+      {
+        "expression": "q̂_j = max_{m≤j} Q(r̂_{ℓ_m}); τ̂_j = argmax_{τ_{ℓ_m}∈A_j} Q(r̂_{ℓ_m}); stop when q̂_j ≥ η, or after the final exit.",
+        "explanation": "A_j contains one candidate from each attempted exit. Acceptance concerns predicted candidate quality, and the final fallback preserves the best earlier candidate rather than automatically choosing block 30.",
+        "evidenceIds": [
+          "e04"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Adaptive planning and efficiency",
+      "setting": "NAVSIM v1; one trajectory per attempted exit; η=90; batch one on A100 80GB with cached text",
+      "metric": "PDMS ↑; mean end-to-end latency ↓; termination by B15",
+      "value": "Reported: 90.79 PDMS; 170 ms; 94.1%",
+      "comparison": "Fixed B15: 90.62 PDMS and 190 ms. Fixed full-depth reference: 85.82 PDMS and 320 ms.",
+      "interpretation": "The adaptive gain is 0.17 points with approximately 10% lower mean latency than B15. The full-depth reference additionally includes a VAE decode, so its approximately 47% latency reduction is not an isolated depth-routing effect.",
+      "evidenceIds": [
+        "e11",
+        "e18"
+      ]
+    },
+    {
+      "task": "Routing-threshold ablation",
+      "setting": "Same adaptive single-trajectory NAVSIM v1 protocol",
+      "metric": "PDMS ↑; mean latency ↓",
+      "value": "Reported: η=70 gives 88.49/112 ms; η=80 gives 90.64/143 ms; η=95 gives 90.75/284 ms",
+      "comparison": "Selected η=90 gives 90.79/170 ms.",
+      "interpretation": "A permissive threshold sacrifices quality; increasing the threshold beyond 90 spends substantially more computation without improving the reported score.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Auxiliary multi-proposal planning",
+      "setting": "NAVSIM v1 navtest; fixed B22; 64 proposals; no adaptive routing",
+      "metric": "PDMS ↑",
+      "value": "Reported: 92.6",
+      "comparison": "Table 2 reports 90.8 for adaptive single-trajectory planning and 90.5 for DriveVA.",
+      "interpretation": "This is the paper's highest v1 score, but decoder architecture and pseudo-expert supervision also change. It is neither the adaptive planner's score nor a pure proposal-count ablation.",
+      "evidenceIds": [
+        "e09",
+        "e12"
+      ]
+    },
+    {
+      "task": "Extended benchmark planning",
+      "setting": "NAVSIM v2 navtest; single front camera; official extended protocol",
+      "metric": "EPDMS ↑",
+      "value": "Reported: 89.9",
+      "comparison": "DriveVLA-W0: 86.1; Epona: 85.1.",
+      "interpretation": "Highest among the listed learned planners. EPDMS uses additional components, human-reference filtering, and two-stage aggregation, so it cannot be pooled with v1 PDMS.",
+      "evidenceIds": [
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "task": "Cross-dataset trajectory transfer",
+      "setting": "NAVSIM-trained model evaluated on nuScenes without target-domain fine-tuning; averages over 1, 2, and 3 seconds",
+      "metric": "Average displacement error ↓; average collision rate ↓",
+      "value": "Reported: 0.88 m; 0.08%",
+      "comparison": "DriveVA in the zero-shot group: 0.84 m; 0.06%.",
+      "interpretation": "Transfer is competitive but slightly worse on both reported averages. These are dataset evaluation metrics, and the comparison supplies no matched DriveVA latency measurement.",
+      "evidenceIds": [
+        "e14",
+        "e18"
+      ]
+    },
+    {
+      "task": "Video-noise sensitivity",
+      "setting": "Single-trajectory imitation diagnostics at indices 1, 9, 17, 25, and 32",
+      "metric": "PDMS range across tested indices",
+      "value": "Reported values span 0.13 points at B15 and 0.15 at B18",
+      "comparison": "Each comparison holds the exit depth fixed.",
+      "interpretation": "The tested indices have little effect; this does not establish invariance across all schedulers or noise levels.",
+      "evidenceIds": [
+        "e10"
+      ]
+    },
+    {
+      "task": "Depth and planner-RL ablation",
+      "setting": "NAVSIM v1; matched single-trajectory heads; validation-best selection across ten runs",
+      "metric": "PDMS ↑",
+      "value": "Reported B15: 86.56 after imitation, 90.62 after RL; B30 after RL: 85.82",
+      "comparison": "B15 is the strongest fixed exit in both stages.",
+      "interpretation": "More backbone depth is not monotonically beneficial. Non-identical high-quality scene sets support retaining alternative exits despite B15's better average.",
+      "evidenceIds": [
+        "e10",
+        "e20"
+      ]
+    },
+    {
+      "task": "Representation adaptation",
+      "setting": "NAVSIM v1 single-trajectory ablations",
+      "metric": "PDMS ↑",
+      "value": "Reported: cached separately adapted Wan features 84.95; joint LoRA 90.62; full tuning 90.64; ViT-Large 88.88",
+      "comparison": "Joint LoRA exceeds cached features by 5.67 points and ViT-Large by 1.74 points.",
+      "interpretation": "Joint adaptation is consequential in this setup; full tuning adds only 0.02 points. These comparisons do not separately isolate the video-supervision loss.",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "task": "Scorer selection reliability",
+      "setting": "Fixed offline candidate pool covering 12,146 scenes, distinct from adaptive inference",
+      "metric": "Top-score selection accuracy; consequential score-gap failures",
+      "value": "Reported: 91.2% exact selection; 94.4% within 5 points; 51 failures with ≥50-point gap (0.42%); 69 with ≥20-point gap (0.57%)",
+      "comparison": "More than 95% of diagnostic scenes contain jointly perfect, jointly zero, or top-tied candidates.",
+      "interpretation": "Tie-aware evaluation is appropriate, but these statistics are neither collision probabilities nor direct measurements of erroneous online stopping.",
+      "evidenceIds": [
+        "e15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Passing the quality threshold is not a safety certificate. The authors explicitly acknowledge consequential scorer errors and that stricter thresholds cannot guarantee safety.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e19"
+      ]
+    },
+    {
+      "text": "The adaptive-versus-B15 gain has no accompanying uncertainty or paired significance analysis. Routing also combines variable depth with selection among multiple independent candidates, so the comparison does not isolate depth allocation from candidate-selection benefits.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e11"
+      ]
+    },
+    {
+      "text": "The scorer is frozen before planner RL and lacks ego-state and navigation inputs. Its offline pool diagnostics do not establish calibration after actor refinement or dataset transfer. The paper also does not specify how its six outputs accommodate all additional v2 metric components.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e13",
+        "e15"
+      ]
+    },
+    {
+      "text": "NAVSIM v1 uses non-reactive background traffic; v2 approximates longer interaction through precomputed follow-up scenes. Together with nuScenes trajectory metrics, these protocols leave interactive traffic response and physical deployment untested.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "text": "The adaptation ablations support joint feature learning, but no reported removal of video supervision isolates its causal contribution. Wan-versus-ViT comparisons also change backbone capacity and pretraining.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e17"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the filtered NAVSIM clips, programmatic caption generator, official evaluator, Wan/T5/VAE components, six action heads, and trained scorer. The abstract promises a future code release; it does not establish that a runnable implementation is available.",
+      "kind": "source",
+      "evidenceIds": [
+        "e01",
+        "e03",
+        "e05",
+        "e07",
+        "e13"
+      ]
+    },
+    {
+      "text": "Reported LoRA settings are q/k/v/o targets, rank 32, alpha 64, dropout 0.05, and AdamW at 2×10⁻⁴ for 80 epochs. The action-head schedule uses AdamW at 10⁻⁴, 200 imitation epochs, and 50 GRPO epochs. These provide concrete starting configurations.",
+      "kind": "source",
+      "evidenceIds": [
+        "e08"
+      ]
+    },
+    {
+      "text": "Clarification is needed for internal validation membership, explicit video/exit loss weights, and how the different backbone and action-head schedules interleave. Tables 1/14 also differ from Table 13's index-17 imitation entries despite the stated fixed index. Appendix D's GRPO reward weights differ from the stated PDMS composition and require implementation-level reconciliation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e08",
+        "e10",
+        "e13"
+      ]
+    },
+    {
+      "text": "A minimal mechanism check would fix checkpoints and trajectory randomness, evaluate every exit on the same scenes, then replay threshold routing against B15 and full-depth baselines under identical decoding scope. Report paired score differences, false acceptance of large-gap candidates, and latency distributions; separately ablate video supervision.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e11",
+        "e15",
+        "e17",
+        "e18"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The driving task and adaptive computation support the recorded application tags. Dual-system is supported by a video DiT conditioning separate action diffusion heads. Joint prediction is supported in the training sense: future-video and trajectory predictions share an adapted backbone forward. This requires an explicit deployment qualification: inference decodes trajectories from intermediate features, without jointly synthesizing future video or applying an inverse-dynamics stage. Q3 therefore fits the training-coupled architecture, not an inference-time video/action co-generation claim.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e06",
+        "e13"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q3 · Dual-system × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "ff25aeb910fffd22e216cf50bba63ad29be639254f3b4f46dcb7a37204b6c316"
+    }
+  },
+  "discussionQuestions": [
+    "How much of the adaptive gain comes from choosing among multiple heads, and how much specifically requires conditional depth allocation? [e03, e04, e11]",
+    "Would recalibrating the scorer after planner RL improve early-exit reliability, particularly under dataset shift? [e05, e06, e14, e15]",
+    "Does joint LoRA remain effective when future-video supervision is removed while all other training factors are held fixed? [e06, e17]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title page, arXiv stamp, and Abstract",
+      "detail": "The title, three authors, and identifier match the catalog. The supplied artifact identifies arXiv:2608.06008v1, dated 6 August 2026. The abstract states that code will be released."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Sections 1–3",
+      "detail": "The authors distinguish video sampling index from DiT depth and motivate adaptive computation because deployment requires an ego trajectory rather than completed video synthesis."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 4, Problem and Backbone and Multi-Exit Trajectory Decoding, Eqs. (1)–(2); p. 11, Sections D.1–D.2",
+      "detail": "Wan has 30 blocks; exits are 5, 9, 15, 18, 22, and 30. Independent action diffusers condition on projected features, ego state, and navigation. Planning uses index 17, scheduler-noised future latent positions, and five DDIM trajectory updates per exit."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Quality-Guided Adaptive Inference, Eqs. (5)–(7); p. 5, Algorithm 1; p. 15, Section J",
+      "detail": "Each attempted exit contributes one candidate. Routing tests the highest accumulated predicted quality, reuses the computed backbone prefix, and returns the best accumulated trajectory when the threshold is met or the final exit is reached."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Eqs. (3)–(4); p. 6, Trajectory-quality scorer, Eqs. (9)–(11); p. 14, Section H.1, Eq. (21)",
+      "detail": "The fine-tuned DINOv2-Small scorer consumes image and flattened trajectory features, without ego state or navigation. Six heads predict NC, DAC, DDC, TTC, EP, and comfort using equal-weight soft-label BCE; generated trajectories are detached."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Training, Eq. (8) and Planner-only reinforcement learning; pp. 11–12, Section D.3, Eqs. (17)–(18)",
+      "detail": "Video and exit losses share one conditional forward during LoRA adaptation. Actor and scorer updates alternate with gradient isolation. Wan and the scorer are frozen for subsequent planner-only DiffGRPO."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Sections C.1–C.3, Eq. (15) and Table 8",
+      "detail": "Filtering retains 82,555 of 103,288 candidate tokens as complete nine-frame clips. Wan images are 1280×704 and scorer images 832×480. Captions use current or historical attributes; T5 embeddings are cached. Corpus counts do not specify an internal validation partition."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Section D.4 and Table 10; p. 13, Tables 9 and 11",
+      "detail": "Tables specify LoRA rank/alpha/dropout 32/64/0.05, backbone learning rate 2×10⁻⁴ and 80 epochs; action-head learning rate 10⁻⁴, 200 imitation and 50 GRPO epochs. GRPO trains only the action DiT, samples groups of eight, uses discount 0.6 and cloning weight 0.1, and lists reward weights 10/5/2/0."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, Section E and Table 12; p. 6, Table 2, fixed B22 row",
+      "detail": "The auxiliary 92.6-PDMS model generates 64 proposals at B22 without routing. Its learned-token decoder and pseudo-expert coverage loss differ from adaptive diffusion heads. Pseudo-expert construction uses training-time map and future occupancy through the evaluator."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3 and Table 1; p. 13, Sections F and G.1, Tables 13–14",
+      "detail": "The single-trajectory noise-index ranges are 0.13 at B15 and 0.15 at B18. Depth tables report B15 imitation/RL scores 86.56/90.62 and B30 RL 85.82. Table 13's index-17 imitation entries are 86.57 and 83.99, differing from the depth-table entries."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 5; p. 15, Section J and Table 23",
+      "detail": "At threshold 90, adaptive routing reports 90.79 PDMS, 170 ms, and 94.1% termination by B15. Fixed B15 reports 90.62/190 ms. Thresholds 70, 80, and 95 report 88.49/112 ms, 90.64/143 ms, and 90.75/284 ms respectively."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Tables 2–3, method rows and final score columns",
+      "detail": "Table 2 reports v1 PDMS of 90.8 for adaptive single-trajectory planning, 92.6 for fixed-B22 64-proposal planning, and 90.5 for DriveVA. Table 3 reports v2 EPDMS of 89.9 for Adaptive-WAM, 86.1 for DriveVLA-W0, and 85.1 for Epona."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Sections B.1–B.2, Eqs. (12)–(14)",
+      "detail": "NAVSIM v1 evaluates a controller-followed four-second trajectory with recorded background futures. Its PDMS uses NC and DAC multipliers and EP/TTC/comfort weights 5/5/2. V2 adds components, human-reference filtering, and weighted follow-up scenes. nuScenes evaluation averages 1–3-second metrics."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Section L, Table 25, zero-shot rows; p. 17, Table 26, zero-shot rows",
+      "detail": "Without nuScenes fine-tuning, Adaptive-WAM reports average L2 0.88 m and collision rate 0.08%; DriveVA reports 0.84 m and 0.06%. Target-domain-trained methods are listed separately."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Section H.2 and Table 18; p. 17, Section M",
+      "detail": "The separate 12,146-scene diagnostic pool yields 91.2% exact selection and 94.4% within five points. Counts of failures with gaps of at least 50 and 20 points are 51 and 69. Over 95% of scenes have jointly perfect, jointly zero, or top-tied candidates."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Section I, Tables 21–22",
+      "detail": "Single-trajectory PDMS is 84.95 with separately adapted cached features, 90.62 with joint LoRA, and 90.64 with full tuning. ViT-Large scores 88.88. The listed comparisons vary adaptation or backbone rather than independently removing video supervision."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Computation; pp. 15–16, Section K and Table 24",
+      "detail": "Planning timing includes image VAE encoding, evaluated backbone blocks, attempted action heads, and scoring, with cached text. Fixed B30 additionally includes a VAE decode. Separately, full 40-step classifier-free video generation takes 13.22 seconds; it is a different computation graph."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Section M, Failure Analysis and Interpretation",
+      "detail": "The authors characterize large scorer errors as consequential, state that stricter thresholds cannot guarantee safety, and explicitly reject interpreting threshold acceptance as a formal safety certificate."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Section G.2, Eq. (19) and Table 15",
+      "detail": "High-quality scene sets use PDMS at least 90. Their mean off-diagonal Jaccard overlaps span 0.69–0.82 across ten aligned runs, documenting substantial but incomplete overlap between exits."
+    }
+  ]
+}
