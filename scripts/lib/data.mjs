@@ -2,6 +2,7 @@ import { readFile, writeFile, rename, unlink, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
+import { MAJOR_CATEGORIES, QUADRANT_STATUSES, ARCHITECTURES, PREDICTION_PARADIGMS, CLASSIFICATION_STATUSES, QUADRANT_AXES } from '../../src/lib/taxonomy.mjs';
 
 export const CATEGORIES = Object.freeze([
   'General WAM', 'Memory WAM', 'WAM + RL', '3D/4D WAM',
@@ -15,9 +16,13 @@ export const LEGACY_PUBLIC_FIELDS = Object.freeze([
   'submittedDate', 'primaryCategory', 'secondaryCategories', 'bibtexKey',
   'arxivUrl', 'codeUrls', 'projectUrl', 'venue',
 ]);
-export const PUBLIC_FIELDS = Object.freeze([
+export const REFERENCE_PUBLIC_FIELDS = Object.freeze([
   ...LEGACY_PUBLIC_FIELDS, 'paperUrl', 'pdfUrl', 'doi', 'publicationYear', 'bibtex',
 ]);
+export const TAXONOMY_FIELDS = Object.freeze([
+  'majorCategory', 'subcategories', 'architecture', 'predictionParadigm', 'quadrant', 'classificationStatus',
+]);
+export const PUBLIC_FIELDS = Object.freeze([...REFERENCE_PUBLIC_FIELDS, ...TAXONOMY_FIELDS]);
 export const UNCATEGORIZED = 'Uncategorized';
 
 export function propertyText(property) {
@@ -122,6 +127,12 @@ export function mapNotionPage(page) {
     doi: normalizeDoi(propertyText(p.DOI)),
     publicationYear: p['Publication Year']?.number ?? null,
     bibtex: propertyText(p.BibTeX),
+    majorCategory: p['大类']?.select?.name || null,
+    subcategories: (p['小类']?.multi_select ?? []).map((entry) => entry.name),
+    architecture: p['架构类型']?.select?.name || null,
+    predictionParadigm: p['预测范式']?.select?.name || null,
+    quadrant: p['四象限']?.select?.name || null,
+    classificationStatus: p['分类状态']?.select?.name || null,
   };
 }
 
@@ -164,6 +175,17 @@ export function validatePapers(papers, { allowEmpty = false } = {}) {
     if (paper.doi !== null && (typeof paper.doi !== 'string' || !paper.doi || normalizeDoi(paper.doi) !== paper.doi)) throw new Error(`${label}: doi must be a canonical https://doi.org/ URL or null`);
     if (paper.publicationYear !== null && (!Number.isInteger(paper.publicationYear) || paper.publicationYear < 1000 || paper.publicationYear > new Date().getUTCFullYear() + 1)) throw new Error(`${label}: publicationYear must be an integer from 1000 through next year, or null`);
     if (paper.venue !== null && (typeof paper.venue !== 'string' || !paper.venue.trim())) throw new Error(`${label}: venue must be a nonempty string or null`);
+    for (const [field, options] of [
+      ['majorCategory', MAJOR_CATEGORIES], ['architecture', ARCHITECTURES],
+      ['predictionParadigm', PREDICTION_PARADIGMS], ['quadrant', QUADRANT_STATUSES],
+      ['classificationStatus', CLASSIFICATION_STATUSES],
+    ]) {
+      if (paper[field] !== null && !options.includes(paper[field])) throw new Error(`${label}: unknown ${field}`);
+    }
+    if (!Array.isArray(paper.subcategories) || paper.subcategories.some((value) => typeof value !== 'string' || !value.trim())) throw new Error(`${label}: subcategories must contain nonempty strings`);
+    if (new Set(paper.subcategories).size !== paper.subcategories.length) throw new Error(`${label}: duplicate subcategory`);
+    const axes = QUADRANT_AXES[paper.quadrant];
+    if (axes && (paper.architecture !== axes.architecture || paper.predictionParadigm !== axes.predictionParadigm)) throw new Error(`${label}: quadrant does not agree with architecture and predictionParadigm`);
   });
   return papers;
 }
@@ -198,15 +220,16 @@ export function planCatalogUpdate(papers, previous, previousMeta, fetchedAt) {
   return { changed: true, meta };
 }
 
-// Only the exact former public schema is migratable. Unknown/private fields are
+// Only the exact former 14- and 19-field schemas are migratable. Unknown/private fields are
 // rejected instead of being silently discarded while reading a previous catalog.
 export function migrateLegacyCatalog(papers) {
   if (!Array.isArray(papers)) throw new Error('Previous catalog must contain an array');
   const migrated = papers.map((paper) => {
     if (!paper || typeof paper !== 'object' || Array.isArray(paper)) return paper;
-    const keys = Object.keys(paper);
-    if (keys.length !== LEGACY_PUBLIC_FIELDS.length || LEGACY_PUBLIC_FIELDS.some((key) => !Object.hasOwn(paper, key))) return paper;
-    return { ...paper, paperUrl: paper.arxivUrl, pdfUrl: null, doi: null, publicationYear: null, bibtex: '' };
+    const matches = (fields) => Object.keys(paper).length === fields.length && fields.every((key) => Object.hasOwn(paper, key));
+    if (matches(LEGACY_PUBLIC_FIELDS)) paper = { ...paper, paperUrl: paper.arxivUrl, pdfUrl: null, doi: null, publicationYear: null, bibtex: '' };
+    if (matches(REFERENCE_PUBLIC_FIELDS)) paper = { ...paper, majorCategory: null, subcategories: [], architecture: null, predictionParadigm: null, quadrant: null, classificationStatus: null };
+    return paper;
   });
   return validatePapers(migrated, { allowEmpty: true });
 }
@@ -257,5 +280,12 @@ export function coverage(papers) {
     unknownDate: papers.filter((p) => p.submittedDate === null).length,
     missingAbstract: papers.filter((p) => !p.abstract.trim()).length,
     uncategorized: papers.filter((p) => p.primaryCategory === UNCATEGORIZED).length,
+    majorCategory: papers.filter((p) => p.majorCategory !== null).length,
+    subcategories: papers.filter((p) => p.subcategories.length).length,
+    architecture: papers.filter((p) => p.architecture !== null).length,
+    predictionParadigm: papers.filter((p) => p.predictionParadigm !== null).length,
+    quadrant: papers.filter((p) => p.quadrant !== null).length,
+    classificationStatus: papers.filter((p) => p.classificationStatus !== null).length,
+    quadrantDistribution: Object.fromEntries(QUADRANT_STATUSES.map((quadrant) => [quadrant, papers.filter((p) => p.quadrant === quadrant).length])),
   };
 }

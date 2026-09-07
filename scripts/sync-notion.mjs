@@ -2,7 +2,7 @@
 import { open, mkdir, unlink } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
-import { atomicWriteFiles, coverage, guardDecrease, mapNotionPage, migrateLegacyCatalog, planCatalogUpdate, readJson, sortPapers, validatePapers } from './lib/data.mjs';
+import { PUBLIC_FIELDS, atomicWriteFiles, coverage, guardDecrease, mapNotionPage, migrateLegacyCatalog, planCatalogUpdate, readJson, sortPapers, validatePapers } from './lib/data.mjs';
 import { createNotionReader, queryAllPages, validateSourceId } from './lib/notion.mjs';
 import { privateSnapshotPath } from './lib/paths.mjs';
 
@@ -62,7 +62,7 @@ async function main() {
     try {
       const existing = await readJson(papersPath);
       previous = migrateLegacyCatalog(existing);
-      needsSchemaMigration = existing.some((paper) => !Object.hasOwn(paper, 'paperUrl'));
+      needsSchemaMigration = existing.some((paper) => Object.keys(paper).length !== PUBLIC_FIELDS.length);
     }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
     let previousMeta;
@@ -89,6 +89,8 @@ async function main() {
     const summary = coverage(papers);
     console.log(`${dryRun ? 'Validated (no files written)' : 'Validated'}: ${summary.papers} papers (${summary.arxiv} arXiv, ${summary.nonArxiv} other); code ${summary.code}, projects ${summary.project}, PDFs ${summary.pdf}, DOIs ${summary.doi}, venues ${summary.venue}.`);
     console.log(`Recorded years ${summary.publicationYear}, BibTeX ${summary.bibtex}; uncategorized ${summary.uncategorized}, missing dates ${summary.unknownDate}, missing abstracts ${summary.missingAbstract}.`);
+    console.log(`Classification coverage: major ${summary.majorCategory}, subcategories ${summary.subcategories}, architecture ${summary.architecture}, prediction paradigm ${summary.predictionParadigm}, quadrant ${summary.quadrant}, status ${summary.classificationStatus}.`);
+    console.log(`Quadrants: ${JSON.stringify(summary.quadrantDistribution)}.`);
     if (needsSchemaMigration) console.log('Legacy catalog will be migrated to the current catalog schema.');
     if (!changed) console.log('No catalog changes.');
     if (dryRun) return;

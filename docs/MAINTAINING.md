@@ -1,46 +1,95 @@
-# 维护与发布
+# Maintenance and synchronization
 
-当前处于私有开发阶段：仓库保持私有，GitHub Pages 已关闭，部署工作流已停用。仅使用本地预览；必须获得仓库所有者明确同意后才能公开发布。
+The repository remains private. GitHub Pages is off and the deployment workflow is disabled. Use local preview only. Public release requires explicit approval from the repository owner; syncing data or merging a PR does not publish the website.
 
-论文内容以 Notion 中的 **Awesome-World-Action-Model** 数据库为准。导出得到 `data/papers.json` 和 `data/meta.json`，网站与 README 共用这份数据。每次导出先经过校验、代码审查和合并；合并不会发布网站。
+The **Awesome-World-Action-Model** database in Notion is the editorial source. The exporter writes `data/papers.json` and `data/meta.json`; the website and generated README use the same catalog.
 
-## 来源与缺失字段
+## Sources and missing information
 
-同步默认读取目标 Notion 数据源的全部条目，包括 arXiv、DOI、出版方论文页、PDF 和其他论文来源。它只读取 Notion，不会回写数据库，也不会因为条目缺少摘要、分类或提交日期而将其排除。
+Synchronization reads the entire Notion data source by default, including arXiv, DOI, publisher, PDF, and other recorded research sources. It does not write to Notion, reclassify entries, or exclude records because an abstract, classification, or submission date is missing.
 
-本次扩展对应 479 条记录：原有 174 条与新增 305 条，其中 180 条为非 arXiv 来源。新增 305 条暂缺分类和摘要，191 条记录缺少 `Submitted Date`。这些是来源中尚未填写的信息，导出时保留缺失状态，不能据此推断论文没有摘要或不存在提交日期。后续数量以实际导出数据为准。
+The 2026-09-07 taxonomy snapshot contains 479 entries, all with a major category. Of these, 180 have non-arXiv sources, 305 lack the original `Primary Category` and abstract, and 191 lack `Submitted Date`. An absent original research topic does not mean the new major category, subcategories, or quadrant are missing. These counts describe that snapshot; current totals are calculated from the exported data.
 
-条目使用 19 个明确的导出字段。原有 14 个字段保留，新增 `paperUrl`、`pdfUrl`、`doi`、`publicationYear` 和 `bibtex`：
+The catalog has 25 explicit fields: the original 19 bibliographic and research fields, plus six taxonomy fields. Preserve missing information instead of inventing it:
 
-| 字段 | 维护规则 |
+| Fields | Rules |
 | --- | --- |
-| `title`、`authors`、`paperUrl` | 必须填写标题、作者和可识别论文的主来源 URL。`paperUrl` 不限于 arXiv，可使用 DOI URL、出版方论文页或论文 PDF。 |
-| `arxivUrl` | 有 arXiv 来源时保存对应链接；没有时为 `null`，不为非 arXiv 论文构造链接。 |
-| `submittedDate` | 有完整提交日期时保存日期；缺失时为 `null`，不使用出版年份或同步日期补齐。 |
-| `abstract` | 忠实保留 Notion 中的摘要；未填写时为空字符串，不自动生成。 |
-| `primaryCategory`、`secondaryCategories` | 主分类未填写时归入 `Uncategorized`（待分类）；待分类是整理入口，研究方向仍为原有 9 类。后续在 Notion 补齐主次分类。 |
-| `pdfUrl`、`doi` | 保存已记录的 PDF 链接和 DOI 链接；`doi` 使用 `https://doi.org/…` 形式，缺失时不猜测。 |
-| `publicationYear` | 数字或 `null`，只使用 Notion 中明确记录的年份，不从 URL、提交日期或其他字段推算。 |
-| `bibtex` | 保留 Notion 中已有的完整 BibTeX；与 `bibtexKey` 分开保存，不根据不完整信息编造引用。 |
+| `title`, `authors`, `paperUrl` | Required. The source URL may identify an arXiv entry, DOI record, publisher page, PDF, or another research source. |
+| `arxivUrl` | Preserve the arXiv link when present; otherwise use `null`. Do not construct an arXiv link for another source. |
+| `submittedDate` | Preserve a complete recorded submission date or `null`. Do not fill it from the publication year or import date. |
+| `abstract` | Preserve the recorded abstract or an empty string; do not generate one during synchronization. |
+| `primaryCategory`, `secondaryCategories` | Preserve the original nine research topics independently of the new taxonomy. An empty Primary Category becomes `Uncategorized`, meaning the original topic is not recorded. |
+| `pdfUrl`, `doi` | Preserve recorded links. DOI links use `https://doi.org/…`; missing links are not inferred. |
+| `publicationYear` | A number or `null`, taken only from the year explicitly recorded in Notion. Do not derive it from another date or identifier. |
+| `bibtex`, `bibtexKey` | Preserve the recorded citation and key separately; do not invent a citation from incomplete metadata. |
+| `majorCategory` | The recorded major category used for the main catalog and README grouping, or `null`. |
+| `subcategories` | The recorded subcategory list, or `[]`; distinct from `secondaryCategories`. |
+| `architecture`, `predictionParadigm` | The recorded architecture and prediction paradigm, or `null`. |
+| `quadrant` | The recorded quadrant or other state, or `null`; do not force an entry into Q1–Q4. |
+| `classificationStatus` | The recorded verification status, or `null`; do not infer it from other fields. |
 
-摘要为空、待分类和日期未知的条目都应留在目录中。日期筛选与排序应保留可查看这些条目的入口；论文来源按钮优先使用通用的 `paperUrl`。同步仍会校验 URL、重复条目和已填写字段的格式，并拒绝空结果及未经确认的大幅减少。
+Entries with missing information remain in the collection. Validation still checks URLs, duplicate identities, recorded field formats, empty exports, and unexpectedly large decreases.
 
-## 本地预览
+Taxonomy definitions and English display labels are shared in `src/lib/taxonomy.mjs`. The website and README use `taxonomyLabel()` for presentation; stored Notion values remain unchanged. Update the shared module when introducing a valid source label rather than maintaining separate definitions in pages or scripts.
 
-使用 Node.js 22.12 或更新的 22.x 版本，并保留 `package-lock.json`：
+## Notion field mapping
+
+The table preserves exact Notion property names, including names originally written in Chinese, for configuring and troubleshooting the importer. Website and README classification labels are displayed in English.
+
+| Exact Notion property | Catalog field |
+| --- | --- |
+| `Paper Name` | `title` |
+| `Paper URL` | `id`, `paperUrl`, `arxivUrl` |
+| `Authors` | `authors` |
+| `Author Affiliations` | `affiliations` |
+| `Contribution` | `contribution` |
+| `English Abstract` | `abstract` |
+| `Submitted Date` | `submittedDate` |
+| `Primary Category` | `primaryCategory` |
+| `Secondary Categories` | `secondaryCategories` |
+| `BibTeX Key` | `bibtexKey` |
+| `BibTeX` | `bibtex` |
+| `Publication Year` | `publicationYear` |
+| `PDF URL` | `pdfUrl` |
+| `DOI` | `doi` |
+| `Code URL` | `codeUrls` |
+| `Web Page` | `projectUrl` |
+| `论文收录` | `venue` |
+| `大类` | `majorCategory` |
+| `小类` | `subcategories` |
+| `架构类型` | `architecture` |
+| `预测范式` | `predictionParadigm` |
+| `四象限` | `quadrant` |
+| `分类状态` | `classificationStatus` |
+
+Internal classification evidence (`分类依据`) can contain private file paths. It is excluded from the export along with retrieval logs (`检索记录`), the internal `Date` property, and raw Notion page metadata. The website, catalog download, and README read only the exported catalog.
+
+## Taxonomy views
+
+The default view follows **major category → subcategory**. The 2026-09-07 snapshot contains Foundational work 139, VLA 35, WAM 227, Datasets 32, Evaluation metrics 14, and Benchmarks & simulators 32: 479 entries in total. The README lists every entry once under its major category and retains the original research topics as a separate summary.
+
+The quadrant view crosses **architecture × prediction paradigm**: One Model or Dual-system, with Joint prediction or IDM. Joint training alone does not establish a One Model architecture. Outside quadrants, Not applicable, and Pending verification remain separate states. In that snapshot, Q1–Q4 contain 38, 9, 27, and 54 entries, respectively; the other states contain 95, 252, and 4. Current website and README counts are computed from the data.
+
+The research map provides `mode=major` (default), `mode=quadrants`, and `mode=topics`. The library combines major-category, subcategory, and quadrant filters. `Uncategorized` applies only to the original Primary Category, not to the overall taxonomy status.
+
+Synchronization displays the classifications already recorded in Notion. To correct them, review the research source, update the relevant Notion property, export again, and inspect the diff and local preview.
+
+## Local preview
+
+Use Node.js 22.12 or a newer 22.x version and keep `package-lock.json` committed:
 
 ```bash
 npm ci
 npm run dev
 ```
 
-打开终端显示的网址。当前项目使用 `/Awesome-World-Action-Model/` 子路径，因此通常为：
+Open the URL printed in the terminal, normally:
 
 ```text
 http://localhost:4321/Awesome-World-Action-Model/
 ```
 
-提交前运行：
+Before submitting a change:
 
 ```bash
 npm run check
@@ -49,20 +98,20 @@ npm run build
 npm run preview
 ```
 
-`preview` 用于检查 `dist/` 中的生产构建。请检查搜索、分类和月份筛选、论文详情，以及窄屏布局。预览服务只在本地运行。
+`preview` serves the production files in `dist/`. Check search, combined filters, all three map views, paper details, and narrow-screen layouts. Both development and preview servers bind to `127.0.0.1`.
 
-## 日常论文更新
+## Routine updates
 
-1. 查看 GitHub 的论文推荐或纠错 Issue，核对论文原文、DOI、出版方论文页或作者提供的来源。
-2. 在 Notion 更新论文及主次分类。社区提出的论文数据改动也应先落实到 Notion，避免下一次导出覆盖修订。
-3. 使用下面的本地流程或 Actions 手动导出。
-4. 审查新增、删除、分类变动以及生成的 README。确认后合并 PR；`main` 的更新仅更新私有仓库，不会触发部署。
+1. Review paper recommendations or corrections in the private repository, using the paper, DOI record, publisher page, or author-provided source.
+2. Update the bibliographic or taxonomy fields in Notion. Preserve the original research topics as separate fields. Apply accepted data corrections there before exporting so the next sync does not overwrite them.
+3. Export locally or through the manual Actions workflow below.
+4. Review additions, removals, taxonomy changes, the generated README, and category counts. Merging into `main` updates the private repository only.
 
-`README.md` 由脚本生成，请勿直接维护其中的论文列表。变更 README 的固定文案或排版时，修改生成脚本，再运行 `npm run generate:readme`。
+`README.md` is generated. Change its fixed wording or layout in `scripts/generate-readme.mjs`, then run `npm run generate:readme` instead of editing the generated list directly.
 
-### 通过已登录的 Notion CLI 导出
+### Export with an authenticated Notion CLI
 
-本机安装并登录 `ntn` 后，在终端设置数据源 ID。这里需要 **data source ID**，而不是外层页面 ID；数据库容器 ID 与 data source ID 也可能不同。
+Install and sign in to `ntn`, then set the **data source ID**. This may differ from both the parent page ID and the database container ID.
 
 ```bash
 export NOTION_DATA_SOURCE_ID='your-data-source-id'
@@ -74,62 +123,60 @@ npm run build
 git diff -- data/papers.json data/meta.json README.md
 ```
 
-也可用 `npm run sync:notion -- --cli --source your-data-source-id` 显式指定来源。CLI 使用本机现有登录状态，不需要将凭据复制进仓库或聊天。
+Alternatively, use `npm run sync:notion -- --cli --source your-data-source-id`. CLI mode uses the existing local login; credentials do not need to be copied into the repository or a conversation.
 
-同步脚本默认全量读取，不按 arXiv 来源、分类或摘要完整性筛选。它会拒绝空结果；若条目数比现有数据减少超过 20%，会停止写入。先核对 Notion 访问权限、分页结果和数据源是否正确。只有确认删除符合预期时，才在本地加上 `--allow-large-decrease` 重试，再审核 diff。
+The exporter does not filter by arXiv source or metadata completeness. It rejects empty results and stops before writing if the entry count decreases by more than 20%. Check permissions, pagination, and the selected source first. Only after confirming an intentional deletion should a maintainer retry locally with `--allow-large-decrease` and review the diff. The explicit `--allow-empty` override is reserved for an intentional reset; normal website validation still requires a nonempty catalog.
 
-### 通过 GitHub Actions 手动导出
+### Export manually through GitHub Actions
 
-仅需要在首次启用时配置：
+Configure these settings once:
 
-1. 创建可读取目标数据库的 Notion integration，并在 Notion 中将数据库连接给该 integration。
-2. 在仓库 **Settings → Secrets and variables → Actions → Secrets** 新建 `NOTION_API_TOKEN`，填写 integration token。
-3. 在同页 **Variables** 新建 `NOTION_DATA_SOURCE_ID`，填写目标 data source ID。
-4. 在 **Settings → Actions → General → Workflow permissions** 中允许 **Allow GitHub Actions to create and approve pull requests**。工作流只使用创建 PR 的能力；所需 `contents: write` 和 `pull-requests: write` 已按 job 声明。组织策略可能限制该开关。[GitHub 权限说明](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository)
+1. Create a Notion integration with read access and connect the intended database to it.
+2. In **Settings → Secrets and variables → Actions → Secrets**, add `NOTION_API_TOKEN` with the integration token.
+3. In **Variables**, add `NOTION_DATA_SOURCE_ID` with the intended source ID.
+4. In **Settings → Actions → General → Workflow permissions**, allow **Allow GitHub Actions to create and approve pull requests**. The workflow only creates PRs; its required `contents: write` and `pull-requests: write` permissions are declared at job level. Organization policy may restrict this setting. [GitHub permission settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository)
 
-token 直接填入 GitHub Secret 即可，无需交给助手，也不要写进源码、Issue、终端命令历史或提交文件。普通网站构建读取仓库数据，不需要 Notion 凭据。
+Enter the token directly in GitHub Secrets. Do not send it to an assistant or put it in source files, Issues, command history, or commits. Building the website from committed data needs no Notion credentials.
 
-进入 **Actions → Sync papers from Notion → Run workflow**，选择 `main`。工作流读取 Notion、生成 README、运行检查与构建；有变更时创建独立的 `automation/notion-sync-…` 分支和 PR，无变化则结束。它只支持手动运行，没有定时任务。
+Open **Actions → Sync papers from Notion → Run workflow** and select `main`. The workflow exports data, generates the README, runs checks and the build, and creates an `automation/notion-sync-…` branch and PR when data changes. It exits without a PR when nothing changes. There is no scheduled sync.
 
-如果推送分支成功而创建 PR 失败，在该次运行的 Summary 中打开 compare 链接，手动创建 PR，或修复上述权限设置。再次导出前，先合并或关闭已有同步 PR，便于集中审查。
+If the branch is pushed but PR creation fails, use the compare link in that run's Summary to create the PR manually or correct the permission settings. Merge or close an existing sync PR before exporting again to keep review focused.
 
-由 `GITHUB_TOKEN` 创建的 PR，其检查可能需要维护者在 PR 页面点击 **Approve workflows to run**。同步工作流已经执行检查、测试与构建，但合并前仍应检查 PR 当前状态。[GitHub 工作流触发说明](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)
+A PR created with `GITHUB_TOKEN` may require a maintainer to select **Approve workflows to run**. The sync workflow already validates and builds the export, but review the PR's current check status before merging. [GitHub workflow-trigger behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)
 
-## 未来公开发布（当前关闭）
+## Future public release — currently disabled
 
-本项目仓库初始化时为私有仓库。GitHub Free 支持公开仓库的 Pages；私有仓库需要支持 Pages 的套餐，例如 GitHub Pro 或 Team。先检查仓库 **Settings → Pages** 中是否可启用。若当前套餐不支持，需要仓库所有者明确决定公开仓库、使用合适套餐或另选静态托管；本项目的脚本和工作流不会更改仓库可见性。[GitHub Pages 可用范围](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)
+Do not enable public hosting without explicit approval from the repository owner. A private repository does not necessarily make its GitHub Pages website private. The repository remains private and the website remains unpublished under the current instructions.
 
-以下步骤仅供未来获得仓库所有者明确公开授权后使用。私有仓库的 GitHub Pages 网站也可能是公开的，不能将仓库私有等同于网站私有。
+GitHub Free supports Pages for public repositories; private repositories need an eligible plan such as GitHub Pro or Team. If the current plan is not eligible, the owner must decide whether to change the plan, choose another host, or explicitly approve making the repository public. No script changes repository visibility. [GitHub Pages availability](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)
 
-1. 将网站代码、数据、锁文件和 `.github/workflows/` 合并到 `main`。
-2. 打开 **Settings → Pages → Build and deployment → Source**，选择 **GitHub Actions**。
-3. 明确获得公开发布授权后，重新启用 **Actions → Deploy to GitHub Pages**，手动选择 `main`，并勾选 `publish_publicly`。默认不发布，也不再监听 `main` 推送。
-4. 在部署完成的 job 或 **Settings → Pages** 打开实际发布地址。
+Only after explicit approval for a public release:
 
-当前没有公开站点。PR 检查只构建和测试；本地预览地址见上文。
+1. Merge the reviewed website, data, lockfile, and workflows into `main`.
+2. Set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**.
+3. Re-enable **Deploy to GitHub Pages**, select `main`, and explicitly check `publish_publicly` when running it manually. This input defaults to false; pushes to `main` do not deploy.
+4. Open the deployment URL reported by the completed job or Pages settings.
 
-部署由 GitHub 官方的 `configure-pages`、`upload-pages-artifact` 和 `deploy-pages` actions 完成。构建 job 只有读取权限，部署 job 单独申请 `pages: write` 与 `id-token: write`；只发布 `main` 的构建产物。[GitHub Pages 自定义工作流](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
+There is currently no public site. PR checks only validate and build. The future deployment workflow uses GitHub's official Pages actions, separating read-only build permissions from the deployment job's `pages: write` and `id-token: write` permissions. [GitHub Pages workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
 
-## 仓库名、自定义域名与子路径
+## Repository paths and future domains
 
-默认部署设置在 `astro.config.mjs`：
+`astro.config.mjs` retains `site: https://beat-in-our-hearts.github.io` and `base: /Awesome-World-Action-Model`. These build settings do not enable hosting. Keep the base path's capitalization consistent with the repository name.
 
-- `site` 对应 `https://beat-in-our-hearts.github.io`。
-- `base` 对应 `/Awesome-World-Action-Model`，大小写应与仓库名称一致。
+For a future approved rename, fork, or domain change, update `site`, `base`, and external project links before building. A site at a custom domain's root normally uses `/` as its base. Verify detail pages and assets against the resulting paths. [Astro GitHub Pages configuration](https://docs.astro.build/en/guides/deploy/github/)
 
-仓库更名或 fork 后，在发布前更新这两个设置及项目外部链接。如果改用自定义域名，按域名的实际部署位置调整 `site`，根域名部署通常将 `base` 设为 `/`，同时在 Pages 设置中配置域名与 DNS。然后重新构建，并实际打开详情页和静态资源，避免子路径造成 404。[Astro 的 GitHub Pages 配置说明](https://docs.astro.build/en/guides/deploy/github/)
+## Troubleshooting
 
-## 常见问题
-
-| 现象 | 处理方式 |
+| Symptom | Resolution |
 | --- | --- |
-| Notion 返回未授权或找不到数据源 | 核对 integration 是否连接了数据库、token 是否有效、ID 是否属于 data source；CLI 模式检查当前登录账号。 |
-| 同步因缺少必填字段而停止 | 检查 Notion 中的标题、作者和 Paper URL；这三项为必填。摘要、分类和 Submitted Date 可以缺失，不应因此排除条目。 |
-| 条目显示待分类、无摘要或日期未知 | 这是来源字段未填写的状态。条目仍已收录；需要补充时先在 Notion 核对填写，再同步。 |
-| 同步因 URL、重复条目或已填写字段格式无效而停止 | 核对通用论文来源 URL、重复记录和报错字段。分类可以为空；若填写，则使用既有研究分类。不要绕过校验或编造缺失信息。 |
-| `npm ci` 失败 | 确认 Node 版本、网络访问，以及 `package.json` 与锁文件是否一起提交。 |
-| 原 Pages 地址返回 404 | 当前已关闭公开发布，这是预期状态；请使用本地预览。 |
-| 首页正常，但详情或样式 404 | 检查 `astro.config.mjs` 的 `site` 与 `base`，重新构建发布。 |
-| 同步已推送分支，但没有 PR | 打开该次 Actions Summary 的 compare 链接，检查 Actions 创建 PR 的权限。 |
+| Notion returns unauthorized or source not found | Check the integration's database connection, token, and data source ID. In CLI mode, check the signed-in account. |
+| A required field is missing | Check the title, authors, and Paper URL. Abstract, classification, and Submitted Date may be absent. |
+| An original topic is missing despite a major category or quadrant | These are independent fields. `Uncategorized` refers only to the original Primary Category. |
+| A category, abstract, or date is missing, or the quadrant is Pending verification | Preserve the recorded state. Review the source in Notion before changing it. |
+| A URL, duplicate identity, or recorded field fails validation | Review the named field or duplicate records. Taxonomy labels must match the shared definitions; missing new fields may be null or empty lists. |
+| `npm ci` fails | Check the Node version, network access, and consistency between `package.json` and the lockfile. |
+| The old Pages address returns 404 | Expected while public hosting is disabled. Use local preview. |
+| Details or styles return 404 in preview | Check `site` and `base`, then rebuild and restart local preview. |
+| A sync branch exists without a PR | Use the run Summary's compare link and check Actions PR permissions. |
 
-Actions 版本依据各 action 官方说明选取：[`checkout`](https://github.com/actions/checkout)、[`setup-node`](https://github.com/actions/setup-node)、[Pages 工作流](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)。升级时连同 Node 版本及 `npm ci`、检查、测试、构建一起验证。
+When upgrading Actions, review the official [checkout](https://github.com/actions/checkout), [setup-node](https://github.com/actions/setup-node), and [Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages) documentation and validate installation, checks, tests, and the build together.

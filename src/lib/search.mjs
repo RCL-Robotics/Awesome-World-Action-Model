@@ -1,4 +1,7 @@
 /** Pure catalog filtering shared by the browser and its behavioral tests. */
+import { taxonomyLabel } from './taxonomy.mjs';
+import { venueLabel } from './display.mjs';
+
 export function normalize(text) {
   return String(text).normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
 }
@@ -24,12 +27,16 @@ export function comparePapers(a, b, sort = 'newest') {
 export function filterPapers(papers, filters) {
   const words = normalize(filters.query || '').trim().split(/\s+/).filter(Boolean);
   const result = papers.filter(paper => {
+    if (filters.major && (filters.major === '__unassigned__' ? Boolean(paper.majorCategory) : paper.majorCategory !== filters.major)) return false;
+    if (filters.quadrant && (filters.quadrant === '__unassigned__' ? Boolean(paper.quadrant) : paper.quadrant !== filters.quadrant)) return false;
+    if (filters.subtype && (filters.subtype === '__unassigned__' ? Boolean(paper.subcategories?.length) : !paper.subcategories?.includes(filters.subtype))) return false;
     if (filters.category && paper.primaryCategory !== filters.category) return false;
     if (filters.secondary && !paper.secondaryCategories.includes(filters.secondary)) return false;
     if (filters.month && !paper.submittedDate?.startsWith(filters.month)) return false;
     if (filters.year && String(paper.publicationYear ?? '') !== String(filters.year)) return false;
     if (filters.code && !paper.codeUrls.length) return false;
-    const searchable = normalize([paper.title, paper.authors, paper.affiliations, paper.contribution, paper.abstract, paper.id, paper.bibtexKey, paper.bibtex, paper.paperUrl, paper.arxivUrl, paper.pdfUrl, paper.doi, paper.publicationYear, paper.venue, paper.primaryCategory, ...paper.secondaryCategories].join(' '));
+    const taxonomy = [paper.majorCategory, ...(paper.subcategories || []), paper.architecture, paper.predictionParadigm, paper.quadrant, paper.classificationStatus].filter(Boolean);
+    const searchable = normalize([paper.title, paper.authors, paper.affiliations, paper.contribution, paper.abstract, paper.id, paper.bibtexKey, paper.bibtex, paper.paperUrl, paper.arxivUrl, paper.pdfUrl, paper.doi, paper.publicationYear, paper.venue, paper.venue ? venueLabel(paper.venue) : '', ...taxonomy, ...taxonomy.map(taxonomyLabel), paper.primaryCategory, ...paper.secondaryCategories].join(' '));
     return words.every(word => searchable.includes(word));
   });
   return result.sort((a, b) => comparePapers(a, b, filters.sort));

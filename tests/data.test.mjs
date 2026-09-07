@@ -4,14 +4,21 @@ import { mkdtemp, readFile, rm, writeFile, mkdir, symlink, cp } from 'node:fs/pr
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CATEGORIES, LEGACY_PUBLIC_FIELDS, PUBLIC_FIELDS, arxivIdentity, atomicWriteFiles, buildMeta, guardDecrease, mapNotionPage, migrateLegacyCatalog, normalizeDoi, paperIdentity, planCatalogUpdate, propertyUrls, sortPapers, validateMeta, validatePapers } from '../scripts/lib/data.mjs';
+import { CATEGORIES, LEGACY_PUBLIC_FIELDS, REFERENCE_PUBLIC_FIELDS, PUBLIC_FIELDS, arxivIdentity, atomicWriteFiles, buildMeta, guardDecrease, mapNotionPage, migrateLegacyCatalog, normalizeDoi, paperIdentity, planCatalogUpdate, propertyUrls, sortPapers, validateMeta, validatePapers } from '../scripts/lib/data.mjs';
 import { createNotionReader, paginate, queryAllPages, withRetry } from '../scripts/lib/notion.mjs';
 import { privateSnapshotPath } from '../scripts/lib/paths.mjs';
+import { QUADRANTS, QUADRANT_AXES } from '../src/lib/taxonomy.mjs';
 
 const SOURCE = '00000000-0000-4000-8000-000000000001';
 const PAGE = '00000000-0000-4000-8000-000000000002';
 const text = (value) => ({ plain_text: value, text: { content: value } });
 const rich = (...values) => ({ type: 'rich_text', rich_text: values.map(text) });
+const select = (name) => ({ type: 'select', select: name === null ? null : { name } });
+async function copyImportRuntime(repository) {
+  await cp(new URL('../scripts/', import.meta.url), join(repository, 'scripts'), { recursive: true });
+  await mkdir(join(repository, 'src/lib'), { recursive: true });
+  await cp(new URL('../src/lib/taxonomy.mjs', import.meta.url), join(repository, 'src/lib/taxonomy.mjs'));
+}
 function fixture() {
   return {
     object: 'page', id: PAGE, archived: false, created_by: { id: 'private-user', person: { email: 'private@example.test' } },
@@ -61,8 +68,68 @@ test('mapping exports only the allowed fields and turns None/optional fields int
   assert.equal(actual.pdfUrl, null);
   assert.equal(actual.doi, null);
   assert.equal(actual.bibtex, '');
-  assert.equal(PUBLIC_FIELDS.length, 19);
+  assert.equal(PUBLIC_FIELDS.length, 25);
+  for (const field of ['majorCategory', 'architecture', 'predictionParadigm', 'quadrant', 'classificationStatus']) assert.equal(actual[field], null);
+  assert.deepEqual(actual.subcategories, []);
   assert.doesNotMatch(JSON.stringify(actual), /private|created_by/);
+});
+
+test('editorial taxonomy maps exact labels and excludes rationale, retrieval notes and the unrelated Date field', () => {
+  const source = fixture();
+  source.properties['大类'] = select('WAM');
+  source.properties['小类'] = { type: 'multi_select', multi_select: [{ name: '联合视频动作建模' }, { name: '新增加的有效小类' }] };
+  source.properties['架构类型'] = select('One Model');
+  source.properties['预测范式'] = select('联合预测');
+  source.properties['四象限'] = select('Q1 · One Model × 联合预测');
+  source.properties['分类状态'] = select('一手资料核实');
+  source.properties['分类依据'] = rich('Private rationale: /Users/private/research/notes.md');
+  source.properties['检索记录'] = rich('Private retrieval history');
+  source.properties.Date = { type: 'date', date: { start: '2000-01-01' } };
+  const actual = mapNotionPage(source);
+  assert.equal(actual.majorCategory, 'WAM');
+  assert.deepEqual(actual.subcategories, ['联合视频动作建模', '新增加的有效小类']);
+  assert.equal(actual.architecture, 'One Model');
+  assert.equal(actual.predictionParadigm, '联合预测');
+  assert.equal(actual.quadrant, 'Q1 · One Model × 联合预测');
+  assert.equal(actual.classificationStatus, '一手资料核实');
+  assert.equal(actual.submittedDate, '2026-05-04');
+  assert.deepEqual(Object.keys(actual), PUBLIC_FIELDS);
+  assert.doesNotMatch(JSON.stringify(actual), /Private rationale|\/Users\/private|retrieval history|分类依据|检索记录|2000-01-01/);
+  validatePapers([actual]);
+});
+
+test('missing taxonomy values remain null or empty without inferring quadrants from their axes', () => {
+  const source = fixture();
+  for (const name of ['大类', '四象限', '分类状态']) source.properties[name] = select(null);
+  source.properties['小类'] = { type: 'multi_select', multi_select: [] };
+  source.properties['架构类型'] = select('Dual-system');
+  source.properties['预测范式'] = select('IDM');
+  const actual = mapNotionPage(source);
+  assert.equal(actual.majorCategory, null);
+  assert.equal(actual.classificationStatus, null);
+  assert.deepEqual(actual.subcategories, []);
+  assert.equal(actual.quadrant, null);
+  assert.equal(actual.architecture, 'Dual-system');
+  assert.equal(actual.predictionParadigm, 'IDM');
+  validatePapers([actual]);
+});
+
+test('labeled Q1–Q4 entries must match both recorded axes, while non-quadrant statuses stay independent', () => {
+  for (const quadrant of QUADRANTS) {
+    const valid = { ...paper(), quadrant, ...QUADRANT_AXES[quadrant] };
+    validatePapers([valid]);
+    assert.throws(() => validatePapers([{ ...valid, architecture: null }]), /quadrant does not agree/);
+    assert.throws(() => validatePapers([{ ...valid, predictionParadigm: valid.predictionParadigm === 'IDM' ? '联合预测' : 'IDM' }]), /quadrant does not agree/);
+  }
+  for (const quadrant of ['四象限外', '不适用', '待核实']) validatePapers([{ ...paper(), quadrant }]);
+});
+
+test('taxonomy validation rejects unknown select labels and malformed or duplicate subcategories', () => {
+  for (const field of ['majorCategory', 'architecture', 'predictionParadigm', 'quadrant', 'classificationStatus']) assert.throws(() => validatePapers([{ ...paper(), [field]: 'invented label' }]), new RegExp(field));
+  for (const subcategories of [[''], ['   '], [17], '小类']) assert.throws(() => validatePapers([{ ...paper(), subcategories }]), /nonempty strings/);
+  assert.throws(() => validatePapers([{ ...paper(), subcategories: ['新类', '新类'] }]), /duplicate subcategory/);
+  validatePapers([{ ...paper(), subcategories: ['任意后续新增小类'] }]);
+  assert.throws(() => validatePapers([{ ...paper(), classificationRationale: 'private' }]), /exactly/);
 });
 
 test('unclassified references preserve supplied PDF, DOI, year and BibTeX without inventing missing metadata', () => {
@@ -138,6 +205,13 @@ test('legacy catalogs migrate all former fields intact without inferring any new
   assert.equal(Object.keys(legacy).length, 14);
   assert.throws(() => migrateLegacyCatalog([{ ...legacy, notionPageId: PAGE }]), /exactly/);
   assert.deepEqual(migrateLegacyCatalog([current]), [current]);
+  const reference = mapNotionPage(referenceFixture());
+  const legacyReference = Object.fromEntries(REFERENCE_PUBLIC_FIELDS.map((field) => [field, reference[field]]));
+  assert.equal(Object.keys(legacyReference).length, 19);
+  assert.deepEqual(migrateLegacyCatalog([legacyReference]), [reference]);
+  assert.equal(migrateLegacyCatalog([legacyReference])[0].majorCategory, null);
+  assert.deepEqual(migrateLegacyCatalog([legacyReference])[0].subcategories, []);
+  assert.throws(() => migrateLegacyCatalog([{ ...legacyReference, classificationRationale: 'private' }]), /exactly/);
 });
 
 test('reference validation rejects duplicate normalized URLs, unsafe links and invalid years', () => {
@@ -267,7 +341,7 @@ test('sync keeps catalog files stable while refreshing a private snapshot, then 
   const dir = await mkdtemp(join(tmpdir(), 'wam-sync-test-'));
   try {
     const repository = join(dir, 'repo');
-    await cp(new URL('../scripts/', import.meta.url), join(repository, 'scripts'), { recursive: true });
+    await copyImportRuntime(repository);
     await mkdir(join(repository, 'data'));
     const papersPath = join(repository, 'data/papers.json');
     const metaPath = join(repository, 'data/meta.json');
@@ -294,13 +368,13 @@ test('sync keeps catalog files stable while refreshing a private snapshot, then 
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('sync upgrades an unchanged legacy catalog once, then retains no-change behavior', async () => {
+for (const legacyFields of [LEGACY_PUBLIC_FIELDS, REFERENCE_PUBLIC_FIELDS]) test(`sync upgrades an unchanged ${legacyFields.length}-field catalog once, then retains no-change behavior`, async () => {
   const dir = await mkdtemp(join(tmpdir(), 'wam-migration-test-'));
   try {
     const repository = join(dir, 'repo');
-    await cp(new URL('../scripts/', import.meta.url), join(repository, 'scripts'), { recursive: true });
+    await copyImportRuntime(repository);
     await mkdir(join(repository, 'data'));
-    const legacy = Object.fromEntries(LEGACY_PUBLIC_FIELDS.map((field) => [field, paper()[field]]));
+    const legacy = Object.fromEntries(legacyFields.map((field) => [field, paper()[field]]));
     const papersPath = join(repository, 'data/papers.json');
     const metaPath = join(repository, 'data/meta.json');
     const inputPath = join(dir, 'input.json');

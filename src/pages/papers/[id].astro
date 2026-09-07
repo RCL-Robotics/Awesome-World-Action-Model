@@ -2,7 +2,8 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Icon from '../../components/Icon.astro';
 import PaperDate from '../../components/PaperDate.astro';
-import { papers, categoryFor, formatDate, paperSourceUrl, paperPath, pathFor, repoUrl, type Paper } from '../../lib/catalog';
+import { papers, categoryFor, majorCategoryFor, quadrantFor, formatDate, venueLabel, paperSourceUrl, paperPath, pathFor, repoUrl, type Paper } from '../../lib/catalog';
+import { taxonomyLabel } from '../../lib/taxonomy.mjs';
 
 export function getStaticPaths() {
   return papers.map(paper => ({ params: { id: paper.id }, props: { paper } }));
@@ -11,9 +12,12 @@ export function getStaticPaths() {
 interface Props { paper: Paper; }
 const { paper } = Astro.props;
 const category = categoryFor(paper.primaryCategory);
+const majorCategory = majorCategoryFor(paper.majorCategory);
+const quadrant = quadrantFor(paper.quadrant);
+const classificationHref = (key: 'major' | 'quadrant' | 'subtype', value: string | null) => `${pathFor()}?${key}=${encodeURIComponent(value || '__unassigned__')}#library`;
 const categoryHref = (name: string) => `${pathFor()}?category=${encodeURIComponent(name)}#library`;
 const secondaryHref = (name: string) => `${pathFor()}?secondary=${encodeURIComponent(name)}#library`;
-const related = paper.primaryCategory === 'Uncategorized' ? [] : papers.filter(item => item.id !== paper.id && item.primaryCategory === paper.primaryCategory).slice(0, 3);
+const related = paper.majorCategory ? papers.filter(item => item.id !== paper.id && item.majorCategory === paper.majorCategory).slice(0, 3) : [];
 const sourceUrl = paperSourceUrl(paper);
 const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper correction: ${paper.title}`)}&body=${encodeURIComponent(`Paper: ${paper.title}\nSource: ${sourceUrl}\n\nSuggested correction:\n`)}`;
 ---
@@ -22,7 +26,7 @@ const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper c
   <article class="shell paper-page">
     <nav class="breadcrumbs" aria-label="Breadcrumb">
       <a href={pathFor()}>Library</a><span aria-hidden="true">/</span>
-      <a href={categoryHref(paper.primaryCategory)}>{category?.label || paper.primaryCategory}</a>
+      <a href={classificationHref('major', paper.majorCategory)}>{majorCategory?.label || 'Not assigned'}</a>
       <span aria-hidden="true">/</span><span aria-current="page">Paper</span>
     </nav>
 
@@ -43,6 +47,17 @@ const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper c
 
     <div class="paper-grid">
       <div class="paper-body">
+        <section class="classification-panel" aria-labelledby="classification-heading">
+          <div class="classification-heading"><h2 id="classification-heading">Classification</h2><a href={pathFor('map/?mode=quadrants')}>View four quadrants <Icon name="arrow" size={14}/></a></div>
+          <dl class="classification-grid">
+            <div><dt>Major category</dt><dd><a class="category-link" href={classificationHref('major', paper.majorCategory)} style={`--category-color:${majorCategory?.color || '#8b96a1'}`}><span class="category-dot" aria-hidden="true"></span>{taxonomyLabel(paper.majorCategory)}<Icon name="arrow" size={13}/></a></dd></div>
+            <div><dt>Quadrant</dt><dd><a class="category-link" href={classificationHref('quadrant', paper.quadrant)} style={`--category-color:${quadrant?.color || '#8b96a1'}`}><span class="category-dot" aria-hidden="true"></span>{taxonomyLabel(paper.quadrant)}<Icon name="arrow" size={13}/></a></dd></div>
+            <div><dt>Architecture</dt><dd>{taxonomyLabel(paper.architecture)}</dd></div>
+            <div><dt>Prediction paradigm</dt><dd>{taxonomyLabel(paper.predictionParadigm)}</dd></div>
+            <div class="classification-subtypes"><dt>Subcategories</dt><dd class="secondary-categories">{paper.subcategories?.length ? paper.subcategories.map(name => <a class="tag" href={classificationHref('subtype', name)}>{taxonomyLabel(name)}</a>) : <span class="muted">Not recorded</span>}</dd></div>
+            <div class="classification-status"><dt>Review status</dt><dd>{taxonomyLabel(paper.classificationStatus)}</dd></div>
+          </dl>
+        </section>
         <section class="contribution-panel" aria-labelledby="contribution-heading">
           <span class="eyebrow">AT A GLANCE</span>
           <h2 id="contribution-heading">Contribution</h2>
@@ -73,9 +88,9 @@ const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper c
           <dl>
             <div><dt>Submission date</dt><dd>{paper.submittedDate ? <time datetime={paper.submittedDate}>{formatDate(paper.submittedDate)}</time> : <span class="muted">Date not recorded</span>}</dd></div>
             {paper.publicationYear && <div><dt>Publication year</dt><dd>{paper.publicationYear}</dd></div>}
-            <div><dt>Primary category</dt><dd><a class="category-link" href={categoryHref(paper.primaryCategory)} style={`--category-color:${category?.color || '#82929f'}`}><span class="category-dot" aria-hidden="true"></span>{paper.primaryCategory}<Icon name="arrow" size={13}/></a></dd></div>
-            <div><dt>Secondary categories</dt><dd class="secondary-categories">{paper.secondaryCategories.length ? paper.secondaryCategories.map(name => <a class="tag" href={secondaryHref(name)}>{name}</a>) : <span class="muted">None listed</span>}</dd></div>
-            {paper.venue && <div><dt>Venue</dt><dd>{paper.venue}</dd></div>}
+            <div><dt>Research topic</dt><dd><a class="category-link" href={categoryHref(paper.primaryCategory)} style={`--category-color:${category?.color || '#82929f'}`}><span class="category-dot" aria-hidden="true"></span>{category?.label || paper.primaryCategory}<Icon name="arrow" size={13}/></a></dd></div>
+            <div><dt>Related research topics</dt><dd class="secondary-categories">{paper.secondaryCategories.length ? paper.secondaryCategories.map(name => <a class="tag" href={secondaryHref(name)}>{name}</a>) : <span class="muted">None listed</span>}</dd></div>
+            {paper.venue && <div><dt>Venue</dt><dd>{venueLabel(paper.venue)}</dd></div>}
             <div><dt>BibTeX key</dt><dd class="bibtex-key"><code>{paper.bibtexKey || 'Not listed'}</code></dd></div>
           </dl>
           <div class="source-reference" data-copy-region>
@@ -90,8 +105,8 @@ const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper c
     </div>
 
     {related.length > 0 && <section class="related-section" aria-labelledby="related-heading">
-      <div class="related-heading"><div><span class="eyebrow">KEEP EXPLORING</span><h2 id="related-heading">More in this direction</h2></div><a href={categoryHref(paper.primaryCategory)}>View category <Icon name="right" size={17}/></a></div>
-      <div class="related-grid">{related.map(item => <a class="related-card" href={paperPath(item.id)}><PaperDate paper={item}/><h3>{item.title}</h3><div class="related-card-footer"><span>{category?.label || item.primaryCategory}</span><Icon name="arrow" size={17}/></div></a>)}</div>
+      <div class="related-heading"><div><span class="eyebrow">KEEP EXPLORING</span><h2 id="related-heading">More in this category</h2></div><a href={classificationHref('major', paper.majorCategory)}>View category <Icon name="right" size={17}/></a></div>
+      <div class="related-grid">{related.map(item => <a class="related-card" href={paperPath(item.id)}><PaperDate paper={item}/><h3>{item.title}</h3><div class="related-card-footer"><span>{majorCategory?.label || taxonomyLabel(item.majorCategory)}</span><Icon name="arrow" size={17}/></div></a>)}</div>
     </section>}
   </article>
 </BaseLayout>
@@ -130,6 +145,15 @@ const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper c
   .paper-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:25px; }
   .paper-grid { display:grid; grid-template-columns:minmax(0,1fr) 296px; gap:52px; border-top:1px solid #e7ebee; padding-top:35px; }
   .paper-body { min-width:0; }
+  .classification-panel { padding:23px 25px; border:1px solid #dce5ed; border-radius:5px; margin-bottom:24px; background:white; }
+  .classification-heading { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:23px; }
+  .classification-heading h2 { margin:0; font-size:18px; }
+  .classification-heading a { display:inline-flex; align-items:center; gap:5px; font-size:10px; color:#7a91a5; }
+  .classification-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+  .classification-grid > div { margin:0; min-width:0; }
+  .classification-subtypes, .classification-status { grid-column:1/-1; }
+  .classification-grid dt { letter-spacing:.6px; font-size:9px; }
+  .classification-grid dd { font-size:12px; overflow-wrap:anywhere; }
   h2 { color:#233d54; font-size:20px; font-weight:600; letter-spacing:-.35px; margin:0 0 15px; }
   .contribution-panel { border:1px solid #dce6ee; border-left:3px solid #7297b8; background:#f5f8fb; border-radius:4px; padding:24px 26px; }
   .contribution-panel .eyebrow { font-size:10px; }
@@ -175,4 +199,5 @@ const correctionUrl = `${repoUrl}/issues/new?title=${encodeURIComponent(`Paper c
   @media (max-width:900px) { .paper-grid { grid-template-columns:minmax(0,1fr) 250px; gap:26px; }.related-card { padding:18px; } }
   @media (max-width:680px) { .paper-page { padding-top:24px; padding-bottom:55px; }.breadcrumbs { margin-bottom:28px; }.paper-grid { grid-template-columns:1fr; gap:30px; }.paper-header { padding-bottom:28px; }h1 { letter-spacing:-.7px; }.paper-kicker { flex-wrap:wrap; gap:9px; }.contribution-panel { padding:21px; }.related-grid { grid-template-columns:1fr; }.related-heading { align-items:start; }.related-heading > a { margin-top:28px; }.related-heading h2 { font-size:20px; }.related-section { margin-top:42px; }.metadata-card { padding:24px; }.copy-status { min-height:15px; } }
   @media (prefers-reduced-motion:reduce) { .related-card { transition:none; }.related-card:hover { transform:none; } }
+  @media (max-width:520px) { .classification-panel { padding:20px; }.classification-grid { grid-template-columns:1fr; gap:17px; }.classification-heading { align-items:start; gap:12px; }.classification-heading a { max-width:115px; text-align:right; } }
 </style>

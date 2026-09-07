@@ -1,20 +1,29 @@
 #!/usr/bin/env node
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { CATEGORIES, atomicWriteFiles, coverage, readJson, sortPapers, validateMeta, validatePapers } from './lib/data.mjs';
+import { MAJOR_CATEGORIES, QUADRANTS, QUADRANT_STATUSES, taxonomyLabel } from '../src/lib/taxonomy.mjs';
+import { venueLabel } from '../src/lib/display.mjs';
 
 const ROOT = new URL('../', import.meta.url);
 const repository = 'https://github.com/Beat-in-our-hearts/Awesome-World-Action-Model';
 const escape = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\|/g, '&#124;').replace(/\[/g, '&#91;').replace(/\]/g, '&#93;').replace(/[\r\n]+/g, ' ');
 const link = (label, url) => `[${escape(label)}](<${url.replace(/>/g, '%3E').replace(/</g, '%3C')}>)`;
-const listingCategories = [...CATEGORIES, 'Uncategorized'];
-const categoryLabel = (category) => category === 'Uncategorized' ? 'Awaiting classification' : category;
-const anchor = (category) => category === 'Uncategorized' ? 'awaiting-classification' : `category-${CATEGORIES.indexOf(category) + 1}`;
+const majorAnchor = (category) => category === null ? 'major-not-recorded' : `major-${taxonomyLabel(category).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+const majorLabel = (category) => category === null ? 'Major category not recorded' : taxonomyLabel(category);
+const quadrantLabel = (quadrant) => {
+  const index = QUADRANTS.indexOf(quadrant);
+  return index >= 0 ? `Q${index + 1}` : quadrant === null ? 'Quadrant not recorded' : taxonomyLabel(quadrant);
+};
 
-try {
-  const papers = sortPapers(validatePapers(await readJson(fileURLToPath(new URL('data/papers.json', ROOT)))));
-  const meta = validateMeta(await readJson(fileURLToPath(new URL('data/meta.json', ROOT))), papers);
+export function renderReadme(inputPapers, inputMeta) {
+  const papers = sortPapers(validatePapers(inputPapers));
+  const meta = validateMeta(inputMeta, papers);
   const stats = coverage(papers);
-  const unclassified = papers.filter(paper => paper.primaryCategory === 'Uncategorized').length;
+  const missingMajor = papers.filter(paper => paper.majorCategory === null).length;
+  const missingTopic = papers.filter(paper => paper.primaryCategory === 'Uncategorized').length;
+  const missingQuadrant = papers.filter(paper => paper.quadrant === null).length;
+  const majorGroups = [...MAJOR_CATEGORIES, ...(missingMajor ? [null] : [])];
+  const assignedQuadrants = papers.filter(paper => QUADRANTS.includes(paper.quadrant)).length;
   const years = papers.map(paper => paper.publicationYear).filter(year => year !== null).sort((a, b) => a - b);
   const knownDates = meta.sourceDateRange.start ? `Known submission dates: **${meta.sourceDateRange.start} – ${meta.sourceDateRange.end}**.` : 'Submission dates have not yet been recorded.';
   const lines = [
@@ -23,22 +32,35 @@ try {
     'A curated, searchable collection of research on world action models: learning to understand, predict, and act in the physical world.', '',
     '**Development status: private repository, local preview only. Public hosting and automatic deployment are disabled.**', '',
     `[Browse the data](data/papers.json) · [Suggest a paper](${repository}/issues/new?template=paper.yml)`, '',
-    `**${stats.papers} entries · ${CATEGORIES.length} research categories · ${unclassified} awaiting classification · ${stats.code} with code · ${stats.project} with project pages**`, '',
+    `**${stats.papers} entries · ${MAJOR_CATEGORIES.length} major categories · ${assignedQuadrants} in Q1–Q4 · ${stats.code} with code · ${stats.project} with project pages**`, '',
     `${years.length ? `Recorded publication years: **${years[0]} – ${years.at(-1)}**. ` : ''}${knownDates} Last imported: **${meta.updatedAt.slice(0, 10)}**.`, '',
-    'The website provides text search, category and date filters, and detail pages for papers and related research references from arXiv, conferences, journals, and other recorded sources. It preserves available authors, affiliations, contributions, abstracts, PDFs, DOIs, and BibTeX. Missing information is shown as not recorded; entries without a primary category appear under Awaiting classification. A publication year is kept separate from a submission date.', '',
-    '## Research categories', '',
-    '| Category | Entries |', '| --- | ---: |',
-    ...listingCategories.map((category) => `| [${escape(categoryLabel(category))}](#${anchor(category)}) | ${papers.filter((paper) => paper.primaryCategory === category).length} |`), '',
+    'Browse the collection by major category and subcategory, or compare architecture and prediction paradigm in the quadrant view. The research map also retains the original research topics as a separate view. Search and date filters cover papers and related references from arXiv, conferences, journals, and other recorded sources.', '',
+    'The catalog preserves the classifications recorded in Notion; synchronization does not reclassify entries. Available authors, affiliations, contributions, abstracts, PDFs, DOIs, and BibTeX are retained, with missing information left unfilled. A publication year is kept separate from a submission date.', '',
+    '## Major categories', '',
+    'Each entry appears once in the listing below, under its recorded major category. Subcategories describe more specific contributions; they are separate from the original Primary Category and Secondary Categories research-topic fields.', '',
+    '| Major category | Entries |', '| --- | ---: |',
+    ...majorGroups.map((category) => `| [${escape(majorLabel(category))}](#${majorAnchor(category)}) | ${papers.filter((paper) => paper.majorCategory === category).length} |`), '',
+    '## Architecture × prediction paradigm', '',
+    `Q1–Q4 combine One Model or Dual-system architecture with joint prediction or inverse dynamics (IDM). The remaining states—${QUADRANT_STATUSES.filter(value => !QUADRANTS.includes(value)).map(taxonomyLabel).join(', ')}—are kept separate and are not forced into a quadrant. Joint training alone does not establish a One Model architecture.`, '',
+    '| Recorded quadrant or state | Entries |', '| --- | ---: |',
+    ...QUADRANT_STATUSES.map((quadrant) => `| ${escape(taxonomyLabel(quadrant))} | ${papers.filter((paper) => paper.quadrant === quadrant).length} |`),
+    ...(missingQuadrant ? [`| Not recorded | ${missingQuadrant} |`] : []), '',
+    '## Original research topics', '',
+    `The ${CATEGORIES.length} original research directions remain available for thematic browsing. **${missingTopic} entries have no original Primary Category recorded**; this does not mean their major category, subcategories, or quadrant are missing.`, '',
+    '| Original research topic | Entries |', '| --- | ---: |',
+    ...CATEGORIES.map((category) => `| ${escape(category)} | ${papers.filter((paper) => paper.primaryCategory === category).length} |`),
+    `| Original topic not recorded (Uncategorized) | ${missingTopic} |`, '',
   ];
-  for (const category of listingCategories) {
-    lines.push(`<a id="${anchor(category)}"></a>`, `## ${categoryLabel(category)}`, '', '| Submission date / publication year | Paper or reference | Links | Secondary categories |', '| --- | --- | --- | --- |');
-    for (const paper of papers.filter((entry) => entry.primaryCategory === category)) {
+  for (const category of majorGroups) {
+    lines.push(`<a id="${majorAnchor(category)}"></a>`, `## ${majorLabel(category)}`, '', '| Date / year | Paper or reference | Links | Subcategories · quadrant |', '| --- | --- | --- | --- |');
+    for (const paper of papers.filter((entry) => entry.majorCategory === category)) {
       const links = [link(paper.arxivUrl ? 'arXiv' : 'Paper', paper.paperUrl), ...paper.codeUrls.map((url, index) => link(paper.codeUrls.length > 1 ? `Code ${index + 1}` : 'Code', url))];
       if (paper.pdfUrl && paper.pdfUrl !== paper.paperUrl) links.push(link('PDF', paper.pdfUrl));
       if (paper.doi && paper.doi !== paper.paperUrl) links.push(link('DOI', paper.doi));
       if (paper.projectUrl) links.push(link('Project', paper.projectUrl));
-      if (paper.venue) links.push(escape(paper.venue));
-      lines.push(`| ${paper.submittedDate ?? paper.publicationYear ?? '—'} | ${escape(paper.title)} | ${links.join(' · ')} | ${paper.secondaryCategories.map(escape).join('; ') || '—'} |`);
+      if (paper.venue) links.push(escape(venueLabel(paper.venue)));
+      const classification = [...paper.subcategories.map(name => escape(taxonomyLabel(name))), escape(quadrantLabel(paper.quadrant))];
+      lines.push(`| ${paper.submittedDate ?? paper.publicationYear ?? '—'} | ${escape(paper.title)} | ${links.join(' · ')} | ${classification.join(' · ')} |`);
     }
     lines.push('');
   }
@@ -54,18 +76,21 @@ try {
     'Configure `NOTION_API_TOKEN` with a read-only Notion integration and `NOTION_DATA_SOURCE_ID` with the intended data source ID in your local environment or GitHub Actions configuration. Neither value belongs in the repository. Give the integration access to the source database.', '',
     '```sh', '# Preview a complete, validated export without changing files', 'npm run sync:notion -- --check', '', '# Update the catalog, regenerate this README, and validate', 'npm run sync:notion', 'npm run generate:readme', 'npm run validate:data', '```', '',
     'To use a locally authenticated Notion CLI, run `npm run sync:notion -- --cli` with `NOTION_DATA_SOURCE_ID` configured. An offline audit snapshot can be imported with `npm run sync:notion -- --input /path/to/private-snapshot.json`. Raw snapshots include private Notion metadata and must remain outside this repository.', '',
-    'The exporter reads every result page, retries transient failures, preserves all rich-text fragments, and exports only the 19 explicit catalog fields. It validates unique identities, canonical source URLs, any recorded calendar dates and publication years, categories, and safe HTTP(S) links before replacing the generated files. Existing arXiv identifiers stay unchanged; other sources use stable identifiers derived from their normalized URLs. An empty result or a decrease of more than 20% is rejected. After checking the source, maintainers can intentionally override these guards with `--allow-empty` and/or `--allow-large-decrease`; normal website validation still requires a nonempty catalog.', '',
-    'The source fields map as follows:', '',
-    '| Notion field | Catalog field |', '| --- | --- |',
-    '| Paper Name | `title` |', '| Paper URL | `id`, `paperUrl`, `arxivUrl` (null for other sources) |', '| Authors | `authors` |', '| Author Affiliations | `affiliations` |',
-    '| Contribution | `contribution` |', '| English Abstract | `abstract` |', '| Submitted Date | `submittedDate` |',
-    '| Primary Category | `primaryCategory` (empty becomes `Uncategorized`) |', '| Secondary Categories | `secondaryCategories` (`None` becomes an empty list) |',
-    '| BibTeX Key | `bibtexKey` |', '| BibTeX | `bibtex` |', '| Publication Year | `publicationYear` |', '| PDF URL | `pdfUrl` |', '| DOI | `doi` |',
-    '| Code URL | `codeUrls` |', '| Web Page | `projectUrl` |', '| 论文收录 | `venue` |', '',
-    'See [deployment and synchronization setup](docs/MAINTAINING.md) for GitHub Pages and automated update configuration.', '',
+    'The exporter reads every result page, retries transient failures, preserves all rich-text fragments, and exports only the 25 explicit catalog fields, including six recorded taxonomy fields. It does not export Notion classification evidence, retrieval logs, the internal Date field, private paths, or raw page metadata. Synchronization is read-only and does not generate or revise classifications.', '',
+    'Validation checks unique identities, canonical source URLs, recorded calendar dates and publication years, classification labels, and safe HTTP(S) links before replacing the generated files. Empty classification fields stay null or empty lists; an absent original Primary Category stays Uncategorized. Existing arXiv identifiers stay unchanged; other sources use stable identifiers derived from normalized URLs. An empty result or a decrease of more than 20% is rejected. After checking the source, maintainers can intentionally override these guards with `--allow-empty` and/or `--allow-large-decrease`; normal website validation still requires a nonempty catalog.', '',
+    'The website and this README display English taxonomy labels through the shared translation module. Stored Notion values remain unchanged. See the [Notion field mapping](docs/MAINTAINING.md#notion-field-mapping) for exact source property names and the 25 exported fields.', '',
+    'See [maintenance and synchronization setup](docs/MAINTAINING.md) for local preview and private catalog updates. GitHub Pages and public deployment remain disabled.', '',
     '## License', '',
     'Repository code is provided under the [MIT License](LICENSE). Paper abstracts and other attributed research content remain the work of their respective authors and rights holders.', '',
   );
-  await atomicWriteFiles([[fileURLToPath(new URL('README.md', ROOT)), `${lines.join('\n').trimEnd()}\n`]]);
-  console.log(`Generated README.md from ${papers.length} papers.`);
-} catch (error) { console.error(`README generation failed: ${error.message}`); process.exitCode = 1; }
+  return `${lines.join('\n').trimEnd()}\n`;
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    const papers = await readJson(fileURLToPath(new URL('data/papers.json', ROOT)));
+    const meta = await readJson(fileURLToPath(new URL('data/meta.json', ROOT)));
+    await atomicWriteFiles([[fileURLToPath(new URL('README.md', ROOT)), renderReadme(papers, meta)]]);
+    console.log(`Generated README.md from ${papers.length} papers.`);
+  } catch (error) { console.error(`README generation failed: ${error.message}`); process.exitCode = 1; }
+}
