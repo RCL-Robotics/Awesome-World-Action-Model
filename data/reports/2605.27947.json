@@ -1,0 +1,516 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2605.27947",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:29:53.970Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2605.27947",
+      "title": "SANTS: A State-Adaptive Scheduler for World Action Models",
+      "kind": "pdf",
+      "sha256": "24b3db5cb9e638197bb8b199cebbf15fbafbca97f5b6269fe8967e2e01acc7cd",
+      "wordCount": 7328,
+      "accessedAt": "2026-09-07T13:51:07.051987+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and arXiv version stamp: v3, 26 August 2026",
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3.1 Frozen Video–Action Policy Interface",
+      "3.2 Stopping Hazard and Relative Noise Progression",
+      "3.3 Path-Level Reward and Scheduler Post-Training",
+      "4.1 Offline Diagnostic and Scheduling Behavior",
+      "4.2 Experimental Setup",
+      "4.3 Simulation and Real-Robot Results",
+      "4.4 Ablation Study",
+      "5 Limitations",
+      "6 Conclusion",
+      "References",
+      "A Real-Robot Evaluation Protocol",
+      "B Scheduler Implementation and Hyperparameters",
+      "C Reinforcement-Learning Post-Training and Reward Definition",
+      "D Reward-Function Ablations"
+    ],
+    "omissions": [
+      "Only the supplied text extraction was inspected; original PDF figures and visual layout were not reviewed.",
+      "Table 3's concatenated latency row does not reliably delimit the π0.5 value. That value is omitted; Full WAM and SANTS latency values are independently stated in Section 4.3.",
+      "Availability of supplements beyond the supplied appendices A–D was not verified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3: success-rate cells; Full WAM and SANTS latency checked against accompanying prose",
+      "Table 4",
+      "Table S1",
+      "Table S2",
+      "Table S3",
+      "Table S4"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "SANTS learns how much future-video denoising a robot policy needs before generating an action chunk. A small scheduler controls both stopping and the next noise level while the video–action policy remains frozen. Its reward measures demonstrated-action agreement and computation, rather than video appearance. The experiments support a better success–latency tradeoff than full denoising, although faster external policies remain available. The supplied title, identifier, and all eight authors match the catalog; the reviewed version is arXiv v3. [e01, e03, e06, e10]",
+  "readingTimeMinutes": 12,
+  "problem": {
+    "text": "Full video denoising is expensive, and its action-conditioning value can saturate or deteriorate. The problem is to choose a useful intermediate future representation for each control state, jointly deciding when to terminate and how far to advance if refinement continues.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e07",
+      "e08"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A paired denoising-depth diagnostic demonstrates substantial state-dependent, non-monotonic action error, motivating intermediate-state selection.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "text": "SANTS combines cumulative-hazard stopping with a continuous relative-noise policy, permitting both early termination and nonuniform integration.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "Demonstration-based path rewards train only the scheduler, with controlled scheduling and reward ablations testing the resulting computation–quality tradeoff.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e12",
+        "e18",
+        "e19"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Observation, language, and history conditions supplied to the frozen video–action policy. [e05]",
+      "Pooled video-token hidden representation z_k and current noise level σ_k supplied to SANTS. [e03]",
+      "Demonstration action chunks used for scheduler post-training rewards. [e06, e16]"
+    ],
+    "outputs": [
+      "A stopping hazard and a distribution over relative noise-retention ratios. [e04, e05]",
+      "A selected intermediate video representation, followed by an action chunk decoded by the frozen action branch. [e03]"
+    ],
+    "steps": [
+      {
+        "name": "Expose the current predictive state",
+        "detail": "A frozen Wan2.2-5B-based video–action Transformer predicts the video flow field. The same forward pass supplies pooled video features to the scheduler, avoiding a separate visual encoder.",
+        "evidenceIds": [
+          "e03",
+          "e09"
+        ]
+      },
+      {
+        "name": "Choose stopping and progression",
+        "detail": "A two-layer MLP, with hidden width 512 and bottleneck 256, processes the video feature concatenated with noise level. Separate heads predict a nonnegative hazard increment and the mode and concentration of a Beta-distributed continuation ratio.",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e15"
+        ]
+      },
+      {
+        "name": "Update video or hand off to actions",
+        "detail": "Continuation applies the base sampler's first-order flow update at the selected noise pair. Stopping passes the current representation to the action branch. The stopping decision itself consumes a video forward pass but performs no video-state update.",
+        "evidenceIds": [
+          "e03",
+          "e05"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "For the offline diagnostic, target-domain backbone tuning exposes the action branch to intermediate video noise levels. In the simulation comparison, SANTS uses 30,000 backbone updates followed by 3,000 scheduler updates; external baselines receive the same total adaptation budget. Scheduler training draws on simulated, public real, and self-collected real trajectories.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e09"
+        ]
+      },
+      {
+        "text": "Each sampled scheduler path is scored after action decoding against a demonstration. Sequence error covers position, quaternion angular distance, and gripper state; temporal-difference error measures motion trends. Motion and gripper events receive extra weight. Two no-gradient reference paths, shallow and fully denoised, normalize quality gains within each input.",
+        "kind": "source",
+        "evidenceIds": [
+          "e16",
+          "e18"
+        ]
+      },
+      {
+        "text": "Only scheduler parameters change during PPO. Settings include AdamW learning rate 10⁻⁴, weight decay 0.01, four PPO epochs per path, clipping 0.2, gradient norm limit 1.0, EMA baseline decay 0.95, reference regularization weight 0.02, and jump log-probability scale 0.5. There is no entropy bonus or cross-sample reward normalization.",
+        "kind": "source",
+        "evidenceIds": [
+          "e18"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Training samples local stop decisions and Beta ratios. Deployment instead stops when cumulative probability F_k exceeds 0.85 and uses the Beta mode deterministically for continuation. Listed noise settings are start 1.00 and forced terminal 0.01; the shallow reference is approximately 0.963.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e15"
+        ]
+      },
+      {
+        "text": "Action generation remains frozen and separate from physical execution. Policies are queried at action-chunk boundaries. On UR10, each query supplies 16 actions executed at 10 Hz, approximately 1.6 seconds before replanning; no mid-trial teleoperation is allowed.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e14"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "ΔH_k = softplus(g(z_k, σ_k)); H_k = Σ_{i=1}^k ΔH_i; F_k = 1 − exp(−H_k); h_k = 1 − exp(−ΔH_k).",
+        "explanation": "H_k accumulates stopping evidence. The conditional probability h_k defines stochastic training decisions, whereas cumulative F_k determines deployment stopping. These probabilities should not be interchanged.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "r_k ~ Beta(α_k, β_k), σ_{k+1} = r_k σ_k; α_k = m_k(c_k−2)+1, β_k = (1−m_k)(c_k−2)+1.",
+        "explanation": "With m_k in (0,1) and c_k > 2, the distribution is unimodal with mode m_k. Smaller ratios retain less noise and make larger progression steps; deployment uses m_k.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "x_{k+1} = x_k + v̂_ϕ(x_k, σ_k, c)(σ_{k+1}−σ_k).",
+        "explanation": "The frozen flow predictor updates video latent x_k using the selected noise interval. Here c denotes observation, language, and history conditions, distinct from Beta concentration c_k.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "G_m = max(L_m^lo−L_m^hi, ε); u_m = clip((L_m^lo−L_m^τ)/G_m, −1, 1); D_m = max(L_m^lo−L_m^hi,0)/(max(L_m^lo−L_m^hi,0)+κ).",
+        "explanation": "For sequence and temporal-difference errors, shallow/full anchors define the recoverable gap. Clipping bounds gains, while D_m suppresses positive rewards when full denoising contributes little.",
+        "evidenceIds": [
+          "e16"
+        ]
+      },
+      {
+        "expression": "R(τ) = Σ_m w_m[D_m max(u_m,0)−λ_pen max(−u_m,0)] − C(n_τ); with the selected c_1=0, C(n_τ)=0.25 n_τ/N_full.",
+        "explanation": "Weights are 0.6 for sequence error and 0.4 for temporal differences, with λ_pen=1. The final cost expression is an algebraic simplification of the published schedule under its selected parameters. It penalizes actual video updates, not every forward pass.",
+        "evidenceIds": [
+          "e05",
+          "e16",
+          "e17"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Offline action prediction across video denoising depths",
+      "setting": "500 manually phase-annotated segments; seven depths from 4% to 100%; fixed initial video/action noise within each segment; masked action MSE normalized to the segment's 4% baseline.",
+      "metric": "Full endpoint not optimal; oracle versus fixed-full normalized MSE",
+      "value": "Reported non-optimal endpoint frequency: coarse 55.65%, fine 41.33%. Oracle means: 0.8433 and 0.6084.",
+      "comparison": "Fixed-full means: coarse 0.8943, fine 0.6571.",
+      "interpretation": "Intermediate selection has offline action-error headroom. The oracle uses hindsight and ignores computation; these are neither video-fidelity scores nor robot success rates.",
+      "evidenceIds": [
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0 closed-loop manipulation",
+      "setting": "50 trials on each of 50 tasks; A100 end-to-end policy latency.",
+      "metric": "Overall success rate and latency",
+      "value": "Reported SANTS: 94.4%, 523.7 ms. Three seed success rates: 94.1%, 94.5%, 94.6%; reported standard deviation 0.3%.",
+      "comparison": "LingBot-VA: 92.2%, 2868.4 ms. Fast-WAM: 91.8%, 190 ms.",
+      "interpretation": "SANTS has the highest success among these evaluated methods and approximately 81.7% lower latency than LingBot-VA, but Fast-WAM is faster.",
+      "evidenceIds": [
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "Seven physical manipulation tasks",
+      "setting": "AgileX and UR10; 50 independent trials per task and method; shared 100-hour adaptation dataset and budget.",
+      "metric": "Unweighted mean task success and average policy latency",
+      "value": "Reported SANTS: 73.1%, 581.3 ms.",
+      "comparison": "Full WAM: 65.7%, 2769.3 ms; π0.5 mean success: 54.6%.",
+      "interpretation": "SANTS improves mean success over full denoising by 7.4 percentage points while reducing latency by 79.0%. It matches or improves every Full WAM task score; fruit sorting remains below π0.5, at 86% versus 92%. These are executed robot trials.",
+      "evidenceIds": [
+        "e11",
+        "e14"
+      ]
+    },
+    {
+      "task": "Scheduling mechanism ablation",
+      "setting": "RoboTwin 2.0 with fixed backbone, scheduler training budget, and evaluation protocol.",
+      "metric": "Overall success and latency",
+      "value": "Reported full SANTS: 94.4%, 523.7 ms.",
+      "comparison": "Fixed-5-step: 87.2%, 553.9 ms; Fixed-full: 89.8%, 2769.3 ms; Jump-only: 91.6%, 1137.7 ms; Stop-only: 92.7%, 1329.3 ms.",
+      "interpretation": "The latency-matched fixed schedule loses 7.2 percentage points, supporting state adaptation beyond simple step reduction. Both adaptive decisions contribute under the reported setup.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Reward-function ablation",
+      "setting": "Same frozen backbone, scheduler, training split, budget, and evaluation protocol.",
+      "metric": "Overall success and latency",
+      "value": "Reported full reward: 94.4%, 523.7 ms.",
+      "comparison": "Raw action MSE: 89.7%, 436.3 ms; no difficulty gate: 90.6%, 489.6 ms; no update-cost penalty: 94.9%, 2197.8 ms.",
+      "interpretation": "Normalization and gating improve the observed operating point. Removing computation cost slightly increases success while greatly increasing latency, showing that the full objective explicitly accepts a quality–cost tradeoff.",
+      "evidenceIds": [
+        "e19"
+      ]
+    },
+    {
+      "task": "Scheduler transfer to real robots",
+      "setting": "Mean success across seven tasks; target tuning changes only the scheduler.",
+      "metric": "Average success",
+      "value": "Reported target-tuned scheduler: 73.1% after 3,000 updates.",
+      "comparison": "Direct transfer without scheduler tuning: 70.6%.",
+      "interpretation": "Target adaptation helps; the strongest real-robot result includes scheduler tuning.",
+      "evidenceIds": [
+        "e15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Evaluation covers one backbone family, RoboTwin 2.0, and two physical platforms. Broader embodiment and camera generalization, joint backbone–scheduler optimization, and adaptation of action-denoising or communication costs remain untested.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e09",
+        "e13"
+      ]
+    },
+    {
+      "text": "If a full anchor is no better than its shallow anchor, D_m becomes zero. That error channel then cannot positively reward even a superior intermediate state. This may hide useful non-monotonic improvements within the phenomenon motivating SANTS.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e16"
+      ]
+    },
+    {
+      "text": "The update penalty excludes the terminating forward pass and fixed action-decoding work, so it is a proxy for end-to-end latency. Deployment also replaces stochastic training decisions with deterministic rules; the supplied ablations do not isolate that change.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e17",
+        "e19"
+      ]
+    },
+    {
+      "text": "The simulation full-denoising references differ: Table 2 reports LingBot-VA at 92.2% and 2868.4 ms, whereas Table 4 reports Fixed-full at 89.8% and 2769.3 ms. The supplied text does not reconcile their exact configurations. They should not be pooled into one controlled baseline.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e12"
+      ]
+    },
+    {
+      "text": "Real-robot results lack reported confidence intervals or repeated-training-seed uncertainty. Fifty trials per task support the observed comparisons but do not establish precise uncertainty for small task-level differences.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e14"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the intermediate-noise-compatible backbone checkpoint, video-feature extraction interface, nonuniform flow sampler, frozen action decoder, demonstration data, and held-out validation split. Exact source-data composition, split sizes, full-reference update count, and complete feature-pooling and key-frame-weighting implementation are not specified in the supplied text.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e07",
+        "e09",
+        "e15",
+        "e16",
+        "e17"
+      ]
+    },
+    {
+      "text": "Match physical action units and gripper normalization when computing rewards. For UR10, adaptation data are resampled to 15 Hz but inference actions are sent at 10 Hz; reproducing the resulting temporal interpretation requires care. Preserve the documented resets, chunk boundaries, and failure rules.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e14",
+        "e16"
+      ]
+    },
+    {
+      "text": "A focused first experiment would repeat paired depth scans with fixed noise, then compare full SANTS with the latency-matched five-step schedule using identical checkpoints. Record both video updates and forward passes. The paper lists a project page, but no code was inspected and no experiments were reproduced in this reading.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e01",
+        "e05",
+        "e07",
+        "e12"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "WAM and efficient inference are supported: future-video features condition actions, and SANTS controls their inference budget. The recorded Dual-system architecture conflicts with the described shared video–action Transformer and its video/action heads. The independent scheduler chooses computation rather than implementing a separate inverse-dynamics policy. Future-conditioned action decoding is compatible with a broad IDM interpretation, but the text does not specify an independent IDM or explicit inverse-dynamics objective. Thus Q4 is not established by this source and warrants editorial review; the recorded snapshot is preserved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e09",
+        "e15",
+        "e16"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Visual planning & IDM",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "b928d0cdb64b289eb7f5348f28088310d686039ff4737657608203fe6367b1b3"
+    }
+  },
+  "discussionQuestions": [
+    "Would an additional intermediate anchor recover useful reward signals when full denoising is worse than shallow denoising? [e08, e16]",
+    "How much does performance change when deployment samples the trained stopping policy instead of thresholding cumulative hazard? [e04, e12]",
+    "Would measured latency rewards, including terminal forward passes and action decoding, change the preferred schedules across hardware? [e05, e17]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author list, project-page line, and arXiv stamp",
+      "detail": "The title and eight authors match the catalog. The stamp identifies arXiv:2605.27947v3, dated 26 August 2026; a project URL is listed."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 1, motivation and scheduling formulation",
+      "detail": "The authors distinguish visual refinement from action utility and motivate state-dependent stopping depth and integration spacing."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1",
+      "detail": "A frozen video–action Transformer exposes pooled video-token features and a flow prediction. Its action branch conditions on the selected terminal representation; Transformer blocks and both heads remain frozen during scheduler learning."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.2, Eqs. (1)–(4) and following paragraph",
+      "detail": "Softplus hazard increments accumulate into H_k. Local h_k supplies training probabilities; cumulative F_k is thresholded during deployment."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.2, Eqs. (5)–(7) and update-count paragraph",
+      "detail": "Continuation samples a Beta noise ratio; mode/concentration parameterization supports deterministic mode deployment. A first-order flow update uses observation, language, and history conditions. Stopping consumes a forward pass without incrementing the update count."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.3, Eq. (8)",
+      "detail": "Path rewards compare generated and demonstrated action chunks using sequence and temporal-difference errors, shallow/full normalization, and video-update cost. PPO updates only the scheduler."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1, diagnostic protocol",
+      "detail": "Intermediate-noise backbone tuning precedes a frozen-policy scan of 500 manually annotated segments at 4%, 16%, 32%, 48%, 64%, 80%, and 100% depths, holding initial video/action noise fixed."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1 and accompanying oracle discussion",
+      "detail": "Full depth is not best for 55.65% of coarse and 41.33% of fine segments. Oracle means are 0.8433/0.6084 versus fixed-full 0.8943/0.6571. The oracle ignores computation."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Sections 4.2–4.3, backbone, data, and adaptation setup",
+      "detail": "Experiments use a Wan2.2-5B-based policy and multi-source trajectories. Simulation adaptation uses 30,000 backbone plus 3,000 scheduler updates; baseline adaptation uses the same total budget."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2; p. 7, Section 4.3, simulation results",
+      "detail": "SANTS reports 94.4% and 523.7 ms; LingBot-VA 92.2% and 2868.4 ms; Fast-WAM 91.8% and 190 ms. Latency uses A100 GPUs. Evaluation covers 50 trials per 50 tasks; three SANTS seeds give 94.1%, 94.5%, and 94.6%."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3 and Section 4.3, real-robot paragraphs",
+      "detail": "Mean success is 54.6% for π0.5, 65.7% for Full WAM, and 73.1% for SANTS. Prose confirms Full WAM/SANTS latency of 2769.3/581.3 ms. Fruit sorting is 92%/86%/86%. Each task uses 50 trials."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.4 and Table 4",
+      "detail": "Fixed-5-step, Fixed-full, Jump-only, Stop-only, and full SANTS respectively report 87.2/89.8/91.6/92.7/94.4% success and 553.9/2769.3/1137.7/1329.3/523.7 ms latency under the stated controlled protocol."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5",
+      "detail": "Authors limit generality claims to tested platforms and benchmark, leave joint backbone optimization unexplored, and identify other inference and control costs as future work."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Appendix A",
+      "detail": "Methods share 100 hours of data, adaptation budget, interfaces, reset distributions, and termination rules. UR10 adaptation uses 15 Hz data; deployment sends 16 predicted actions at 10 Hz before replanning. No mid-trial human correction is allowed."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Appendix B and Tables S1–S2",
+      "detail": "The independent scheduler uses two MLP layers, width 512, bottleneck 256, and two heads. Listed settings include start noise 1.00, early reference 0.963, threshold 0.85, and forced terminal 0.01. Transfer/tuned success is 70.6/73.1%, with 0/3000 tuning steps."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Appendix C, Action-Quality Error and Eqs. (S1)–(S3); p. 13, Table S3",
+      "detail": "Action errors use physical displacement, quaternion angular distance, and normalized gripper BCE, with event weighting. Two-anchor normalization defines bounded gains and a difficulty gate. Quality weights are 0.6/0.4 and negative-gain penalty weight is 1."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix C, Eqs. (S4)–(S5); p. 13, Table S3, cost rows",
+      "detail": "Cost is a normalized sum over executed updates. Selected λ_c=0.25, c_0=0.2, and c_1=0 reduce the cost to a linear function of update count."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix C, Path-Level PPO Post-Training and training summary; p. 13, Table S3",
+      "detail": "Training samples one policy path and two no-gradient anchors. PPO includes stop and jump likelihoods, an EMA baseline, the stated optimizer/clipping settings, and reference regularization. Validation selects checkpoints using success, path return, and update count."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, Appendix D and Table S4",
+      "detail": "Reward variants hold other settings fixed. Full/raw-MSE/no-gate/no-cost variants report 94.4/89.7/90.6/94.9% success and 523.7/436.3/489.6/2197.8 ms latency. The appendix does not provide additional hyperparameter scans."
+    }
+  ]
+}

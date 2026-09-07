@@ -1,0 +1,503 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.20735",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:45:53.982Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.20735",
+      "title": "ForeTime-VLA: Causal Future-Token Distillation from a World Action Model for Conveyor-Belt Manipulation",
+      "kind": "pdf",
+      "sha256": "8eb696cd96a41a0824e69cef447f5d9dfa73957519cddd50a134ada2d7978d4e",
+      "wordCount": 5604,
+      "accessedAt": "2026-09-07T13:51:27.041304+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "I. Introduction",
+      "II. Related Work, A–C",
+      "III. Method, A–F",
+      "IV. Experimental Setup, A–C",
+      "V. Results, A–J",
+      "VI. Conclusion",
+      "References"
+    ],
+    "omissions": [
+      "Figure images were not supplied or visually inspected; accompanying prose and captions were read.",
+      "Tables were reviewed through their legible supplied text, without inspecting original PDF layouts.",
+      "No appendix appears in the supplied eight-page article. Separate supplemental material availability remains unverified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table I: offline errors and paired relative-improvement confidence intervals",
+      "Table II: pooled action-group MAE",
+      "Table III: inference-time component masking",
+      "Table IV: real-robot grasp outcomes"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "ForeTime-VLA teaches a π0.5 policy to anticipate conveyor-belt contact through a compact future code. Offline, actual future frames supply privileged supervision through frozen video-VAE features and an action-reconstruction adapter. At deployment, a causal history encoder predicts the code and event timing, which condition the existing flow-matching controller. The reported improvements span held-out action reconstruction and physical grasping, with modest inference overhead. The experiments establish useful temporal conditioning more directly than they isolate the contribution of WAM-derived supervision. [e04–e07, e11, e13–e16]",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "Moving-object manipulation requires anticipating interception time, gripper closure, and contact orientation. The paper asks whether a pretrained VLA can acquire future-sensitive representations without running a video-scale teacher or generating future frames during control.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "An offline teacher compresses privileged current/future video features into a whitened, action-constrained latent target that a deployable causal student learns to predict.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "Future, phase, and transition-horizon predictions condition both the VLM prefix and action expert while preserving demonstrated actions as the flow-matching targets.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e07"
+      ]
+    },
+    {
+      "text": "The authors attribute agreement between orientation gains, component-masking effects, and physical grasp outcomes to improved temporal foresight.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e12",
+        "e13",
+        "e17"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current RGB observations from the three-camera policy interface, language instruction, and 26-D robot state.",
+      "Eight causal history entries, each containing normalized state and 12-D RGB statistics from two auxiliary cameras.",
+      "Offline only: current and sampled future frames, plus demonstrated 20-step, 16-D action chunks."
+    ],
+    "outputs": [
+      "A 20 × 16 continuous absolute-action chunk.",
+      "Auxiliary predictions: a 64-D future code, four phase logits, and normalized time to the next gripper-state transition."
+    ],
+    "steps": [
+      {
+        "name": "Extract privileged video features",
+        "detail": "For each training window, a frozen Wan2.2 video VAE encodes the present and future offsets {2, 4, 7, 9, 12, 14, 17, 19}. Spatial-temporal means and standard deviations produce separate 96-D current and future features. This is the Fast-WAM-associated visual latent pipeline described by the paper.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Construct an action-constrained teacher target",
+        "detail": "A privileged encoder receives current features, future features, and state; a causal auxiliary encoder receives current features and state. Both produce 64-D codes sharing an action decoder. The privileged code also reconstructs the future-minus-current feature. Its per-dimension whitened output is cached as z_t^T.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Encode causal history",
+        "detail": "Layer-normalized state and visual statistics pass through separate projections and swish activations, then combine with learned temporal embeddings into 256-D history embeddings. Flattening eight embeddings and applying a residual MLP yields the representation used by the prediction heads. Current full-resolution images still enter the ordinary vision backbone.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Predict future and event variables",
+        "detail": "Linear heads predict the future code and phase logits; a sigmoid head predicts normalized transition distance. Labels describe approach, grasp/release transition, transport while holding, and place/retract, derived from gripper-state transitions.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Condition both policy paths",
+        "detail": "The slow path converts the code into four 2048-D tokens and adds an expected phase-embedding token to the VLM prefix. The fast path maps the code and transition estimate to a 1024-D residual added to action-expert suffix tokens and adaptive normalization. Both injection gates initialize at 0.05.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The adapter keeps video features frozen. Its weighted losses are teacher action MSE 1.0, causal action MSE 0.5, future smooth-L1 0.25, teacher–causal cosine 0.10, variance 0.20, off-diagonal covariance 0.01, and pairwise action geometry 0.05. These address insufficient variation in initially exported codes.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "text": "Policy training jointly optimizes all π0.5 parameters and added modules. Cosine and relational losses supervise future codes, cross-entropy supervises phase, Huber loss with δ = 0.1 supervises transition distance, and a linear auxiliary decoder reconstructs normalized actions. Teacher actions never replace recorded targets.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The causal student predicts its conditioning variables from available history, and the conditioned flow-matching action expert produces action chunks. Future frames, the video VAE, the offline adapter, and the WAM teacher are absent. Added modules contain 1.251M parameters.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "text": "The auxiliary action decoder constrains training representations; it is not described as the deployed action-selection mechanism. Physical closed-loop evaluations are reported, but chunk execution length and observation-feedback cadence are unspecified.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e06",
+          "e07",
+          "e10"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "x_τ = (1 − τ)a + τϵ; u_τ = ϵ − a; L_flow = E[||v_θ(x_τ, τ, o_t, ℓ) − u_τ||₂²], with ϵ ~ N(0, I).",
+        "explanation": "Equations (1)–(2) interpolate recorded action chunks a with noise. The network learns the target flow u_τ. ForeTime-VLA adds conditioning without changing this action/noise construction.",
+        "evidenceIds": [
+          "e03",
+          "e07"
+        ]
+      },
+      {
+        "expression": "L_cos = (1/B) Σ_i [1 − bar(z_i)ᵀ bar(z_i^T)]; L_geo = (1/B²)||bar(Z)bar(Z)ᵀ − bar(Z^T)bar(Z^T)ᵀ||_F².",
+        "explanation": "Equations (5)–(6) align individual code directions and batchwise pair similarities. Bars denote row normalization, superscript T inside z_i^T and Z^T identifies teacher codes, and the external transpose forms dot products. B is batch size.",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "expression": "L = L_flow + 0.20L_cos + 0.02L_geo + 0.04L_phase + 0.04L_transition + 0.05L_ae.",
+        "explanation": "Equation (7) combines action learning with representation, event, and auxiliary action-reconstruction supervision. L_ae promotes action relevance of the predicted code rather than supplying replacement actions.",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Held-out action reconstruction",
+      "setting": "768 matched test windows; unnormalized 16-D action space; 20,000 paired bootstrap resamples.",
+      "metric": "MAE; mean per-timestep action-vector L2",
+      "value": "MAE 0.130593; L2 1.071214.",
+      "comparison": "π0.5: MAE 0.134119; L2 1.104541. Relative improvements: 2.63% [95% CI 0.82–4.48%] and 3.02% [0.94–5.07%].",
+      "interpretation": "Both reported improvement intervals exclude zero. These measure demonstrated-action reconstruction, not execution success or video quality.",
+      "evidenceIds": [
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "task": "Validation reconstruction and metric consistency",
+      "setting": "768 matched validation windows; five policies share the data/action contract.",
+      "metric": "MAE and MSE",
+      "value": "ForeTime-VLA validation MAE 0.134522.",
+      "comparison": "π0.5 validation MAE 0.138628: 2.96% improvement [95% CI 0.74–5.15%]. Both validation and test MSE improvement intervals include zero; StarVLA has the lowest test MSE, 0.237490, versus ForeTime-VLA 0.244223.",
+      "interpretation": "The advantage is metric-dependent. Cross-family references are not parameter-matched ablations.",
+      "evidenceIds": [
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "task": "Action-group reconstruction",
+      "setting": "Pooled test action-group errors.",
+      "metric": "End-effector RPY MAE; base XY MAE",
+      "value": "RPY 0.457734; base XY 0.015642.",
+      "comparison": "π0.5: RPY 0.475728, a 3.78% improvement; base XY 0.015229, a 2.71% deterioration.",
+      "interpretation": "Gains concentrate in orientation rather than improving every action group.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Inference-time component intervention",
+      "setting": "Same trained checkpoint and initial action noise; 96 matched test windows, including 48 phase-1 transition windows.",
+      "metric": "Transition MAE",
+      "value": "Full model 0.145320.",
+      "comparison": "Without future conditioning 0.159982; without phase/time 0.160672; slow path only 0.156587; fast path only 0.161749.",
+      "interpretation": "Masking shows dependence on learned conditioning. The full model does not win every submetric: fast-path-only transition RPY MAE is 0.479751 versus 0.482656 for the full model.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Physical stationary grasping",
+      "setting": "First closed-loop campaign; 90 trials per policy.",
+      "metric": "Grasp success",
+      "value": "73/90; 81.11%.",
+      "comparison": "Next-best StarVLA: 68.89%; reported advantage 12.2 percentage points. π0.5: 65.56%.",
+      "interpretation": "These are reported executed grasps. Robot confidence intervals are not supplied.",
+      "evidenceIds": [
+        "e10",
+        "e15"
+      ]
+    },
+    {
+      "task": "Physical slow-moving grasping",
+      "setting": "First campaign; 90 trials per policy with mutually exclusive success/failure categories.",
+      "metric": "Grasp success; late failure; contact-pose error",
+      "value": "Success 53/90, or 58.89%; late failure 16.67%; contact-pose error 6.67%.",
+      "comparison": "π0.5: success 36.67%, late failure 26.67%, contact-pose error 15.56%. Success improves by a reported 22.2 percentage points.",
+      "interpretation": "Failure changes are consistent with better timing and contact geometry, but do not uniquely identify their cause.",
+      "evidenceIds": [
+        "e10",
+        "e15"
+      ]
+    },
+    {
+      "task": "Physical belt-speed stress test",
+      "setting": "Separate campaign; 30 trials per method at each of three speed settings.",
+      "metric": "Successful grasps",
+      "value": "Slow 19/30; medium 14/30; fast 11/30; pooled 44/90.",
+      "comparison": "π0.5: slow 13/30; medium 8/30; fast 2/30; pooled 23/90.",
+      "interpretation": "The absolute success margin grows at fast speed, although ForeTime-VLA also degrades as speed increases. This campaign must remain separate from the 90-trial slow-moving task.",
+      "evidenceIds": [
+        "e10",
+        "e16"
+      ]
+    },
+    {
+      "task": "Deployment efficiency",
+      "setting": "Pooled inference latency measured on the same A100.",
+      "metric": "Latency in milliseconds",
+      "value": "Validation 68.65 ms; test 68.62 ms.",
+      "comparison": "π0.5: 66.69 ms and 66.97 ms, corresponding to increases of 2.93% and 2.46%.",
+      "interpretation": "Reported model overhead is small; this does not measure total offline teacher cost or the complete robot sensing-to-actuation cycle.",
+      "evidenceIds": [
+        "e09",
+        "e14"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors limit the evidence to one conveyor-belt embodiment and a fixed offline video backbone, identifying longer horizons, changing viewpoints, and broader action spaces as generality tests.",
+      "kind": "source",
+      "evidenceIds": [
+        "e18"
+      ]
+    },
+    {
+      "text": "The π0.5 comparison changes history access, auxiliary supervision, and conditioning capacity together. Inference masking tests reliance after training, not whether privileged future distillation outperforms a retrained, capacity-matched history policy.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e13"
+      ]
+    },
+    {
+      "text": "The documented privileged pipeline encodes actual future observations with a frozen VAE and trains an adapter. Its WAM association alone does not establish that pretrained predictive dynamics, rather than future access and action supervision, causes the gains.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04"
+      ]
+    },
+    {
+      "text": "Action-equivalence is enforced through reconstruction and geometry losses; the paper does not establish formal behavioral equivalence. Likewise, held-out episode reconstruction does not itself establish out-of-distribution generalization.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e08",
+        "e09"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Recover the canonical dataset and split manifest: auditing leaves 458 episodes and 96,512 frames at 15 Hz, with 402/31/25 train/validation/test episodes and 77,125/6,075/4,610 valid windows. Match camera streams, state/action normalization, instruction replacement, and window indices.",
+      "kind": "source",
+      "evidenceIds": [
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "text": "Reproduction needs the π0.5 initialization, frozen VAE, adapter weights and whitening statistics, and temporal-label construction. The supplied method does not specify optimizer schedules, training duration, batch size, exact gripper-transition thresholds, or the deployed chunk execution cadence; numerical belt velocities are also absent.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e07",
+        "e09",
+        "e10",
+        "e16"
+      ]
+    },
+    {
+      "text": "The smallest mechanism-focused extension would retrain a matched history-conditioned policy without privileged future targets, holding event labels, capacity, action supervision, and evaluation windows fixed. Existing checkpoint masking cannot substitute for this comparison.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e13"
+      ]
+    },
+    {
+      "text": "The robot protocol refers to a results workbook, but this reading includes only the supplied article text. Code and raw outcomes were not inspected, and no installation or experiment was performed.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e15",
+        "e16"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "WAM-derived latent supervision supports broad WAM and latent-prediction relevance. However, the deployed controller predicts a code from causal history and conditions a flow-matching action expert; its action-reconstruction decoder is auxiliary, with no described inference-time inverse-dynamics or visual-planning stage. Offline teacher/student separation is explicit, but internal slow/fast injection paths alone do not establish a dual-system world-model/controller architecture. The recorded Q4/IDM assignment therefore conflicts with the described control mechanism. No replacement classification is asserted.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e07"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Latent prediction & JEPA",
+        "Visual planning & IDM",
+        "Generalization & action alignment"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "4b7549bf6074593d2eded196a547adfa5b79e8842002942c0b2daa238782f55a"
+    }
+  },
+  "discussionQuestions": [
+    "How much benefit survives retraining with identical history, event labels, and capacity but without privileged future targets? [e04, e09, e13]",
+    "Would richer spatial history features outperform per-camera RGB statistics when object motion changes without substantially changing image averages? [e05]",
+    "Do transition predictions remain calibrated at explicitly held-out belt velocities, and does calibration predict grasp success? [e05, e16]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block, and arXiv footer",
+      "detail": "The title, identifier 2608.20735, and all seven authors match the catalog. The supplied artifact identifies itself as v2, dated 24 August 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 1, I. Introduction",
+      "detail": "The motivation concerns reachable-set timing, gripper closure, contact orientation, and avoiding test-time video generation."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, III.A Problem Formulation, Eqs. (1)–(2)",
+      "detail": "The policy predicts H = 20, D = 16 action chunks using the original noisy-action interpolation and target flow."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 3, III.B Offline Action-Equivalent Future Teacher",
+      "detail": "Specifies future offsets, frozen Wan2.2 VAE features, teacher/causal adapter inputs, 64-D codes, decoder targets, seven weighted losses, and cached per-dimension whitening."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 3, III.C Causal Temporal Student, Eqs. (3)–(4)",
+      "detail": "Describes eight histories of 26-D states and 12-D visual statistics, 256-D embeddings, residual MLP, future/phase/time heads, and gripper-transition labels."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, III.D Dual-Path Conditioning",
+      "detail": "Documents four 2048-D future tokens plus a phase token, the 1024-D fast residual, 0.05 gates, 1.251M added parameters, and removal of offline teacher components at deployment."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 4, III.E Training Objective, Eqs. (5)–(7)",
+      "detail": "Defines cosine and Gram losses, phase cross-entropy, transition Huber loss, auxiliary action reconstruction, objective weights, and joint full-parameter optimization with unchanged recorded targets."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 4, IV.A Dataset",
+      "detail": "Reports 487 files, one unreadable file, 28 exact duplicates, 458 retained episodes, frame totals, split sizes, valid-window counts, and replacement of blank instructions."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 4, IV.B Models and Protocol",
+      "detail": "Specifies shared π0.5 initialization, the temporal-interface difference, common cross-family data/action contract, 768 matched windows per split, unnormalized errors, 20,000 bootstrap resamples, and A100 latency evaluation."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 4, IV.C Real-Robot Protocol",
+      "detail": "Separates the five-policy, 90-trial-per-task campaign from the two-policy speed campaign with 30 trials per speed; moving outcomes are mutually exclusive."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table I, validation/test rows and paired-improvement panel",
+      "detail": "Provides all cited aggregate MAE, L2, MSE, and confidence intervals, including StarVLA's lowest test MSE and intervals crossing zero for both MSE comparisons."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table II, test EE RPY and base XY rows; V.C",
+      "detail": "Test RPY MAE changes from 0.475728 to 0.457734, while base XY changes from 0.015229 to 0.015642."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 6, V.D Inference-Time Component Ablation and Table III",
+      "detail": "Uses fixed weights and matched initial noise on 96 overall and 48 transition windows. Lists masking effects and the fast-path-only advantage on transition RPY MAE."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 6, V.E Deployment Efficiency",
+      "detail": "Reports validation latency 66.69 versus 68.65 ms and test latency 66.97 versus 68.62 ms, with 2.93% and 2.46% overhead."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 6, V.F Quantitative Real-Robot Evaluation and Table IV; p. 7, continuation",
+      "detail": "Reports 73/90 stationary and 53/90 moving successes, comparative success percentages, and early/late/contact-pose failure rates."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 7, V.G Robustness to Belt Speed, prose",
+      "detail": "The prose independently states slow/medium/fast success counts of 19/14/11 versus 13/8/2 and pooled totals of 44/90 versus 23/90; numerical belt velocities are not given."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 7, V.H Temporal-Task Contribution and V.J Evidence Synthesis",
+      "detail": "The authors interpret orientation, masking, and speed-dependent execution results as convergent evidence for temporal conditioning."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 7, VI. Conclusion",
+      "detail": "States the one-embodiment and fixed-video-backbone limits and calls for longer-horizon, viewpoint, and action-space generality tests."
+    }
+  ]
+}

@@ -1,0 +1,444 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.20284",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:57:34.380Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.20284",
+      "title": "Towards Surgical World-Action Modeling: A Preliminary Joint Visual-Trajectory Forecasting for Surgical Motion Planning",
+      "kind": "pdf",
+      "sha256": "1e34c7ff31bd1957db46f663eb331df290df660482ff6fc8fee9fad7265be767",
+      "wordCount": 3398,
+      "accessedAt": "2026-09-07T13:51:58.125085+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, authors, abstract, and arXiv version declaration, PDF pp. 1–2",
+      "1 Introduction, PDF pp. 2–3",
+      "2.1 Problem Formulation, PDF pp. 3–4",
+      "2.2 Joint Visual-Motion Representation, PDF pp. 4–5",
+      "2.3 Chunked Autoregressive Rollout, PDF pp. 5–6",
+      "3.1 Dataset and Evaluation Protocol, PDF pp. 6–7",
+      "3.2 Implementation Details, PDF p. 7",
+      "3.3 Quantitative Results, PDF pp. 7–8",
+      "3.4 Qualitative Results, PDF p. 8",
+      "4 Conclusion, PDF p. 8",
+      "Figure captions, PDF pp. 4 and 9; images not inspected",
+      "Acknowledgments, disclosure, and references, PDF pp. 9–10"
+    ],
+    "omissions": [
+      "Figure images were not supplied or visually inspected; qualitative observations are available only as author descriptions and captions.",
+      "No appendix appears in the supplied ten-page paper. Separate supplemental material availability remains unverified.",
+      "The external qualitative repository and cited works were not inspected. No code inspection or experimental reproduction was performed.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1, PDF p. 8: all five segment rows for both prediction settings"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "This preliminary surgical forecasting model uses five observed frames and tool positions to predict fifteen future visual states and two-dimensional instrument positions. A shared predictor produces three-step chunks, combining residual visual prediction with learned corrections to constant-velocity motion. Recycling these predictions improves both image similarity and coordinate accuracy over a fifteen-step one-shot comparator, although errors grow substantially with horizon. The evidence concerns offline forecasts of recorded suturing motions; the predicted coordinates are planning representations, and robot execution is not evaluated. [e03, e05, e06, e08, e09, e11, e12]",
+  "readingTimeMinutes": 8,
+  "problem": {
+    "text": "Surgical scene forecasting and instrument trajectory prediction commonly receive separate treatment. Image similarity can conceal tool-position errors, while coordinate accuracy alone does not describe tissue appearance or other visual consequences. The paper asks whether one history-conditioned predictor can forecast both outputs and whether short recursive predictions improve their longer-horizon accuracy.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e03",
+      "e06"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A shared visual-motion predictor combines surgical video features and historical tool coordinates, then branches into visual-latent and trajectory heads.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "A rolling five-step context supports five successive three-step forecasts. Scheduled sampling exposes training to predicted histories before fully autoregressive evaluation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e10"
+      ]
+    },
+    {
+      "text": "The preliminary SurgWMBench comparison reports improvements over direct prediction for every evaluated metric in every future segment.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e13"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Five historical surgical RGB frames. [e06, e08]",
+      "Corresponding two-dimensional task-relevant instrument anchor coordinates. [e08]"
+    ],
+    "outputs": [
+      "Fifteen future visual latent representations and instrument trajectory points. [e03, e06]",
+      "RGB reconstructions from the frozen visual decoder for visualization and image-level evaluation. [e03, e09]"
+    ],
+    "steps": [
+      {
+        "name": "Encode and fuse history",
+        "detail": "The frozen encoder, called SurgMotion in the method, supplies intermediate-layer tokens for local detail and final-layer tokens for higher-level context. Separate projections map these streams to a shared dimension. An MLP embeds each historical coordinate; its embedding is spatially broadcast and added to both projected visual streams.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Build future-specific shared context",
+        "detail": "A temporal-spatial encoder processes the fused history. Temporal attention models historical dependencies, while spatial processing retains local structure. The encoded latest historical state supplies context C, which learned future-step embeddings turn into step-specific prediction features.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Predict visual and motion residuals",
+        "detail": "The visual head predicts changes relative to the latest visual representation. The trajectory head uses spatially pooled shared context, the latest position, and motion information to correct a constant-velocity extrapolation. Thus, trajectory forecasting includes an explicit motion prior.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Advance the history window",
+        "detail": "Each call predicts three future latent states and positions. The oldest three history states are removed, and the predictions are appended to retain a five-step window. Five calls produce the fifteen-step forecast.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The visual encoder and decoder are frozen. Training combines token MSE, token cosine, RGB, Sobel-edge, temporal-difference, trajectory-position, velocity, and endpoint losses, weighted respectively 1, 0.05, 0.25, 0.10, 0.10, 5, 2, and 2. Future-step weights increase from 1.0 to 1.8.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e10"
+        ]
+      },
+      {
+        "text": "AdamW uses learning rate 7×10⁻⁵, weight decay 10⁻⁴, batch size one, five warm-up epochs, and cosine decay to 5% of the initial rate. Training allows at most 70 epochs with early-stopping patience 14 on one NVIDIA RTX 5090. Scheduled sampling starts at epoch 8 and reaches predicted-state probability 0.75 at epoch 45.",
+        "kind": "source",
+        "evidenceIds": [
+          "e10"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "After the initial observed history, subsequent chunks use recursively predicted states without ground-truth future inputs. The frozen decoder converts predicted latents to images; trajectory errors are evaluated in original-image pixels.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07",
+          "e09"
+        ]
+      },
+      {
+        "text": "The paper's closed-loop evaluation is feedback within the predictor. It does not establish an observation–action loop with executed robot commands, and candidate future actions are not conditioning inputs.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e03",
+          "e06",
+          "e09",
+          "e15"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "X_t = φ_mid(Z_t^mid) + φ_final(Z_t^final) + φ_traj(p_t)",
+        "explanation": "Equation (5) adds projected intermediate and final visual tokens to the spatially broadcast trajectory embedding. X_t is the shared visual-motion representation for historical step t.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "Ẑ_{K+j} = Z_K + ΔZ_{K+j}; p̂_{K+j} = p_K + j(p_K − p_{K−1}) + r_{K+j}, j = 1,…,c",
+        "explanation": "Equations (6)–(8) express the two residual predictions. ΔZ is the learned visual change, p_K−p_{K−1} is the latest observed displacement, and r is the learned trajectory correction. The chunk length c is three; the history length K is five.",
+        "evidenceIds": [
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "expression": "x̄_t = m_t x̂_t + (1 − m_t)x_t, m_t ∼ Bernoulli(ρ_e)",
+        "explanation": "Equation (10) selects either a predicted state x̂_t or a ground-truth state x_t for training history. The predicted-state probability ρ_e increases with epoch e; inference instead uses predictions throughout the rollout.",
+        "evidenceIds": [
+          "e07",
+          "e10"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Future surgical image reconstruction",
+      "setting": "SurgWMBench; five observed frames and points, fifteen-frame forecast; first future segment t+1:3. Test partition details are unspecified.",
+      "metric": "PSNR ↑ / SSIM ↑ / LPIPS ↓",
+      "value": "Chunked rollout: 23.105 dB / 0.7971 / 0.1783",
+      "comparison": "Direct one-shot: 18.859 dB / 0.4713 / 0.6045",
+      "interpretation": "Reported offline image metrics favor chunking early in the forecast. They measure reconstructed appearance, not successful surgical execution.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e11",
+        "e17"
+      ]
+    },
+    {
+      "task": "Two-dimensional instrument trajectory forecasting",
+      "setting": "Same history-only SurgWMBench protocol; first future segment t+1:3.",
+      "metric": "ADE ↓ / FDE ↓, original-image pixels",
+      "value": "Chunked rollout: 22.22 / 31.64 pixels",
+      "comparison": "Direct one-shot: 45.77 / 49.47 pixels",
+      "interpretation": "Both average coordinate error and the segment's endpoint error improve. FDE here refers to the end of this three-frame segment.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "task": "Longer-horizon surgical image reconstruction",
+      "setting": "Same protocol; final future segment t+13:15.",
+      "metric": "PSNR ↑ / SSIM ↑ / LPIPS ↓",
+      "value": "Chunked rollout: 17.982 dB / 0.6343 / 0.3047",
+      "comparison": "Direct one-shot: 16.872 dB / 0.4264 / 0.6244",
+      "interpretation": "Chunking retains an advantage, but its image metrics deteriorate relative to the first segment.",
+      "evidenceIds": [
+        "e09",
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "task": "Longer-horizon instrument trajectory forecasting",
+      "setting": "Same protocol; final future segment t+13:15.",
+      "metric": "ADE ↓ / FDE ↓, original-image pixels",
+      "value": "Chunked rollout: 158.52 / 172.12 pixels",
+      "comparison": "Direct one-shot: 195.27 / 208.04 pixels",
+      "interpretation": "The final-segment improvement coexists with substantial accumulated error. These are recorded-trajectory prediction results, not measured robot-control outcomes.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e12"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Both settings deteriorate monotonically across the reported segments: image similarity declines and trajectory errors increase. The authors identify accumulated errors as an unresolved obstacle and propose uncertainty modeling and stronger visual-motion consistency as future work.",
+      "kind": "source",
+      "evidenceIds": [
+        "e13",
+        "e15"
+      ]
+    },
+    {
+      "text": "The two-setting comparison does not separately establish the benefits of shared visual-motion learning, scheduled sampling, or the constant-velocity residual formulation. No corresponding component ablations or unimodal baselines are reported.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e07",
+        "e17"
+      ]
+    },
+    {
+      "text": "Separate image and coordinate metrics do not directly test whether the predicted tool coordinates agree with tool locations in the generated images. The results also do not establish counterfactual action consequences, clinical safety, or execution success.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e09",
+        "e15"
+      ]
+    },
+    {
+      "text": "The supplied evaluation omits partition sizes, patient/video separation, repeated-run uncertainty, and statistical tests. Consequently, leakage risk and robustness of the reported gains cannot be assessed from this paper alone.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e17"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires SurgWMBench's exact segments and split, frame-sampling procedure, coordinate normalization, and pretrained encoder/decoder assets. The paper gives dataset totals and optimization settings but does not specify feature-layer indices, hidden dimensions, detailed predictor architecture, or precise loss formulations.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e08",
+        "e10",
+        "e17"
+      ]
+    },
+    {
+      "text": "Resolve the backbone identity before implementation: the method calls the encoder SurgMotion, whereas reference [19] is titled UniSurg. The linked repository is described as additional qualitative results; its presence does not establish availability of training code or weights.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e14",
+        "e16"
+      ]
+    },
+    {
+      "text": "A small mechanism study should compare direct and chunked prediction under matched data and training exposure, then vary scheduled sampling within the chunked model. An uncorrected constant-velocity baseline would test the learned trajectory residual's contribution. This is a proposed experiment, not a performed reproduction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e07",
+        "e17"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "The blanket 'Not applicable' architecture and prediction-paradigm entries conflict with a clearly described shared temporal-spatial predictor and two output heads. This supports a One Model interpretation of the prediction backbone and joint visual-state/trajectory forecasting; it is not an inverse-dynamics construction. However, coordinates are action-oriented proxies, and action conditioning remains future work, so an executable-action quadrant is not established. The broad foundational-work designation remains reasonable; this assessment does not revise the catalog.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e15"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Neural world simulators",
+        "Action policy foundations"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "816b70fbf6f816e6691c9706e8bf9fc6c74f2ef7c28b8d7dca099904447d5c6f"
+    }
+  },
+  "discussionQuestions": [
+    "How much of the trajectory improvement comes from learned visual information versus the constant-velocity prior? [e05, e17]",
+    "Would chunking retain its advantage if the direct comparator received matched scheduled-sampling exposure and training resources? [e07, e10, e17]",
+    "How could evaluation measure agreement between predicted coordinates and visible tool positions, then test responses to candidate actions? [e03, e09, e15]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author list, and arXiv footer",
+      "detail": "The title and all eight authors match the supplied catalog identity; the artifact identifies arXiv:2608.20284v1, dated 20 August 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Section 1 Introduction",
+      "detail": "The motivation distinguishes visual plausibility from geometric motion accuracy and proposes forecasting both from common historical information."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 2.1, Eqs. (1)–(4) and paragraph after Eq. (4)",
+      "detail": "Frames and two-dimensional historical positions determine future latents and positions; a frozen decoder reconstructs RGB. Trajectories are planning representations rather than low-level control commands."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 2.2, opening paragraphs and Eq. (5)",
+      "detail": "A frozen SurgMotion encoder supplies intermediate and final visual features; projected streams are added to spatially broadcast MLP trajectory embeddings."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 2.2, temporal-spatial encoder description and Eqs. (6)–(8)",
+      "detail": "Latest-state context and future-step embeddings feed separate residual visual and trajectory heads; trajectory prediction corrects constant-velocity extrapolation."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 2.3, Eq. (9) and history-window update",
+      "detail": "A five-step history produces three predictions; removing the oldest three states and appending predictions enables a fifteen-step recursive rollout."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 2.3, Eq. (10) and surrounding paragraphs",
+      "detail": "Bernoulli sampling selects predicted or ground-truth training states with increasing predicted-state probability; inference recursively uses predictions."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.1, dataset and history-only comparison paragraphs",
+      "detail": "SurgWMBench derives suturing segments from SAR-RARP50 clinical prostatectomy videos: 1,637 segments, 32,740 annotated frames, and one anchor point per frame. Five of each segment's twenty frames condition fifteen predictions."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 3.1, metric definitions and segment-wise evaluation",
+      "detail": "Decoded images receive PSNR, SSIM, and LPIPS evaluation; trajectories receive pixel ADE and segment-end FDE across five non-overlapping three-frame future segments."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 3.2 Implementation Details",
+      "detail": "This paragraph specifies AdamW settings, warm-up and decay, batch size, stopping conditions, eight loss weights, horizon weighting, scheduled-sampling endpoints, and single-GPU hardware."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1, t+1:3 rows for both settings; corroborated on p. 7, Section 3.3",
+      "detail": "Chunked PSNR/SSIM/LPIPS/ADE/FDE are 23.105/0.7971/0.1783/22.22/31.64; direct values are 18.859/0.4713/0.6045/45.77/49.47."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1, t+13:15 rows for both settings; corroborated on p. 7, Section 3.3",
+      "detail": "Chunked PSNR/SSIM/LPIPS/ADE/FDE are 17.982/0.6343/0.3047/158.52/172.12; direct values are 16.872/0.4264/0.6244/195.27/208.04."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1, all segment rows and metric columns",
+      "detail": "Chunked prediction wins each corresponding comparison, while both methods show declining PSNR/SSIM and increasing LPIPS/ADE/FDE across successive segments."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 3.4; PDF p. 9, Figure 2 caption",
+      "detail": "The authors describe qualitative trajectory overlays and link additional qualitative results. The caption specifies cropped comparison regions; the supplied text contains no figure images."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4 Conclusion",
+      "detail": "The conclusion acknowledges accumulated long-horizon errors and identifies action conditioning, uncertainty modeling, and stronger visual-motion consistency as future work."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 2.2 encoder attribution; PDF p. 10, reference [19]",
+      "detail": "The encoder is named SurgMotion in the method, but its cited reference is titled UniSurg: A Video-Native Foundation Model for Universal Understanding of Surgical Videos."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–8, Sections 3.1–3.3 and Table 1",
+      "detail": "The experiment account reports dataset totals and two prediction settings, but gives no partition counts, patient/video separation, repeated-run uncertainty, statistical tests, or separate component ablations."
+    }
+  ]
+}

@@ -1,0 +1,483 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.10780",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T15:14:04.004Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.10780",
+      "title": "StageWAM: Joint-Embedding Stage Prediction for World-Action Models in Robot Manipulation",
+      "kind": "pdf",
+      "sha256": "2502bc81e7ad00c3c13544db03829670c1b5ddf4959eeb02fda4c3406438c4ac",
+      "wordCount": 7187,
+      "accessedAt": "2026-09-07T13:52:27.251027+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page, Abstract and Introduction, pp. 1–2",
+      "Related Work, pp. 2–3",
+      "Task Formulation, p. 3",
+      "Method: Stage I, Stage II and Closed-Loop Inference, pp. 3–5",
+      "Experiment: datasets, baselines, implementation, main results and ablations, pp. 5–6",
+      "Trajectory analysis, Execution Efficiency and Conclusion, pp. 6–7",
+      "References, pp. 8–9",
+      "Appended Implementation Details, including training, token sampling and supervision diagnostics, pp. 10–11",
+      "More Experimental Results and Real-world evaluation, p. 11",
+      "Complete task-level results, p. 13",
+      "Figure captions throughout the supplied text; images were not inspected"
+    ],
+    "omissions": [
+      "No figure images or original PDF layouts were visually inspected.",
+      "Separate supplemental material beyond the supplied 14 pages was not verified.",
+      "Equation (14) lacks a readable left-hand label in the extraction; the regularizer is described using the surrounding explanation and ablation definitions.",
+      "Source provenance was supplied by the acquisition manifest; the artifact hash was not independently recomputed.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1, p. 6: semantic-category success rates",
+      "Table 2, p. 6: component ablations",
+      "Table 3, p. 10: real-robot scoring protocol",
+      "Table 4, p. 10: real-robot progress scores",
+      "Table 5, p. 11: stage-supervision diagnostics",
+      "Table 6, p. 13: task-level results and printed aggregate row"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "StageWAM supplies a Motus world–action model with an instruction-conditioned latent target for the next inferred manipulation stage. A separately trained V-JEPA2 predictor produces this target; a gated residual then conditions video tokens, influencing both video and action generation through joint attention. The authors report 90.25% overall RoboTwin success. Reader assessment: the ablations support adding the conditioning pathway more strongly than they establish the benefit of stage-specific prediction, whose supervision also contains substantial temporal overlap. [e04, e05, e06, e10, e11, e13]",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "The authors argue that fixed video–action chunks describe local scene evolution while leaving the next task-relevant object state or relation implicit. They seek a latent progress target that can guide local control without requiring pixel reconstruction or an explicit transition duration.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A formulation separates short-term physical prediction from a semantic target for the next task stage.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e02"
+      ]
+    },
+    {
+      "text": "Stage-JEPA learns current-to-next-boundary representations from automatically constructed demonstration pairs, without manual stage annotations.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04"
+      ]
+    },
+    {
+      "text": "A bounded, global gate introduces the predicted stage representation into a Motus video stream; the full system is evaluated in simulation and in two physical manipulation tasks.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e09",
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Visual observations, robot state and linguistic task instruction for the WAM. [e02, e05]",
+      "Centered 64-frame demonstration slices during Stage-I training; a causal 64-frame observation buffer during deployment. [e03, e08]"
+    ],
+    "outputs": [
+      "A predicted next-stage latent, pooled from 256 target tokens. [e04]",
+      "Eight future video frames and 16 predicted actions; execution uses a finite action chunk followed by renewed observation. [e07, e08]"
+    ],
+    "steps": [
+      {
+        "name": "Infer demonstration boundaries",
+        "detail": "Sample candidate centers every eight frames, include the terminal frame, and uniformly reduce the list to at most 32 centers. Frozen V-JEPA2 encodes centered 64-frame clips. Compare candidates two list positions apart on either side using pooled-feature distance and maximum corresponding-token distance. Smooth and independently normalize both scores, take their maximum, then apply non-maximum suppression with radius three candidate positions to retain at most five transition centers.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Construct dense stage targets",
+        "detail": "Add episode endpoints to the selected boundaries. Pair every frame within an interval with its next boundary. Both current and target clips use offsets −32 through 31, with endpoint clipping. These are contextual clips surrounding feature-derived boundaries, rather than manually verified semantic states.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Learn the latent predictor",
+        "detail": "Freeze the V-JEPA2 encoder and train its pretrained predictor plus an instruction cross-attention adapter. From 8,192 encoder tokens of dimension 1,024, uniformly sample 512 context positions and 256 target positions. Mean-pool and normalize predicted and target representations for cosine alignment.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Condition joint world–action generation",
+        "detail": "Freeze Stage-JEPA. Motus combines a Wan2.2-initialized video expert, an action expert and an understanding stream using a frozen Qwen3-VL encoder. Layerwise joint attention exchanges information between streams. Separately noised video latents and demonstrated actions are processed to predict their flow fields.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Inject stage guidance",
+        "detail": "Mean-pool predicted stage tokens, project them through an MLP, and add the resulting vector to video tokens before transformer processing. The vector varies by sample; its bounded scalar gate is shared across samples, tokens, channels and layers. Action generation receives stage information through the interacting WAM streams.",
+        "evidenceIds": [
+          "e05",
+          "e06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage I uses AdamW for 1,000 updates with learning rate 1e-5, weight decay 0.01 and 100 warmup updates. Frozen encoding uses FP16; trainable modules use FP32. Eight A800 80GB GPUs provide effective batch size 256.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "text": "Stage II trains the WAM and conditioning interface for four epochs in BF16, with learning rate 1e-6, weight decay 0.01, 200 warmup updates and effective batch size 256. Video and action losses have unit weights. Gate regularization uses lambda_g=1e-4, lambda_rho=1e-3 and target relative injection magnitude rho_0=0.08; the gate starts at 0.02.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "text": "Action targets occur at raw-frame offsets 3, 6, …, 48; video targets at 6, 12, …, 48, with video resolution 384×320. Both stages are trained once with seed 0, and their final checkpoints are used.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Maintain observed history only, repeating the earliest frame until the 64-frame buffer is full. Predict a stage latent, condition joint video/action generation, execute a finite action chunk, append observations and repeat. Demonstration boundaries and target clips are unavailable at deployment.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08"
+        ]
+      },
+      {
+        "text": "The learned action output drives execution. The described procedure does not select actions by searching generated videos or applying inverse dynamics to a predicted goal image.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e05",
+          "e08"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "Yhat_t^stage = f_theta(o_t, l); p_phi(V_t^short, A_t | o_t, s_t, l, Yhat_t^stage)",
+        "explanation": "Equations (3)–(4) add a predicted stage condition to the joint distribution over future video V and action chunk A. Observation, state and instruction are o, s and l. Deployment instantiates the predictor with causal history H_t in Eq. (15).",
+        "evidenceIds": [
+          "e02",
+          "e08"
+        ]
+      },
+      {
+        "expression": "L_stage = (1/B) sum_i [1 - (zhat_i^target)^T z_i^target]",
+        "explanation": "Equation (9) minimizes cosine discrepancy between normalized predicted and target representations over batch size B. Supervision aligns latent representations without reconstructing target pixels.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "h_t = P_psi(Pool(Zhat_t^target)); alpha = 0.2 sigmoid(beta); Xtilde_t^v = X_t^v + alpha h_t",
+        "explanation": "Equations (10)–(12) project the pooled stage prediction into video-token dimension. The sample-specific vector h_t is broadcast across video tokens, while a single learned scalar beta bounds the gate alpha between zero and 0.2.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboTwin 2.0 manipulation across 50 tasks",
+      "setting": "Clean and randomized configurations; 100 closed-loop episodes per task–configuration pair, totaling 10,000 episodes per checkpoint",
+      "metric": "Task success rate (%)",
+      "value": "Reported StageWAM: 91.42 clean, 89.08 randomized, 90.25 overall",
+      "comparison": "Published Motus results: 88.66 clean and 87.02 randomized; calculated gains are 2.76 and 2.06 percentage points.",
+      "interpretation": "These measure executed simulated-task success. Baseline values are imported from Motus; the authors state that StageWAM and Motus use the same closed-loop protocol.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "Handover category",
+      "setting": "Two RoboTwin tasks; unweighted task means under clean and randomized evaluation",
+      "metric": "Task success rate (%)",
+      "value": "Reported StageWAM: 96.50 clean and 93.50 randomized",
+      "comparison": "Motus: 82.00 clean and 68.00 randomized",
+      "interpretation": "This is a particularly strong category-level gain. Reader analysis: the two-task grouping provides limited evidence for the broader claim that stage guidance specifically benefits relational transitions.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e17"
+      ]
+    },
+    {
+      "task": "Conditioning and training ablations",
+      "setting": "RoboTwin; overall success averaged across 50 tasks and both configurations",
+      "metric": "Task success rate (%)",
+      "value": "Reported: full model 90.25; without JEPA 87.23; current-frame-token guidance only 89.89; without Stage-I training 89.98; without gate regularizers 89.88",
+      "comparison": "Calculated: removing the whole JEPA pathway costs 3.02 percentage points; Stage-I optimization adds 0.27 percentage points over its ablation.",
+      "interpretation": "Reader analysis: the extra pathway contributes substantially more than task-specific predictor training. No reported uncertainty establishes whether the smaller differences are stable. The no-JEPA ablation is distinct from the published Motus baseline.",
+      "evidenceIds": [
+        "e07",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "RoboTwin execution efficiency",
+      "setting": "Closed-loop evaluation; successful episodes terminate on success, while failures continue to the evaluation horizon",
+      "metric": "Mean executed evaluation steps",
+      "value": "Reported StageWAM: 132.80 across all rollouts and 74.82 among successful rollouts",
+      "comparison": "Motus: 156.28 and 79.57 respectively; reported reductions are 15.02% and 5.97%.",
+      "interpretation": "All-rollout averages combine execution length with success frequency. Reader analysis: successful-only averages still condition on different sets of successes and do not establish matched-episode or wall-clock speed improvements.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Physical Cube_Grasp and Power_Strip manipulation",
+      "setting": "LIFT2 dual-arm platform; 20 trials per task; separate task models trained using 50 and 116 trajectories respectively",
+      "metric": "Mean terminal task-progress score on a 0–100 scale",
+      "value": "Reported StageWAM: Cube_Grasp 45.00, Power_Strip 51.00, unweighted average 48.00",
+      "comparison": "π0.5: 33.50, 49.50 and 41.50 respectively",
+      "interpretation": "These are physical-execution results using task-specific ordinal progress scores, with safety failures scored zero. They are not completion percentages; the supplied averages cannot recover full-task success rates.",
+      "evidenceIds": [
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Centered training clips can include future observations relative to their center, whereas deployment is causal. Current and target clips overlap in 86.77% of clean pairs and 86.34% of randomized pairs. Reader concern: shared content may simplify latent prediction and create a training–inference mismatch; deployment itself is documented as using observed history only.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e08",
+        "e13"
+      ]
+    },
+    {
+      "text": "Feature-change boundaries are not validated semantic annotations. Mean inferred stage length is 44.74 raw frames, while WAM targets already extend to frame offset 48. The experiments therefore establish a different conditioning representation more clearly than a systematically longer prediction horizon.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e07",
+        "e13"
+      ]
+    },
+    {
+      "text": "Single-seed training and absent uncertainty limit interpretation of small ablation gains. The physical study covers only two separately trained tasks and lacks a Motus comparison, leaving broad physical generalization and the WAM-specific benefit unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e11",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "text": "Benefits are not uniform: acquisition/lifting trails Motus in both settings. The authors identify precise contact, constrained motion and timing as remaining challenges, and propose reducing inference latency and improving fine-grained latent representations.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e10",
+        "e17"
+      ]
+    },
+    {
+      "text": "Tables 1 and 6 print inconsistent clean aggregate values for GO-1 and X-VLA. Those aggregates are excluded from this report's comparisons; the Motus and StageWAM aggregates agree.",
+      "kind": "source",
+      "evidenceIds": [
+        "e10",
+        "e16"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reconstruct stage pairs with candidate-list subsampling, smoothing, endpoint clipping and NMS measured in candidate positions. Match the supplied token sampling, raw-frame target offsets, frozen modules, training schedules and final-checkpoint selection; these details materially define the experiment.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e07"
+      ]
+    },
+    {
+      "text": "The supplied text leaves exact WAM checkpoint selection, denoising solver settings, instruction-adapter/MLP implementation, train–evaluation instance separation and physical control timing insufficiently specified for an exact reproduction. Code was not inspected and experiments were not reproduced.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e07",
+        "e09",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "text": "A focused mechanism test would compare matched conditioning models using pretrained features, centered next-boundary supervision and causal-history next-boundary supervision. Repeat seeds and measure success, latent prediction error and latency to separate representation benefits from overlapping-window supervision.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e11",
+        "e13"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Q3 classification is supported: a separately trained, frozen Stage-JEPA predictor feeds a distinct Motus generator, and that generator jointly predicts video and actions. Stage guidance remains active during inference rather than serving only as an auxiliary loss. Latent prediction/JEPA and joint video–action modeling are directly supported. The memory/long-horizon tag needs qualification: the demonstrated memory mechanism is a causal observation buffer, and inferred stages are often short; no separate learned long-term memory mechanism is described.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e08",
+        "e13"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Latent prediction & JEPA",
+        "Joint video-action modeling",
+        "Memory & long-horizon modeling"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q3 · Dual-system × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "0a947d360aac543c9479e0c88517f83e9a6f91e5bf7cc78cff6c3b54668823aa"
+    }
+  },
+  "discussionQuestions": [
+    "Does the Stage-I gain persist when current training clips contain only causal history and current–target overlap is controlled? [e11, e13]",
+    "Do inferred boundaries outperform fixed-offset targets under matched data, architecture and training budgets? [e03, e07]",
+    "Would direct stage conditioning of action tokens improve contact-sensitive tasks compared with guidance mediated through video tokens? [e05, e06, e17]",
+    "Do shorter successful rollouts yield lower physical completion time once Stage-JEPA and WAM inference latency are included? [e12, e17]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author list and arXiv version line",
+      "detail": "The supplied title, identifier and all nine authors match the catalog. The title page identifies the artifact as arXiv:2608.10780v3, dated 14 Aug 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Introduction; p. 3, Task Formulation, Eqs. (1)–(4)",
+      "detail": "The authors distinguish local video–action futures from next-stage semantic targets and formulate joint video/action prediction conditioned on a predicted stage latent."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Stage-pair construction, Eqs. (5)–(8); p. 10, Implementation Details—Stage-pair construction",
+      "detail": "These passages specify candidate spacing and subsampling, centered clips, smoothed feature-change scores, candidate-position NMS, dense next-boundary pairs and endpoint repetition. The boundaries are automatic rather than manual stage labels."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Goal-conditioned stage prediction and Eq. (9); p. 10, Gate and token sampling",
+      "detail": "Frozen V-JEPA2 encodes current and target clips. A trainable predictor and instruction adapter learn normalized latent alignment. The appendix specifies 8,192 encoder tokens, dimension 1,024, 512 context positions and 256 predicted target positions."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Stage II: Training the Stage-Conditioned WAM",
+      "detail": "Stage-JEPA is frozen. Motus uses video, action and understanding experts with joint attention, a Wan2.2-initialized video expert and frozen Qwen3-VL encoding. Video and action heads predict flow fields from separately noised targets."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, conditioning interface, Eqs. (10)–(14) and explanatory paragraphs; p. 10, Gate and token sampling",
+      "detail": "A projected pooled stage vector is added to video tokens through alpha=0.2 sigmoid(beta). The gate is global, the vector sample-specific, and regularization constrains gate magnitude and relative residual scale."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Implementation Details; p. 10, Training details and Gate and token sampling",
+      "detail": "The text specifies hardware, precision, AdamW settings, warmups, effective batches, gate settings and raw-frame target offsets. Stage I uses 1,000 updates; Stage II uses four epochs. Each runs once with seed 0 and uses its final checkpoint."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Closed-Loop Inference, Eqs. (15)–(16); p. 11, Closed-loop inference",
+      "detail": "Deployment uses a causal 64-frame buffer with earliest-frame padding, followed by stage prediction, WAM prediction, action-chunk execution and renewed observation. Boundaries and target clips are training-only supervision."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Experiment—Datasets and Baselines",
+      "detail": "Evaluation covers 50 tasks, two configurations and 100 episodes per task–configuration pair. Baseline numbers come from the Motus publication; the authors state a common closed-loop protocol for Motus and StageWAM."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, All tasks, Handover and Acquisition & lifting rows",
+      "detail": "StageWAM/Motus success is 91.42/88.66 clean and 89.08/87.02 randomized overall. Handover is 96.50/82.00 and 93.50/68.00. Acquisition/lifting favors Motus in both settings. Categories use unweighted task means."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2, Overall column and Ablation Study",
+      "detail": "Overall success is 87.23 without JEPA, 89.89 with current-frame-only guidance, 89.98 without Stage-I training, 89.88 without gate regularizers and 90.25 for StageWAM. The prose defines each intervention."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Execution Efficiency",
+      "detail": "The prose reports Motus-to-StageWAM mean lengths of 156.28 to 132.80 across all rollouts and 79.57 to 74.82 among successes, with reductions of 15.02% and 5.97%. Success terminates an episode; failures run to the horizon."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 5 and Stage-boundary and slice-overlap diagnostics",
+      "detail": "Mean stage length is 44.74 frames and median length 34; 81.72% of intervals are shorter than 64 frames. Current–target slice overlap is 86.77% clean and 86.34% randomized. The authors characterize supervision as temporally contextual."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 3; p. 11, Real-world evaluation and Scoring",
+      "detail": "LIFT2 evaluation covers cube grasping and bimanual power-strip operation, with 20 trials per task. Terminal-state progress scores range from zero to 100; specified safety failures receive zero."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 4; p. 11, Real-world evaluation—Results",
+      "detail": "Separate task models use 50 cube and 116 power-strip trajectories. StageWAM scores 45.00 and 51.00, averaging 48.00; π0.5 scores 33.50 and 49.50, averaging 41.50. Only averages are reported."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Table 6, Average row and caption; p. 6, Table 1, All tasks row",
+      "detail": "The two tables print different clean aggregate values for GO-1 and X-VLA, while Motus and StageWAM agree. Table 6 states that its final row preserves printed baseline aggregates from Motus."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Main Results discussion; p. 7, Conclusion",
+      "detail": "The authors associate gains with task-progress relations, identify contact geometry and timing as remaining challenges, and propose lower inference latency and representations combining task progress with fine-grained manipulation information."
+    }
+  ]
+}

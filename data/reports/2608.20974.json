@@ -1,0 +1,495 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.20974",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:57:34.380Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.20974",
+      "title": "WA-JEPA: Rethinking the Video JEPA Paradigm for World-Action Modeling in Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "3d239a0bbbfb5cf0307771c02b825bcee89a67b52c8600df072210256aaf23fa",
+      "wordCount": 6867,
+      "accessedAt": "2026-09-07T13:51:47.865231+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and arXiv version marker: v1, 21 August 2026; identity matches the supplied catalog title, identifier, and authors (E01)",
+      "Abstract",
+      "Introduction",
+      "Related Work",
+      "Method: Preliminaries; Overview; Stage 1; Stage 2",
+      "Experiments: Experimental Setup; Comparison with Existing Methods; Ablation Studies",
+      "Conclusion",
+      "References, as supplied",
+      "Appendix A: HUGSIM Closed-Loop Evaluation",
+      "Appendix B: Qualitative Results",
+      "Appendix C: Additional Experimental Details",
+      "Appendix D: NAVSIM Evaluation Metrics",
+      "Appendix E: Temporal Representation Metrics"
+    ],
+    "omissions": [
+      "Figure captions and accompanying discussion were read, but figure images were not supplied or visually inspected.",
+      "Table 4(b–c) checkmark alignment is ambiguous in the extraction; configuration-to-score mappings below use the explicit ablation prose.",
+      "The fused EC/EPDMS* cells in the WA-JEPA row of Table 1 were not used.",
+      "Separate supplemental material availability was not verified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: corrected EPDMS comparisons",
+      "Table 2",
+      "Table 3",
+      "Table 4(a); Table 4(b–c) captions with accompanying prose",
+      "Table 5",
+      "Table 6",
+      "Table 7"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "WA-JEPA adapts V-JEPA 2 into a driving planner through future-masked video pre-training and a shared predictor that jointly denoises future scene features and ego trajectories. Its evidence combines NAVSIM planning evaluations, HUGSIM closed-loop simulation, and ablations of masking, coupling, and prediction objectives. [E03–E14]",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "The authors argue that random-mask video completion does not adequately train past-to-future prediction, while deterministic latent regression struggles with unseen futures. Their practical objective is to retain V-JEPA's semantic representations while generating driving trajectories directly, avoiding the goal-image requirement and iterative action search described for earlier JEPA planning approaches.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "E02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Combines fully hidden futures with partially visible future-patch completion during driving-video pre-training.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03"
+      ]
+    },
+    {
+      "text": "Recasts latent future prediction as conditional flow matching with clean-endpoint prediction, then extends the predictor to generate scene features and trajectories together.",
+      "kind": "source",
+      "evidenceIds": [
+        "E04",
+        "E05",
+        "E06"
+      ]
+    },
+    {
+      "text": "Reports improvements on corrected NAVSIM-v2 scoring and source-disjoint HUGSIM evaluation, with component ablations supporting the combined design.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E09",
+        "E11",
+        "E12",
+        "E13",
+        "E14"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Four historical frames from each of the left, front, right, and rear cameras, at 256×512 resolution. [E08]",
+      "Historical ego actions and compact ego state. [E05]",
+      "During training, future images provide EMA-encoder targets; only the Stage 1 patch-mask branch exposes some future image content to the online encoder. [E03, E05]"
+    ],
+    "outputs": [
+      "Eight ego position-and-heading waypoints, (x, y, φ), at 2 Hz. [E03, E08]",
+      "Predicted future scene tokens in learned feature space; these are sampled jointly with trajectories at inference. [E06, E07]"
+    ],
+    "steps": [
+      {
+        "name": "Encode observations and construct targets",
+        "detail": "A shared V-JEPA 2 ViT-L encoder processes each camera stream independently. Historical tokens provide context. An EMA target encoder embeds unmasked future frames, supplying stop-gradient scene targets rather than pixel reconstruction targets.",
+        "evidenceIds": [
+          "E03"
+        ]
+      },
+      {
+        "name": "Pre-train with complementary masks",
+        "detail": "Full masking replaces every future condition token with a learned mask token. Patch masking encodes visible future patches and scatters them into their original positions among mask tokens. The first branch enforces prediction from history; the second preserves a completion task.",
+        "evidenceIds": [
+          "E03"
+        ]
+      },
+      {
+        "name": "Learn noise-conditioned future prediction",
+        "detail": "Interpolate Gaussian noise with target scene tokens at flow time t. An MMDiT-style predictor attends across context and future tokens to estimate the clean future endpoint. Although optimized with MSE, this predictor receives a noisy state and flow time, unlike direct context-to-target regression.",
+        "evidenceIds": [
+          "E04"
+        ]
+      },
+      {
+        "name": "Introduce the action stream",
+        "detail": "Stage 2 uses only full future masking. Noisy normalized trajectories, historical actions, and ego state become action tokens through a linear projection and MLPs. Scene and action outputs belong to the same joint predictor. Scene-loss gradients stop at the action-token interface, while action supervision can update scene representations.",
+        "evidenceIds": [
+          "E05",
+          "E06"
+        ]
+      },
+      {
+        "name": "Sample a trajectory",
+        "detail": "Initialize scene and action futures from Gaussian noise. Repeated clean-endpoint predictions are converted into flow velocities and integrated; the final actions are denormalized. HUGSIM subsequently executes the planned trajectory through its common controller.",
+        "evidenceIds": [
+          "E07",
+          "E12"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage 1 adapts pretrained V-JEPA 2 on nuPlan videos without action supervision. Stage 2 initializes from that checkpoint and trains on NAVSIM navtrain with weighted scene and action MSE losses. The online encoder is optimized; the target encoder receives EMA updates.",
+        "kind": "source",
+        "evidenceIds": [
+          "E03",
+          "E04",
+          "E05",
+          "E08"
+        ]
+      },
+      {
+        "text": "Training uses AdamW, bfloat16, DeepSpeed ZeRO-2, and per-GPU batch size 4, with 64 A800 GPUs for Stage 1 and 32 for Stage 2. Reported encoder, scene-projector, and predictor learning rates are 1×10^-5, 1×10^-4, and 1.5×10^-4; weight decay is 0.04.",
+        "kind": "source",
+        "evidenceIds": [
+          "E08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The joint sampler uses 12 steps and requires neither future images nor ground-truth future actions. Future modeling remains active during planning rather than serving solely as a training loss.",
+        "kind": "source",
+        "evidenceIds": [
+          "E07",
+          "E08"
+        ]
+      },
+      {
+        "text": "The reported stochastic evaluation averages ten complete evaluations with different initial sampling noise and fixed model parameters. This is not described as selecting the best of ten trajectories for execution.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "E16"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "Z_t = (1−t)ε_future + tZ*_future; Ỹ_t = (1−t)ε_y + tȲ_H+1:H+K",
+        "explanation": "Equations (8) and (11) construct linear noise-to-data paths for scene tokens and normalized trajectories. The predictor estimates their clean endpoints at sampled flow time t.",
+        "evidenceIds": [
+          "E04",
+          "E05"
+        ]
+      },
+      {
+        "expression": "Ẑ_future = P^future_ψ(Z_ctx, Z_cond, Z_t, sg(T_act), t); Ŷ̄ = P^act_ψ(Z_ctx, Z_cond, Z_t, T_act, t)",
+        "explanation": "Equation (13) describes two output streams of one predictor. Stop-gradient on action tokens in the scene stream creates asymmetric gradient flow without removing forward scene–action interaction.",
+        "evidenceIds": [
+          "E06"
+        ]
+      },
+      {
+        "expression": "L_Stage2 = λ_future L_future + λ_act L_act",
+        "explanation": "Equation (15) combines clean scene-token MSE with normalized waypoint MSE. Scene targets are detached EMA features; action supervision can shape differentiable scene representations.",
+        "evidenceIds": [
+          "E04",
+          "E05",
+          "E06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "NAVSIM-v2 trajectory planning",
+      "setting": "Held-out navtest; corrected evaluator at commit 359c7f7; ten sampling seeds for WA-JEPA",
+      "metric": "EPDMS, higher is better",
+      "value": "91.7; unrounded mean 91.7014, sampling-seed SD 0.0531, 95% t-confidence interval [91.6634, 91.7393]",
+      "comparison": "Discrete-WAM: 90.4; SparseDriveV2: 90.1",
+      "interpretation": "Advantages are 1.3 and 1.6 EPDMS points. The confidence interval measures noise-initialization variability for a fixed model. Corrected EPDMS and pre-fix EPDMS* must remain separate.",
+      "evidenceIds": [
+        "E09",
+        "E16",
+        "E17"
+      ]
+    },
+    {
+      "task": "NAVSIM-v1 trajectory planning",
+      "setting": "Held-out navtest under the NAVSIM-v1 protocol",
+      "metric": "PDMS, higher is better",
+      "value": "91.8",
+      "comparison": "DriveWorld-VLA: 91.3",
+      "interpretation": "The highest listed aggregate PDMS is a planning benchmark result, not physical driving performance.",
+      "evidenceIds": [
+        "E10",
+        "E17"
+      ]
+    },
+    {
+      "task": "Zero-shot closed-loop driving in simulation",
+      "setting": "436 HUGSIM scenarios; common controller, commands, and evaluator at commit ead17f2; native sensor configurations",
+      "metric": "HD-Score on [0,1], higher is better",
+      "value": "0.4462",
+      "comparison": "DrivoR: 0.3252; UniAD: 0.3124",
+      "interpretation": "WA-JEPA leads the aggregate comparison without HUGSIM-specific adaptation. It does not dominate every criterion: comfort is 0.6620 versus VAD's 0.9534, and extreme-difficulty HD-Score is 0.1362 versus DrivoR's 0.1407.",
+      "evidenceIds": [
+        "E11",
+        "E12"
+      ]
+    },
+    {
+      "task": "Stage 1 masking ablation",
+      "setting": "NAVSIM-v2 navtest after Stage 2 training",
+      "metric": "EPDMS",
+      "value": "No Stage 1: 89.5; patch-only: 91.0; full-only: 91.3; hybrid: 91.7",
+      "comparison": "Hybrid exceeds patch-only by 0.7 and full-only by 0.4 points",
+      "interpretation": "The individual-mask comparisons support complementary training signals. The no-Stage-1 comparison also changes exposure to nuPlan pre-training.",
+      "evidenceIds": [
+        "E13"
+      ]
+    },
+    {
+      "task": "Scene–action coupling and prediction-objective ablation",
+      "setting": "Stage 2 variants evaluated on NAVSIM-v2 navtest",
+      "metric": "EPDMS",
+      "value": "Historical-feature cascade: 89.9; cascade with separate flow future predictor: 90.8; joint without explicit future supervision: 91.1; joint with regression: 90.7; joint with flow matching: 91.7",
+      "comparison": "Joint flow matching exceeds joint regression by 1.0 point and joint modeling without future supervision by 0.6 points",
+      "interpretation": "The findings support both coupling and the prediction objective. Configuration mappings come from the explicit prose, not the ambiguous checkmark grid.",
+      "evidenceIds": [
+        "E14"
+      ]
+    },
+    {
+      "task": "Temporal preservation of predicted scene features",
+      "setting": "Means over the common 0–36k training interval; target-selected dynamic locations; flow evaluated through one-step clean prediction",
+      "metric": "Directional-similarity collapse gap; change-magnitude ratio",
+      "value": "Regression to flow matching: gap 0.30→0.10; ratio 0.45→0.80",
+      "comparison": "Lower gap and a ratio closer to 1 indicate better target-relative temporal preservation",
+      "interpretation": "These are latent representation diagnostics. They neither evaluate the full 12-step sampler nor measure executed driving success.",
+      "evidenceIds": [
+        "E15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The evaluations establish pseudo-simulation planning and closed-loop simulated control. Physical deployment, real-time latency, and robustness under vehicle hardware constraints are not established by the supplied experiments.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E08",
+        "E11",
+        "E12",
+        "E17"
+      ]
+    },
+    {
+      "text": "Cross-method comparisons do not isolate architecture alone. HUGSIM retains native sensors, including three front cameras for LTF versus four cameras for the others. DrivoR uses NAVSIM training plus validation data, whereas WA-JEPA Stage 2 uses training data only.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E09",
+        "E12"
+      ]
+    },
+    {
+      "text": "Source-disjoint HUGSIM training is documented for WA-JEPA's two adaptation stages. The supplied paper does not audit possible overlap in the upstream V-JEPA 2 pre-training corpus.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E12"
+      ]
+    },
+    {
+      "text": "Temporal metrics assess agreement with EMA targets at dynamic locations and use training-time one-step predictions. They do not directly validate multimodal future calibration or show that sampled scene futures causally determine better actions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E14",
+        "E15"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the V-JEPA 2 ViT-L initialization, nuPlan video preparation, NAVSIM splits, and matching evaluator snapshots. Corrected EPDMS applies metric-specific human-reference filtering before its two-stage aggregation; this filter does not remove scenarios.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03",
+        "E08",
+        "E12",
+        "E17"
+      ]
+    },
+    {
+      "text": "The supplied text leaves training duration, hybrid-mask scheduling and mask ratios, predictor dimensions, loss-weight values, EMA momentum, action-normalization statistics, flow-time distribution, and numerical integration details insufficiently specified for an exact implementation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05",
+        "E07",
+        "E08",
+        "E16"
+      ]
+    },
+    {
+      "text": "A focused mechanism test would hold the Stage 1 checkpoint and joint architecture fixed, compare Stage 2 regression with flow matching, and measure both planning scores and temporal diagnostics after full inference sampling.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E14",
+        "E15"
+      ]
+    },
+    {
+      "text": "The abstract advertises a code repository. Repository contents and availability were not inspected, and no experiments were reproduced for this report.",
+      "kind": "source",
+      "evidenceIds": [
+        "E18"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "Joint prediction is supported, but the recorded Dual-system architecture conflicts with the explicit description of scene and action streams as outputs of the same MMDiT-style joint predictor. Shared interactions and joint inference provide architectural evidence for One Model × Joint prediction under a world-model/planner separation criterion. The EMA encoder supplies training targets; it is not a separate action planner. This assessment preserves the recorded snapshot for editorial review.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E06",
+        "E07"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Latent prediction & JEPA",
+        "Joint video-action modeling"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q3 · Dual-system × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "2c5ab90290426ec803f04f385cc8ef9d840e371b7d1f991c40e7a75225e48e9f"
+    }
+  },
+  "discussionQuestions": [
+    "Do the temporal-preservation gains persist after full sampling, and do they predict per-scenario planning improvements? [E14, E15]",
+    "How much does the asymmetric stop-gradient interface contribute when architecture and objectives remain fixed? [E06]",
+    "Can the aggregate HUGSIM advantage be retained while improving comfort and extreme-difficulty performance? [E11]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "E01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block, and arXiv version marker",
+      "detail": "The title and author list match the catalog; the source identifies arXiv:2608.20974v1, dated 21 August 2026."
+    },
+    {
+      "id": "E02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Introduction",
+      "detail": "The authors motivate future-directed prediction, generative latent modeling, and direct planning by contrasting them with random-mask completion, regression, and goal-image-driven MPC."
+    },
+    {
+      "id": "E03",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Preliminaries, Overview, and Stage 1; Eqs. (1)–(7)",
+      "detail": "Defines pose trajectories, shared per-camera ViT-L encoding, EMA targets, full and patch future masking, and mask-aware token assembly."
+    },
+    {
+      "id": "E04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, flow-based latent future prediction and Training objective; Eqs. (8)–(10)",
+      "detail": "Scene targets are interpolated with Gaussian noise; an MMDiT-style predictor estimates clean endpoints using context, future conditions, noisy tokens, and flow time, supervised by MSE."
+    },
+    {
+      "id": "E05",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Stage 2; Eqs. (11)–(15)",
+      "detail": "Stage 2 uses full masks, normalized noisy actions, historical-action and ego-state tokens, and weighted scene/action losses."
+    },
+    {
+      "id": "E06",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Eq. (13) and following explanation; p. 11, Appendix C, Details of stop-gradient design",
+      "detail": "Scene and action outputs are streams of the same predictor. Scene-loss gradients stop at action tokens, while action supervision can influence scene representations."
+    },
+    {
+      "id": "E07",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Planning inference; Eq. (16)",
+      "detail": "Inference jointly initializes noisy scene and action futures, integrates velocities derived from clean predictions, and denormalizes actions without future ground truth."
+    },
+    {
+      "id": "E08",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Experimental Setup, Datasets and Implementation details",
+      "detail": "Specifies nuPlan/navtrain training, navtest evaluation, four historical frames and four cameras, image resolution, eight actions at 2 Hz, optimizer settings, GPU counts, and 12 sampling steps."
+    },
+    {
+      "id": "E09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, corrected EPDMS column, WA-JEPA, Discrete-WAM, and SparseDriveV2 rows",
+      "detail": "Corrected EPDMS scores are 91.7, 90.4, and 90.1 respectively; the caption separates corrected and pre-fix scoring."
+    },
+    {
+      "id": "E10",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3, PDMS column",
+      "detail": "NAVSIM-v1 PDMS is 91.8 for WA-JEPA and 91.3 for DriveWorld-VLA."
+    },
+    {
+      "id": "E11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2, overall HD-Score, Comf., and Extreme rows",
+      "detail": "Reports aggregate HD-Scores of 0.4462, 0.3252, and 0.3124 for WA-JEPA, DrivoR, and UniAD; WA-JEPA/VAD comfort is 0.6620/0.9534, and WA-JEPA/DrivoR extreme HD-Score is 0.1362/0.1407."
+    },
+    {
+      "id": "E12",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Appendix A, Protocol, Aggregation robustness, and Per-dataset results",
+      "detail": "Documents 436 scenarios, HUGSIM commit ead17f2, shared controller and ground-truth commands, native sensors, training-data differences, aggregation, and exclusion of HUGSIM source datasets from both WA-JEPA training stages."
+    },
+    {
+      "id": "E13",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Table 4 caption and Stage 1 masking strategies paragraph",
+      "detail": "Explicit prose maps no Stage 1, patch-only, full-only, and hybrid variants to EPDMS 89.5, 91.0, 91.3, and 91.7."
+    },
+    {
+      "id": "E14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Stage 2 scene–action coupling and future prediction",
+      "detail": "Explicit prose reports historical-only cascade 89.9, cascade plus separate flow predictor 90.8, joint without future supervision 91.1, joint regression 90.7, and joint flow matching 91.7."
+    },
+    {
+      "id": "E15",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Future representation analysis; pp. 13–14, Appendix E, Eqs. (22)–(25) and Evaluation protocol",
+      "detail": "Reports collapse gap 0.30 versus 0.10 and change ratio 0.45 versus 0.80. Defines target-dynamic selection and temporal statistics; values average training logs over 0–36k steps using one-step flow predictions rather than the inference sampler."
+    },
+    {
+      "id": "E16",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 7 and Appendix C, Inference details and seed-level variability",
+      "detail": "Ten noise seeds with fixed parameters yield mean EPDMS 91.7014, SD 0.0531, and 95% t-confidence interval [91.6634, 91.7393]. Complete per-seed evaluations are averaged."
+    },
+    {
+      "id": "E17",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–13, Appendix D; Eqs. (17)–(21) and EPDMS* versus EPDMS",
+      "detail": "Defines pseudo-simulation metrics, metric-specific human-reference filtering, two-stage EPDMS aggregation, and corrected NAVSIM devkit commit 359c7f7."
+    },
+    {
+      "id": "E18",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Abstract, final sentence",
+      "detail": "The authors state that code is available at the AFARI-Research/WA-JEPA GitHub repository."
+    }
+  ]
+}

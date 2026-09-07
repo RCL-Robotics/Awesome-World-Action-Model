@@ -1,0 +1,439 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.11605",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T15:22:10.626Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.11605",
+      "title": "Foresight Without Seeing: Latent Futures for World Action Models",
+      "kind": "pdf",
+      "sha256": "8324ff119b20e43d0c2282aa6e52d17ab989546a8386badadaa39d4d3bb6e083",
+      "wordCount": 6376,
+      "accessedAt": "2026-09-07T13:52:38.780948+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method",
+      "3.1 Problem Formulation",
+      "3.2 Model Architecture",
+      "3.3 Training Objective",
+      "4 Experiments",
+      "4.1 Experimental Setup",
+      "4.2 Main Results",
+      "4.3 Inference Efficiency",
+      "4.4 Ablation Study",
+      "5 Limitations and Discussion",
+      "6 Conclusion",
+      "References",
+      "A Implementation Details"
+    ],
+    "omissions": [
+      "Read the complete supplied text, including Appendix A. Figure captions were available, but figure images were not inspected.",
+      "The complete attention-mask layout cannot be verified from the extracted figure text.",
+      "Separate supplemental material availability remains unverified; no separate supplement was supplied.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: standard LIBERO success rates",
+      "Table 2: observed LIBERO-Plus success rates",
+      "Table 3: standalone action-generation latency",
+      "Table 4: LIBERO-Plus component comparison"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "ForeWAM conditions an action diffusion transformer on hidden video-backbone states obtained from the current observation and noisy future slots. One video prefill supplies reusable context; a frozen transition teacher shapes compact dynamics registers during training. Deployment generates actions without generating future video. Reported LIBERO success is 96.7%, while LIBERO-Plus success is 61.6% on an observed subset. The central uncertainty is whether these hidden states specifically encode predictive dynamics: component comparisons support their usefulness but do not establish that interpretation causally. [e04, e06, e10, e11, e13]",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "Explicit future-video generation provides temporal context for action prediction but adds iterative inference cost. ForeWAM addresses how a direct policy can expose useful predictive context to its action branch after removing that rollout. Its control interface receives observations, language and proprioception and predicts an executable action chunk. The supplied title, identifier and six authors match the catalog; the reviewed version is arXiv v1, dated 12 August 2026.",
+    "kind": "source",
+    "evidenceIds": [
+      "e01",
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Future-KV supplies layer-wise video keys and values from one prefill and reuses them throughout action denoising.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "The authors propose complementary distributed future-slot features and compact dynamics registers, arguing that latent-action supervision makes the latter sensitive to interaction-induced transitions.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e02",
+        "e06"
+      ]
+    },
+    {
+      "text": "ForeWAM-Flash applies OneDP distillation to reduce action denoising from ten steps to two while retaining the conditioning interface.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e12"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Two synchronized camera views and a language instruction. [e08]",
+      "An eight-dimensional proprioceptive state. [e08]",
+      "Stochastic future-slot and action noise for inference. [e04, e07]"
+    ],
+    "outputs": [
+      "A 32-step executable action chunk with seven dimensions per step: end-effector pose and gripper control. [e08]"
+    ],
+    "steps": [
+      {
+        "name": "Encode the current observation",
+        "detail": "Concatenate two 224×224 camera images horizontally before VAE encoding. Wan text embeddings and a projected proprioceptive token provide conditioning. The architecture distinguishes current tokens C, dynamics registers D, future slots F and action tokens A.",
+        "evidenceIds": [
+          "e05",
+          "e08"
+        ]
+      },
+      {
+        "name": "Construct latent future context",
+        "detail": "Keep the current visual latent clean, fill future positions with Gaussian noise, and run the Video DiT once at σ=1.0. Retain its dynamics-register states and cache keys and values at every layer. These hidden states are not decoded future observations.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Shape the registers during training",
+        "detail": "A frozen inverse-dynamics teacher encodes demonstrated before/after observations into a quantized latent-action target. A learned projection maps mean-pooled dynamics registers into that target space. The target describes a transition and is not a motor command.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "name": "Denoise executable actions",
+        "detail": "At each action step, attention combines cached video keys and values with keys and values computed from the current action tokens. Action queries therefore access visual context and registers without rerunning video denoising.",
+        "evidenceIds": [
+          "e05",
+          "e12"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Demonstrated future latents and action chunks receive continuous flow-matching losses. Register alignment adds a teacher-supervised loss. The teacher target is detached, while action gradients remain connected through the video-to-action interface.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07",
+          "e09"
+        ]
+      },
+      {
+        "text": "Training examples contain 33 observation frames; temporal sampling maps 32 action steps to nine video frames. Optimization uses AdamW, learning rate 10⁻⁴, weight decay 0.01, cosine annealing and gradient clipping at 1.0. The flow schedule has 1,000 timesteps and shift 5.0.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08",
+          "e09"
+        ]
+      },
+      {
+        "text": "The policy uses pretrained Wan components and a frozen teacher. The reported absence of embodied pretraining refers to the policy before LIBERO training; it should not be read as training every component from scratch.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e06",
+          "e08",
+          "e09"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Each policy query performs one video prefill followed by ten action-denoising steps, or two for Flash. Neither demonstrated futures nor teacher outputs are available. The cache remains fixed across action denoising.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e12"
+        ]
+      },
+      {
+        "text": "This interface supplies learned conditioning rather than evaluating candidate actions through future rollouts. The text specifies chunk generation but does not specify how much of each chunk is executed before observations are refreshed.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e08"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\tilde z^{Fsub}_{1:T}=\\operatorname{concat}(z_{cur}(o),\\epsilon_F),\\quad\\epsilon_F\\sim\\mathcal N(0,I);\\qquad(D_\\theta,H^{KV})=\\operatorname{KVPrefill}_\\phi(\\tilde z^{Fsub}_{1:T},l,p)",
+        "explanation": "Equations (3)–(4) define deployment: current observation o anchors noisy future slots; one video pass produces registers Dθ and cache HKV, conditioned on instruction l and proprioception p.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "y_t=(1-t)y+t\\epsilon,\\qquad L_{FM}(y)=\\mathbb E_{y,\\epsilon,t}\\left[\\|f_\\theta(y_t,t,o,l,p)-(\\epsilon-y)\\|_2^2\\right]",
+        "explanation": "Equations (6)–(8) train velocity prediction between clean targets and noise. Target y denotes either demonstrated video latents or executable action chunks.",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "expression": "L_{LA}=\\left\\|g_\\psi\\left(\\frac{1}{N_D}\\sum_{i=1}^{N_D}D_i\\right)-\\operatorname{sg}(z_{LA})\\right\\|_2^2,\\qquad L=L_{video}+L_{action}+\\lambda_{LA}L_{LA}",
+        "explanation": "Equations (9)–(10) align pooled registers with the frozen teacher target through projection gψ. The configuration uses 16 registers and a 32-dimensional target; λLA is not numerically specified.",
+        "evidenceIds": [
+          "e07",
+          "e09"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Standard LIBERO manipulation",
+      "setting": "Spatial, Object, Goal and Long suites; 50 rollouts per task.",
+      "metric": "Overall task success (%)",
+      "value": "Reported: ForeWAM 96.7; ForeWAM-Flash 96.9.",
+      "comparison": "Fast-WAM: 97.6; gaps are 0.9 and 0.7 percentage points.",
+      "interpretation": "Flash preserves the reported aggregate performance closely. No uncertainty estimate establishes whether its 0.2-point advantage over ForeWAM is meaningful.",
+      "evidenceIds": [
+        "e10"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus robustness",
+      "setting": "Observed subset spanning seven perturbation categories; external results originate from different sources.",
+      "metric": "Overall task success (%)",
+      "value": "Reported: ForeWAM 61.6; ForeWAM-Flash 58.2.",
+      "comparison": "Fast-WAM: 51.5, giving descriptive gains of 10.1 and 6.7 percentage points. The table also reports π0.5 at 85.7.",
+      "interpretation": "The result supports a favorable comparison with reported Fast-WAM, not overall benchmark dominance or a coverage-matched causal advantage.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Perturbation-specific robustness",
+      "setting": "Standard ForeWAM on the observed LIBERO-Plus subset.",
+      "metric": "Category task success (%)",
+      "value": "Reported: camera viewpoint 62.5; robot initial state 37.4.",
+      "comparison": "Fast-WAM: 16.4 and 44.5, respectively.",
+      "interpretation": "Robustness changes are uneven: the large camera gain coexists with worse performance under robot-state shifts.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Conditioning-pathway ablation",
+      "setting": "Three coverage-matched configurations, each with 1,482 observed LIBERO-Plus evaluations.",
+      "metric": "Overall task success (%)",
+      "value": "Reported: both pathways 61.6; Future-KV only 58.5; LA supervision only 58.0.",
+      "comparison": "Combined configuration improves by 3.1 and 3.6 percentage points. Base policy: 53.6 over 10,027 evaluations with different coverage.",
+      "interpretation": "The matched configurations favor combining pathways. The unmatched base prevents treating the table as a fully controlled four-condition experiment.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Action-generation efficiency",
+      "setting": "Standalone inference on one NVIDIA A800 GPU with 80 GB memory.",
+      "metric": "Inference latency (ms; lower is better)",
+      "value": "Reported: ForeWAM 568 with ten action steps; Flash 220 with two.",
+      "comparison": "Fast-WAM: 667 with ten steps.",
+      "interpretation": "Reader calculation: reductions are approximately 14.8% and 67.0%. These measurements establish neither end-to-end feedback frequency nor task-completion time.",
+      "evidenceIds": [
+        "e12"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors limit their conclusions to LIBERO and the evaluated LIBERO-Plus subset. Transfer across embodiments and physical deployment remain unresolved.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "text": "Attention access, teacher alignment and better aggregate success do not establish that registers encode contact changes or that cached future slots represent accurate dynamics. The paper provides no targeted intervention demonstrating those properties.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e07",
+        "e13"
+      ]
+    },
+    {
+      "text": "No seed-level uncertainty is supplied for these results. Differing external coverage and the unmatched base-policy evaluation constrain causal attribution.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e13"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "The architecture specifies Wan2.1-T2V-1.3B initialization, two 30-block transformers with video/action widths 1536/1024, and a linearly interpolated Wan2.1 ActionDiT checkpoint. Exact checkpoint artifacts, training duration, batch size, λLA and Flash distillation hyperparameters are not supplied.",
+      "kind": "source",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e02"
+      ]
+    },
+    {
+      "text": "Reproduction also needs the exact LIBERO-Plus subset and evaluation seeds, executable attention-mask routing, action normalization and chunk-execution schedule. These details are not fully recoverable from the supplied text. No code was inspected and no experiments were reproduced.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e08",
+        "e13"
+      ]
+    },
+    {
+      "text": "A useful first experiment would evaluate all four component configurations on identical cases and seeds. Shuffling future-slot cache entries while preserving current-observation context would further test whether that interface contributes specific useful information.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e13"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "Separate Video and Action DiTs support the recorded Dual-system architecture, and coupled video/action learning supports WAM membership. The IDM/Q4 assignment conflicts with deployment: inverse dynamics supplies an auxiliary teacher target during training, while the Action DiT directly generates executable actions from hidden conditioning. No inference-time inverse model converts a predicted visual plan into commands. Latent prediction is supported; a JEPA architecture and explicit visual planning are not established. Standalone latency supports inference efficiency but does not verify real-time closed-loop control. The catalog snapshot is preserved unchanged.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e07",
+        "e08",
+        "e12"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Latent prediction & JEPA",
+        "Visual planning & IDM",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "ccdd0329f728e0b78e25ca71c8780a15445891dea7e7391ff33e57a8b8f5b643"
+    }
+  },
+  "discussionQuestions": [
+    "Would the future-slot interface still help after removing the video flow objective while holding architecture and compute fixed? [e04, e07]",
+    "How sensitive are actions to future-slot noise, and does that variation correspond to meaningful alternative transitions? [e04]",
+    "Why does camera robustness improve while robot-initial-state robustness remains weaker than reported Fast-WAM? [e11]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author list and arXiv version line",
+      "detail": "The title and six named authors match the catalog; the identifier is arXiv:2608.11605v1, dated 12 August 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Section 1; PDF p. 3, Section 2, final paragraph",
+      "detail": "The paper motivates predictive context without video rollout, introduces two complementary conditioning paths, and identifies OneDP as the Flash distillation method."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Eqs. (1)–(2)",
+      "detail": "The policy maps observations, instruction and proprioception to an action chunk; the conceptual explicit-future alternative conditions actions on generated future representations."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.1, Eqs. (3)–(5); PDF p. 6, Section 3.2, Future-KV prefill",
+      "detail": "Deployment combines a clean current latent with noisy future slots, performs one prefill at σ=1.0 and reuses per-layer K/V states without decoding futures."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.2, Token groups and routing",
+      "detail": "Four token groups form the interface. Action queries combine cached video K/V with current action K/V; text and projected proprioception provide conditioning. Routing alone does not establish causal sufficiency."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.2, Latent-action-supervised dynamics registers",
+      "detail": "A frozen inverse-dynamics teacher produces quantized transition targets. Projected pooled registers match those targets; executable actions come from the Action DiT, and the teacher is absent at deployment."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 3.3, Eqs. (6)–(10)",
+      "detail": "Video and action targets use flow matching; register alignment uses a detached teacher target. The total objective includes λLA without a reported numerical value and does not establish causal register necessity."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix A, Architecture and inputs",
+      "detail": "Specifies Wan initialization, transformer depths and widths, action horizon, frame sampling, camera concatenation, proprioception and action dimensions."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix A, Optimization and inference",
+      "detail": "Specifies flow scheduling, 16 dynamics registers, a 32-dimensional teacher target, connected action gradients and optimizer settings; reports no embodied pretraining before LIBERO training."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, ForeWAM/ForeWAM-Flash/Fast-WAM rows, Overall column; Section 4.1",
+      "detail": "Overall success is 96.7%, 96.9% and 97.6%, respectively, under the stated 50-rollouts-per-task protocol. No uncertainty accompanies these entries."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2, Ours/Ours-Flash/Fast-WAM/π0.5 rows; PDF p. 7, Section 4.2",
+      "detail": "Overall values are 61.6%, 58.2%, 51.5% and 85.7%. Ours/Fast-WAM camera values are 62.5/16.4 and robot-state values 37.4/44.5. Cross-source comparisons are explicitly descriptive."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4.3; PDF p. 8, Table 3",
+      "detail": "Standalone A800 80 GB latency is 667/568/220 ms for Fast-WAM/Ours/Flash. ForeWAM uses ten action steps and Flash two; timings are not task-completion measurements."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.4 and Table 4",
+      "detail": "Both/Future-KV-only/LA-only score 61.6/58.5/58.0% across 1,482 evaluations each. The 53.6% base uses 10,027 evaluations with different coverage, limiting causal interpretation."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5, Limitations and Discussion",
+      "detail": "Evaluation is restricted to LIBERO and LIBERO-Plus; generalization to other embodiments, broader tasks and real-world deployment remains uncertain."
+    }
+  ]
+}

@@ -1,0 +1,555 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.08023",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T15:18:29.800Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.08023",
+      "title": "4D-WAM: Infusing Spatiotemporal Awareness into World Action Models through Trajectory Fields",
+      "kind": "pdf",
+      "sha256": "ae919cd5694bc0b07c847aa8057ff54f2c0f313f269529f7f65964396bf90584",
+      "wordCount": 6099,
+      "accessedAt": "2026-09-07T13:52:40.594257+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "2.1 World Action Models",
+      "2.2 Spatiotemporal Understanding for WAMs",
+      "3 Methodology",
+      "3.1 Limitations of Typical Representation Alignment",
+      "3.2 Motion Alignment via Token-wise Frame Differences",
+      "3.3 Source-Conditioned Destination Constraint",
+      "3.4 Overall Training Objective",
+      "4 Experiments",
+      "4.1 In-distribution Experiments",
+      "4.2 Out-of-Distribution (OOD) Experiments",
+      "4.3 Experiements on Video Prediction",
+      "4.4 Ablation Study",
+      "4.5 Real-world Experiments",
+      "5 Conclusion",
+      "A Auxiliary Training Cost",
+      "B Real-world Task and Dataset",
+      "C Probing Experiments: Mechanism of 4D Awareness",
+      "References"
+    ],
+    "omissions": [
+      "Figure images were not supplied or visually inspected; captions and accompanying prose were read.",
+      "Table review used the supplied extracted text, without inspecting original PDF layout.",
+      "Table 6 aggregate progress values are omitted from results because they do not reconcile with the displayed task-level entries.",
+      "Separate supplemental material availability was not verified.",
+      "Code and external references were not opened.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6: legible task entries and success-rate columns",
+      "Table 7",
+      "Table 8"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "4D-WAM adds training-only supervision from a frozen trajectory-field teacher to existing world action models. It aligns adjacent-frame feature changes and first-to-final-frame correspondence distributions, then removes the teacher and projectors for deployment. Its strongest evidence concerns improved simulated robustness under distribution shifts; physical task completion improves but remains low. The method transfers trajectory information into existing representations rather than introducing a new deployed 3D prediction or control module. [E03–E06, E09–E10, E13, E15]",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "The authors identify a mismatch between video models trained in 2D appearance space and manipulation governed by evolving 3D geometry. Per-frame geometry supervision does not explicitly teach temporal correspondence, while directly matching WAM features to reconstruction-teacher features may create optimization conflicts. Their proposed solution supervises relative motion and long-range correspondence instead of absolute feature identity.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "E02",
+      "E03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A training recipe transfers Trace Anything trajectory representations into existing DiT-based WAMs while preserving their deployment architecture.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03",
+        "E15"
+      ]
+    },
+    {
+      "text": "Two complementary objectives supervise the directions of local feature changes and source-conditioned destination distributions.",
+      "kind": "source",
+      "evidenceIds": [
+        "E04",
+        "E05"
+      ]
+    },
+    {
+      "text": "Experiments demonstrate compatibility with FastWAM-Joint and Lingbot-VA. This supports transfer across these two backbones, while the broader claim of model agnosticism remains less extensively tested.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E07",
+        "E08",
+        "E10",
+        "E13"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Demonstration video sequences and corresponding action supervision used by the base WAM.",
+      "Frozen Trace Anything features from temporally corresponding training frames.",
+      "Intermediate WAM visual tokens, paired with teacher tokens at corresponding frame and spatial indices."
+    ],
+    "outputs": [
+      "A trained WAM retaining its original video/action capabilities and deployment architecture.",
+      "Training-only motion and destination alignment losses; no additional deployed trajectory-field output."
+    ],
+    "steps": [
+      {
+        "name": "Obtain corresponding teacher and student tokens",
+        "detail": "For each frame f, extract N WAM tokens H_f and teacher tokens Z_f with potentially different feature dimensions. The formulation assumes correspondence at the same frame and spatial token index. Experiments align the twentieth DiT layer.",
+        "evidenceIds": [
+          "E03",
+          "E07"
+        ]
+      },
+      {
+        "name": "Project into a common feature space",
+        "detail": "Independent two-layer MLPs P_h and P_z map student and teacher features into dimension d. Normalize each projected token to unit length. P_z is frozen, as is Trace Anything; the student projection participates in optimization.",
+        "evidenceIds": [
+          "E03",
+          "E04",
+          "E15"
+        ]
+      },
+      {
+        "name": "Align temporal changes",
+        "detail": "Subtract normalized tokens at consecutive frames and minimize cosine distance between student and teacher differences. This supervises feature-change direction rather than absolute features or displacement magnitude. These are latent differences at fixed token indices, not explicitly decoded physical velocities.",
+        "evidenceIds": [
+          "E04"
+        ]
+      },
+      {
+        "name": "Distill destination correspondence",
+        "detail": "Use first-frame student tokens as queries against final-frame teacher keys. Construct the target with first-frame teacher queries against the same teacher keys. Temperature-scaled softmax produces destination distributions, and KL divergence transfers their relational structure. The student distribution does not use student final-frame keys.",
+        "evidenceIds": [
+          "E05"
+        ]
+      },
+      {
+        "name": "Optimize and remove auxiliary modules",
+        "detail": "Add both alignment losses to the original video-denoising and action-prediction objectives. Teacher features can be cached before training. Remove the teacher, projectors, and auxiliary losses afterward.",
+        "evidenceIds": [
+          "E06",
+          "E15"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "FastWAM-Joint experiments use eight H100 GPUs: RoboTwin training runs for 30,000 steps with global batch size 1,024; LIBERO runs for 25,000 steps with batch size 512. Lingbot-VA Clean2Rand training uses batch size 64 for 20,000 steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "E07"
+        ]
+      },
+      {
+        "text": "RoboTwin in-distribution training uses 500 randomized and 50 clean demonstrations per task across 50 tasks. LIBERO provides 100 demonstrations per task across 40 tasks. Clean2Rand uses only 50 clean demonstrations per task.",
+        "kind": "source",
+        "evidenceIds": [
+          "E08",
+          "E10"
+        ]
+      },
+      {
+        "text": "The paper recommends both alignment coefficients below 0.1 but does not supply their exact experimental values. Taking the final frame as a completion signal assumes that the chosen training sequence ends at a meaningful manipulation outcome.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "E05",
+          "E06"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The deployment network and parameter count remain those of the original WAM. The authors consequently claim no additional inference latency or memory consumption; the supplied text does not report a separate deployment latency measurement.",
+        "kind": "author-claim",
+        "evidenceIds": [
+          "E15"
+        ]
+      },
+      {
+        "text": "Actions come from the inherited policy, not from executing teacher trajectories or destination distributions. The recipe does not specify a new action decoder, planner, feedback schedule, or requirement to generate future video during every control step.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "E06",
+          "E15"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "h̄_{f,i}=Norm(P_h(h_{f,i})), z̄_{f,i}=Norm(P_z(z_{f,i})); Δh_{f,i}=h̄_{f+1,i}−h̄_{f,i}, Δz_{f,i}=z̄_{f+1,i}−z̄_{f,i}; L_motion=[B(F−1)N]⁻¹ Σ_{b,f,i}[1−⟨Δh^b_{f,i},Δz^b_{f,i}⟩/(‖Δh^b_{f,i}‖₂‖Δz^b_{f,i}‖₂+ε)].",
+        "explanation": "Bars distinguish normalized projected features. B is batch size, F frame count, and N tokens per frame; f ranges from 0 to F−2. The loss averages directional disagreement, with ε preventing division by zero.",
+        "evidenceIds": [
+          "E03",
+          "E04"
+        ]
+      },
+      {
+        "expression": "p_h(j|i)=softmax_j(⟨h̄_{0,i},z̄_{F−1,j}⟩/τ_sim); q_z(j|i)=softmax_j(⟨z̄_{0,i},z̄_{F−1,j}⟩/τ_sim); L_dest=(BN)⁻¹Σ_{b,i}D_KL(q_z^b(·|i)∥p_h^b(·|i)).",
+        "explanation": "Both distributions share final-frame teacher keys. The temperature controls distribution sharpness, and the teacher-to-student KL direction makes teacher correspondences the target.",
+        "evidenceIds": [
+          "E05"
+        ]
+      },
+      {
+        "expression": "L=L_latent+L_action+λ_motion L_motion+λ_dest L_dest.",
+        "explanation": "The original latent-denoising and demonstrated-action objectives remain in place. The two weighted additions supply auxiliary representation supervision.",
+        "evidenceIds": [
+          "E06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "In-distribution simulated manipulation",
+      "setting": "FastWAM-Joint backbone; RoboTwin 2.0 clean and randomized evaluation.",
+      "metric": "Success rate",
+      "value": "91.92% clean; 90.76% randomized; 91.34% average.",
+      "comparison": "Baseline: 90.84%, 90.32%, and 90.58%, respectively.",
+      "interpretation": "Reported gains are 1.08 and 0.44 percentage points for the two settings; the already strong baseline leaves modest headroom.",
+      "evidenceIds": [
+        "E08"
+      ]
+    },
+    {
+      "task": "In-distribution simulated manipulation",
+      "setting": "Four LIBERO suites; FastWAM-Joint backbone.",
+      "metric": "Average success rate",
+      "value": "98.6%.",
+      "comparison": "98.2% baseline; Spatial decreases from 99.6% to 98.8%.",
+      "interpretation": "The 0.4-point aggregate gain does not imply improvement in every suite.",
+      "evidenceIds": [
+        "E08"
+      ]
+    },
+    {
+      "task": "Robustness to unseen perturbations",
+      "setting": "Train on LIBERO; evaluate seven LIBERO-Plus perturbation categories.",
+      "metric": "Success rate",
+      "value": "71.01% average; 45.15% under camera perturbations.",
+      "comparison": "FastWAM-Joint: 62.21% average and 27.89% camera.",
+      "interpretation": "Reported gains of 8.80 and 17.26 percentage points provide stronger evidence of robustness than the small standard-LIBERO improvement. They do not independently identify a geometric cause.",
+      "evidenceIds": [
+        "E09"
+      ]
+    },
+    {
+      "task": "Clean-to-randomized transfer",
+      "setting": "RoboTwin Clean2Rand; Lingbot-VA backbone trained on clean demonstrations only.",
+      "metric": "Success rate",
+      "value": "81.5% clean; 41.8% randomized; 61.7% average.",
+      "comparison": "Lingbot-VA: 80.7%, 34.6%, and 57.7%. π0.5 reaches 46.0% randomized success.",
+      "interpretation": "4D-WAM improves its backbone and has the highest listed clean/random average, but does not have the highest randomized-only success.",
+      "evidenceIds": [
+        "E10"
+      ]
+    },
+    {
+      "task": "Future observation prediction",
+      "setting": "LIBERO-Plus; 100 episodes per perturbation type; predictions compared with simulator-rendered observations during policy execution.",
+      "metric": "PSNR and SSIM",
+      "value": "PSNR 21.44; SSIM 0.83.",
+      "comparison": "FastWAM-Joint: PSNR 19.22; SSIM 0.75.",
+      "interpretation": "These reported image-prediction metrics support improved reconstruction fidelity and structural similarity. They are not robot task-success measurements.",
+      "evidenceIds": [
+        "E11"
+      ]
+    },
+    {
+      "task": "Alignment-objective ablation",
+      "setting": "LIBERO with the FastWAM base model; Table 1 evaluation setting.",
+      "metric": "Average success rate",
+      "value": "98.6% with both objectives.",
+      "comparison": "98.0% without destination alignment; 98.0% without motion alignment.",
+      "interpretation": "Each removal reduces the reported mean by 0.6 percentage points. Without uncertainty estimates, this establishes observed complementarity rather than statistical reliability.",
+      "evidenceIds": [
+        "E12"
+      ]
+    },
+    {
+      "task": "Physical manipulation",
+      "setting": "ARX LIFT2; four tasks; 550 training demonstrations; 50 trials per task for each model.",
+      "metric": "Average task success rate",
+      "value": "5.5%.",
+      "comparison": "Lingbot-VA: 1.0%.",
+      "interpretation": "Physical completion improves by 4.5 percentage points but remains low. Rotating-light success is unchanged at 4.0%, so the results do not establish improvement on every task.",
+      "evidenceIds": [
+        "E13",
+        "E14"
+      ]
+    },
+    {
+      "task": "Frozen-representation destination probing",
+      "setting": "LIBERO-Plus; twentieth-layer WAM features; Trace Anything correspondence targets.",
+      "metric": "Top-1 accuracy and mean target rank",
+      "value": "Top-1 0.2625; mean rank 10.91.",
+      "comparison": "Post-trained FastWAM-Joint: 0.2487 and 11.38.",
+      "interpretation": "Correspondence information becomes more accessible to the probe. Because targets come from the training teacher, this is not independent validation against measured physical trajectories.",
+      "evidenceIds": [
+        "E16",
+        "E17"
+      ]
+    },
+    {
+      "task": "Auxiliary training cost",
+      "setting": "LIBERO; 25,000 steps; batch size 512; eight H100 80 GiB GPUs.",
+      "metric": "Optimization-step time and peak GPU memory utilization",
+      "value": "Cached: 7.5 s/step and 82.7%; online: 8.4 s/step and 96.0%.",
+      "comparison": "Baseline: 7.3 s/step and 77.3%.",
+      "interpretation": "Caching reduces training-loop overhead. A complete accounting would also require the unreported feature-precomputation time and cache storage.",
+      "evidenceIds": [
+        "E15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The probe tests recovery of the same teacher's correspondence targets used for supervision. Together with the absence of uncertainty estimates, this limits causal claims that improved physical 4D understanding explains the policy gains.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E04",
+        "E05",
+        "E08",
+        "E09",
+        "E16",
+        "E17"
+      ]
+    },
+    {
+      "text": "Table 5 reports 97.8% average at layer 24, contradicting the prose claim that alignment at or beyond layer 20 consistently exceeds 98.5%. Its layer-20 Object value is 99.6%, whereas Table 1 gives 99.5%. The reported best average is usable, but these inconsistencies weaken precise layer-selection conclusions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E08",
+        "E12"
+      ]
+    },
+    {
+      "text": "The real-world statement that every task improves is too broad: rotating-light progress falls from 25.0 to 23.8 while success remains 4.0%. The displayed aggregate progress entries also fail to match simple means of the task entries; without original layout inspection, aggregate progress gains should not be accepted.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E13"
+      ]
+    },
+    {
+      "text": "The motion loss constrains directions of latent change, not metric 3D displacement. The destination loss assumes the sequence endpoint is informative, and both losses depend on teacher correspondence quality. The supplied experiments do not isolate sensitivity to incorrect teacher trajectories or incomplete episodes.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E04",
+        "E05",
+        "E12"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the selected WAM checkpoint, frozen Trace Anything, benchmark demonstrations, token alignment at the twentieth layer, both projectors, and matching simulation evaluation protocols. The physical setup additionally uses two six-DoF arms with grippers and three RGB cameras; demonstrations are distributed 100/150/200/100 across cylinder, towel, toolbox, and rotating-light tasks.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03",
+        "E07",
+        "E14",
+        "E15"
+      ]
+    },
+    {
+      "text": "Missing implementation details include exact loss weights, similarity temperature, projection dimensions and initialization, frame/token alignment preprocessing, selected sequence length, and real-world optimization settings. The frozen teacher projector's initialization is especially relevant because it defines the target space.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05",
+        "E06",
+        "E07",
+        "E13"
+      ]
+    },
+    {
+      "text": "Appendix C describes MLP probes, while Table 8 calls them linear probes. Table 7 labels training time as hours on eight GPUs, but surrounding prose also calls these GPU hours. These architecture and compute-unit discrepancies require clarification. The reported 56 MiB denotes additional trainable parameter storage, not a parameter count.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E15",
+        "E16"
+      ]
+    },
+    {
+      "text": "A focused replication would compare baseline, motion-only, destination-only, and combined training under matched budgets and repeated seeds, evaluating policy success alongside correspondence to independently measured trajectories. This would test whether the auxiliary mechanism improves control beyond teacher imitation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E12",
+        "E16",
+        "E17"
+      ]
+    },
+    {
+      "text": "The title page advertises a repository link. No code was inspected, installation verified, or experiment reproduced in this review.",
+      "kind": "source",
+      "evidenceIds": [
+        "E01"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "WAM membership and generalization/action alignment are supported. Architecture 'Not applicable' and placement outside the quadrants are defensible for a training recipe that inherits its backbone and removes auxiliary modules before deployment. 'Joint prediction' describes the video/action training objectives, but does not establish a One Model architecture or simultaneous inference; the paper also describes Lingbot-VA as autoregressive. '3D multiview modeling' is only partially supported: trajectory supervision and multiple physical cameras are documented, but this recipe does not introduce an explicit multiview generative mechanism. The snapshot is therefore broadly compatible but not fully verified by this text.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E02",
+        "E06",
+        "E14",
+        "E15",
+        "E18"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "3D multiview modeling",
+        "Generalization & action alignment"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "10f3d284602bb79884202b16430e117c65d17c548038ad7a7714d56296060060"
+    }
+  },
+  "discussionQuestions": [
+    "Would gains persist when correspondence evaluation uses measured trajectories instead of Trace Anything targets? [E16–E17]",
+    "How sensitive is destination alignment to training windows ending before task completion? [E05]",
+    "Do repeated-seed OOD ablations show that both losses contribute beyond their small LIBERO mean differences? [E09, E12]",
+    "Which failures account for the low physical completion rate, and why does rotating-light performance fail to improve? [E13]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "E01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block, arXiv version line, and code-link line",
+      "detail": "Title, identifier, and all listed authors match the catalog. The supplied artifact identifies arXiv:2608.08023v2, dated 12 August 2026, and advertises github.com/lishanyqy/4DWAM."
+    },
+    {
+      "id": "E02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "The authors motivate trajectory-field supervision through the gap between 2D video representations and evolving 3D manipulation geometry, proposing motion and destination alignment."
+    },
+    {
+      "id": "E03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Sections 3.1–3.2, Eqs. (1)–(2)",
+      "detail": "The text reports weaker absolute-feature compatibility than temporal-difference compatibility. H_f and Z_f contain corresponding frame/spatial tokens; independent two-layer MLPs project their features into a shared dimension."
+    },
+    {
+      "id": "E04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2, text before Eq. (3), Eqs. (3)–(4)",
+      "detail": "P_z is frozen. Projected tokens are normalized before adjacent-frame subtraction, and the motion loss averages cosine distance between teacher and student differences over episodes, frame pairs, and tokens."
+    },
+    {
+      "id": "E05",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.3, Eqs. (5)–(7) and implementation paragraph",
+      "detail": "Student-source/teacher-destination similarities and teacher-source/teacher-destination similarities define temperature-scaled distributions. KL divergence matches them. The first and final frames serve as source and destination, with the final frame treated as a completion signal."
+    },
+    {
+      "id": "E06",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.4, Eq. (8) and coefficient guidance",
+      "detail": "The objective retains latent-denoising and action-chunk prediction losses and adds weighted motion and destination losses. Both auxiliary coefficients are recommended below 0.1; exact settings are not stated here."
+    },
+    {
+      "id": "E07",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4, Experimental Setup",
+      "detail": "All experiments align layer 20 and use eight H100 GPUs. FastWAM-Joint uses batch 1,024 for 30K RoboTwin steps and batch 512 for 25K LIBERO steps; Lingbot-VA Clean2Rand uses batch 64 for 20K steps."
+    },
+    {
+      "id": "E08",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1 and Table 1, FastWAM-Joint and 4D-WAM rows",
+      "detail": "Training data comprise 500 randomized plus 50 clean demonstrations for each of 50 RoboTwin tasks, and 100 demonstrations for each of 40 LIBERO tasks. RoboTwin clean/random/average success is 90.84/90.32/90.58 for baseline and 91.92/90.76/91.34 for 4D-WAM. LIBERO averages are 98.2 and 98.6; Spatial values are 99.6 and 98.8. Table 1 gives 4D-WAM Object as 99.5."
+    },
+    {
+      "id": "E09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.2 and Table 2, Average and Camera columns",
+      "detail": "Both models train on LIBERO and face seven LIBERO-Plus perturbations. Average success rises from 62.21 to 71.01, and camera-perturbation success from 27.89 to 45.15; all seven reported categories improve."
+    },
+    {
+      "id": "E10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.2 and Table 3, Clean, Rand., and Average rows",
+      "detail": "Clean2Rand training uses 50 clean demonstrations per task. Lingbot-VA scores 80.7/34.6/57.7 for clean/random/average; 4D-WAM scores 81.5/41.8/61.7. π0.5 randomized success is 46.0."
+    },
+    {
+      "id": "E11",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.3, Quantitative Results and Table 4",
+      "detail": "Video predictions are compared with simulator observations during executed policy rollouts on LIBERO-Plus, with 100 episodes per perturbation type. PSNR/SSIM are 19.22/0.75 for FastWAM-Joint and 21.44/0.83 for 4D-WAM."
+    },
+    {
+      "id": "E12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 5 and Section 4.4",
+      "detail": "Layer-20 average success is 98.6; removing either loss yields 98.0. Layer 22 gives 98.5 and layer 24 gives 97.8, despite prose claiming consistently stronger performance at or beyond layer 20. The layer-20 Object entry is 99.6."
+    },
+    {
+      "id": "E13",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 6 and Section 4.5",
+      "detail": "Both models train jointly on four physical tasks and receive 50 trials per task. Average success is 1.0% for Lingbot-VA and 5.5% for 4D-WAM. Rotating-light progress is 25.0 versus 23.8, with success 4.0% for both. Displayed progress entries and aggregate entries do not reconcile as simple task means."
+    },
+    {
+      "id": "E14",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4.5 and Appendix B, Setup, Data Collection, and Real-world Tasks",
+      "detail": "ARX LIFT2 has two six-DoF arms, each with a one-DoF gripper, and three RGB cameras. Cylinder insertion, towel flattening, toolbox wrench retrieval, and moving-light grasping use 100, 150, 200, and 100 demonstrations, totaling 550."
+    },
+    {
+      "id": "E15",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Appendix A, Eq. (9), Table 7, and concluding deployment paragraph",
+      "detail": "Trace Anything is frozen; features may be precomputed and cached or extracted online. Baseline/cached/online step times are 7.3/7.5/8.4 seconds and peak memory utilization 77.3/82.7/96.0%. The training-time row is labeled hours on eight GPUs and lists 51/52/59, while prose also uses GPU-hour terminology. Additional trainable parameter storage is 56 MiB. Teacher and projectors are removed for inference."
+    },
+    {
+      "id": "E16",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Appendix C, probing protocol and Table 8 caption",
+      "detail": "Frozen layer-20 features feed probes for adjacent-frame and first-to-final correspondence against Trace Anything targets. Prose specifies lightweight MLP probes, whereas the caption says linear probes. Metrics include KL, cross-entropy, Top-k accuracy, and average target rank."
+    },
+    {
+      "id": "E17",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 8, Destination Prediction (LIBERO-Plus), FastWAM-Joint and 4D-WAM rows",
+      "detail": "Post-trained FastWAM-Joint has Top-1 accuracy 0.2487 and mean rank 11.38; 4D-WAM has 0.2625 and 10.91. The accompanying prose repeats these values."
+    },
+    {
+      "id": "E18",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 2.1, Joint Predictions and Autoregressive Predictions",
+      "detail": "The related-work taxonomy distinguishes inverse dynamics, joint prediction, and autoregressive prediction. Lingbot-VA is described as integrating frame prediction and policy execution in an autoregressive framework."
+    }
+  ]
+}

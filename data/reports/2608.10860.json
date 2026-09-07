@@ -1,0 +1,588 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.10860",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:12:28.364Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.10860",
+      "title": "Flex-π: A Multi-Stream World-Action Model with Compute Flexibility",
+      "kind": "pdf",
+      "sha256": "666b96878c212ad90c8226606b20d24e24ee171085219f7469d1ee17f61d0548",
+      "wordCount": 20718,
+      "accessedAt": "2026-09-07T13:50:31.819798+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Problem Statement and Flow Matching",
+      "3.1 Input Visual Streams and Model Backbone",
+      "3.2 Flexible Training via Visual Stream Dropout and Cross-Modality Forcing",
+      "3.3 Training Objectives, Data, and Inference",
+      "4.1–4.5 Experimental Setup, Real-World Evaluation, Generalization, Simulation Comparisons, and Ablations",
+      "5 Conclusion and Limitation",
+      "Acknowledgments and References",
+      "A.1–A.5 Model Architecture Details",
+      "B Pre-training Data",
+      "C Real-World Robot Platform",
+      "D Real World Experiment Criteria",
+      "E LIBERO Setup and Evaluation Protocol",
+      "F.1–F.3 Baseline Implementation and Latency Protocol",
+      "G.1–G.7 Additional Experiments",
+      "H Per-Task RoboTwin Results",
+      "I Inference Optimization and I.1 Denoising Steps",
+      "J Training Hyperparameters"
+    ],
+    "omissions": [
+      "The catalog spells the model prefix Flex-ππ; the supplied title page spells it FLEX-π. The exact arXiv identifier, all seven authors, and the subtitle agree, establishing work identity while leaving this catalog spelling discrepancy recorded. The observed source is arXiv:2608.10860v3, dated 29 August 2026; the catalog was not changed.",
+      "Only the supplied extraction was inspected. Figure captions and legible extracted labels were read, but no figure images or original PDF layouts were visually inspected.",
+      "Source hash and acquisition time were copied from the supplied provenance, not independently recomputed.",
+      "Separate supplemental material availability was not verified.",
+      "Section J promises per-domain training settings, but the supplied Table 12 contains no domain-specific epoch or batch-size group.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: RoboTwin aggregate results",
+      "Table 2: LIBERO aggregate results",
+      "Table 3: Real-world scoring rubrics",
+      "Table 4: Real-robot baseline task coverage",
+      "Table 5: Real-robot training data",
+      "Table 6: LIBERO averages and legible suite entries",
+      "Table 7: LIBERO-Plus totals and protocol caption",
+      "Table 8: Per-task RoboTwin results",
+      "Table 9: Joint-path inference ladder",
+      "Table 10: Action-only inference ladder",
+      "Table 11: Action-only denoising-step sweep",
+      "Table 12: Supplied shared training hyperparameters"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "FLEX-π trains a 6B manipulation policy to predict future appearance, geometry, semantic features, and actions. Its distinctive mechanism separates the supervision available during training from the visual futures computed during deployment: every target stream trains on every sample, while attention masks teach the action expert to operate with different available streams. Action-only deployment can consequently retain benefits from geometric and semantic training without generating those futures. Joint generation remains useful on difficult manipulation tasks, but costs additional computation. The fastest reported configuration still consumes current multimodal observations; action-only does not mean RGB-only. [E02, E04, E05, E14, E22]",
+  "readingTimeMinutes": 14,
+  "problem": {
+    "text": "The authors argue that RGB reconstruction targets underemphasize manipulation-relevant geometry and object semantics. They seek richer predictive supervision while reusing existing visual encoders and allowing deployment to omit expensive streams.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "E02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The model reuses a frozen video VAE for both RGB and image-shaped pointmaps, while separately projecting folded DINO features into the visual transformer. The claimed accurate pointmap reconstruction motivates this reuse; it does not establish accurate physical dynamics.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03"
+      ]
+    },
+    {
+      "text": "A shared visual transformer and a separately parameterized action expert jointly denoise visual futures and action chunks, with asymmetric attention allowing actions to read visual predictions.",
+      "kind": "source",
+      "evidenceIds": [
+        "E04"
+      ]
+    },
+    {
+      "text": "Independent input-presence and output-attention masks enable one flexible checkpoint to support different deployment configurations. Crucially, output masking changes attention during training, not which prediction losses are computed.",
+      "kind": "source",
+      "evidenceIds": [
+        "E05",
+        "E06"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "A current RGB observation, potentially arranged as a three-camera composite.",
+      "Optional current camera-frame pointmaps and DINO features.",
+      "Current proprioception in a canonical 32-dimensional layout.",
+      "A language instruction."
+    ],
+    "outputs": [
+      "A continuous chunk of 32 actions in the canonical action layout.",
+      "Optional future RGB latents, pointmap latents, and folded DINO features spanning the action horizon."
+    ],
+    "steps": [
+      {
+        "name": "Construct complementary observations",
+        "detail": "AGIBOT pointmaps are produced offline using Depth Anything 3 and camera intrinsics. Main real-robot experiments instead use sensed stereo depth, while LIBERO uses rendered depth. The views are tiled into a composite; pointmaps remain camera-frame representations and require no extrinsic registration.",
+        "evidenceIds": [
+          "E07",
+          "E08",
+          "E10"
+        ]
+      },
+      {
+        "name": "Encode visual and task information",
+        "detail": "RGB and pointmaps share the frozen Wan-2.2 VAE. DINOv3 patch features undergo an invertible 2×2 spatial fold, converting four 768-dimensional tokens into one 3072-dimensional token, followed by normalization and learned projection. DINO therefore shares transformer width, not the raw VAE representation. A linear proprioception encoder adds one token to the frozen umT5 language sequence.",
+        "evidenceIds": [
+          "E03",
+          "E09"
+        ]
+      },
+      {
+        "name": "Exchange information between visual and action experts",
+        "detail": "The approximately 5B visual trunk shares weights across visual streams, with modality-specific adapters. The approximately 1B action expert has its own attention, feedforward, and normalization parameters. Cross-stream attention occurs in the middle 16 of 30 blocks. Actions read observations and selected visual futures; visual tokens never read actions.",
+        "evidenceIds": [
+          "E04",
+          "E05"
+        ]
+      },
+      {
+        "name": "Train with missing conditioning and selective future visibility",
+        "detail": "Input and output mask entries are independently sampled with probability 0.5, rejecting input masks that remove every visual modality. Missing current-stream tokens are zeroed. Future streams communicate within equal-output-mask groups, and actions read only the selected group. Nevertheless, every future stream is predicted and supervised, including modalities absent from the input.",
+        "evidenceIds": [
+          "E05",
+          "E06"
+        ]
+      },
+      {
+        "name": "Predict continuous actions over an aligned horizon",
+        "detail": "Each action timestep is one continuous token. A 33-timestep sample supplies 32 actions and nine visual frames sampled at stride four; VAE compression yields one current and two future latent frames. Real-robot action poses and joint displacements are anchored to the state at the start of the chunk, while gripper commands remain absolute.",
+        "evidenceIds": [
+          "E09"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Robot pre-training uses approximately 500 hours from 100 AGIBOT World-Beta tasks, selecting up to the first 285 episodes per task and splitting episodes at instruction boundaries. Domain-specific fine-tuning follows. Reusing visual priors therefore does not eliminate robot pre-training.",
+        "kind": "source",
+        "evidenceIds": [
+          "E07"
+        ]
+      },
+      {
+        "text": "The VAE, umT5, and DINOv3 remain frozen; the visual trunk, action expert, adapters, and prediction heads are trained. The narrower action expert is initialized by interpolating Wan weights. Appendix A.3 explicitly identifies randomly initialized DINO projections as well as action input/output layers.",
+        "kind": "source",
+        "evidenceIds": [
+          "E03",
+          "E04",
+          "E11"
+        ]
+      },
+      {
+        "text": "All four stream losses have weight one. Shared settings include AdamW, learning rate 10⁻⁴, cosine scheduling with 5% warmup, bfloat16 mixed precision, and ZeRO stage 1. Reported flow-matching shifts are six for visual streams and one for actions.",
+        "kind": "source",
+        "evidenceIds": [
+          "E06",
+          "E11"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The chosen output mask now removes unneeded visual futures from computation. Four Euler steps are the default; action-only generation denoises action tokens against cached observation features. The main optimized action-only latency measurement uses full current visual input.",
+        "kind": "source",
+        "evidenceIds": [
+          "E05",
+          "E22",
+          "E23"
+        ]
+      },
+      {
+        "text": "On the real robot, all 32 actions execute open-loop at 30 Hz, covering approximately 1.07 seconds. The synchronous controller then holds position while computing the next chunk. LIBERO executes ten predicted actions before obtaining feedback and replanning. Generated visual futures are internal policy features, not commands executed by the robot.",
+        "kind": "source",
+        "evidenceIds": [
+          "E08",
+          "E09",
+          "E10"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "z^τ = τz + (1−τ)ε; L_FM(z) = E[‖v_θ(z^τ | τ,l,z_≤t) − (z−ε)‖₂²], ε ∼ N(0,I).",
+        "explanation": "Equation (1) trains velocity along a straight noise-to-data path. Sampling integrates the learned velocity from noise toward the target with Euler steps.",
+        "evidenceIds": [
+          "E06"
+        ]
+      },
+      {
+        "expression": "L(θ) = λ_a L_a^FM(a_t) + Σ_{i∈{o,d,p}} λ_i L_i^FM(i_{t+1}); λ_a = λ_o = λ_d = λ_p = 1.",
+        "explanation": "Equation (3) includes action, RGB, DINO, and pointmap targets on every training sample. The output-attention mask does not gate this sum.",
+        "evidenceIds": [
+          "E06"
+        ]
+      },
+      {
+        "expression": "v̂ = (d̂_{t+1} − d^τ_{t+1}) / (1−τ).",
+        "explanation": "Equation (4) converts the DINO head's clean-feature prediction into velocity, preserving the flow-matching loss and integration procedure. The authors use this parameterization because folding makes DINO targets high-dimensional.",
+        "evidenceIds": [
+          "E06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Real-world Self-Repair Gripper",
+      "setting": "Eight sequential stages; 20 physical rollouts per method; identical task data comprising 802 demonstration episodes and 570 correction episodes.",
+      "metric": "Complete-task success and normalized partial-credit score",
+      "value": "Reported full joint: 55% success and 76.0% normalized score. Action-only: 45% and 66.9%.",
+      "comparison": "ManiFlow: 5% success and 33.3% score; π0.5: 0% and 26.3%.",
+      "interpretation": "Analysis: This is executed robot performance. Joint generation improves complete success by 10 percentage points over action-only in this small evaluation. Partial credit must remain distinct from finishing the assembly.",
+      "evidenceIds": [
+        "E12",
+        "E13",
+        "E14"
+      ]
+    },
+    {
+      "task": "RoboTwin demonstration efficiency",
+      "setting": "50 domain-randomized tasks with 50 demonstrations per task; baselines retrained at this budget.",
+      "metric": "Average task success",
+      "value": "Reported full joint: 78.8%.",
+      "comparison": "Fast-WAM: 41.9%; π0.5: 31.4%; LingBot-VA: 17.2%.",
+      "interpretation": "Analysis: The strongest listed baseline trails by 36.9 percentage points, approximately a 1.88-fold success ratio. This establishes an advantage in this simulation training regime, not equivalent real-world data efficiency.",
+      "evidenceIds": [
+        "E16"
+      ]
+    },
+    {
+      "task": "Full-data RoboTwin",
+      "setting": "50 tasks; training uses 2,500 clean and 25,000 randomized demonstrations; one FLEX-π checkpoint serves both modes.",
+      "metric": "Clean, randomized, and combined average success",
+      "value": "Reported action-only: 94.5%, 94.6%, 94.6%. Full joint: 94.3%, 94.8%, 94.6%.",
+      "comparison": "Published combined averages: Qwen-RobotManip-Context 93.9%; LingBot-VA 2.0 93.6%.",
+      "interpretation": "Analysis: Future generation provides no advantage in the rounded aggregate here. Its benefit is task- and data-regime-dependent.",
+      "evidenceIds": [
+        "E15"
+      ]
+    },
+    {
+      "task": "Standard LIBERO",
+      "setting": "Fine-tuning across 40 tasks in four suites, 50 demonstrations per task; evaluation comprises 50 rollouts per task, totaling 2,000 episodes.",
+      "metric": "Average success",
+      "value": "Reported flexible checkpoint: 98.4% action-only and 98.5% full joint. Fixed-mode FLEX-π*: 98.7% and 99.2%, respectively.",
+      "comparison": "Qwen-RobotManip-Context reports 99.2%; LingBot-VA reports 98.5%.",
+      "interpretation": "Analysis: The 99.2% result ties the strongest listed baseline and belongs to fixed-mode fine-tuning without stream dropout. It is not the performance of the flexible checkpoint. The authors characterize this benchmark as action fitting rather than held-out-task generalization.",
+      "evidenceIds": [
+        "E10",
+        "E17"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus robustness",
+      "setting": "10,030 perturbed tasks, one rollout each; official task-count-weighted total and corrected instruction extraction.",
+      "metric": "Weighted success",
+      "value": "Reported action-only and full joint: 88.6% each.",
+      "comparison": "Under the same corrected pipeline: π0.5 85.7%, Fast-WAM 70.8%. Published Qwen totals are 89.0% and 91.4%, but their instruction handling was not verified.",
+      "interpretation": "Analysis: Comparisons with the two reevaluated baselines are directly aligned on instruction handling. Ranking against the remaining published rows carries an unresolved protocol difference.",
+      "evidenceIds": [
+        "E18"
+      ]
+    },
+    {
+      "task": "Effect of inference-time future generation",
+      "setting": "Five domain-randomized RoboTwin tasks, 50 demonstrations per task, RGB-only conditioning; output streams varied on one checkpoint.",
+      "metric": "Average success and approximate latency per policy call",
+      "value": "Reported action-only: 40.2% at approximately 60 ms. Adding RGB futures: 60.4%. Generating RGB, DINO, and pointmap futures: 63.8% at approximately 193 ms.",
+      "comparison": "Full visual generation exceeds action-only by 23.6 percentage points.",
+      "interpretation": "Analysis: Holding the checkpoint fixed supports a direct deployment benefit from future generation in this setting. These five-task results must not be conflated with the full-data RoboTwin averages.",
+      "evidenceIds": [
+        "E19"
+      ]
+    },
+    {
+      "task": "Deployment computation",
+      "setting": "RTX 5090, batch size one, four Euler steps, full current visual input, best reported implementation for each path.",
+      "metric": "Measured mean latency per action-chunk call",
+      "value": "Reported optimized action-only: 60.3 ms; optimized full joint: 193.3 ms.",
+      "comparison": "Corresponding eager implementations: 131.8 ms and 447.5 ms.",
+      "interpretation": "Analysis: Future generation remains substantially more expensive after optimization. These are chunk latencies, not control-step durations, and comparisons with other policies do not hold engineering effort fixed.",
+      "evidenceIds": [
+        "E13",
+        "E22"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors report slower convergence from additional modalities and cross-modality forcing, requiring at least ten fine-tuning epochs on their real-world tasks. Full joint generation remains slower than parameter-comparable VLAs.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E24"
+      ]
+    },
+    {
+      "text": "Sensor-free deployment is narrower than the main experimental configuration: real-robot pointmaps normally use sensed depth. On the reported plate-task ablation, withholding depth changes completion from 95.0% to 91.7%. Without accompanying uncertainty, this does not establish statistical equivalence despite the authors' negligible-cost wording.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E08",
+        "E21"
+      ]
+    },
+    {
+      "text": "Real-world evaluations use only 10 or 20 rollouts per task. Baselines also differ in camera representation and chunk length, and Fast-WAM is absent from the two hardest tasks. Identical demonstrations do not isolate architecture from the entire training and deployment recipe.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E12",
+        "E13"
+      ]
+    },
+    {
+      "text": "The cumulative input-stream ablation also changes which futures are predicted, so it does not isolate conditioning from supervision. The text describes its gains and the cross-modality-forcing gain using percentages without sufficiently explicit absolute-versus-relative interpretation; their numerical magnitudes are therefore omitted here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E20"
+      ]
+    },
+    {
+      "text": "The five-task ablation initialization is inconsistently described: Section 4.5 calls the output-sweep checkpoint pre-trained, whereas Appendix G.5 describes the shared recipe as five epochs from scratch. This prevents a confident reconstruction of that experiment's initialization.",
+      "kind": "source",
+      "evidenceIds": [
+        "E19"
+      ]
+    },
+    {
+      "text": "Because visual predictions never attend to action tokens, this architecture does not demonstrate an action-conditioned transition model for evaluating arbitrary candidate controls. Successful joint action prediction should not be interpreted as validated counterfactual physical simulation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E04",
+        "E05"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reconstruction requires the Wan-2.2-5B components, frozen DINOv3 and umT5, AGIBOT sub-episode selection, depth-derived pointmaps, composite camera layout, canonical state/action normalization, and the specified attention masks. Real-world reproduction additionally needs the shared task demonstrations and correction episodes.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03",
+        "E05",
+        "E07",
+        "E08",
+        "E09",
+        "E13"
+      ]
+    },
+    {
+      "text": "The supplied text does not provide the promised per-domain batch sizes and epoch counts. Other details needing clarification include numerical pointmap scaling before VAE encoding, the flow-time shift implementation, endpoint handling for Equation (4), and the exact masking/loss rule used to disable cross-modality forcing.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "E03",
+        "E06",
+        "E11",
+        "E20",
+        "E25"
+      ]
+    },
+    {
+      "text": "Latency reproduction should use the reported PyTorch 2.7.1, CUDA 12.8, TensorRT 10.16, RTX 5090, three warmup calls, and twenty synchronized timed calls. Observations must rotate between calls: reusing a fixed observation can incorrectly avoid the approximately 20 ms prefill cost. Task language encoding is cached outside the timed region.",
+      "kind": "source",
+      "evidenceIds": [
+        "E22"
+      ]
+    },
+    {
+      "text": "A bounded mechanism test would repeat the five-task output sweep using one checkpoint, identical RGB inputs, fixed Euler steps, and matched rollout seeds. A subsequent training comparison should separately control extra conditioning, extra target losses, and cross-modality forcing to identify which produces the benefit.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E19",
+        "E20"
+      ]
+    },
+    {
+      "text": "Only the supplied primary text was reviewed. The title-page project link was not followed; code, released weights, installation, and experimental reproduction were not inspected or verified.",
+      "kind": "source",
+      "evidenceIds": [
+        "E01"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Dual-system × Joint prediction classification is supported by architectural separation: the visual trunk and action expert have distinct parameters and interact through selected attention layers. Joint prediction follows from simultaneous visual/action denoising, rather than joint training alone or a separate inverse-dynamics stage. Action-only deployment does not erase this training architecture. The 3D multiview label should be understood as multiple camera-frame pointmaps in a composite, not demonstrated reconstruction of an extrinsically registered global scene.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E04",
+        "E05",
+        "E06",
+        "E07",
+        "E08"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Joint video-action modeling",
+        "3D multiview modeling",
+        "Generalization & action alignment"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q3 · Dual-system × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "524c89aad1e9f08bd27fb4c723e1c0aef315a2376f1e9dad0c4b807e083d1c0f"
+    }
+  },
+  "discussionQuestions": [
+    "How much of the real-world advantage survives when both current inputs and future outputs are restricted to RGB and actions, with total deployment latency measured consistently? [E08, E21, E22]",
+    "Does cross-modality forcing improve action representations beyond simply adding geometric and semantic target losses when conditioning and training budgets are held fixed? [E05, E20]",
+    "Would shorter feedback intervals change the advantage of joint generation on precise assembly, given that the current robot executes entire 32-step chunks open-loop? [E08, E14]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "E01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block, project URL, and arXiv footer",
+      "detail": "The title is FLEX-π with the supplied subtitle; all seven catalog authors appear. The footer identifies arXiv:2608.10860v3, dated 29 August 2026."
+    },
+    {
+      "id": "E02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract, Section 1, and Section 3 Problem Statement",
+      "detail": "The paper motivates semantic and geometric targets beyond RGB reconstruction and formulates flexible prediction of action chunks and visual futures conditioned on observations, state, and language."
+    },
+    {
+      "id": "E03",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.1 Visual Input Encoding; p. 23, Section A.3 Per-modality adapters and DINO feature folding",
+      "detail": "RGB and pointmaps use the frozen Wan VAE. DINO features use invertible 2×2 folding from 768 to 3072 dimensions, LayerNorm, and Xavier-initialized linear projections."
+    },
+    {
+      "id": "E04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.1 Model Backbone and Causal Joint Generation; p. 23, Section A.3 Action expert initialization",
+      "detail": "The visual trunk has approximately 5B parameters and the separate action expert approximately 1B. Fusion occupies the middle 16 of 30 blocks; visual tokens do not attend to actions. Action weights are initialized by resampling Wan tensors."
+    },
+    {
+      "id": "E05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2; p. 24, Section A.5 Sampling, Attention rules, and Training versus inference",
+      "detail": "Independent Bernoulli masks retain at least one observed modality. All targets train; future streams communicate within equal-mask groups. At inference, unread futures can be removed from computation."
+    },
+    {
+      "id": "E06",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Equation (1); p. 6, Equation (3); pp. 23–24, Section A.4 and Equation (4)",
+      "detail": "Flow matching regresses the noise-to-data velocity. Four equally weighted stream losses are always applied. DINO clean-feature predictions are converted to velocity by division by one minus flow time."
+    },
+    {
+      "id": "E07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.3 Pre-training and Fine-tuning; p. 24, Appendix B",
+      "detail": "Pre-training uses approximately 500 hours from 100 AGIBOT tasks, selecting up to 285 episodes each and resegmenting by language annotations. All three views receive offline estimated depth and intrinsics-based pointmaps."
+    },
+    {
+      "id": "E08",
+      "sourceId": "primary",
+      "location": "PDF pp. 24 and 26, Appendix C Hardware, Observations and actions, and Deployment",
+      "detail": "The real robot uses three stereo cameras, sensed depth, a composite canvas, and current observations only. It executes 32 commands at 30 Hz before synchronous replanning and holds position during inference."
+    },
+    {
+      "id": "E09",
+      "sourceId": "primary",
+      "location": "PDF pp. 22–23, Sections A.1 and A.2",
+      "detail": "State and actions use canonical 32-dimensional slots. Proprioception becomes one language-conditioning token. Action chunks contain 32 continuous tokens; real-robot targets share a chunk-start anchor, and visual targets cover the same horizon."
+    },
+    {
+      "id": "E10",
+      "sourceId": "primary",
+      "location": "PDF p. 26, Appendix E Camera layout, Depth and pointmaps, States and actions, and Evaluation",
+      "detail": "LIBERO depth is rendered by replaying demonstrations; pointmaps use camera intrinsics. One checkpoint trains across 40 tasks and is evaluated over 2,000 episodes, executing ten actions between replans."
+    },
+    {
+      "id": "E11",
+      "sourceId": "primary",
+      "location": "PDF pp. 40–41, Appendix J and Table 12",
+      "detail": "The text identifies frozen encoders and trained model components. Table 12 specifies AdamW, learning rate 10⁻⁴, cosine scheduling, 5% warmup, bfloat16, ZeRO stage 1, equal loss weights, and modality-dependent flow shifts."
+    },
+    {
+      "id": "E12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.2; p. 27, Table 3; p. 29, Section G.1 Protocol",
+      "detail": "Real-world scoring separates normalized rubric credit from complete success. Tasks receive 20 rollouts except Sort Utensils, which receives ten; methods are interleaved and placements randomized."
+    },
+    {
+      "id": "E13",
+      "sourceId": "primary",
+      "location": "PDF pp. 28–29, Sections F.2–F.3 and Tables 4–5",
+      "detail": "Methods share task datasets but retain different observation layouts and chunk lengths. Fast-WAM omits the hardest two tasks. Self-Repair data include 802 demonstrations and 570 corrections. Latency comparisons use deployed, unequally optimized configurations."
+    },
+    {
+      "id": "E14",
+      "sourceId": "primary",
+      "location": "PDF p. 33, Section G.3 and Figure 19(b) legible extracted metric labels",
+      "detail": "The extracted score/success pairs are 26.3/0 for π0.5, 33.3/5 for ManiFlow, 66.9/45 for action-only, and 76.0/55 for full joint. The prose confirms 20 rollouts, one ManiFlow completion, no π0.5 completion, and a ten-point joint-generation success improvement."
+    },
+    {
+      "id": "E15",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 1, FLEX-π, Qwen-RobotManip-Context, and LingBot-VA 2.0 rows",
+      "detail": "FLEX-π action-only reports 94.5/94.6/94.6 and full joint 94.3/94.8/94.6 for clean/randomized/average success. The named comparison averages are 93.9 and 93.6."
+    },
+    {
+      "id": "E16",
+      "sourceId": "primary",
+      "location": "PDF p. 34, Section G.6; p. 28, Section F.1 RoboTwin data-scaling paragraph",
+      "detail": "At 50 demonstrations per task over 50 randomized tasks, full joint reaches 78.8%, compared with 31.4% for π0.5, 41.9% for Fast-WAM, and 17.2% for LingBot-VA. Baselines are retrained at reduced budgets."
+    },
+    {
+      "id": "E17",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 4.4 LIBERO and Table 2; p. 35, Table 6 caption and Avg column",
+      "detail": "Flexible deployment scores 98.4/98.5, while fixed-mode FLEX-π* scores 98.7/99.2. The starred variant removes stream dropout during fine-tuning. Qwen-RobotManip-Context reports 99.2."
+    },
+    {
+      "id": "E18",
+      "sourceId": "primary",
+      "location": "PDF pp. 26–28, Appendix E LIBERO-Plus and Section F.1; p. 36, Table 7 caption and Total column",
+      "detail": "Evaluation uses 10,030 tasks and task-count weighting. Corrected instruction handling yields 88.6 for both FLEX-π modes, 85.7 for π0.5, and 70.8 for Fast-WAM. Other baselines were not rerun and their instruction handling is unknown."
+    },
+    {
+      "id": "E19",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 4.5 Output Modalities; p. 34, Section G.5",
+      "detail": "With RGB-only input, success rises from 40.2 to 60.4 to 63.8 as futures are added; endpoint latencies are approximately 60 and 193 ms. Appendix G.5 specifies five tasks, 50 demonstrations, and five epochs from scratch, whereas the main text calls the checkpoint pre-trained."
+    },
+    {
+      "id": "E20",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 4.5 Input Modalities and Cross-Modality Forcing, and Figure 11 caption; p. 34, Section G.5",
+      "detail": "The cumulative modality study observes and predicts all available streams. The text reports improvements when adding modalities and deterioration without cross-modality forcing, but expresses their magnitudes using percentage notation without explicit relative-versus-point definitions."
+    },
+    {
+      "id": "E21",
+      "sourceId": "primary",
+      "location": "PDF p. 32, Section G.2 Real-World Depth Input Ablation",
+      "detail": "On Put Plate on Rack under full joint generation, completion is 95.0% with depth input and 91.7% without. No uncertainty accompanies these values in the supplied subsection."
+    },
+    {
+      "id": "E22",
+      "sourceId": "primary",
+      "location": "PDF pp. 38–39, Appendix I Protocol and Prefill/decode split; Table 9 rows L0/L6 and Table 10 rows A0/A4, K=4 column",
+      "detail": "Full-input joint latency is 447.5 ms eager and 193.3 ms optimized; action-only is 131.8 and 60.3 ms. Measurements use an RTX 5090, specified software versions, three warmups, and twenty synchronized calls. Static observations can hide approximately 20 ms of prefill cost."
+    },
+    {
+      "id": "E23",
+      "sourceId": "primary",
+      "location": "PDF p. 40, Section I.1 and Table 11",
+      "detail": "The action-only sweep peaks at four Euler steps, with 94.5% clean and 94.6% randomized success. Two steps remain close, while one step substantially reduces success. Four steps are used in both main deployment modes."
+    },
+    {
+      "id": "E24",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Section 5 Limitations",
+      "detail": "The authors state that richer modalities and cross-modality forcing slow convergence, requiring at least ten real-world fine-tuning epochs, and that full joint generation is slower than comparable VLAs."
+    },
+    {
+      "id": "E25",
+      "sourceId": "primary",
+      "location": "PDF p. 40, Appendix J introductory paragraph; p. 41, complete supplied Table 12",
+      "detail": "Appendix J says per-domain epoch and batch-size values appear in a final group, but the supplied table ends after shared stream-dropout settings and contains no such group."
+    }
+  ]
+}

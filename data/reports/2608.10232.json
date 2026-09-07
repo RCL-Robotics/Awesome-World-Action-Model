@@ -1,0 +1,494 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.10232",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T15:28:28.426Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.10232",
+      "title": "FACT: Failure-Aware Causal Training for World-Action Models",
+      "kind": "pdf",
+      "sha256": "62b041bdc4a23d4d192a1016e9fa488dd89eba9619a503f5c7a99a30e02596b8",
+      "wordCount": 7737,
+      "accessedAt": "2026-09-07T13:52:52.437990+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method",
+      "3.1 Problem Formulation",
+      "3.2 Model Architecture",
+      "3.3 Training and Inference Strategy",
+      "4 Experiments",
+      "4.1 Simulation Results on RoboTwin",
+      "4.2 Real-World Results",
+      "4.3 Ablation Studies",
+      "5 Limitations",
+      "6 Conclusion",
+      "References: bibliography only",
+      "Appendix A Training and Inference Algorithms",
+      "Appendix B Task Overview",
+      "Appendix C Real-World Setup and Task Prompts",
+      "Appendix D Detailed RoboTwin Results",
+      "Appendix E Success Rate and Inference Time",
+      "Appendix F Future Prediction Metrics",
+      "Appendix G Additional Action-Conditioned Value Traces",
+      "Appendix H Action-Conditioned Value Heat Map"
+    ],
+    "omissions": [
+      "Review covers the complete supplied main text and appendix text. Original PDF figures were not visually inspected.",
+      "Merged numerical cells were omitted, including per-task cells in Table 6 and exact PSNR/SSIM values in Tables 4 and 8. Their labels and accompanying explanations were read.",
+      "Figure-only quantitative details, including candidate-count curves and value traces, were not reconstructed.",
+      "Separate supplements, project website, code, checkpoints and datasets were not inspected.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: simulation aggregates",
+      "Table 2: legible rows and averages, cross-checked against prose",
+      "Table 3: legible rows and averages, cross-checked against prose",
+      "Table 4: labels and accompanying explanation; merged metric values omitted",
+      "Table 5: task prompts and caption",
+      "Table 6: task labels and evaluation caption; merged per-task values omitted",
+      "Table 7: model names and latency column",
+      "Table 8: metric/subset labels and protocol; merged metric values omitted"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "FACT uses successful demonstrations to supervise actions and uses both successful and failed trajectories to supervise their consequences. A shared diffusion transformer first generates an action chunk; a separate pass can predict its future video and progress score. Clean action conditioning and masked failure-action losses make this separation possible [e04–e07]. The authors report seen-task robot success increasing from 82% to 89% with failure training and to 92% with optional candidate scoring [e10]. The central contribution is supervised learning from unsuccessful experience; the progress head is trained on a handcrafted target [e05–e06].",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "The authors identify a mismatch in success-dominated world-action training: models learn desirable futures without learning what poor actions actually cause. Simply imitating failed trajectories would introduce undesirable policy targets. FACT asks whether observed failures can instead improve consequence prediction and, through shared parameters, action generation.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e04"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "An action-first architecture uses distinct noisy-action and clean-action slots within one shared video diffusion transformer, separating action denoising from action-conditioned consequence prediction.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e07"
+      ]
+    },
+    {
+      "text": "Failure-aware co-training retains observed future-video and progress supervision while disabling action imitation for windows from failed episodes.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e08"
+      ]
+    },
+    {
+      "text": "The learned progress head provides an optional candidate-ranking interface. The reported scoring ablation suggests that its usefulness depends on exposure to failed outcomes.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e10",
+        "e12"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current main-view and two wrist RGB images, robot proprioception, and a language instruction [e03].",
+      "Training windows containing executed actions and observed futures; episode outcome and failure-onset annotations determine supervision [e05, e08]."
+    ],
+    "outputs": [
+      "A robot action chunk with horizon H = 48 [e03, e06].",
+      "Optional action-conditioned progress scores and future-video predictions [e07]."
+    ],
+    "steps": [
+      {
+        "name": "Encode the observation",
+        "detail": "The real-world implementation packs three camera streams into one video canvas, precomputes camera-view VAE latents, and uses T5 instruction embeddings for cross-attention. Proprioception also enters the observation prefix.",
+        "evidenceIds": [
+          "e03",
+          "e07",
+          "e17"
+        ]
+      },
+      {
+        "name": "Separate action generation from consequences",
+        "detail": "Tokens follow [P, A, G, V, I]: observation prefix, noisy action, clean executed action, value, and future video. Value and video attend to G rather than A; A cannot access G. Teacher forcing therefore associates each observed outcome with the action that produced it.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Share learned representations",
+        "detail": "Action, value, and video use a shared video diffusion transformer with a lightweight robot-token adapter after each block's feed-forward network. The authors argue that this sharing lets consequence losses influence action generation even when the failure-action loss is disabled.",
+        "evidenceIds": [
+          "e04"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Algorithm 2 first trains on successful demonstrations, collects unsuccessful policy rollouts, then continues training on the combined data. Every window from a failed episode has its action loss masked; failure onset separately controls the progress penalty.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e08"
+        ]
+      },
+      {
+        "text": "Initialization uses WAN2.2-5B. AdamW learning rates are 2×10^-4 for the action FFN and 2×10^-5 for the backbone. Loss weights are 20 for action and 1 each for value and video. Video supervision covers offsets [0, H/4, H/2, 3H/4, H].",
+        "kind": "source",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Stage 1 denoises action tokens from the observation prefix, normally with 20 flow-Euler steps. Action-only deployment stops here. When requested, Stage 2 places the generated action in G and predicts its progress score and optionally its video consequences.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "text": "Optional scoring samples N actions in parallel and returns the highest-scoring candidate; real-world scoring experiments use N = 4. The robot receives the selected action chunk. Future-video decoding is optional even during scoring, so action execution does not require rendering a predicted video.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e10"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "v_t(a_gt) = p_(t+H) for success; v_t(a_gt) = clip(p_(t+H) − λ_fail·1_fail(t+H), 0, 1) for failure.",
+        "explanation": "Equation (6) conditions progress supervision on the executed chunk. The general progress definition is p_t = G_t/G_T; experiments use uniform rewards, yielding p_t = t/T, and λ_fail = 1. Consequently, once the failure indicator activates, targets within the stated progress range become zero.",
+        "evidenceIds": [
+          "e03",
+          "e05"
+        ]
+      },
+      {
+        "expression": "z_τ^x = (1−τ)z_0^x + τz_1^x; L_x = E[||u_θ^x(z_τ^x, τ; z) − (z_1^x−z_0^x)||²]; L = m_a w_a L_a + w_v L_v + w_I L_I.",
+        "explanation": "For action, value, or video, flow matching predicts the velocity between a clean target and Gaussian noise. Equations (7)–(9) and Algorithm 1 set m_a to one for successful episodes and zero for failed episodes. Failure data therefore still updates shared parameters through value and video losses.",
+        "evidenceIds": [
+          "e06",
+          "e08"
+        ]
+      },
+      {
+        "expression": "a* = argmax_{a ∈ a^(1:N)} V_θ(o_t, ℓ, a).",
+        "explanation": "Equation (10) selects among sampled chunks using predicted action-conditioned progress. This is inference-time ranking; the training procedure supplies neither a Bellman target nor a separate reinforcement-learning critic.",
+        "evidenceIds": [
+          "e06",
+          "e07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboTwin manipulation",
+      "setting": "50 tasks; clean and randomized evaluation, with 100 trials per task per split. Failure training adds approximately 1.3K rollout failures.",
+      "metric": "Average executed-task success",
+      "value": "87.5% with failure training; 88.4% clean and 86.6% randomized.",
+      "comparison": "Success-only FACT: 85.6%; without video co-training: 81.8%; Motus: 87.8%.",
+      "interpretation": "Failure co-training adds 1.9 percentage points over success-only FACT. FACT remains slightly below the strongest reported simulation baseline.",
+      "evidenceIds": [
+        "e09"
+      ]
+    },
+    {
+      "task": "Five seen physical bimanual tasks",
+      "setting": "20 trials per task and method; single-sample inference except optional N = 4 scoring.",
+      "metric": "Mean executed-task success",
+      "value": "82% success-only; 89% with failures; 92% with failures and scoring.",
+      "comparison": "Motus: 64%; π0.5: 88%.",
+      "interpretation": "Failure training improves the average, but gains are not uniform: Handover decreases from 90% to 85%. Baselines share expert demonstrations, while failure-trained FACT receives additional rollout data.",
+      "evidenceIds": [
+        "e10",
+        "e17"
+      ]
+    },
+    {
+      "task": "Three unseen physical task variants",
+      "setting": "Held-out changes to object colors, shapes, and instructions; 20 trials per task and method.",
+      "metric": "Mean executed-task success",
+      "value": "67% success-only; 77% with failures; 82% with failures and scoring.",
+      "comparison": "π0.5: 85%.",
+      "interpretation": "Results support transfer to these object/instruction variants. They do not establish broader task or embodiment generalization, and the paper identifies different pretraining resources across methods.",
+      "evidenceIds": [
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "Mechanism ablations on seen physical tasks",
+      "setting": "Table 2 protocol; the causal-mask ablation uses success-only data.",
+      "metric": "Mean executed-task success",
+      "value": "Without causal conditioning: 77%; without video co-training: 58%; with failed-action imitation: 63%; success-only with scoring: 79%.",
+      "comparison": "Success-only FACT: 82%; correctly masked failure training: 89%.",
+      "interpretation": "These comparisons support video supervision and excluding failed actions from imitation. The causal ablation changes both clean-action conditioning and joint denoising, so its effect cannot be assigned to the attention mask alone.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Action-conditioned future-image prediction",
+      "setting": "512 held-out windows, evenly divided between successful demonstrations and failed rollouts; both models use 20 denoising steps.",
+      "metric": "PSNR and SSIM; higher is better",
+      "value": "The prose reports improved failed-future fidelity and nearly unchanged successful-future fidelity. Exact merged numerical cells are omitted.",
+      "comparison": "Failure-trained versus success-only checkpoints.",
+      "interpretation": "This is image-prediction evidence. It neither measures executed robot success nor directly quantifies the semantic frequency of success hallucinations.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Failure-data scaling",
+      "setting": "Three RoboTwin clean tasks; training uses 0%, 50%, or 100% of available failure rollouts. At full inclusion, failures constitute approximately 45% of training data.",
+      "metric": "Average executed-task success",
+      "value": "Reported endpoints increase from 32.7% to 57.3%.",
+      "comparison": "No available failures versus all available failures.",
+      "interpretation": "The authors describe monotonic improvement across the tested fractions. The text does not establish scaling beyond these tasks or provide a matched-compute comparison.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Deployment inference",
+      "setting": "Reported measurements on an RTX PRO 6000; FACT uses action-only inference.",
+      "metric": "Inference latency",
+      "value": "380 ms.",
+      "comparison": "Motus: 1220 ms; Cosmos: 620 ms; π0.5: 47 ms.",
+      "interpretation": "FACT is faster than the listed video-based comparators but slower than π0.5. This measurement does not represent the optional candidate-scoring path.",
+      "evidenceIds": [
+        "e15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify broader robot/human data and improved progress estimators as future directions. Candidate scoring introduces an additional computation–reliability tradeoff.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "text": "The value target combines episode-relative time with a binary failure penalty. Its score should not be interpreted as a calibrated success probability. Appendix H also allows unclipped negative predictions despite bounded training targets.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e18"
+      ]
+    },
+    {
+      "text": "Real-world cells contain only 20 trials, and the presented results provide no uncertainty intervals or training-seed variability. Small average differences therefore have limited statistical resolution.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "text": "Adding failures changes the training data as well as consequence supervision. The reported scaling experiment does not isolate failure-specific information from additional data volume or optimization exposure.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e14"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction needs WAN2.2-5B, the token mask and adapter implementation, and aligned observation/action/future windows. RoboTwin training uses 2,500 clean and 25,000 randomized demonstrations. Physical experiments use two YAM arms, a D435 main camera, two D405 wrist cameras, and GELLO teleoperation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e09",
+        "e17"
+      ]
+    },
+    {
+      "text": "The supplied text leaves training duration, batch size, training compute, action representation/normalization, and action execution frequency unspecified. Algorithm 2 annotates failure onset when available, but the fallback needed to compute Equation (6) is not explained.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e08"
+      ]
+    },
+    {
+      "text": "A focused reproduction could compare success-only, masked-failure, and unmasked-failure training on one task under equal optimization budgets. Evaluate actual task success separately from held-out failed-future fidelity and candidate-ranking accuracy.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "text": "The title page lists a project website, but this review did not inspect code or verify artifact availability. No experiments were reproduced.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e01"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "One Model is supported by a shared diffusion transformer with robot-token adapters, beyond joint training alone. Joint video-action modeling describes its co-training, while deployment generates actions before optional consequences. Other mechanisms and Outside quadrants are consistent with treating this action-first mechanism separately from inverse dynamics and joint future/action decoding. The combined policy post-training/WM-RL category is supported through continued supervised training on collected failures; the paper does not demonstrate an RL optimization procedure.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e07",
+        "e08"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Policy post-training & WM-RL",
+        "Joint video-action modeling"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "464647177a49d25a5552946afce5b326f2c707f09e8118b664a8ad0695961ea7"
+    }
+  },
+  "discussionQuestions": [
+    "How would replacing t/T with an outcome-grounded progress target affect candidate ranking when trajectories contain pauses or recoverable mistakes? [e05]",
+    "Under matched training compute and added data volume, do failed futures improve policies more than additional successful demonstrations? [e08, e14]",
+    "How reliably does the value head rank unfamiliar actions beyond the reported placement-grid diagnostic? [e18]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author list, project URL, and arXiv footer",
+      "detail": "Title, identifier, and all five authors match the catalog. The supplied artifact identifies arXiv:2608.10232v1, dated 10 August 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "The authors motivate learning failed-action consequences while preventing failed trajectories from becoming action-imitation targets."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1, Equations (1)–(3)",
+      "detail": "Inputs comprise three RGB views, proprioception, and instruction. The formulation separates action prediction from conditioned future/progress prediction and defines normalized cumulative progress."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.2, Equations (4)–(5), attention-mask prose, and action-adapter paragraph",
+      "detail": "The shared transformer uses P/A/G/V/I slots. World tokens condition on clean G rather than noisy A; A cannot see G. Robot adapters follow block feed-forward networks."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, failure-aware value targets, Equation (6), and implementation details",
+      "detail": "Targets use future normalized progress with a clipped failure-onset penalty. Experiments use p_t=t/T and a failure penalty of one."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Equations (7)–(9) and implementation details",
+      "detail": "Flow-matching losses supervise three modalities; failures omit action loss. The text specifies WAN2.2-5B, AdamW rates, loss weights, horizon 48, video offsets, and 20 inference steps."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 5, two-stage inference and optional candidate scoring, Equation (10); PDF p. 14, Algorithm 3",
+      "detail": "Actions are generated first. Optional scoring conditions on each clean candidate, predicts value, and selects its maximum; future-video generation is optional."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A, Algorithms 1–2",
+      "detail": "Training starts with successful demonstrations, collects failed rollouts, and continues on both datasets. Failure windows receive zero action-loss mask; onset annotation is conditional on availability."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1 and Table 1; PDF p. 17, Appendix D; PDF p. 18, Table 6 caption",
+      "detail": "FACT averages 85.6%, failure-trained FACT 87.5%, no-video FACT 81.8%, and Motus 87.8%. Training counts and the 100-trial per-task/per-split protocol are stated in the appendix."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.2; PDF p. 7, Table 2, FACT rows, Handover column, and accompanying prose",
+      "detail": "Each cell uses 20 trials. Seen averages are 82%, 89%, and 92%; failure training changes Handover from 90% to 85%. Optional scoring uses four candidates."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3, Avg. column, and accompanying unseen-results paragraph",
+      "detail": "Unseen averages are 67%, 77%, and 82% for the FACT variants, versus 85% for π0.5. The prose notes π0.5's large-scale robot pretraining."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.3, policy-performance ablations, and Table 2 ablation rows",
+      "detail": "Reported averages are 77% without causal conditioning, 58% without video, 63% with failed-action imitation, and 79% for success-only scoring. The causal ablation removes G and jointly denoises modalities."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 7, failure-data future-prediction paragraph and Table 4 caption; PDF p. 17, Appendix F; PDF p. 19, Table 8 caption",
+      "detail": "The evaluation uses 512 evenly divided held-out windows and 20 denoising steps. Prose reports better failed-future prediction with nearly unchanged successful-future fidelity."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.3, failure-data scaling paragraph",
+      "detail": "Three clean tasks use 0%, 50%, and 100% of available failures. Full inclusion makes failures approximately 45% of training data; average success rises from 32.7% to 57.3%."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Appendix E; PDF p. 19, Table 7, model/inference-time column and caption",
+      "detail": "RTX PRO 6000 latencies are 380 ms for action-only failure-trained FACT, 1220 ms for Motus, 620 ms for Cosmos, and 47 ms for π0.5."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5",
+      "detail": "The authors discuss broader data, alternative progress estimators, and the extra inference cost of candidate scoring."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Appendix C and Table 5 caption",
+      "detail": "The text specifies YAM arms, D435/D405 cameras, GELLO, multi-view canvas packing, precomputed VAE latents, and T5 embeddings. Baselines receive the same expert success demonstrations."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Appendix H",
+      "detail": "The textual grid diagnostic describes one successful center placement among a 3×3 grid and permits unclipped negative value predictions for failed candidates."
+    }
+  ]
+}

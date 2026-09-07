@@ -1,0 +1,506 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.09771",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T15:42:37.523Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.09771",
+      "title": "SLIM-0.5B: Learning Action-Grounded Predictive Latents for Robot Manipulation",
+      "kind": "pdf",
+      "sha256": "fb875bbdadce5867f41853945170ee1ee5013731afc0a2ec4d672390fde56a73",
+      "wordCount": 8368,
+      "accessedAt": "2026-09-07T13:53:06.054877+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method",
+      "3.1 Problem Formulation",
+      "3.2 Latent Interaction Policy",
+      "3.3 Action-Grounded Training",
+      "4 Experiments",
+      "4.1 Simulation Evaluation",
+      "4.2 Real-World Evaluation",
+      "4.3 Ablation Study",
+      "4.4 Analysis",
+      "5 Conclusion",
+      "References",
+      "A.1 Detailed Original-LIBERO Results",
+      "A.2 Attention Analysis Details",
+      "A.3 Model Parameterization",
+      "A.4 Implementation Details",
+      "A.5 Policy Inference Benchmark Details",
+      "A.6 Real-World Evaluation Details"
+    ],
+    "omissions": [
+      "Read the supplied complete text extraction; original PDF figure images and visual layouts were not inspected.",
+      "Some adjacent numerical cells in Tables 1 and 5 are merged in extraction; ambiguous cells are omitted from the report.",
+      "Figure 7 does not supply recoverable numerical values for every plotted ablation; only explicit prose results are reported.",
+      "Figure 6 results are cited from legible extracted labels and values, without claiming visual inspection.",
+      "Separate supplemental material availability was not verified. No code was inspected or experiments reproduced.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: legible overall scores and comparison metadata",
+      "Table 2: CALVIN results",
+      "Table 3: EMA diagnostics",
+      "Table 4: inference efficiency",
+      "Table 5: legible original-LIBERO overall scores",
+      "Table 6: parameter breakdown"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "SLIM learns manipulation policies by first teaching one compact observation–action backbone to infer actions from transitions and predict future observation latents from actions. Deployment retains learned predictive slots but generates only action chunks, without an explicit future-latent target or pixel rollout. Its clearest contribution is therefore predictive representation learning for control. Reported robustness and physical-task progress are competitive, although LIBERO-Plus performance trails VLA-JEPA and background-shift progress trails π0.5. [e04, e05, e06, e09, e12]",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "The authors argue that large VLA backbones devote excessive capacity to general semantics, while pixel world models spend computation predicting appearance irrelevant to manipulation. They seek a compact policy representation that captures both which actions explain an observed transition and which transitions an action produces.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A compact MoT couples observation and continuous-action streams through joint attention, with language supplied through separate cross-attention.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04"
+      ]
+    },
+    {
+      "text": "Complementary inverse- and forward-dynamics objectives train the same backbone and observation encoder before action-only policy training.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "text": "The main empirical contribution is competitive manipulation performance with a small trainable policy, supported by robustness, physical-execution, and controlled inference measurements rather than visual-generation metrics.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e10",
+        "e11",
+        "e12",
+        "e15"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Workspace and wrist RGB views resized to 224×224, plus current proprioception. [e03, e08]",
+      "Language instruction encoded by frozen T5-small with cached embeddings. [e08]",
+      "Training trajectories supplying action chunks and observations H steps later. [e03, e05]"
+    ],
+    "outputs": [
+      "Continuous action chunks; simulation uses seven-dimensional actions, with H=8 for LIBERO and H=12 for CALVIN. [e08]",
+      "Stage 1 additionally predicts future observation latents; deployment has no explicit future-latent output requirement. [e05, e06]"
+    ],
+    "steps": [
+      {
+        "name": "Encode the current control context",
+        "detail": "DINOv2-derived visual tokens and a projected proprioceptive token enter the observation stream. Continuous actions receive an MLP embedding incorporating the flow timestep. Both streams use hidden width 768.",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      },
+      {
+        "name": "Exchange observation and action information",
+        "detail": "Each MoT block forms stream-specific queries, keys, and values, applies joint attention, then separates the streams for language cross-attention and feed-forward processing. Future positions contain observed future latents in the inverse branch and learned mask embeddings in the forward and policy branches.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Learn complementary transition constraints",
+        "detail": "The inverse branch reconstructs the flow velocity of noisy actions using current and future observations. The forward branch receives clean actions and predicts masked future latents against a detached EMA-encoder target. Targets remain in the policy's observation-latent space.",
+        "evidenceIds": [
+          "e03",
+          "e05"
+        ]
+      },
+      {
+        "name": "Convert the representation into a deployable policy",
+        "detail": "Stage 2 removes future observations and future-latent supervision. Current observations, proprioception, language, learned future slots, and noisy actions determine action velocity. The slots remain available through joint attention, but no separate predicted future conditions an action decoder.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "DINOv2-B/14 is jointly fine-tuned; T5-small stays frozen. Stage 1 runs three epochs with IDM:FDM weights 0.125:1 and EMA momentum 0.999. Stage 2 runs 40 epochs in simulation and 20 for physical tasks, without the EMA encoder.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08"
+        ]
+      },
+      {
+        "text": "LIBERO Stage 1 mixes LIBERO-90 with the four target suites; Stage 2 uses only those target suites, at global batch size 128. CALVIN uses language-annotated ABC data in both stages, with batch size 256. Simulation training uses eight H100 80GB GPUs, BF16, AdamW, and separate action-model/visual-encoder learning rates of 10⁻⁴/10⁻⁵.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The policy holds visual latents and language context fixed while updating actions through four flow-sampling steps. No future image, observed future latent, or EMA encoder is required.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e06",
+          "e08"
+        ]
+      },
+      {
+        "text": "Predictive slots participate in inference computation, so future-oriented structure is retained implicitly. This does not establish explicit world-model rollout, candidate-action planning, or a separate inverse-dynamics controller at deployment.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e04",
+          "e06"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "Ãₜ^τ = (1−τ)ε + τAₜ; Vₜ* = Aₜ−ε; ε∼N(0,I), τ∼U(0,1).",
+        "explanation": "Equation 4 interpolates Gaussian noise toward a demonstrated action chunk; its constant target velocity supplies both action-training objectives.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "L_IDM = E[||vθ(Ãₜ^τ,τ | Zₜ,Zₜ₊H,qₜ,ℓ)−Vₜ*||₂²].",
+        "explanation": "Equation 5 predicts action velocity using current and future visual latents, proprioception qₜ, and language ℓ. Future observations make this an inverse-dynamics training condition.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "Ẑₜ₊H = pθ(M_z | Zₜ,Aₜ,qₜ,ℓ); L_FDM = ||LN(Ẑₜ₊H)−LN(sg(Z̄ₜ₊H))||₁; L_stage1 = λ_IDM L_IDM + λ_FDM L_FDM.",
+        "explanation": "Equations 6–8 predict future latents from learned slots M_z and clean actions. LN normalizes prediction and target; sg blocks gradients through the EMA target Z̄ₜ₊H.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "L_stage2 = L_FM = E[||vθ(Ãₜ^τ,τ | Zₜ,M_z,qₜ,ℓ)−Vₜ*||₂²].",
+        "explanation": "Equations 9–10 replace observed future latents with learned slots and optimize only action velocity, matching the available deployment inputs.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Original LIBERO manipulation",
+      "setting": "Four target suites; 50 rollouts per task, 2,000 total.",
+      "metric": "Overall success rate",
+      "value": "Reported 97.5%.",
+      "comparison": "OpenVLA-OFT 97.1%; Fast-WAM 97.6%.",
+      "interpretation": "Competitive nominal simulated control, without a uniform advantage over the listed baselines.",
+      "evidenceIds": [
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "task": "Zero-shot LIBERO-Plus robustness",
+      "setting": "Unadapted LIBERO-trained checkpoint; 10,030 perturbation cases.",
+      "metric": "Overall success rate",
+      "value": "Reported 77.45%.",
+      "comparison": "OpenVLA-OFT 69.6%; Fast-WAM 50.0%; VLA-JEPA 79.5%.",
+      "interpretation": "The gain over OpenVLA-OFT is 7.85 percentage points, but SLIM trails VLA-JEPA by 2.05 points. These are robot-policy simulation outcomes.",
+      "evidenceIds": [
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "task": "CALVIN long-horizon composition",
+      "setting": "Train on ABC; evaluate 1,000 five-instruction chains in unseen D.",
+      "metric": "Average completed sequence length",
+      "value": "Reported 4.556 out of 5.",
+      "comparison": "FLOWER 4.53; UnifiedVLA 4.41.",
+      "interpretation": "The best listed mean is only 0.026 above FLOWER; the table provides no uncertainty for assessing that small difference.",
+      "evidenceIds": [
+        "e08",
+        "e10"
+      ]
+    },
+    {
+      "task": "Physical multitask manipulation",
+      "setting": "750 demonstrations across five tasks; ten trials per task and condition.",
+      "metric": "Progress score: 100 times mean milestone credit",
+      "value": "Reported nominal/distractor/lighting/background scores: 86/63/73/49; overall 67.8.",
+      "comparison": "Overall: π0.5 56.8, Fast-WAM 40.0. Background: π0.5 54, Fast-WAM 2.",
+      "interpretation": "These are physical executions with partial credit, not completion percentages. SLIM leads the overall mean but loses to π0.5 under background shifts.",
+      "evidenceIds": [
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "task": "EMA target ablation",
+      "setting": "Downstream LIBERO-Plus and CALVIN evaluations.",
+      "metric": "Success rate; average sequence length",
+      "value": "With EMA: 77.45%; 4.556.",
+      "comparison": "Without EMA: 66.82%; 4.382.",
+      "interpretation": "The reported differences support the target encoder's practical value within this training recipe.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Representation-collapse diagnostics",
+      "setting": "Final 20 Stage-1 evaluation probes.",
+      "metric": "Effective rank; token cosine similarity; future-latent MSE",
+      "value": "EMA: 61.28; 0.071; 0.245.",
+      "comparison": "No EMA: 13.95; 0.352; 0.166.",
+      "interpretation": "Lower latent prediction error accompanies less diverse representations and worse downstream control. MSE alone therefore gives a misleading ranking here.",
+      "evidenceIds": [
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "task": "Controlled policy inference",
+      "setting": "Single H100 80GB, batch size one, BF16, PyTorch eager; native horizons and sampling schedules.",
+      "metric": "Mean latency; peak incremental VRAM; GFLOPs per chunk",
+      "value": "Reported 60.6 ms; 4.26 GiB; 490.73 GFLOPs.",
+      "comparison": "π0.5: 193.1 ms, 7.94 GiB, 4714.59 GFLOPs. Fast-WAM: 360.6 ms, 13.63 GiB, 2090.07 GFLOPs.",
+      "interpretation": "These compare model calls, not equal executed-action horizons or end-to-end robot latency.",
+      "evidenceIds": [
+        "e15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The study tests one compact scale; scaling with capacity, training data, and embodiment diversity remains unestablished.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "text": "The no-additional-pretraining label excludes generic backbone initialization. Moreover, LIBERO Stage 1 uses LIBERO-90 alongside target suites; the comparisons do not establish equal training-data or optimization budgets.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "text": "The reported 0.47B denotes 472.14M trainable policy parameters and excludes frozen T5-small. It is not the complete deployed parameter count.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07"
+      ]
+    },
+    {
+      "text": "Physical progress conflates partial and full completion, and ten trials per task-condition provide limited precision. The supplied results do not give confidence intervals or separate completion counts.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "text": "Attention comparisons are qualitative diagnostics, explicitly not causal attribution. Readable prose reports a Stage-1 benefit, but missing plotted values prevent a numerical audit of that ablation and the loss-ratio sweep.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13",
+        "e16"
+      ]
+    },
+    {
+      "text": "Efficiency comparisons use unequal chunk lengths and sampling counts. Language handling also differs, while loading, simulator stepping, and RPC are excluded.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e15"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A simulation reproduction needs the specified encoder checkpoints, language-annotated trajectories, dataset percentile action normalization, and two-stage schedules. LIBERO-Plus must remain evaluation-only.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08"
+      ]
+    },
+    {
+      "text": "A focused mechanism test would hold data, initialization, and optimization budget fixed while varying EMA, then measure representation diversity and downstream rollout success across seeds. Latent MSE should not be the acceptance criterion.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "text": "Exact physical reproduction requires details absent from the supplied implementation text: robot platform, physical action parameterization, control frequency, flow integrator, and executed chunk prefix. Demonstration access and implementation availability were not verified; the title-page project link was not opened.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e01",
+        "e18"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "VLA, future representation assistance, and flow-matching labels fit the source. The Dual-system architecture label conflicts with its description of one integrated MoT control backbone: its observation and action streams exchange information through shared joint attention, rather than forming separate high-level and low-level policies. This architectural judgment rests on information flow, not joint training alone. Not-applicable prediction-paradigm and quadrant labels are consistent with auxiliary forward/inverse training and the absence of explicit future/action generation at deployment. The supplied catalog snapshot is preserved unchanged.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "VLA",
+      "subcategories": [
+        "Future representation-assisted VLA",
+        "Diffusion & flow-matching VLA"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "12758568e4c93c69415a160e72d4cade4bc8dc0913ece91db1cc3660f311f5e8"
+    }
+  },
+  "discussionQuestions": [
+    "How much Stage-1 benefit survives when both data exposure and total optimization steps are matched to action-only training? [e08, e13]",
+    "Would interventions on learned future slots demonstrate a causal contribution beyond the reported attention associations? [e04, e06, e16]",
+    "Does the efficiency advantage persist with matched action horizons, control frequency, and optimized inference implementations? [e15]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author list, project URL, and arXiv version line",
+      "detail": "The title, identifier, and all ten authors match the catalog. The supplied artifact identifies itself as arXiv:2608.09771v1, dated 10 August 2026, and lists a project-page URL."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 1, motivation and action-grounded representation paragraphs",
+      "detail": "The authors motivate compact control representations through the costs of general semantic backbones and appearance prediction, defining action grounding through complementary action-to-transition and transition-to-action constraints."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1, Eqs. (1)–(3)",
+      "detail": "Inputs comprise language, visual observations, and proprioception. The paper defines online observation tokens, continuous H-step action chunks, and future online/EMA observation latents."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.2, architecture paragraphs",
+      "detail": "The width-768 MoT has observation and action streams, projected proprioception, flow-timestep action embeddings, learned future slots, stream-specific Q/K/V, shared joint attention, and per-stream language cross-attention."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Stage-1 description and Eqs. (4)–(8)",
+      "detail": "Noisy-action velocity reconstruction conditions on current and future observations. Future-latent prediction conditions on current observations and clean actions and uses normalized L1 loss against a detached EMA target."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.3, Stage-2 description and Eqs. (9)–(10)",
+      "detail": "Stage 2 uses only flow-matching action supervision. Learned predictive slots remain in observation-side hidden states, but future observations and explicit future-latent targets are absent."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A.3; PDF p. 16, Table 6",
+      "detail": "The trainable policy comprises 86.58M visual-encoder and 385.56M action-model parameters, totaling 472.14M. Frozen T5-small is excluded; the EMA visual encoder is used only during Stage 1."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Appendix A.4, inputs, optimization, and benchmark-specific settings",
+      "detail": "This appendix specifies image views, normalization, action dimensions and horizons, four sampling steps, frozen/cached language features, training schedules, hardware, optimizer settings, batches, LIBERO-90 mixing, and rollout counts."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1 and Table 1, LIBERO/Overall columns; PDF p. 15, Table 5, Overall column",
+      "detail": "SLIM reports 97.5% LIBERO and 77.45% zero-shot LIBERO-Plus. Corresponding OpenVLA-OFT values are 97.1/69.6 and Fast-WAM values 97.6/50.0; VLA-JEPA reports 79.5 on Plus. P.T. excludes generic backbone initialization."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2, Avg. Length column",
+      "detail": "CALVIN ABC→D average sequence lengths are 4.556 for SLIM, 4.53 for FLOWER, and 4.41 for UnifiedVLA. The table does not supply uncertainty estimates."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.2; PDF p. 17, Progress-score definitions; PDF p. 18, Appendix A.6",
+      "detail": "Five physical tasks have 150 demonstrations each, mixed for all policies. Each task-condition has ten trials. Scores are 0, 0.5, or 1 for verified milestones and are reported as 100 times mean progress."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 6 extracted category labels, series labels, and values; PDF p. 8, Section 4.2 results paragraph",
+      "detail": "Extracted SLIM setting means are 86, 63, 73, and 49, with overall 67.8. Overall π0.5/Fast-WAM means are 56.8/40.0. Prose independently states background means of 49, 54, and 2."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.3, paragraphs following Figure 7",
+      "detail": "Prose reports improvement from Stage 1, the strongest joint result at IDM:FDM 0.125:1, and EMA versus no-EMA results of 77.45/66.82% on LIBERO-Plus and 4.556/4.382 on CALVIN."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 3, EMA and No EMA rows",
+      "detail": "Over the final 20 probes, EMA/no-EMA effective ranks are 61.28/13.95, token cosines 0.071/0.352, and latent MSEs 0.245/0.166, showing lower prediction error alongside reduced diversity without EMA."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 4; PDF p. 16, Appendix A.5",
+      "detail": "Table 4 supplies latency, incremental VRAM, and FLOPs. The benchmark uses synchronized model-only calls. SLIM/π0.5/Fast-WAM use horizons 8/10/32 and sampling steps 4/10/10, with different native language paths."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 4.4, attention-analysis paragraph; PDF p. 15, Appendix A.2",
+      "detail": "The authors describe attention maps as qualitative, noncausal diagnostics. The probe takes layer-15 action-to-patch attention, maximizes over action tokens, and uses representative matched sequences."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Section 5, final paragraph",
+      "detail": "The authors explicitly restrict their scaling conclusions because experiments cover one compact model scale and do not characterize capacity, pretraining-data, or embodiment-diversity scaling."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–18, Appendices A.3–A.6",
+      "detail": "The implementation and evaluation text supplies simulation action dimensions, sampling counts, training settings, and physical scoring protocols, but does not specify the physical robot platform, command parameterization, control frequency, flow integrator, or executed chunk prefix."
+    }
+  ]
+}

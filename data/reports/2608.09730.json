@@ -1,0 +1,517 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.09730",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T15:46:15.475Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.09730",
+      "title": "World Tokens: Enhancing Embodied Policies with Training-Time World Modeling",
+      "kind": "pdf",
+      "sha256": "04650e2cea439ca97d52654aee35a11d432ee7008a5955a033eb79364600f399",
+      "wordCount": 7482,
+      "accessedAt": "2026-09-07T13:53:07.532513+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method",
+      "3.1 Problem Formulation",
+      "3.2 Architecture Overview",
+      "3.3 World Adapter",
+      "3.4 Training-Time World Modeling",
+      "3.5 Joint Training and Deployment",
+      "4 Experiments",
+      "4.1 Experimental Setup",
+      "4.2 LIBERO",
+      "4.3 Ablation Studies",
+      "4.4 SIMPLER",
+      "4.5 Real-World Manipulation",
+      "5 Conclusion",
+      "References",
+      "Appendix A Implementation Details",
+      "Appendix B Latency Measurement",
+      "Appendix C World-Model Rollout",
+      "Appendix D Attention Analysis",
+      "Appendix E Additional Real-World Rollouts"
+    ],
+    "omissions": [
+      "Original figure images were not supplied or visually inspected; only extracted captions and accompanying discussion were read.",
+      "Separate supplemental material was not supplied, and its availability remains unverified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: LIBERO success and latency",
+      "Table 2: Controlled LIBERO ablations",
+      "Table 3: SIMPLER visual-matching success",
+      "Table 4: R1 Pro closed-loop success"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "World Tokens makes a future-supervised representation mandatory for action prediction: learned queries compress current visual-language features into tokens shared by separate action and video branches. Future-video denoising shapes these tokens during training; deployment removes the video branch completely. Controlled LIBERO ablations and physical R1 Pro trials support the approach, while SIMPLER establishes performance in simulation after real-data training. [e03, e04, e05, e06, e09, e11, e12]",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "The authors seek temporal supervision for a VLA without online video-generation cost. Their specific concern is representational bypass: an auxiliary predictive branch may improve features that the action expert ignores when it can still access the full VLM sequence. They therefore force control through the representation receiving future-video supervision.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e05"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A shared conditioning interface couples action learning to future-video denoising while allowing the entire video branch to be removed after training.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "text": "A query-based World Adapter supplies the action expert's exclusive visual-language context. An appearance-suppressed edge anchor supplies scene structure separately to the video denoiser.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "The strongest contribution is the controlled evidence that video supervision depends on interface design: retaining video supervision while allowing bypass, replacing learned queries, or restoring RGB anchoring reduces Long-suite performance.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current RGB observations from one or more camera views and a language instruction. [e03]",
+      "Training demonstrations additionally supply an eight-action target chunk and an eight-frame future RGB target from the primary view. [e03, e07]",
+      "The training-only video branch receives an edge-derived first-frame anchor. [e05, e14]"
+    ],
+    "outputs": [
+      "An eight-action chunk; R1 Pro actions have eight joint-and-gripper dimensions. [e07, e12]",
+      "During training, a prediction used to denoise future-video latents; this output is not used to execute actions. [e05, e06]"
+    ],
+    "steps": [
+      {
+        "name": "Encode the current context",
+        "detail": "Qwen3-VL-2B-Instruct jointly encodes images and instruction into the variable-length sequence h_t. World tokens represent this current context, rather than an explicitly predicted future state.",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e07"
+        ]
+      },
+      {
+        "name": "Extract the shared representation",
+        "detail": "The adapter uses 256 learned queries and 12 blocks, each comprising cross-attention to h_t, self-attention among queries, and a feed-forward update. Width is 2048 with eight heads. The adapter adds approximately 0.5B parameters, so the advertised 2B backbone is not the total deployed policy size.",
+        "evidenceIds": [
+          "e04",
+          "e14"
+        ]
+      },
+      {
+        "name": "Apply predictive supervision",
+        "detail": "A projection maps q_t into the cross-attention context of Cosmos Predict2.5-2B. Its frozen VAE encodes the demonstrated future clip and the structural anchor. The denoiser receives projected world tokens and the anchor; demonstrated actions are not listed among its conditioning inputs.",
+        "evidenceIds": [
+          "e05",
+          "e07"
+        ]
+      },
+      {
+        "name": "Generate actions through the same interface",
+        "detail": "A separate DiT-B action expert conditions exclusively on q_t, with no direct h_t pathway. Thus the action loss and future-video loss shape the interface the controller must consume.",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e07"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The pretrained VLM and video denoiser are jointly fine-tuned. The adapter, video-context projection, and action expert start from scratch; the VAE remains frozen. Action loss updates the VLM, adapter, and action expert. Video loss updates the VLM, adapter, projection, and denoiser.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "text": "The anchor uses grayscale Canny detection with thresholds 60 and 140, Gaussian blur with sigma 2.5, and channel replication before VAE encoding. Suppressing appearance is intended to make the denoiser depend more strongly on world-token content.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e14"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Remove the VAE, video-context projection, video denoiser, structural anchor, and future targets. Each policy invocation recomputes world tokens from current observations and instruction, then generates a chunk with four flow-integration steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "text": "Deployment performs conditional action generation without online future synthesis, inverse dynamics, or planning over generated trajectories. Physical execution evidence comes from the separate closed-loop R1 Pro evaluation.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e12"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "h_t = f_phi(o_t, ell); q_t = b_psi(h_t) ∈ R^(K×d)",
+        "explanation": "Equation (1) defines the current-context bottleneck: the VLM f_phi produces features, and adapter b_psi converts them into K fixed-width tokens. Both downstream branches condition on this representation.",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "expression": "y_tau = (1−tau)epsilon + tau y; u_tau(y, epsilon) = y−epsilon; tau ~ U[0,1]",
+        "explanation": "For the action branch, y is the demonstrated action chunk and epsilon is Gaussian noise. The network learns the velocity along this linear interpolation path. The video branch instead retains its pretrained model's native diffusion parameterization.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "expression": "L_den(F; y | c) = E_tau,epsilon[||F(y_tau, tau | c)−u_tau(y,epsilon)||²]; L = L_act + 0.5 L_vid",
+        "explanation": "Equations (4)–(5) combine action denoising conditioned on q_t with future-latent denoising conditioned on projected q_t and the edge anchor. Shared gradients provide predictive supervision without making future predictions an inference-time dependency.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO manipulation",
+      "setting": "One policy trained across 40 tasks; 50 evaluation episodes per task, totaling 2,000 episodes.",
+      "metric": "Success rate (%)",
+      "value": "98.2 suite average; 97.0 on Long",
+      "comparison": "Matched Qwen-GR00T: 96.9 average and 92.8 Long.",
+      "interpretation": "Gains are 1.3 percentage points overall and 4.2 on Long. The full-system comparison changes both the adapter and video supervision.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "task": "Contribution of video supervision",
+      "setting": "Controlled LIBERO ablation retaining the learned-query adapter and exclusive routing.",
+      "metric": "Success rate (%)",
+      "value": "Full method: 98.2 average, 97.0 Long",
+      "comparison": "Without world-model supervision: 97.4 average, 95.0 Long.",
+      "interpretation": "The 2.0-point Long improvement more directly tests predictive supervision than comparison with the adapter-free baseline.",
+      "evidenceIds": [
+        "e09"
+      ]
+    },
+    {
+      "task": "Interface and anchor ablations",
+      "setting": "LIBERO Long; each variant retains video supervision and changes one operative design factor.",
+      "metric": "Success rate (%)",
+      "value": "Full method: 97.0",
+      "comparison": "VLM bypass: 94.1; parameter-matched FFN adapter: 93.4; RGB anchor: 91.5.",
+      "interpretation": "The ordering supports the proposed interface design. The authors' explanations about shortcut reliance and competing gradients remain mechanistic interpretations, rather than directly measured internal causes.",
+      "evidenceIds": [
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "SIMPLER WidowX visual matching",
+      "setting": "Training on BridgeV2 and Fractal real-robot data; simulator evaluation using 24 prescribed object-pose configurations per task and averaging over configurations and seeds.",
+      "metric": "Success rate (%)",
+      "value": "71.5 average; spoon 74.0, carrot 85.0, block 32.0, eggplant 95.0",
+      "comparison": "Published 4B Qwen-GR00T: 65.3 average.",
+      "interpretation": "Highest average among listed entries, but this is not the matched 2B baseline comparison. Stacking remains weak. These are simulator outcomes.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "SIMPLER Google Robot visual matching",
+      "setting": "The same real-data-trained policy evaluated on Google Robot simulator tasks.",
+      "metric": "Success rate (%)",
+      "value": "82.1 average; Pick 91.0, Move 65.0, Drawer 78.7, Place 93.5",
+      "comparison": "StarVLA: 74.3 average and 82.6 on Move.",
+      "interpretation": "World Tokens has the highest listed average, but some other reported averages omit Place. Per-task comparisons are therefore more reliable.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Physical R1 Pro fruit placement",
+      "setting": "Four object-specific tasks, 24 trials each and 96 trials per policy; object–basket positions and policy evaluation order randomized.",
+      "metric": "Closed-loop success (%)",
+      "value": "76.0 pooled success",
+      "comparison": "Matched Qwen-GR00T: 59.4; embodied-pretrained pi0.5: 100.0.",
+      "interpretation": "A 16.6-percentage-point improvement over the matched baseline supports physical execution benefits. Pretrained pi0.5 is stronger here but is a contextual comparison with different pretraining.",
+      "evidenceIds": [
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "task": "Default deployment latency",
+      "setting": "Single RTX 5090 D, batch one, two 224×224 views, eight-action chunk, four integration steps, compiled inference with cached conditioning.",
+      "metric": "Steady-state median policy inference time (ms/chunk)",
+      "value": "61.85",
+      "comparison": "pi0.5: 56.32 under the corresponding four-step compiled setting.",
+      "interpretation": "Approximately 1.1 times the baseline latency. Measurement excludes sensing, transport, server overhead, and action execution; it is not end-to-end robot response time.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "Latency comparison with Fast-WAM",
+      "setting": "Appendix B comparison using ten denoising steps without compilation, identical input views and chunk length on RTX 5090 D.",
+      "metric": "Median policy inference time (ms/chunk)",
+      "value": "World Tokens: 119.72",
+      "comparison": "Fast-WAM: 182.",
+      "interpretation": "The reported approximately 1.5-fold speed advantage uses matched integration settings. This World Tokens configuration is a timing control, not the default deployment setting.",
+      "evidenceIds": [
+        "e15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Training incurs substantial video-model cost, and the structural anchor is hand-designed. Equal training steps and batch sizes against Qwen-GR00T do not establish equal computational cost.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13",
+        "e18"
+      ]
+    },
+    {
+      "text": "Success tables do not report confidence intervals or variation across independently trained seeds. Small differences near LIBERO saturation should therefore be interpreted cautiously.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e12"
+      ]
+    },
+    {
+      "text": "Attention concentration supports a representational association, not proof of learned causal dynamics. Appendix D explicitly treats its statistics as descriptive and acknowledges dependence between consecutive timesteps.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "text": "The video branch predicts demonstrated futures without explicit candidate-action conditioning. Counterfactual dynamics accuracy and planning over alternative actions are not established by these experiments.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e07"
+      ]
+    },
+    {
+      "text": "Latency provenance is internally inconsistent: Table 1 and Section 4.1 describe other baselines as quoted, while Appendix B describes additional measurements. Appendix B also places DiT4DiT on H100. Cross-hardware and differently configured entries cannot establish controlled speedup factors.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e15",
+        "e16"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "The supplied title page verifies the catalog title, all six authors, and arXiv:2608.09730v1 dated 10 August 2026. This report assesses that supplied version; no code was inspected or experiments reproduced.",
+      "kind": "source",
+      "evidenceIds": [
+        "e01"
+      ]
+    },
+    {
+      "text": "Required components include Qwen3-VL-2B-Instruct, Cosmos Predict2.5-2B and its frozen VAE, a newly initialized adapter and DiT-B action expert, and aligned action/future-frame demonstrations. AdamW uses betas (0.9, 0.95), epsilon 1e-8 and weight decay 1e-8. Learning rates are 1e-5 for the VLM, 2e-5 for the denoiser, and 1e-4 for new modules.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e13"
+      ]
+    },
+    {
+      "text": "Reported H100 training schedules are LIBERO: 70K steps, batch 128, eight GPUs; SIMPLER: 140K steps, batch 256, sixteen GPUs; R1 Pro: 30K steps, batch 128, eight GPUs. Each device processes sixteen samples without gradient accumulation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "text": "The supplied implementation details leave the warmup duration, future-frame sampling interval, R1 demonstration count, and several action-processing details unspecified. A focused replication should compare full training with the adapter-preserving no-video ablation across multiple training seeds, prioritizing LIBERO Long success and training cost.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e07",
+        "e09",
+        "e13"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "Separate VLM, action DiT, and training-only video denoiser support Dual-system; joint training does not make them one generative backbone. Other mechanisms and Outside quadrants fit training-time auxiliary denoising through current-context tokens, without inference-time joint future/action prediction or inverse dynamics. Efficient inference is supported by video-branch removal. Latent prediction & JEPA fits only the broad latent-prediction grouping: the target is a frozen-VAE video latent, and no JEPA objective is specified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06",
+        "e15"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Latent prediction & JEPA",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "0e6ee983dd2c7aca1910120869b808da203a883851b2e25b2d3f3777dd695a40"
+    }
+  },
+  "discussionQuestions": [
+    "Do the Long-suite gains persist across independent training seeds and a comparison matched for training compute? [e09, e13]",
+    "Would a smaller or frozen video denoiser retain the benefit of exclusive routing? [e06, e18]",
+    "Can a learned structural anchor preserve the RGB-anchor ablation's advantage without hand-designed Canny preprocessing? [e09, e14]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and arXiv version line",
+      "detail": "The title and six authors match the catalog; the artifact identifies arXiv:2608.09730v1, dated 10 August 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Section 1 Introduction",
+      "detail": "The authors motivate temporal supervision without online video-model cost and identify direct VLM access as a possible bypass around predictive representations."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, final paragraph of Section 2; p. 5, Sections 3.1–3.2",
+      "detail": "World tokens encode current context. Future primary-view clips are training targets unavailable to the action policy at evaluation; deployment maps current images and instruction to action chunks."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Equations (1)–(2)",
+      "detail": "The VLM produces h_t; a Perceiver-style adapter extracts q_t using learned queries, cross-attention, self-attention, and feed-forward blocks."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Exclusive action pathway, Equation (3), and Section 3.4",
+      "detail": "The action expert conditions solely on q_t. The video denoiser receives projected q_t and a VAE-encoded Canny anchor; the frozen VAE also encodes demonstrated future targets."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 3.5, Equations (4)–(5), Gradient paths, Initialization, and Deployment",
+      "detail": "Action flow matching and native video diffusion losses are combined with video weight 0.5. The text specifies trainable modules, frozen VAE, removal of the video branch, and four-step action integration."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.1, Implementation, Benchmarks, and Baselines and protocol",
+      "detail": "Configuration uses Qwen3-VL-2B-Instruct, DiT-B, Cosmos Predict2.5-2B, and eight-action/eight-frame targets. LIBERO pools forty tasks and evaluates fifty episodes each. Matched Qwen-GR00T lacks the adapter and video branch."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, World Tokens row and caption; pp. 8–9, Section 4.2",
+      "detail": "World Tokens reports 98.2% LIBERO average and 97.0% Long. The table gives 61.85 ms latency and cautions that comparison entries include source-paper timings."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 2, all variant rows, Long and Avg. columns",
+      "detail": "Average/Long rates are Qwen-GR00T 96.9/92.8, no world model 97.4/95.0, VLM bypass 97.2/94.1, FFN adapter 97.0/93.4, RGB anchor 96.2/91.5, and full method 98.2/97.0."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 4.3, Mechanistic ablations and Structural-anchor comparison",
+      "detail": "The authors attribute ablation ordering to exclusive routing, expressive query extraction, and reduced appearance shortcuts under edge conditioning."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.1, SIMPLER protocol; pp. 10–11, Section 4.4 and Table 3",
+      "detail": "Real-data training precedes simulator evaluation. Table 3 reports World Tokens WidowX rates 74.0/85.0/32.0/95.0, average 71.5, and Google rates 91.0/65.0/78.7/93.5, average 82.1. The caption warns that Google averages may omit Place."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 8, R1 Pro real-world setup; pp. 11–12, Section 4.5 and Table 4",
+      "detail": "The physical right-arm setup uses eight-dimensional actions and twenty-four trials per object. Pooled success is 76.0% for World Tokens, 59.4% for Qwen-GR00T, and 100.0% for embodied-pretrained pi0.5."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A, Optimization and Training scale",
+      "detail": "The appendix specifies AdamW settings, group learning rates, H100 counts, batch sizes, and training steps. Matched Qwen-GR00T uses identical step counts and batch sizes."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A, Structural anchor and Deployment footprint",
+      "detail": "Canny thresholds are 60/140 with Gaussian sigma 2.5. The adapter has 256 queries, twelve blocks, width 2048, eight heads, and approximately 0.5B parameters."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Appendix B, Protocol and Measurements",
+      "detail": "Policy-only median timings use batch one and two 224×224 views. Four-step compiled World Tokens/pi0.5 timings are 61.85/56.32 ms; ten-step uncompiled World Tokens/Fast-WAM timings are 119.72/182 ms."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF pp. 16–17, Appendix B, Measurements and Comparability",
+      "detail": "The authors describe timing additional baselines, identify DiT4DiT's H100 measurement, and explain hardware, action-horizon, and decoding differences affecting other latency entries."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Attention analysis; pp. 17–19, Appendix D, Procedure and Additional metrics",
+      "detail": "Attention statistics use final-block weights averaged across heads and queries. The appendix treats concentration measures as descriptive and notes that consecutive episode timesteps are dependent."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Section 5 Conclusion",
+      "detail": "The authors acknowledge considerable training-time world-model cost and the hand-designed Canny anchor, and propose broader joint training as future work."
+    }
+  ]
+}

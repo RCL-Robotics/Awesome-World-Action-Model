@@ -1,0 +1,510 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.10107",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T15:28:28.426Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.10107",
+      "title": "4D-WAM: 4D Consistent World Modeling for Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "97751f41743c415f9e13ecb1bbe30ca0a2575dd7398f75b8d5ee36ec767b19e0",
+      "wordCount": 5836,
+      "accessedAt": "2026-09-07T13:52:50.954652+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and arXiv version imprint",
+      "Abstract",
+      "Introduction",
+      "Related Work: World-Action Models",
+      "Related Work: Feed-Forward 3D and 4D Reconstruction",
+      "Method: 4D-WAM Architecture",
+      "Method: 4D Consistency Supervision",
+      "Method: Decision-Oriented Timestep Sampling",
+      "Experiments: Dataset and Metrics",
+      "Experiments: Implementation Details",
+      "Experiments: Results",
+      "Experiments: Ablation Studies",
+      "Conclusion",
+      "References",
+      "Supplementary S1: Implementation Details of 4D Consistency Supervision",
+      "Supplementary S2: Additional Qualitative Comparison",
+      "Supplementary S3: Zero-Shot Generalization Capability"
+    ],
+    "omissions": [
+      "Figure images were not visually inspected; only supplied captions and accompanying discussion were read.",
+      "Crowded table cells were not used when their column assignment was uncertain.",
+      "Supplementary pages 10–12 were supplied and read; availability of additional separate artifacts was not verified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: method labels and aggregate EPDMS",
+      "Table 2: method labels and aggregate PDMS",
+      "Table 3: final two-stage EPDMS and legible Stage-1 NC values",
+      "Table 4: cumulative configurations and EPDMS",
+      "Table 5: decision-region probability, sampling shift, and EPDMS",
+      "Table 6: denoising steps, EPDMS, and latency"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "4D-WAM jointly denoises future driving video and an ego trajectory through interacting video and action transformers. Its distinctive addition is training supervision from frozen VGGT-Ω: generated and recorded futures are compared through geometric features and estimated depth. A biased noise sampler concentrates training on the early denoising region where trajectories approach their final predictions. Reported planning gains are strongest on NAVSIM-v2 navhard; direct geometric accuracy and Waymo transfer receive qualitative support only. [e03, e04, e05, e08, e13, e17, e19]",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "The authors argue that RGB-supervised world-action models can predict plausible images while misrepresenting object geometry, distance, or motion, thereby misleading trajectory planning. They seek geometric supervision that improves joint prediction without adding a reconstruction model to inference.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e04"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A driving backbone combines separate video and action experts through mixed attention while shielding historical visual tokens from noisy future tokens.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03"
+      ]
+    },
+    {
+      "text": "Feature and depth matching transfer geometric supervision from frozen VGGT-Ω into the joint predictor during training.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "The authors identify early trajectory convergence during denoising and introduce a sampling distribution that emphasizes this region; they interpret it as supervision of decision formation.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e08",
+        "e15"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Three historical front-view frames and the current frame. [e03, e09]",
+      "Current ego state and a textual driving instruction. [e03]",
+      "Noisy future-video latents and a noisy action trajectory during joint denoising. [e03]"
+    ],
+    "outputs": [
+      "Predicted future front-view video at 2 Hz over four seconds. [e03, e09]",
+      "A planned ego trajectory at 2 Hz over four seconds. [e03, e09]"
+    ],
+    "steps": [
+      {
+        "name": "Prepare conditioning and prediction tokens",
+        "detail": "A video VAE encodes observations into clean history latents, concatenated with noisy future latents. Linear projection produces action tokens. A pretrained T5 encoder processes the instruction, with projected ego-state tokens appended to its text tokens.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Exchange information between modality experts",
+        "detail": "The video DiT is initialized from Wan2.2; the action DiT is structurally aligned. Each layer concatenates their queries, keys, and values for masked attention, then returns outputs to the respective experts. Historical visual tokens attend only to history; future-video and action tokens attend to all three visual/action groups.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Construct a clean future for geometric supervision",
+        "detail": "During training, subtract the predicted flow velocity scaled by video noise from the noisy latent, then VAE-decode the resulting clean estimate. Frozen VGGT-Ω processes this video and the recorded future separately. Its responses to the recorded video provide supervision targets.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Match geometric responses",
+        "detail": "Compare camera, register, and patch features from teacher layers 11, 17, and 23 using cosine distance. Patch features are pooled from 22×40 to 11×20. Compare log-depth estimates using Smooth-L1 over valid, confident pixels. These are teacher-derived targets, rather than sensor-measured ground-truth geometry.",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "name": "Concentrate training on high noise",
+        "detail": "The authors probe 20-step rollouts on 1,000 validation scenes, comparing intermediate trajectories with final predictions. They select noise threshold 0.90 and bias sampling so that half the training samples fall above it. The probe measures convergence to the model's own final output.",
+        "evidenceIds": [
+          "e08"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage I trains the joint video-action flow-matching objective on navtrain for 40 epochs; Stage II adds geometric supervision for another 40 epochs. AdamW uses cosine learning-rate schedules with initial rates 10⁻⁴ and 2×10⁻⁵, respectively. Training uses 16 NVIDIA H200 GPUs. Images lose 28 pixels at both top and bottom before resizing to 352×640.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09"
+        ]
+      },
+      {
+        "text": "Depth filtering requires finite values, positive depths, and target confidence above 10⁻⁵, then retains pixels at or above each frame's 30th confidence percentile. Smooth-L1 uses β=0.1 and logarithms use ε=10⁻⁶. Both geometric loss weights equal one, with a half-cosine warm-up over the first 0.5 epoch of Stage II. VGGT-Ω remains frozen.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e07"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The backbone iteratively denoises video and trajectory predictions using observed history, ego state, and instruction; the default is ten steps. VGGT-Ω and geometric losses are absent from inference.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e09"
+        ]
+      },
+      {
+        "text": "Action prediction comes from the interacting action expert, rather than a separately described inverse-dynamics stage. The paper evaluates planned trajectories in NAVSIM; it does not document physical vehicle execution or the controller translating trajectories into actuator commands.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e03",
+          "e10"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "ẑᵛ₀ = zᵛ_{σᵥ} − σᵥ ûᵛ_ϕ;  v̂ = D_VAE(ẑᵛ₀)",
+        "explanation": "Equations (4)–(5) recover and decode a clean-video estimate from noisy latent z and predicted flow velocity û. Video noise σᵥ ranges from clean data at zero to pure noise at one.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "L₄D = λ_feat L_feat + λ_depth L_depth; L_feat = |S|⁻¹ Σ_{ℓ∈S} Σ_{g∈{cam,reg,patch}} d_cos(F̂ᶩ_g, Fᶩ_gt,g); L_depth = |Q|⁻¹ Σ_{q∈Q} SmoothL1_β(log(D̂_q+ε) − log(D_gt,q+ε))",
+        "explanation": "The supplement expands feature matching into three equally weighted token groups at each selected layer. Q contains confidence-filtered future pixels. Both feature and depth targets come from the teacher applied to recorded RGB video.",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "expression": "D_a(k) = (N T_p)⁻¹ Σ_i Σ_t ‖â⁽ᵏ⁾_{i,t} − â⁽²⁰⁾_{i,t}‖²₂",
+        "explanation": "Equation (10) averages intermediate-to-final trajectory discrepancy across scenes and trajectory points. Its plateau motivates the decision threshold; it does not measure agreement with expert trajectories.",
+        "evidenceIds": [
+          "e08"
+        ]
+      },
+      {
+        "expression": "θ = su / (1+(s−1)u), u∼U(0,1); ρ_dec = s(1−θ_dec) / (θ_dec+s(1−θ_dec))",
+        "explanation": "Equations (12)–(13) control high-noise sampling mass. With θ_dec=0.90, uniform sampling gives 10% decision-region mass; s=9 gives 50%.",
+        "evidenceIds": [
+          "e08",
+          "e15"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Trajectory planning",
+      "setting": "NAVSIM-v2 navtest; single-camera input",
+      "metric": "EPDMS, higher is better",
+      "value": "90.6",
+      "comparison": "DriveFine: 89.7; improvement of 0.9 score points.",
+      "interpretation": "Highest reported learned-method aggregate in Table 1. This is a planning benchmark score, not a video-quality metric or physical deployment result.",
+      "evidenceIds": [
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "Trajectory planning",
+      "setting": "NAVSIM-v1 navtest",
+      "metric": "PDMS, higher is better",
+      "value": "90.9",
+      "comparison": "ReCogDrive RL: 90.8; DriveVLA-W0: 90.2.",
+      "interpretation": "The reported lead over ReCogDrive is 0.1 score points. No uncertainty accompanies this small difference; PDMS and EPDMS remain separate protocols.",
+      "evidenceIds": [
+        "e10",
+        "e12"
+      ]
+    },
+    {
+      "task": "Planning in difficult scenarios",
+      "setting": "NAVSIM-v2 navhard; real-observation stage followed by synthetic follow-up evaluation",
+      "metric": "Final two-stage EPDMS, higher is better",
+      "value": "35.9",
+      "comparison": "Metis: 32.2; improvement of 3.7 score points.",
+      "interpretation": "The clearest aggregate advantage among the reported benchmark comparisons. The value is the combined two-stage score, not an individual stage's score.",
+      "evidenceIds": [
+        "e10",
+        "e13"
+      ]
+    },
+    {
+      "task": "Component ablation",
+      "setting": "NAVSIM-v2 navtest; components added cumulatively",
+      "metric": "EPDMS, higher is better",
+      "value": "Base 88.8 → history 89.6 → feature loss 90.1 → depth loss 90.4 → sampling 90.6",
+      "comparison": "Feature and depth additions together increase the history-conditioned model from 89.6 to 90.4.",
+      "interpretation": "Supports the geometric-training recipe, while the cumulative design leaves component interactions unresolved.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Training timestep allocation",
+      "setting": "Decision-region sampling sweep; split not restated in Table 5",
+      "metric": "EPDMS, higher is better",
+      "value": "10% mass: 90.2; 50%: 90.6; 60%: 90.1",
+      "comparison": "Corresponding shifts are s=1, 9, and 13.5.",
+      "interpretation": "Moderate high-noise emphasis performs best in the reported sweep; further concentration reverses the gain.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "Denoising speed–quality tradeoff",
+      "setting": "EPDMS ablation; latency measured on NVIDIA RTX 4090; split not restated in Table 6",
+      "metric": "EPDMS and inference latency",
+      "value": "Two steps: 90.5 and 0.31 s; ten steps: 90.6 and 0.79 s",
+      "comparison": "One step gives 88.1 at 0.22 s.",
+      "interpretation": "Two steps retain nearly all reported planning score. These timings do not establish an end-to-end vehicle control rate.",
+      "evidenceIds": [
+        "e16"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Matching a geometric teacher is a proxy for physical consistency. The paper reports no aggregate depth, reconstruction, or motion-error evaluation establishing that teacher alignment produces metrically correct 4D predictions; geometric improvements are primarily illustrated qualitatively.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e17"
+      ]
+    },
+    {
+      "text": "Early convergence to a final trajectory does not establish that an intermediate decision is correct or irreversible. The threshold is supported by one reported validation probe, leaving transfer across checkpoints, schedulers, and domains unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08"
+      ]
+    },
+    {
+      "text": "Higher aggregate performance does not imply uniformly improved safety components: navhard Stage-1 NC is 92.8 for 4D-WAM versus 97.6 for DriveFine.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "text": "No repeated-run uncertainty is reported. Table 4's pre-sampling configuration scores 90.4, whereas Table 5's uniform sampler scores 90.2; the text does not explain the configuration difference. Consequently, the sampling gain cannot be assigned one unambiguous baseline across both tables.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "text": "Supplementary comparisons use 100 denoising steps for Epona versus ten for 4D-WAM and adapt Epona's three-second horizon by concatenating two predicted segments. These qualitative comparisons do not hold inference protocol constant.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e18"
+      ]
+    },
+    {
+      "text": "Waymo transfer is an author-described qualitative evaluation of a NAVSIM-trained checkpoint. No aggregate Waymo score is supplied, and the figure images were not inspected, so broad cross-domain robustness remains unestablished by this review.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e19"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires NAVSIM data and evaluation tooling, the Wan2.2 video backbone and VAE, T5, frozen VGGT-Ω, and an aligned action DiT. The supplied text specifies preprocessing, training stages, geometric layers, confidence filtering, and loss warm-up.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e07",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "text": "Important unresolved details include exact checkpoint variants and model sizes, action parameterization, ego-state fields, batch size, video/action objective weighting, denoising solver, and coupling of modality timesteps. Code was not inspected and experiments were not reproduced.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "text": "A focused mechanism test would start from one Stage-I checkpoint and cross geometric supervision on/off with uniform/biased sampling under matched updates and multiple seeds. Evaluate planning components alongside independent geometric errors to distinguish better teacher agreement from improved physical prediction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e09",
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The central Q3 placement is supported: separate video/action DiTs provide architecture evidence for Dual-system, and bidirectional attention during joint denoising supports Joint prediction. The geometric teacher supplies auxiliary training supervision rather than an inference-time planner. Autonomous driving is explicit. However, the complete snapshot is only partly supported because '3D multiview modeling' is not clearly established: the method uses one front-view camera and geometric-response alignment. That subcategory needs editorial clarification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e09",
+        "e11"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "3D multiview modeling",
+        "Autonomous driving"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q3 · Dual-system × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "f06b4a877a788d5a6467bc0864a7ffc98a790b8239c8479cdd6856aae4d38a31"
+    }
+  },
+  "discussionQuestions": [
+    "Would geometric supervision outperform a matched nong geometric feature loss when both planning and independent depth/motion accuracy are measured? [e05, e14]",
+    "Does the 0.90 convergence threshold remain useful when the inference scheduler or driving domain changes? [e08, e19]",
+    "What explains stronger navhard aggregate performance alongside weaker Stage-1 collision compliance? [e13]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author list, and arXiv imprint",
+      "detail": "The title and all catalog authors match the supplied primary text. The imprint identifies arXiv:2608.10107v1, dated 10 August 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Introduction",
+      "detail": "The authors motivate geometric supervision through failures of RGB-only training to preserve scene structure and motion, which they argue can mislead planning."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, 4D-WAM Architecture, Eqs. (1)–(3) and surrounding paragraphs",
+      "detail": "The model conditions joint video/trajectory prediction on front-view history, ego state, and instruction. Separate video and action DiTs exchange masked attention; video initialization, token preparation, and history-preserving attention are described."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, 4D Consistency Supervision, Eqs. (4)–(6)",
+      "detail": "A clean latent estimate is decoded before frozen VGGT-Ω extracts features and depth from predicted and recorded futures. Geometric supervision is used during training."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, 4D Consistency Supervision, Eqs. (7)–(9)",
+      "detail": "The loss combines cosine feature distance and Smooth-L1 log-depth discrepancy over reliable pixels. Targets are geometric-model responses to recorded future frames."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 10, S1, Feature Consistency Loss, Eqs. (S1)–(S3)",
+      "detail": "Layers 11, 17, and 23 supply camera, register, and patch tokens with equal group weights. Patch size 16 gives a 22×40 grid, pooled by 2×2 averaging to 11×20."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 10, S1, Depth Consistency Loss, Eqs. (S4)–(S8)",
+      "detail": "Validity and target-confidence checks precede per-frame 30th-percentile filtering. The text specifies confidence floor 10⁻⁵, β=0.1, ε=10⁻⁶, unit feature/depth weights, and a 0.5-epoch half-cosine warm-up."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Decision-Oriented Timestep Sampling, Eqs. (10)–(13); p. 5, continuation before Experiments",
+      "detail": "A 20-step probe over 1,000 validation scenes measures intermediate-to-final action MSE. Threshold 0.90 defines the decision region; the shifted-uniform sampler assigns it 50% probability when s=9."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Implementation Details",
+      "detail": "The implementation uses three historical frames plus the current observation, 2 Hz predictions over four seconds, 352×640 images after top/bottom cropping, two 40-epoch stages, AdamW with cosine schedules, 16 H200 GPUs, and default ten-step inference."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Dataset and Metrics; p. 6, Table 3 caption",
+      "detail": "The paper distinguishes NAVSIM-v1 PDMS from NAVSIM-v2 EPDMS and their components. Navhard uses two-stage evaluation, with real observations followed by synthetic observations and a final combined EPDMS."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 1, Sensors and EPDMS columns, 4D-WAM and DriveFine rows",
+      "detail": "NAVSIM-v2 navtest EPDMS is 90.6 for single-camera 4D-WAM and 89.7 for DriveFine."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 2, PDMS column; p. 6, Results on navtest",
+      "detail": "NAVSIM-v1 navtest PDMS is 90.9 for 4D-WAM, 90.8 for ReCogDrive RL, and 90.2 for DriveVLA-W0."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 3, final EPDMS column and Stage-1 NC column",
+      "detail": "Final navhard EPDMS is 35.9 for 4D-WAM and 32.2 for Metis. Stage-1 NC is 92.8 for 4D-WAM and 97.6 for DriveFine."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 4, Configuration and EPDMS columns",
+      "detail": "Cumulative NAVSIM-v2 navtest scores are 88.8 for the base, 89.6 with history, 90.1 with feature loss, 90.4 with depth loss, and 90.6 with sampling."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 5 and Ablation Study of Timestep Sampling Distribution",
+      "detail": "Decision-region masses of 10%, 50%, and 60% correspond to shifts 1, 9, and 13.5 and EPDMS values 90.2, 90.6, and 90.1."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 6, Steps, EPDMS, and Latency rows",
+      "detail": "One, two, and ten steps yield EPDMS 88.1, 90.5, and 90.6 with RTX 4090 latencies 0.22, 0.31, and 0.79 seconds."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Qualitative Effects of 4D Consistency Supervision; p. 7, Figure 4 caption",
+      "detail": "The authors describe improved truck geometry and lead-vehicle motion estimation in selected examples. These descriptions and the caption were read; the figure images were not inspected."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 10, S2 Additional Qualitative Comparison",
+      "detail": "Epona uses 100 denoising steps versus ten for WAM and 4D-WAM. Its three-second trajectory output is adapted to four seconds using two consecutive predictions and retaining two seconds from each."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 12, S3 Zero-Shot Generalization Capability",
+      "detail": "The authors describe qualitative Waymo validation using a checkpoint trained exclusively on NAVSIM, including turning and nighttime cases. The supplied section reports no aggregate quantitative transfer metric."
+    }
+  ]
+}

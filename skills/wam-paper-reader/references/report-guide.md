@@ -47,6 +47,8 @@ For PDFs and source archives, `sources[].sha256` is the downloaded artifact's by
 
 Separate material present in a downloaded archive from material supplied to this reading. An archive may contain figure PDFs even when the reader receives only extracted text; record that the images were not inspected, rather than claiming the original source lacked them. Likewise, a source can specify some preprocessing thresholds while leaving others unstated: describe the precise gap.
 
+Facts about the reading session itself belong in `coverage.omissions`: for example, code was not inspected, experiments were not reproduced, or figure images were not supplied. These statements do not come from the paper, so do not invent paper evidence for them. Keep `reproduction` for source-grounded requirements, missing implementation details, and clearly marked proposed checks; cite the relevant method or experiment evidence.
+
 `readingTimeMinutes` estimates how long a reader needs for the report; it is not time spent researching. Distinguish measured results from projected, estimated or untested configurations explicitly in each result's value/interpretation. Synopsis and method input/output labels should remain traceable to the cited problem, method steps and evidence.
 
 The taxonomy assessment refers to `taxonomy.recordedClassification`, a coordinator-supplied snapshot of the catalog at reading time. Do not invent or revise that snapshot. Later catalog changes do not retroactively change what the report assessed.

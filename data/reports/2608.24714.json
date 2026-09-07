@@ -1,0 +1,533 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.24714",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:37:40.160Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.24714",
+      "title": "GaussianWAM: Distilling Geometry and Semantics from 3D Gaussian Fields into World-Action Models",
+      "kind": "pdf",
+      "sha256": "0bd4e1cbbeba497be058a3411fbee550c847a629f96f701e394f4e19568cebd5",
+      "wordCount": 6434,
+      "accessedAt": "2026-09-07T13:51:15.842153+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, author list, abstract, and version identifier",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method",
+      "3.1 Overview",
+      "3.2 Gaussian Teacher Construction",
+      "3.3 Gaussian Distillation",
+      "3.4 FastWAM-Style Dual-Expert MoT",
+      "3.5 Cosmos-Policy-Style Unified DiT",
+      "4 Experiments",
+      "4.1 Experimental Setup",
+      "4.2 Main Results",
+      "4.3 Ablation Studies",
+      "4.4 Qualitative Analysis",
+      "5 Conclusion",
+      "References"
+    ],
+    "omissions": [
+      "The complete supplied main text was read. Figure images were not supplied or visually inspected; captions and surrounding discussion were read.",
+      "Per-setting real-world bar values are omitted because the extracted figure does not reliably establish their visual associations.",
+      "No appendix appears in the supplied 13-page paper; separate supplemental material availability remains unverified.",
+      "Linked code, project pages, and cited publications were not inspected.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: FastWAM and Cosmos Policy baseline/enhanced rows",
+      "Table 2: RoboTwin Clean and Random results",
+      "Table 3: Overall Gaussian-unification and component ablation results",
+      "Table 4: Overall supervision-layer ablation results"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "GaussianWAM strengthens existing world-action models by fitting an offline Gaussian field that binds estimated geometry to CLIP features, then teaching current-observation tokens to predict its rendered outputs. The field disappears at deployment. FastWAM's LIBERO-Plus success rises from 52.05% to 71.29%, although direct CLIP and VGGT distillation already reaches 69.37%; the distinctive contribution is therefore the incremental benefit of spatially organizing teacher signals. [e03, e05, e07, e12, e16]",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "The authors argue that video prediction and language conditioning do not explicitly ensure cross-view geometric consistency or spatially localized object semantics in WAM representations. Independent geometry and semantic losses also lack a shared spatial carrier. GaussianWAM addresses how to organize these signals coherently while retaining the underlying policy's deployment architecture.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A per-sample Gaussian teacher associates geometry and semantic features with common 3D primitives, then renders aligned semantic, depth, coverage, and validity targets.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "text": "Auxiliary supervision targets current-observation representations in both a dual-expert MoT and a unified diffusion Transformer; all added teacher components and prediction heads are removed after training.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "text": "Matched backbone comparisons and a direct multi-teacher baseline test both the overall enhancement and the additional contribution of Gaussian-field target construction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e12",
+        "e13",
+        "e16"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Teacher construction: synchronized current multi-view RGB observations. [e04]",
+      "Policy learning: visual observations, language instructions, proprioceptive states, and the underlying WAM's original training supervision. [e04, e07]"
+    ],
+    "outputs": [
+      "Offline cache: rendered semantic features, depth, Gaussian coverage, and a validity mask. [e06]",
+      "Deployment: actions through the original backbone's inference procedure; GaussianWAM adds no action decoder or execution pathway. [e08, e09]"
+    ],
+    "steps": [
+      {
+        "name": "Extract frozen teacher signals",
+        "detail": "VGGT-Omega estimates depth, confidence, and camera parameters. Depth and confidence are resized to a 14 × 14 grid with adjusted intrinsics. CLIP ViT-B/16 patch features are aligned to that grid and projected to 64 dimensions.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Construct and fit a shared field",
+        "detail": "Every geometry-valid grid location initializes a Gaussian carrying a 3D center, rotation, scale, opacity, and semantic feature. Depth-aware, opacity-weighted splatting supports joint fitting across observed views for 50 iterations, using semantic, depth, coverage, and regularization terms.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Cache aligned supervision",
+        "detail": "Render the fitted field back into observed views. Intersect geometry validity with sufficient rendered coverage, then resize and compose targets to match the policy's multi-view token layout. Cache these maps for reuse during policy training.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "name": "Distill current visual tokens",
+        "detail": "Attach semantic, depth, and sigmoid coverage heads to final-layer current-observation tokens. Use masked cosine distance for semantics and masked absolute errors for depth and coverage, adding the resulting objective to the original WAM loss.",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "name": "Connect supervision to action learning",
+        "detail": "FastWAM supplies tokens from its video expert, which interacts with the action expert through MoT. Cosmos Policy supplies current visual tokens from its shared Transformer. The auxiliary targets describe current observations rather than future 3D rollouts.",
+        "evidenceIds": [
+          "e08",
+          "e09",
+          "e06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "VGGT and CLIP are frozen. Gaussian fitting precedes policy training; semantic Gaussian features may optionally be refined during fitting. Cached targets avoid repeating teacher inference and field optimization.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "text": "FastWAM uses 70k steps on eight A100 GPUs, effective batch size 32, learning rate 10^-4 with cosine decay, and weight decay 10^-2. Its semantic, depth, and alpha weights are 0.01, 0.01, and 0.005. Cosmos uses 5k iterations on eight GPUs with effective batch size 1920. Each enhanced model matches its own baseline's data, configuration, and optimization budget.",
+        "kind": "source",
+        "evidenceIds": [
+          "e10"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Remove foundation teachers, Gaussian construction/rendering, and auxiliary heads. The trained backbone retains its original forward path; the paper does not detail a new action sampling, replanning, or feedback schedule.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e07",
+          "e08",
+          "e09"
+        ]
+      },
+      {
+        "text": "Removing these modules supports the claim of no additional Gaussian forward computation. The supplied experiments do not provide a measured latency comparison.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e03",
+          "e10"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "(F̂^v, D̂^v, Â^v) = R(G; K^v, E^v)",
+        "explanation": "Equation (3) renders the shared Gaussian field G through view v's intrinsics K and extrinsics E. The same projected contributions produce semantic features, depth, and accumulated coverage, making their spatial association the central mechanism.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "T_valid = M_geo ∩ I[T_α > τ_α], with τ_α = 10^-4",
+        "explanation": "Equation (6) permits distillation only where geometry is valid and Gaussian contributions exceed the coverage threshold. Coverage is a rendering-support signal, not a measured probability of correct geometry.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "expression": "L_G = λ_sem L_sem + λ_depth L_depth + λ_α L_α; L_train = L_WAM + λ_G L_G",
+        "explanation": "Equations (9)–(13) combine semantic cosine distance and depth/coverage absolute errors, each averaged over valid locations, with the original WAM objective. Thus the field supplies auxiliary representation supervision rather than an inference-time control objective.",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Standard language-conditioned manipulation",
+      "setting": "LIBERO evaluation after LIBERO training; matched baseline/enhanced training budgets within each backbone.",
+      "metric": "Task success rate (%)",
+      "value": "FastWAM + GaussianWAM: 97.60; Cosmos Policy + GaussianWAM: 98.60.",
+      "comparison": "Corresponding baselines: 96.60 and 98.50.",
+      "interpretation": "Reported gains are 1.00 and 0.10 percentage points under high baseline success.",
+      "evidenceIds": [
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "Manipulation under distribution shifts",
+      "setting": "FastWAM trained on LIBERO for 70k steps; zero-shot LIBERO-Plus evaluation.",
+      "metric": "Official overall task success rate (%)",
+      "value": "71.29",
+      "comparison": "FastWAM baseline: 52.05; improvement: 19.24 percentage points.",
+      "interpretation": "A substantial overall robustness gain in this matched comparison.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Manipulation under distribution shifts",
+      "setting": "Cosmos Policy trained on LIBERO for 5k iterations; zero-shot LIBERO-Plus evaluation.",
+      "metric": "Official overall task success rate (%)",
+      "value": "77.30",
+      "comparison": "Baseline: 71.52; improvement: 5.78 percentage points.",
+      "interpretation": "Overall improvement does not cover every shift: background success falls from 77.51 to 66.17, and lighting from 90.89 to 89.84.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Bimanual manipulation",
+      "setting": "FastWAM on the 15-task RoboTwin 2.0 Clean-to-Random benchmark.",
+      "metric": "Average task success rate (%)",
+      "value": "Clean: 70.50; Random: 1.60.",
+      "comparison": "Baseline Clean: 70.50; Random: 0.70.",
+      "interpretation": "Clean performance is unchanged; randomized performance improves but remains near failure.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Bimanual manipulation",
+      "setting": "Cosmos Policy on the 15-task RoboTwin 2.0 Clean-to-Random benchmark.",
+      "metric": "Average task success rate (%)",
+      "value": "Clean: 68.90; Random: 14.40.",
+      "comparison": "Baseline Clean: 34.40; Random: 7.10.",
+      "interpretation": "Both settings improve substantially relative to this baseline, but randomized success remains limited.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Physical bimanual manipulation",
+      "setting": "Two UR7e arms; vase-to-plate contact and cup-placement/cylinder-insertion tasks; 100 demonstrations per task and 20 trials per task per setting across standard, layout, camera, and noise conditions.",
+      "metric": "Reported average task success rate (%)",
+      "value": "40.00",
+      "comparison": "FastWAM: 30.00.",
+      "interpretation": "This measures executed robot tasks requiring all task objectives to succeed. The small evaluation provides a positive transfer indication without reported uncertainty.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "Gaussian-field unification ablation",
+      "setting": "FastWAM on LIBERO-Plus; official overall score over 10,030 evaluation tasks.",
+      "metric": "Overall task success rate (%)",
+      "value": "GaussianWAM without alpha supervision: 70.99; full model: 71.29.",
+      "comparison": "Direct CLIP + VGGT distillation: 69.37; original FastWAM: 52.05.",
+      "interpretation": "Most improvement already comes from direct teacher supervision. Field construction without alpha adds a reported 1.62 percentage points; the full model adds 1.92 points over direct distillation, calculated from the reported scores.",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "task": "Supervision-component ablation",
+      "setting": "FastWAM on LIBERO-Plus; official 10,030-task evaluation.",
+      "metric": "Overall task success rate (%)",
+      "value": "Without semantics: 68.06; without depth: 66.28; without alpha: 70.99.",
+      "comparison": "Full model: 71.29.",
+      "interpretation": "Depth removal produces the largest observed drop. Alpha's incremental improvement is small, and no uncertainty is supplied.",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "task": "Supervision-location ablation",
+      "setting": "FastWAM + GaussianWAM on LIBERO-Plus; official 10,030-task evaluation.",
+      "metric": "Overall task success rate (%)",
+      "value": "Layer 10: 67.86; layer 20: 68.44; final layer 30: 71.29.",
+      "comparison": "Final-layer supervision exceeds both tested intermediate-layer alternatives.",
+      "interpretation": "This supports the selected attachment point for this backbone, without establishing a universal layer-selection rule.",
+      "evidenceIds": [
+        "e18"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The unification comparison supports a modest additional gain beyond direct teacher supervision. It does not isolate which aspect of Gaussian fitting or rendering causes that gain, and reported tables provide no seed variability or confidence intervals.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e16",
+        "e17"
+      ]
+    },
+    {
+      "text": "Robustness remains uneven: Cosmos loses performance under background and lighting shifts, while RoboTwin Random success remains low. Aggregate improvement should not be read as broad distribution-shift reliability.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "text": "Teacher construction depends on synchronized views and estimated geometry. Confidence and coverage filtering restrict unsupported supervision but cannot independently establish that retained geometry is correct.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e06"
+      ]
+    },
+    {
+      "text": "The authors describe clearer depth probes and more organized t-SNE clusters. These visual claims were not independently checked. Probing against VGGT-Omega pseudo-depth also tests agreement with the geometry teacher rather than independent ground-truth geometry.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e19"
+      ]
+    },
+    {
+      "text": "Deployment architecture is preserved, but offline teacher construction adds work whose total time and cache-storage cost are not reported in the supplied setup.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e10"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reconstruction requires the backbone configurations, synchronized observations, VGGT-Omega and CLIP checkpoints, camera-aware grid alignment, Gaussian fitting/rendering, and cached-target integration. The paper links code, but neither code availability nor implementation was checked, and no experiments were reproduced.",
+      "kind": "source",
+      "evidenceIds": [
+        "e01",
+        "e04",
+        "e05",
+        "e06",
+        "e10"
+      ]
+    },
+    {
+      "text": "The supplied text leaves the geometry-confidence cutoff, semantic projection construction, fitting optimizer and loss weights, exact semantic-refinement choice, and outer distillation weight λ_G unspecified. The stated coverage threshold should not be confused with the unspecified geometry-confidence threshold.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e07",
+        "e10"
+      ]
+    },
+    {
+      "text": "A focused replication should compare direct CLIP + VGGT distillation, Gaussian targets without alpha, and the full model under matched FastWAM settings and multiple seeds. Preserve the official LIBERO-Plus aggregation, and measure teacher preparation cost alongside success to test the specific value of field construction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded outside-quadrant classification fits GaussianWAM as an auxiliary training framework rather than a distinct future/action prediction architecture. Its Gaussian mechanism supervises current visual representations and is removed at inference. Architecture 'Not applicable' is appropriate at this framework level: the FastWAM instantiation has separate interacting experts, whereas Cosmos uses a shared Transformer. The evidence supports 3D multiview supervision and generalization evaluation; action alignment occurs indirectly through backbone representations, without a new alignment decoder or inverse-dynamics mechanism.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e07",
+        "e08",
+        "e09",
+        "e12",
+        "e13"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "3D multiview modeling",
+        "Generalization & action alignment"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "a4e9616646a4f39fc642a7c6d3ab23756db9a38a871fef717ecccec33946d12f"
+    }
+  },
+  "discussionQuestions": [
+    "Does the incremental Gaussian-field gain persist across seeds when direct distillation uses matched validity handling and head capacity? [e07, e16]",
+    "Does stronger agreement with teacher depth translate into improved geometry against independent ground truth? [e19]",
+    "What explains the Cosmos background regression and the remaining RoboTwin Random failures? [e13, e14]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, author list, arXiv version line, and resource links",
+      "detail": "Title, identifier, and all nine listed authors match the catalog. The supplied artifact identifies arXiv:2608.24714v1, dated 25 August 2026, and prints code and project links."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Section 1 Introduction",
+      "detail": "The motivation concerns insufficient explicit geometry and localized semantics in video latents, heterogeneous independent teacher signals, and deployment costs of added 3D/4D machinery."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1 Overview",
+      "detail": "An offline Gaussian teacher supervises WAM visual representations. Teachers, Gaussian modules, and auxiliary heads are removed for inference in both tested architectures."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Geometry extraction and Visual-semantic feature extraction, Eq. (1)",
+      "detail": "Frozen VGGT-Omega provides depth, confidence, intrinsics, and extrinsics. Frozen CLIP ViT-B/16 features are projected to 64 dimensions on a common 14 × 14 grid. Teacher input is visual; language and proprioception remain policy inputs."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Gaussian field initialization and Multi-view Gaussian fitting, Eqs. (2)–(4)",
+      "detail": "Stride-one valid-grid initialization produces geometry/semantic primitives. Multi-view fitting uses depth-aware weighted rendering, semantic cosine and depth absolute errors, coverage and parameter regularization, with 50 fitting iterations and optional semantic refinement."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.2, Offline teacher cache, Eqs. (5)–(6)",
+      "detail": "The cache contains semantic, depth, alpha, and validity maps. Validity intersects geometry validity with coverage above 10^-4. Targets are resized/composed to the policy layout and reused offline."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.3 Gaussian Distillation, Eqs. (7)–(13)",
+      "detail": "Three heads predict semantic features, depth, and sigmoid alpha from final current-observation tokens. Valid-location cosine and absolute-error losses augment the original WAM objective; added modules are removed at inference."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 3.4 FastWAM-Style Dual-Expert MoT, Eq. (14)",
+      "detail": "Current tokens are selected from final video-expert hidden states. MoT interaction makes the supervised video representation available to a separate action expert without adding an action pathway."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 3.5 Cosmos-Policy-Style Unified DiT, Eq. (15)",
+      "detail": "Cosmos processes visual, world-related, and action-related tokens in a unified diffusion Transformer. Gaussian losses target its final current-observation visual tokens."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4.1 Experimental Setup, especially Backbones and training",
+      "detail": "The setup supplies FastWAM's 70k-step optimizer and batch configuration and loss weights, Cosmos's 5k iterations and effective batch 1920, and matched data/configuration/budgets for each baseline pair."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, FastWAM and Cosmos Policy baseline/enhanced rows, LIBERO column",
+      "detail": "LIBERO success is 96.60 to 97.60 for FastWAM and 98.50 to 98.60 for Cosmos Policy."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1 caption and FastWAM baseline/enhanced rows, Overall column; p. 8, Section 4.2",
+      "detail": "Models train on LIBERO and undergo zero-shot shifted evaluation on LIBERO-Plus. FastWAM overall success rises from 52.05 to 71.29, a reported 19.24-point gain."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, Cosmos Policy baseline/enhanced rows, Overall, Light, and BG columns",
+      "detail": "Overall success rises from 71.52 to 77.30. Lighting changes from 90.89 to 89.84 and background from 77.51 to 66.17."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2 caption and FastWAM/Cosmos rows; Section 4.2 RoboTwin discussion",
+      "detail": "The 15-task RoboTwin 2.0 table gives FastWAM Clean/Random as 70.50/0.70 versus 70.50/1.60, and Cosmos as 34.40/7.10 versus 68.90/14.40."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.2, Real-world manipulation paragraphs",
+      "detail": "Two UR7e arms perform two specified tasks with 100 demonstrations each and 20 independent trials per task per setting. Success requires all objectives. The prose reports average FastWAM success of 30.00 versus GaussianWAM's 40.00."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.3 Effect of Gaussian-field unification; p. 10, Table 3 caption and Overall column",
+      "detail": "Direct CLIP + VGGT gives 69.37, GaussianWAM without alpha 70.99, and full GaussianWAM 71.29, against FastWAM's 52.05. The text reports a 1.62-point unification gain without alpha; overall evaluation covers 10,030 tasks."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 3, Full and component-removal rows, Overall column; p. 9, component-ablation discussion",
+      "detail": "Full success is 71.29; removing semantics gives 68.06, depth 66.28, and alpha 70.99. No variability estimates accompany these scores."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 4 caption and Overall column; pp. 9–10, Effect of supervision depth",
+      "detail": "Layers 10, 20, and 30 achieve 67.86, 68.44, and 71.29 overall on 10,030 tasks. Layer 30 is the final Transformer layer."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 4.4 Qualitative Analysis",
+      "detail": "The authors describe frozen-backbone probes supervised by VGGT-Omega pseudo-depth and t-SNE of aggregated final visual features. They interpret the uninspected visualizations as improved geometric and semantic organization."
+    }
+  ]
+}

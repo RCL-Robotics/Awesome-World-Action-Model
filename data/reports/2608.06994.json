@@ -1,0 +1,525 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.06994",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T16:39:16.952Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.06994",
+      "title": "Decoupling Intention from Trajectory: A Representational Deduction Framework for World Action Models",
+      "kind": "pdf",
+      "sha256": "72b17529204e41601b853a6256d8e610247a8d077c8c261a7e4a319447f7318b",
+      "wordCount": 14164,
+      "accessedAt": "2026-09-07T13:53:54.863810+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and abstract, PDF p. 1",
+      "1. Introduction, PDF pp. 1–2",
+      "2. Related Work, Sections 2.1–2.2, PDF pp. 2–3",
+      "3. Method, Sections 3.1–3.5, PDF pp. 3–5",
+      "4. Experiments, Sections 4.1–4.5, PDF pp. 5–8",
+      "5. Conclusion, PDF p. 8",
+      "References, PDF pp. 9–11",
+      "6. Extended Related Work, Sections 6.1–6.5, PDF pp. 12–13",
+      "7. Implementation Details, Sections 7.1–7.15 and Algorithms 1–4, PDF pp. 13–24"
+    ],
+    "omissions": [
+      "Review covers the supplied complete 24-page text. Figure images were not supplied or visually inspected; only their extracted captions were read.",
+      "Original PDF equation and table layouts were not independently inspected.",
+      "Availability and contents of separate supplemental material remain unverified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7",
+      "Table 8",
+      "Table 9",
+      "Table 10"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "PILOT converts a pretrained video model into an observation encoder and trains learnable motion tokens to guide an action policy. These tokens receive future-state supervision through a predictor operating on frozen VJEPA2-AC features. At deployment, both future-image generation and the representation predictor are bypassed: the policy generates action chunks from current observations, language and robot state. Its central contribution is therefore training-time dynamics supervision with an asymmetric action-decoding architecture, rather than online imagined rollouts. Reported manipulation gains and reduced inference latency are promising, but conflicting configurations, evaluation protocols and aggregate results limit reproducibility. [e02, e03, e04, e05, e13, e15, e17, e19]",
+  "readingTimeMinutes": 13,
+  "problem": {
+    "text": "The authors argue that visual reconstruction objectives leave action models responsible for learning both intended state transitions and detailed motor trajectories within entangled representations. They propose explicitly supervising a motion-semantic intermediate representation. The premise that reconstruction causes this bottleneck is the authors' diagnosis, rather than an independently established property of all WAMs.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "An Action Perceiver extracts learnable motion tokens while preventing noisy action tokens from influencing them. Action tokens can nevertheless attend to the motion tokens, creating directional information flow.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03"
+      ]
+    },
+    {
+      "text": "Representational Deduction supervises these tokens through future-feature prediction by a trainable Causal Dynamics Engine, using a frozen VJEPA2-AC encoder for targets.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04"
+      ]
+    },
+    {
+      "text": "The authors attribute improved manipulation, robustness and data efficiency to disentangled motion semantics. Their ablations support useful component contributions, but do not establish identifiable physical causality or complete representational disentanglement.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e12",
+        "e13",
+        "e14"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Deployment: current RGB observation, language instruction and proprioceptive state; real-world experiments use three camera views. [e02, e20]",
+      "Training: demonstrated action chunks and future RGB observations; preprocessing specifies a future offset of 16 timesteps. [e02, e16]"
+    ],
+    "outputs": [
+      "Continuous action chunks decoded by flow matching; execution uses a prefix before replanning, although reported horizons conflict. [e03, e18]",
+      "Training-only future VJEPA representations and auxiliary future video latents. [e04, e05]"
+    ],
+    "steps": [
+      {
+        "name": "Encode the present observation",
+        "detail": "Wan2.2 processes observation latents and instruction embeddings in one comprehension pass, yielding 196 context tokens of dimension 2048. The formal method and Algorithm 3 use current observations, without predicted future frames as policy inputs.",
+        "evidenceIds": [
+          "e02"
+        ]
+      },
+      {
+        "name": "Extract motion semantics with asymmetric attention",
+        "detail": "The Action Perceiver combines a state token, 64 learnable queries and noisy action tokens. State and query tokens attend to context and each other; action tokens additionally attend to the noisy action sequence. Plain normalization on non-action tokens and time-conditioned normalization on action tokens keep motion representations independent of sampled action noise and flow time. Motion-CoT denotes latent features, not an explicitly decoded sequence of symbolic reasoning steps.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Supervise transitions in representation space",
+        "detail": "A frozen VJEPA2-AC encoder supplies current and future patch features, each with 256 tokens of dimension 1408. The CDE receives current features plus projected motion tokens and robot state, and predicts future features. Smooth-L1 supervision propagates through the CDE and motion projector into the query-producing network; the future observation supplies a target rather than query input.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Learn actions and preserve the video prior",
+        "detail": "Action outputs regress the velocity from Gaussian noise toward demonstrated trajectories. A separate generation pass through shared world-model weights predicts future-latent velocity, with noise and loss restricted to future positions. The optional change-weighted loss emphasizes regions whose latent differences exceed a batch-percentile threshold.",
+        "evidenceIds": [
+          "e03",
+          "e05",
+          "e06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The joint objective combines action flow matching, auxiliary future-latent prediction and RD. The appendix assigns unit weights to all three. The VJEPA encoder is frozen; world-model transformer and CDE weights are adapted from pretrained models, while the action branch and projectors are learned from scratch.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e18"
+        ]
+      },
+      {
+        "text": "The appendix repeats each example four times with independent action noise and averages query outputs. It reports checking their numerical agreement, consistent with the intended attention barrier. This is an author-reported implementation check, not a check performed for this review.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "A single observation-encoding pass supplies context, and Euler integration transforms action noise into a command chunk. The CDE, frozen representation encoder and future-image generation pathway are unnecessary for normal action inference. Replanning after executing a chunk prefix provides feedback; no CDE-based online search or trajectory scoring is specified.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e18"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "Z ← Z + Attn(Z, [c; Z]); Aτ ← Aτ + Attn(Aτ, [c; Z; Aτ]), with Z = [S; Q].",
+        "explanation": "Equations (3)–(4) block action-to-query information flow while retaining query-to-action conditioning. They also reveal that actions directly access context c, so the motion tokens are not an exclusive information bottleneck.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "aτ = (1 − τ)ε + τa; Lact = Eτ,ε ||vθ(aτ, τ, c, Z) − (a − ε)||².",
+        "explanation": "Equation (7), with the interpolation defined in Section 3.3, trains a velocity field along a straight path from Gaussian noise ε to a demonstrated action chunk a. Euler integration follows that field at deployment.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "r̂t+Δ = Gξ(rt; Wm m, Ws st); LRD = SmoothL1(r̂t+Δ, Eψ(ot+Δ)).",
+        "explanation": "Equations (8)–(11) turn future-feature prediction into supervision for motion tokens m. Eψ is frozen; Gξ and the conditioning projectors are trainable. This is forward representation prediction used during training.",
+        "evidenceIds": [
+          "e04"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO manipulation",
+      "setting": "Four suites totaling 40 tasks; Section 7.13 specifies 20 episodes per task.",
+      "metric": "Average task success",
+      "value": "97.9% reported",
+      "comparison": "Motus: 97.7%; calculated difference: 0.2 percentage points.",
+      "interpretation": "A small advantage near the benchmark ceiling. No uncertainty is supplied to establish whether this difference is statistically reliable.",
+      "evidenceIds": [
+        "e08",
+        "e19"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus robustness",
+      "setting": "Zero-shot transfer from standard LIBERO across seven perturbation types.",
+      "metric": "Reported overall and perturbation-specific success",
+      "value": "81.0% overall; 70.0% under robot perturbations",
+      "comparison": "PokeVLA: 79.3% overall and 46.1% under robot perturbations.",
+      "interpretation": "Calculated reported-aggregate gain is 1.7 percentage points, with a 23.9-point robot-perturbation gain. Robustness is uneven: PILOT trails PokeVLA on camera and noise perturbations.",
+      "evidenceIds": [
+        "e09"
+      ]
+    },
+    {
+      "task": "RoboCasa-GR1 manipulation",
+      "setting": "24 tasks; rollout count, camera view and action description conflict between Section 7.13 and Table 10.",
+      "metric": "Reported average success and novel-object tray-category success",
+      "value": "62.6% overall; 74.8% for novel-object transfers from trays",
+      "comparison": "FastWAM: 56.7% printed overall; strongest printed tray-category baseline, GR00T N1.6: 55.1%.",
+      "interpretation": "The tray-category difference is 19.7 percentage points. The overall baseline comparison needs correction: averaging FastWAM's 24 displayed task values gives approximately 54.8%, rather than its printed 56.7%.",
+      "evidenceIds": [
+        "e10",
+        "e19"
+      ]
+    },
+    {
+      "task": "Physical tabletop manipulation",
+      "setting": "Agibot-G1; eight standard tasks, 50 rollouts per task.",
+      "metric": "Average executed-task success",
+      "value": "83.1% printed aggregate",
+      "comparison": "FastWAM: 73.3%.",
+      "interpretation": "These are reported physical executions. However, PILOT's eight legible task rates average to 83.0%, so the printed aggregate is not exactly reproducible from Table 4.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Physical distribution-shift transfer",
+      "setting": "Flash plus camera offset, replaced desk surface, and altered object appearance.",
+      "metric": "Transfer success",
+      "value": "68.3% printed aggregate; component rates 72%, 68% and 64%",
+      "comparison": "FastWAM: 50.0% printed aggregate.",
+      "interpretation": "The reported advantage is substantial, but PILOT's component rates average to 68.0%. Different weighting is not explained, and perturbation rollout counts are unspecified.",
+      "evidenceIds": [
+        "e12",
+        "e20"
+      ]
+    },
+    {
+      "task": "Reduced-data physical adaptation",
+      "setting": "Training with 10% of demonstration data.",
+      "metric": "Average executed-task success",
+      "value": "62.4% reported",
+      "comparison": "FastWAM: 40.8%; PILOT's printed full-data aggregate: 83.1%.",
+      "interpretation": "Using the printed aggregates, PILOT loses 20.7 percentage points, approximately 24.9% relatively. Section 4.3 incorrectly calls the decline 20.7% relative. The experiment establishes reduced-data performance, not adaptation from a specified handful of demonstrations.",
+      "evidenceIds": [
+        "e12",
+        "e20"
+      ]
+    },
+    {
+      "task": "Component ablation",
+      "setting": "LIBERO and RoboCasa; cumulative configurations in Table 5.",
+      "metric": "Average success",
+      "value": "Adding RD plus CDE to Motion-CoT changes 94.5%/56.7% to 96.1%/59.8%; enabling decoupled attention then reaches 96.9%/61.3%.",
+      "comparison": "Calculated gains: RD plus CDE, 1.6/3.1 percentage points; attention decoupling, 0.8/1.5 points. Adding future-frame supervision to the latter configuration reaches 97.9%/62.6%.",
+      "interpretation": "The sequence supports complementary supervision and attention constraints. RD and CDE are introduced together, so their separate effects are not isolated; success gains alone do not demonstrate causal representation learning.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Inference strategy comparison",
+      "setting": "RoboCasa; both strategies listed as 5.4B parameters.",
+      "metric": "Inference latency",
+      "value": "111.60 ms for the decoupled pathway",
+      "comparison": "Predict-then-act: 1329.95 ms; approximately 11.9-fold speedup, calculated from Table 6.",
+      "interpretation": "Supports avoiding iterative future-image generation. The accompanying 8.26 Hz figure is inconsistent with the reciprocal of 111.60 ms, approximately 8.96 Hz. Raw action-output frequency should not be interpreted as feedback or replanning frequency.",
+      "evidenceIds": [
+        "e15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The attention mask establishes a computational restriction on noise leakage, not physical causal identification. Moreover, Equation (1) suggests actions depend on observations through m, whereas Equation (4) gives action tokens direct access to c. The architecture therefore does not enforce the strict bottleneck implied by that factorization.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03"
+      ]
+    },
+    {
+      "text": "The authors interpret t-SNE clusters and PCA feature maps as evidence of semantic disentanglement. Those images were not inspected here; even the described analyses provide qualitative association rather than controlled intervention evidence.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "text": "Simulation evaluation is internally inconsistent: Section 7.13 specifies 20 RoboCasa rollouts and third-person images, whereas Table 10 specifies 50 rollouts and an egocentric view. Reported action descriptions also differ. Baseline training parity and aggregation over seeds are not established, and selecting the checkpoint with the highest benchmark success can introduce selection optimism without a separate validation protocol.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e16",
+        "e19"
+      ]
+    },
+    {
+      "text": "Physical evaluation covers a restricted tabletop task family. The authors identify hierarchical Motion-CoT for multistage planning as future work; the supplied experiments do not establish general long-horizon physical planning.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e20",
+        "e21"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required components include Wan2.2-TI2V-5B, the VJEPA2-AC encoder and predictor initialization, demonstrated actions, paired future frames and the custom attention implementation. The paper reports 32 H20 GPUs, effective batches of 512/256 and 100,000/300,000 updates for LIBERO/RoboCasa, taking approximately 90/200 hours.",
+      "kind": "source",
+      "evidenceIds": [
+        "e16",
+        "e17"
+      ]
+    },
+    {
+      "text": "Resolve configuration contradictions before implementation: main-text action decoding uses four steps versus 20 in appendix tables; action width is 1024 versus 768; CDE depth is 24 versus four layers; and action-token length 16 coexists with benchmark horizons 50/100. Section 7.11 also describes independent token-group attention, unlike the action-to-query access in Equations (3)–(4).",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e17",
+        "e18"
+      ]
+    },
+    {
+      "text": "Training details also need reconciliation: action-time sampling is shifted Beta in Section 7.8 but shifted Logit-Normal in Section 7.11. RoboCasa prose specifies a unified learning rate of 1e-5 and 500 warmup steps; Table 8 instead assigns 5e-5 to action, predictor and projector modules with 3,000 warmup steps. The optional change-mask percentile and maximum weight are not numerically fixed in Section 7.7.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e16",
+        "e18"
+      ]
+    },
+    {
+      "text": "The real dataset table reports 7,135,187 frames. Prose describes 3,965 trajectories per sub-task, while its caption says all tasks share the same 3,965 trajectories. Unique-episode counts and session-separated sampling for the 10% condition require clarification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e20"
+      ]
+    },
+    {
+      "text": "A focused reproduction would compare Table 5's RD/CDE configurations with and without decoupled attention under matched data and seeds, verify query invariance across action-noise samples, and test whether replacing motion tokens degrades executed success. This tests the claimed mechanism more directly than embedding plots.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e07",
+        "e13"
+      ]
+    },
+    {
+      "text": "The paper links a project website and names StarVLA as its implementation base. Repository availability, code contents and installation were not inspected; no experiments were reproduced.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e22"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "The recorded Dual-system architecture is supported by distinct pretrained world-model and separately initialized action branches; joint training does not make them one model. JEPA supervision and inference-efficiency subcategories are also supported. However, the verified IDM designation is not established by the formal execution pathway: the action policy receives current-observation context and learned motion tokens, while the forward future-representation predictor is disabled at inference. There is no specified inverse-dynamics stage recovering actions from predicted future observations. Under a strict inference-mechanism interpretation, Q4 therefore needs editorial review. This does not justify automatically relabeling the model as joint future/action prediction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04",
+        "e05"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Latent prediction & JEPA",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "8e4b3a3396372a771dfa19a4b720f21f4061d8fb9c9c677558c1b580a99a6922"
+    }
+  },
+  "discussionQuestions": [
+    "Does swapping or removing motion tokens change the intended transition while preserving observation context, demonstrating that the decoder actually uses them? [e03, e13]",
+    "Would a simpler frozen-feature auxiliary predictor provide comparable gains under matched compute, without the pretrained CDE? [e04, e13]",
+    "Which configuration and evaluation protocol produced the headline results, given the conflicting horizons, sampling schedules and rollout counts? [e17, e18, e19]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title page and arXiv version line",
+      "detail": "The title, identifier 2608.06994 and all nine authors match the supplied catalog. The supplied title page identifies version v1, dated 7 August 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Sections 3.1–3.3, Equations (1)–(2); PDF p. 17, Algorithm 3",
+      "detail": "The method introduces a latent motion variable, diagnoses representational entanglement and computes context from current observations and language. Algorithm 3 extracts 196-by-2048 hidden features in one transformer pass."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.3, Equations (3)–(7); PDF p. 15, Section 7.5, Equations (15)–(21)",
+      "detail": "Non-action tokens exclude action tokens from their attention inputs; action tokens attend to context, non-action tokens and actions. Normalization separates time conditioning, and action outputs regress demonstrated-action-minus-noise velocity."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.4, Equations (8)–(11); PDF p. 16, Section 7.6",
+      "detail": "Frozen VJEPA2-AC features supervise a trainable predictor conditioned on current features, motion tokens and state. Smooth-L1 gradients train the conditioning pathway; future features are targets. Patch representations have shape 256 by 1408."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.5, Equation (12), Equation (13), and Inference paragraph",
+      "detail": "Action, future-latent and RD losses are jointly optimized. The encoder is frozen and other named branches are trained or fine-tuned. Future generation and RD are training-only pathways in normal deployment."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 16–17, Section 7.7, Equations (27)–(29)",
+      "detail": "An optional change mask thresholds latent differences using a batch percentile, weights changed locations by a configurable maximum and can leave unchanged locations clean during denoising. Numerical percentile and maximum-weight defaults are not supplied there."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Section 7.1; PDF p. 17, Algorithm 1, steps 2–10; PDF p. 19, Table 7",
+      "detail": "Action repeats use independent noise, average motion-token outputs and reportedly verify their agreement with an allclose assertion. Table 7 specifies four repeats."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, PILOT and Motus rows",
+      "detail": "PILOT's suite success rates are 97.1, 99.2, 98.1 and 97.2 percent, averaging 97.9; Motus has a printed average of 97.7 percent."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2, caption and PILOT/PokeVLA rows",
+      "detail": "Zero-shot LIBERO-Plus averages are printed as 81.0 and 79.3 percent. Robot rates are 70.0 versus 46.1; camera rates 76.0 versus 84.7; noise rates 78.0 versus 89.8."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3; PDF p. 24, Table 10, Average row, Tray average row and FastWAM task column",
+      "detail": "Both tables print overall PILOT/FastWAM success as 62.6/56.7 percent. Tray-category PILOT and GR00T N1.6 rates are 74.8/55.1. Table 10 supplies all 24 FastWAM task values for checking its aggregate."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.3, Standard Tasks; PDF p. 8, Table 4, standard-task columns",
+      "detail": "Eight physical tasks use 50 rollouts each. PILOT's displayed rates are 90, 100, 70, 94, 56, 88, 72 and 94 percent; its printed average is 83.1, versus FastWAM's 73.3."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.3, Generalization Transfer and Few-Shot Fine-Tuning; PDF p. 8, Table 4",
+      "detail": "PILOT transfer rates are 72, 68 and 64 percent, with a printed 68.3 average; FastWAM's average is 50.0. Few-shot averages are 62.4 and 40.8. Prose calls PILOT's decline from 83.1 to 62.4 a 20.7 percent relative drop."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 5, all six configuration rows",
+      "detail": "LIBERO/RoboCasa rates progress from 91.3/51.2 for the bare baseline to 93.6/54.8 with future prediction; Motion-CoT alone gives 94.5/56.7, RD plus CDE 96.1/59.8, added decoupling 96.9/61.3, and the full configuration 97.9/62.6."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.5; PDF p. 7, Figures 6–7 captions",
+      "detail": "The authors describe action-type clustering of motion embeddings and spatially coherent predicted features as evidence of disentanglement. This evidence entry concerns the supplied prose and captions, not visual inspection."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Table 6 and Section 7.3; PDF p. 23, Section 7.14",
+      "detail": "Table 6 lists predict-then-act/decoupled latency as 1329.95/111.60 ms, frequency as 0.75/8.26 Hz and success as 58.4/62.6 percent. Section 7.14 additionally claims 6.9 ms per action, 145 Hz raw output and 58 Hz effective control."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Section 7.12; PDF p. 21, Table 8",
+      "detail": "The source specifies future offset 16, 32 H20 GPUs, simulation batch sizes and training durations, and best-checkpoint selection by benchmark success. RoboCasa learning rates and warmup differ between prose and Table 8."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.1; PDF p. 18, Section 7.10; PDF p. 19, Table 7; PDF p. 23, Section 7.14",
+      "detail": "Wan2.2-TI2V-5B and VJEPA2-AC initialization are named. Main text gives action width 1024 and four decoding steps; the appendix gives width 768 and 20 steps. Predictor architecture is described as 24 layers, but the efficiency discussion calls the CDE four layers."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Section 7.8 and Algorithm 2; PDF p. 19, Table 7 and Section 7.11",
+      "detail": "The appendix supplies conflicting Beta/Logit-Normal action-time schedules, 16-token versus 50/100-step horizon descriptions, and independent-group versus asymmetric attention descriptions. It specifies execution prefixes of eight/50 actions and unit weights for the three training losses."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 20–21, Section 7.13, simulation descriptions and Evaluation protocol; PDF p. 24, Table 10 caption",
+      "detail": "Section 7.13 describes 40 LIBERO tasks and 24 RoboCasa tasks with 20 episodes each, third-person RoboCasa images and 32-dimensional actions. Table 10 instead describes 50 rollouts, egocentric input, 29-DoF actions and 1000 demonstrations per task."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF pp. 21–22, Section 7.13, Real-World benchmark and Evaluation settings; PDF p. 23, Table 9",
+      "detail": "Physical data use head and wrist cameras, teleoperation and eight tabletop tasks. The source specifies a 10% training subset and 7,135,187 frames. Prose describes 3,965 trajectories per sub-task, while Table 9's caption says the same trajectories are shared across tasks."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5, Conclusion",
+      "detail": "The authors propose hierarchical Motion-CoT for multistage embodied tasks as future work."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF p. 1, project URL; PDF p. 5, Section 4.1",
+      "detail": "The title page links a project website, and implementation prose identifies StarVLA as the codebase foundation. The supplied material does not verify an accessible or functioning release."
+    }
+  ]
+}

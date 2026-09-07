@@ -1,0 +1,547 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.28995",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:12:28.364Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.28995",
+      "title": "Hydra: A Navigation World Action Model with Discrete Latent Planning and Continuous Flow-Matching Execution",
+      "kind": "pdf",
+      "sha256": "aae873a09a7810fd81ee431e3e0b89cd8809c8cc935441ae0088a4e07505f1d6",
+      "wordCount": 16655,
+      "accessedAt": "2026-09-07T13:50:38.930702+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Hydra",
+      "3.1 Problem Formulation: Navigation Paradigms",
+      "3.2 Hydra",
+      "3.3 Planning in the Discrete Latent Manifold",
+      "3.4 Path Following via Global Guidance",
+      "4 Experiments",
+      "4.1 Generative Grounding: Long-Horizon Temporal Consistency",
+      "4.2 Planning: Real-Time Feasibility via Discrete Search",
+      "4.3 Latent Collision Detection",
+      "4.4 Local Path Following: Hydra vs. Reactive Policies",
+      "4.5 Ablations",
+      "5 Limitations and Future Work",
+      "6 Conclusion",
+      "Acknowledgment",
+      "References",
+      "Appendix introductory comparison",
+      "A Extended Results, A.1–A.5",
+      "B Learning Perspective on Hydra",
+      "C Architecture and Implementation Details",
+      "D Architectural Ablations, D.1–D.2",
+      "E Latent Planning Algorithm Details, E.1–E.3"
+    ],
+    "omissions": [
+      "Figure images were not supplied or visually inspected; figure-related observations below are attributed to the accompanying text.",
+      "Several Table 3 cells are concatenated in extraction. Numerical reporting from that table is restricted to values independently legible in the surrounding prose.",
+      "Separate supplemental material availability was not verified.",
+      "The project website, code, weights, and cited external works were not inspected.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3: selected cells corroborated by Section 4.4 prose",
+      "Table 4",
+      "Table 5",
+      "Table 6: collision columns",
+      "Table 7",
+      "Table 8",
+      "Table 9"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Hydra learns a shared representation of navigation images, poses, and motor commands, then searches over quantized intents before producing continuous motion. Its central contribution is the combination of learned candidate generation and visual-latent safety scoring, which avoids rendering every imagined future. The physical experiments support efficient short-range planning on the tested setups, while long-distance failures expose limited goal-directed search convergence. The reported comparison used workstation inference, so onboard performance remains unestablished. [e02, e03, e07, e08, e12, e19]",
+  "readingTimeMinutes": 15,
+  "problem": {
+    "text": "The authors identify a mismatch between continuous action samplers and visual world models: an external planner proposes poorly constrained trajectories and pays to render their consequences before evaluating them. Hydra seeks to make both candidate generation and safety evaluation operate within the learned representation while retaining continuous commands for physical navigation.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e08"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A shared early-fusion transformer predicts visual, pose, and action intents through separate codebooks, with modality-specific continuous generative heads.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04"
+      ]
+    },
+    {
+      "text": "Discrete Latent Planning combines perturbed intent queries, restricted code sampling, and a cost incorporating goal progress, demonstration likelihood, visual uncertainty, and quantization error.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "text": "Physical deployment compares search-based navigation and externally guided path following. These are distinct inference modes with different guidance and computation requirements.",
+      "kind": "source",
+      "evidenceIds": [
+        "e10",
+        "e12",
+        "e13"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Observation history containing egocentric RGB images, local odometric poses (x, y, θ), and previously executed velocity commands (v, ω).",
+      "Optional future pose or action conditions; DLP initializes these conditions as masked.",
+      "Geometric and optional visual goals for planning, or externally supplied waypoints/reference paths for local following."
+    ],
+    "outputs": [
+      "Predicted visual, pose, and action intents in separate discrete vocabularies.",
+      "Continuous predicted visual latents, pose trajectories, and motor commands through modality-specific heads.",
+      "A selected trajectory for physical execution; local vocabulary guidance also has a deterministic pose-decoding execution path."
+    ],
+    "steps": [
+      {
+        "name": "Encode aligned observation history",
+        "detail": "A frozen visual VAE supplies image latents. Fourier-mapped poses and actions are broadcast and added to visual features before sequence modeling. Learnable prediction tokens let the encoder compress history into future conditioning tokens.",
+        "evidenceIds": [
+          "e02",
+          "e03",
+          "e06"
+        ]
+      },
+      {
+        "name": "Predict and quantize intents",
+        "detail": "The shared transformer decoder combines cached context with future conditions or masks. Its outputs enter separate visual, pose, and action codebooks containing 2,048, 64, and 64 entries respectively. These are learned representation codes rather than a predefined grid of motor commands.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Explore alternative trajectories",
+        "detail": "Masked future conditions initialize a scene-conditioned expert prior. Subsequent iterations perturb candidate queries with temporally smoothed Gaussian noise, then sample among nearby codes using independently smoothed, annealed Gumbel noise. Query perturbations diversify trajectory shape; code sampling diversifies its discretization. The algorithm retains the best candidate across iterations.",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "name": "Score goal progress and predicted safety",
+        "detail": "KPC combines geometric goal distance, visual-goal latent similarity, negative log-likelihood under the expert prior, visual-token entropy, and visual quantization error. The last two penalize uncertain or poorly represented futures. Geometric distance requires pose decoding, so the method avoids per-candidate pixel rendering rather than literally all decoding.",
+        "evidenceIds": [
+          "e08",
+          "e07"
+        ]
+      },
+      {
+        "name": "Decode and execute",
+        "detail": "For DLP, the selected intent is decoded with flow matching; overlapping predictions are blended through temporal ensembling. Image generation is available for prediction but is unnecessary for candidate safety scoring. Appendix E.2 separately specifies deterministic pose decoding for both selection and execution in vocabulary-based local guidance.",
+        "evidenceIds": [
+          "e09",
+          "e10"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Training uses 100,355 synchronized samples spanning SCAND, TartanDrive, SACSoN, and RECON. Physical step sizes remain unnormalized across platforms, and backward movements are filtered. Images are 224 × 224; the frozen VAE produces 4 × 28 × 28 latents.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "text": "Each modality learns a conditional rectified-flow velocity field. A deterministic linear anchoring objective trains concurrently with flow matching to stabilize the intent representation; this is not a separately completed pretraining stage.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "text": "The infilling schedule reduces the fully observed sampling probability from 0.5 to 0.1 over a 10-epoch warmup, splitting remaining probability equally between forward- and inverse-kinodynamic mask states. Despite prose describing an initially fully observable regime, the explicit schedule starts at probability 0.5.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "text": "The model uses six encoder and six decoder layers, width 768, eight observation steps, and sampled target lengths of 4–12 steps at 4 Hz. AdamW runs for 60 epochs with learning rate 2 × 10⁻⁴, weight decay 0.08, and effective batch size 256. Table 9 specifies VQ commitment weight 0.25, EMA decay 0.99, and deterministic loss weight 0.1.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "DLP caches the observation encoding and refines candidates through the decoder. The reported planning configuration uses three iterations, 18 candidates, and a 12-step horizon. Selected kinodynamic trajectories use 10 flow evaluations; visual generation uses 50.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09",
+          "e12"
+        ]
+      },
+      {
+        "text": "Local following may interpolate conditional and unconditional intents or select vocabulary-derived trajectories against external guidance. Its sampling loop omits visual-codebook safety terms to reduce latency and instead relies on the demonstration prior. Appendix E.2 re-quantizes mixed candidates and uses deterministic pose decoding.",
+        "kind": "source",
+        "evidenceIds": [
+          "e10"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "ψ_s = (1 − s)ψ_0 + sψ_1; L_flow = E_{s,ψ_0,ψ_1}[‖v_θ^(ψ)(ψ_s, s, e_c) − (ψ_1 − ψ_0)‖₂²]",
+        "explanation": "Gaussian source ψ₀ and target ψ₁ define a linear interpolation. The modality-specific network predicts its velocity conditioned on discrete intent e_c; integration produces a continuous sample.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "J_KPC(τ) = C_geo + Σ_{t=1}^T γ^t[λ_img C_img^(t) + λ_prior C_prior^(t) + λ_ent C_ent^(t) + λ_vq C_vq^(t)]",
+        "explanation": "Equation (4) ranks candidate τ using goal costs and three avoidance-related terms. Discount γ reduces distant contributions; λ values weight the competing objectives. Quantization error measures representation mismatch, not a calibrated collision probability.",
+        "evidenceIds": [
+          "e08",
+          "e18"
+        ]
+      },
+      {
+        "expression": "z̃_g = z_∅ + ω(z_g − z_∅)",
+        "explanation": "Equation (5) applies guidance to the scene-conditioned unconditional intent. Values beyond interpolation can leave the supported code region, motivating the appendix's re-quantized candidate alternative.",
+        "evidenceIds": [
+          "e10"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Long-horizon video prediction",
+      "setting": "Held-out RECON subset; 100 clips, each 16 seconds at 4 FPS; ground-truth actions supplied at every step.",
+      "metric": "FVD, lower better",
+      "value": "Hydra: 19.1588 ± 5.1180",
+      "comparison": "NWM/B: 22.1087 ± 10.7199; VertiFormer: 81.0325 ± 12.5069.",
+      "interpretation": "Reported visual-generation performance under supplied actions. It does not measure autonomous action selection or executed robot success; the meaning of ± is not specified here.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Short-range physical planning",
+      "setting": "Jackal and Spot evaluation; goals approximately 8 m away. Success requires reaching within 0.5 m in under 3 minutes without collision. Inference uses an A5000 workstation.",
+      "metric": "Planning latency and successful trials",
+      "value": "Hydra: approximately 0.9 s; unobstructed 10/10, obstructed 8/10, corner turn 8/10.",
+      "comparison": "NWM/B: over 500 s and 0/10 in each category. VertiFormer: approximately 0.7 s and 4/10, 0/10, 0/10 respectively.",
+      "interpretation": "Supports usable short-range planning relative to these implementations. NWM failures include prohibitive latency. VertiFormer uses one search iteration versus three for Hydra, and the comparison changes search algorithm and cost terms as well as representation.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Long-distance physical navigation",
+      "setting": "Spot; Section 4.4 comparison with differing external-guidance density, 10 trials per scenario.",
+      "metric": "Success rate, traversal time, interventions",
+      "value": "Hydra planning: 40% success, 119 s traversal time, 3.4 ± 0.6 interventions.",
+      "comparison": "CFG is reported at 138 ± 7.7 s and 2.4 ± 0.9 interventions; the authors describe CFG and Sampling taking the required branch consistently.",
+      "interpretation": "Planning is not uniformly superior to local following. Appendix A.5 identifies goal-blind initialization and the limited refinement budget as contributors to missed turns; this does not isolate latency as the sole cause.",
+      "evidenceIds": [
+        "e13",
+        "e19"
+      ]
+    },
+    {
+      "task": "Obstacle-avoidance cost ablation",
+      "setting": "Ten physical trials per configuration; Spot blind-corner and Jackal frontal-obstacle tasks; image-goal cost disabled.",
+      "metric": "Reported collision measure, lower better",
+      "value": "Full cost: 0.20 on both platforms.",
+      "comparison": "Removing prior, VQ, or entropy terms gives Spot 0.70, 0.50, 0.40 and Jackal 0.70, 0.60, 0.80 respectively.",
+      "interpretation": "Every removal worsens the reported collision measure in both tasks. This supports complementary utility within the tested cost, without establishing statistical independence or a general safety guarantee. The table does not clarify collision normalization.",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "task": "Image-goal cost sensitivity",
+      "setting": "Image-goal cost enabled in frontal and blind-corner scenarios; 10 trials per configuration.",
+      "metric": "Success rate",
+      "value": "Visible goal: 80%; nonvisible goal: 20%.",
+      "comparison": "Table 5 compares visibility scenarios, without corresponding within-scenario image-cost-off results.",
+      "interpretation": "The result motivates caution when applying visual-goal matching, but does not by itself isolate the causal effect of enabling that cost.",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "task": "Offline trajectory forecasting",
+      "setting": "Averaged over SCAND, TartanDrive, SACSoN, and RECON; exact split details are not supplied alongside the table.",
+      "metric": "ADE / FDE, lower better",
+      "value": "Hydra: 0.24 / 0.42",
+      "comparison": "VertiFormer: 0.21 / 0.39; GNM: 0.32 / 0.53.",
+      "interpretation": "Hydra is competitive but does not lead this imitation-oriented metric. Units are not stated in Table 4, and these values are not physical task success.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Projection-capacity ablation",
+      "setting": "Linear projection versus a two-layer GeLU MLP, evaluated at 237K training steps.",
+      "metric": "Image-codebook perplexity and code usage",
+      "value": "Linear: 608.36 perplexity; 100% code usage.",
+      "comparison": "MLP: 465.42 perplexity; 100% code usage.",
+      "interpretation": "Supports more distributed code utilization with the linear projection. It does not directly establish better navigation or prove the theoretical geometry claims in Appendix B.",
+      "evidenceIds": [
+        "e20"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors report quantization-error false positives on traversable foliage and possible false negatives on visually simple walls. They also report disappearing pedestrians in predictions, attributing this partly to visual-codebook capacity and VAE bias. The images were not inspected in this reading.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e18",
+        "e21"
+      ]
+    },
+    {
+      "text": "Membership in a learned codebook does not guarantee collision-free execution in a new scene. The paper's stronger language about physically plausible candidates must be read alongside its collision results, hallucination failures, and reliance on collision-free demonstrations.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e16",
+        "e18"
+      ]
+    },
+    {
+      "text": "The onboard-efficiency framing exceeds the demonstrated hardware scope: the comparative physical trials explicitly offload inference to a workstation. Local-following comparisons also change guidance density, and nonzero interventions complicate interpreting success rates as autonomous completion.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "text": "Unbiased initialization can miss an early required turn before goal costs reshape the candidate population. Goal-conditioned seeding reportedly fixes that failure but reduces candidate diversity. Filtering backward motion further limits what the learned maneuver vocabulary can support.",
+      "kind": "source",
+      "evidenceIds": [
+        "e19",
+        "e06"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "The supplied title page establishes arXiv:2608.28995v1, dated 29 August 2026, with the catalog title and all nine listed authors matching. The authors advertise weights and deployment code, but availability, installation, and execution were not independently checked.",
+      "kind": "source",
+      "evidenceIds": [
+        "e01",
+        "e22"
+      ]
+    },
+    {
+      "text": "Reproduction requires synchronized multimodal dataset preparation, the frozen VAE, concurrent anchoring/VQ/flow training, and deployment with comparable guidance and control timing. Exact dataset partitions, training hardware, KPC weights and discount, top-K size, and several search-noise settings are not fully specified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e08",
+        "e12"
+      ]
+    },
+    {
+      "text": "Clarify the DLP pose-scoring implementation: geometric candidate ranking needs decoded poses, whereas the main text also describes decoding only the winner. Additionally, the mapping from the evaluated CFG variant to Equation (5) versus Appendix E.2's deterministic candidate execution is unresolved.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e02",
+        "e08",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "text": "A focused replication should repeat the cost-term removals on identical routes with fixed candidate budgets, record collisions and interventions separately, and measure end-to-end latency. Adding textured safe regions and plain obstacles would directly test whether latent rejection detects risk rather than visual complexity. No experiments were reproduced here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e16",
+        "e18"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "WAM and Navigation are supported. However, the documented architecture uses a shared early-fusion encoder–decoder with modality-specific codebooks and heads; it does not identify separately learned world-model and policy systems. Thus a model-level Dual-system interpretation conflicts with the architecture evidence, beyond joint training alone. Hydra explicitly predicts future observations and actions jointly, although its control mechanism adds discrete search and conditional decoding; Other mechanisms obscures that predictive structure. Latent prediction fits, but no JEPA objective is described. The exact replacement quadrant remains unresolved because quadrant definitions were not supplied. This assessment flags the recorded snapshot for review without changing it.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04",
+        "e05",
+        "e07"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Navigation",
+        "Latent prediction & JEPA"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "baf54329c4c3be1e2dc9c1103295428e1d6dac696bdde1d47ae1390661b0a581"
+    }
+  },
+  "discussionQuestions": [
+    "Can quantization error distinguish unsafe geometry from harmless texture under controlled appearance changes? [e18]",
+    "Would mixed goal-conditioned and unbiased seeds recover early turns without collapsing search diversity? [e19]",
+    "How much of the planning advantage remains when candidate budgets, cost information, and wall-clock limits are matched? [e12]",
+    "Does flow decoding improve executed motion enough to justify its cost over the deterministic anchoring head? [e09, e10]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author list, and arXiv version line",
+      "detail": "The title and nine authors match the catalog; the artifact identifies arXiv:2608.28995v1 and 29 August 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2 and 4–5, Introduction and Section 3.1, especially Eq. (3)",
+      "detail": "The paper motivates representation-aligned planning, defines image/pose/previous-action history, and formulates joint future observation generation conditioned on actions or poses."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.2, Unified Multimodal Encoding and The Discrete Bottleneck",
+      "detail": "Visual and Fourier-mapped kinodynamic features are added before the shared transformer. Decoder intents enter visual, pose, and action vocabularies of 2,048, 64, and 64 entries."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.2, Multimodal Generative Flow Matching and unnumbered loss",
+      "detail": "Three conditional flow decoders learn the velocity between Gaussian noise and modality targets along a linear interpolation."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Appendix B, Information Bottleneck and Posterior Collapse; p. 27, Appendix D.2",
+      "detail": "The deterministic linear anchoring loss and flow objective train concurrently; the authors attribute early representational stabilization to the auxiliary head."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 24–26, Appendix C, Eqs. (7)–(8), Datasets, Variable Target Horizon, and Table 9",
+      "detail": "Documents the frozen visual encoder, 100,355 samples, unnormalized physical steps, backward-motion filtering, infilling schedule, observation/forecast lengths, architecture, optimizer, and loss settings."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 27–29, Appendix E.1, Eq. (9), Algorithm 1, annealing schedules, and Top-K Kinematic Masking",
+      "detail": "DLP uses distinct Gaussian query perturbations and restricted Gumbel code sampling, temporal smoothing, cached history, iterative elite updates, and global-best retention."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 3.3, Eq. (4) and definitions of its five cost terms",
+      "detail": "KPC combines geometric/visual goal costs with expert-prior NLL, visual entropy, and cosine quantization error. The text explicitly exempts geometric cost from entirely latent evaluation."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 3.3, execution and Real-Time Inference paragraphs; p. 28, Algorithm 1 return",
+      "detail": "The selected trajectory uses flow decoding and temporal ensembling. Kinodynamic and visual heads use 10 and 50 function evaluations; iterative search reuses encoded context."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 3.4, Eqs. (5)–(6); p. 29, Appendices E.2–E.3, Eqs. (10)–(12)",
+      "detail": "Local following uses guidance or candidate selection without visual safety scoring. Appendix E.2 re-quantizes vocabulary mixtures and explicitly uses the deterministic pose head for candidate scoring and winner execution."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.1 and Table 1, FVD column",
+      "detail": "The matched RECON video protocol uses 100 clips of 16 seconds at 4 FPS with supplied ground-truth actions; FVD values are Hydra 19.1588 ± 5.1180, NWM/B 22.1087 ± 10.7199, and VertiFormer 81.0325 ± 12.5069."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 4.2 and Table 2, configuration, planning time, and success columns",
+      "detail": "Physical comparisons use workstation inference and approximately 8 m goals. Table 2 gives Hydra approximately 0.9 s and 10/10, 8/10, 8/10 successes; NWM/B over 500 s and zero successes; VertiFormer approximately 0.7 s and 4/10, 0/10, 0/10."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Section 4.4, Table 3 caption and CFG/Sampling and Planning versus local following paragraphs",
+      "detail": "Guidance differs between dense goal images and sparse waypoints. Prose confirms planning's 40% long-distance success, 119 s time, and 3.4 ± 0.6 interventions; CFG takes 138 ± 7.7 s with 2.4 ± 0.9 interventions."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 4, Hydra, VertiFormer, and GNM rows",
+      "detail": "Four-dataset averages report ADE/FDE of 0.24/0.42 for Hydra, 0.21/0.39 for VertiFormer, and 0.32/0.53 for GNM."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Section 4.5 and Table 6, Spot and Jackal collision columns",
+      "detail": "With image cost disabled, full-cost collisions are 0.20 on both platforms. Removing prior, VQ, or entropy gives 0.70/0.50/0.40 on Spot and 0.70/0.60/0.80 on Jackal; configurations average 10 trials."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Table 5 and Goal visibility gates the image-goal term",
+      "detail": "With image-goal cost active, frontal visible-goal success is 80% and blind-corner nonvisible-goal success is 20%; the table supplies no matched cost-off rows."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 4.3; p. 13, Section 5, Manifold Rejection Confuses Visual Complexity with Genuine Risk",
+      "detail": "The authors describe latent error and entropy increasing near an obstacle, declining after hallucinated free space, false positives on foliage, and possible under-detection of simple walls."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 22–23, Appendix A.5, goal-blind initialization and seeding tradeoff",
+      "detail": "Goal information reaches initially unbiased candidates through iterative scoring. Three iterations may miss an early turn; goal-conditioned seeding reportedly fixes this but reduces diversity."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF pp. 25–26, Appendix D.1, Projection Capacity and Codebook Utilization",
+      "detail": "At 237K training steps, linear and MLP projections both use all codes, with image-codebook perplexities of 608.36 and 465.42 respectively."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Section 5, Semantic Omission and Representational Capacity; p. 22, Appendix A.5, missed pedestrians",
+      "detail": "The authors report pedestrian erasure, hypothesize codebook/VAE causes, and discuss the tradeoff between vocabulary expressivity and retrieval latency."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF p. 2, footnote 5",
+      "detail": "The authors state that model weights and deployment code are available through the project website; no repository contents are supplied."
+    }
+  ]
+}

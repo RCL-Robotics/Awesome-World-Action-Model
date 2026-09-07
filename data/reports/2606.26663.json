@@ -1,0 +1,522 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.26663",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:22:25.106Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.26663",
+      "title": "Tactile-WAM: Touch-Aware World Action Model with Tactile Asymmetric Attention",
+      "kind": "pdf",
+      "sha256": "d38f4fd97442390a0fd6096d0282c5efca0fb57cf8dd0e8f1c8495373dfc6aa5",
+      "wordCount": 6024,
+      "accessedAt": "2026-09-07T13:51:01.195060+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and version identifier: arXiv:2606.26663v3, 27 August 2026",
+      "Abstract",
+      "1 Introduction",
+      "2 Preliminaries and Notation",
+      "3 Key Observations",
+      "4 Method",
+      "5 Experiments",
+      "6 Conclusion",
+      "References",
+      "A Related Work",
+      "B Model Details",
+      "C Experiments Details",
+      "Supplied captions for Figures 1–7 and S1–S24"
+    ],
+    "omissions": [
+      "Figure images were not supplied or visually inspected; captions alone were read.",
+      "Separate supplemental material availability remains unverified. Review coverage is limited to the supplied text from the 29-page artifact.",
+      "Referenced papers, code, datasets, and external documentation were not independently inspected.",
+      "This report reviews only the supplied primary text. No code was inspected, installation verified, or experiment reproduced.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: UniVTAC success counts",
+      "Table 2: ManiFeel success counts",
+      "Table 3: Agreement with DreamZero at 20K",
+      "Table 4: Prediction-to-DreamZero MSE by rollout chunk",
+      "Table 5: Ground-truth prediction quality",
+      "Table 6: Cumulative ManiFeel ablation"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Tactile-WAM jointly generates visual futures, tactile futures, and robot actions inside a shared Wan Transformer. Its central intervention blocks video queries from tactile keys while preserving action access to touch; a deformation-derived contact cue also biases action attention and supervises predicted tactile dynamics. The largest reported ablation gain comes from the directional mask. Visual evaluation establishes closer agreement with DreamZero, while changes in ground-truth prediction quality remain statistically undetected. [e03, e04, e05, e13, e14, e16]",
+  "readingTimeMinutes": 12,
+  "problem": {
+    "text": "Contact-rich manipulation requires detecting slip, jamming, and subtle alignment changes that RGB observations may conceal. The authors argue that simply adding tactile tokens can disturb a video-pretrained WAM, and that tactile pixel reconstruction alone poorly captures action-relevant contact changes. Their proposed solution must preserve useful visual dynamics while making touch available for corrective action generation.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Identifies tactile pollution as an empirical failure of unrestricted tactile fusion and introduces VideoClean, a directional attention mask that removes direct tactile-key access for video queries.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e02",
+        "e04"
+      ]
+    },
+    {
+      "text": "Uses a fixed, differentiable, six-dimensional deformation proxy in two roles: observed contact changes control attention, and future contact changes provide auxiliary training supervision.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05"
+      ]
+    },
+    {
+      "text": "Evaluates executed manipulation separately from video prediction, with simulation comparisons, physical trials, and a cumulative ablation. These experiments support the combined system but only partly identify which contact-aware components cause its gains.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e12",
+        "e13",
+        "e14"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "RGB observations, bilateral optical tactile history, proprioceptive state, and a language instruction.",
+      "During training: aligned future RGB frames, tactile frames, and demonstrated action chunks."
+    ],
+    "outputs": [
+      "Jointly predicted future visual latents, future tactile latents, and action chunks.",
+      "Decoded visual and tactile predictions; action commands are executed through the task's control interface."
+    ],
+    "steps": [
+      {
+        "name": "Encode and align modalities",
+        "detail": "A shared frozen Wan2.2 VAE encodes RGB and a horizontal left–right tactile mosaic separately. Appendix B specifies resizing the complete mosaic to 320×160. Tactile patches receive learned projections and modality embeddings; actions and states receive their own projections. UMT5-XXL language features enter the shared DiT through cross-attention.",
+        "evidenceIds": [
+          "e03",
+          "e08"
+        ]
+      },
+      {
+        "name": "Jointly denoise futures and actions",
+        "detail": "One Wan2.2-TI2V-5B DiT processes the modality token groups and predicts their flow fields through output heads. A training clip contains 33 image frames, compressed into nine latent frames: one clean condition and eight future latents arranged into four causal blocks. Each block aligns two latent frames with a 24-step action chunk.",
+        "evidenceIds": [
+          "e03",
+          "e07",
+          "e08"
+        ]
+      },
+      {
+        "name": "Constrain tactile routing",
+        "detail": "VideoClean adds negative infinity to attention logits only when a video query addresses a tactile key. Action queries retain tactile access. A bounded scalar bias increases action-to-tactile logits within the same causally accessible block; it depends on an observed tactile pair spanning the preceding eight image-frame intervals.",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "name": "Preserve deformation information",
+        "detail": "The fixed proxy converts grayscale temporal differences and spatial gradients into mean horizontal deformation, mean vertical deformation, and mean divergence for each sensor. Predicted tactile latents are decoded during training so proxy error can backpropagate through the frozen decoder. These descriptors are deformation summaries, without demonstrated calibration to physical force.",
+        "evidenceIds": [
+          "e05"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The DiT, modality projections, embeddings, attention modifications, and prediction heads are jointly optimized; the VAE and language encoder remain frozen. Aligned video, tactile, and action targets share a sampled noise level within each causal block, while the conditioning frame stays clean.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "text": "Training combines modality-normalized flow losses with a tactile proxy SmoothL1 term weighted by 0.05. The observed proxy used for routing is detached. Appendix B describes eight A100 GPUs, global batch size 8, AdamW with peak learning rate 10^-5, 5% warmup followed by cosine decay, BF16, ZeRO-2, and seed 42.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e07"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Sampled noise is transformed into visual futures, tactile futures, and actions through the learned conditional flow. The attention bias uses observed touch rather than future targets or intermediate denoising predictions. Proxy supervision is a training loss; actions are produced by the joint model's action head.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e05",
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "text": "For ManiFeel, observations are sampled at 10 fps, the simulator runs at 60 Hz with control decimation 4, and the policy predicts 24 actions but executes eight before replanning. This establishes feedback through repeated observations in that protocol. The supplied text does not establish corresponding physical deployment timing or inference latency.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "x_ρ^m = (1−ρ)x_0^m + ρε^m; u_ρ^m = ε^m−x_0^m; L_FM^m = E[||v_θ^m−u_ρ^m||²₂]",
+        "explanation": "For modality m, x_0 is a clean future latent or action target, ε is Gaussian noise, and ρ indexes the interpolation toward noise. The network learns the corresponding velocity. The tactile branch extends the same construction to future tactile latents.",
+        "evidenceIds": [
+          "e03",
+          "e06"
+        ]
+      },
+      {
+        "expression": "A′_qk = qᵀk/√d + M_causal,qk + M_vc,qk + B_τ,qk; b_c = clip(α tanh(ReLU(||F_c^obs||₂−θ)/T), 0, b_max)",
+        "explanation": "M_vc is −∞ for video-query/tactile-key pairs and zero otherwise. B_τ equals b_c only for action queries and tactile keys in the same permitted block. θ thresholds the observed proxy magnitude, T controls its response, and α and b_max scale and cap the logit bias.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "u_x = ΔI g_x/√(g_x²+g_y²+ε); u_y = ΔI g_y/√(g_x²+g_y²+ε); f^s = [⟨u_x⟩, ⟨u_y⟩, ⟨∂_x u_x+∂_y u_y⟩]",
+        "explanation": "ΔI is a grayscale temporal difference, g_x and g_y are centered spatial gradients, and brackets denote spatial averaging. Concatenating the two sensors gives six features. Main-text Eq. (14) specifies ε=10^-6. The observed gate uses one nonadjacent frame pair; future supervision uses eight consecutive transitions per block.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "L = L_video + L_action + λ_τ L_FM^τ + 0.05 SmoothL1(F̂, F*)",
+        "explanation": "F̂ is computed from decoded predicted tactile frames and F* from ground-truth tactile frames. Their shape is C×8×6 for C causal blocks. The auxiliary term encourages predicted tactile representations to retain deformation dynamics; λ_τ is not numerically specified in the supplied text.",
+        "evidenceIds": [
+          "e05",
+          "e07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "UniVTAC manipulation",
+      "setting": "Eight simulation tasks; 100K training steps; 20 execution trials per task.",
+      "metric": "Overall execution success",
+      "value": "Reported 48/160 (30.0%).",
+      "comparison": "DreamZero: 34/160 (21.3%); without VideoClean: 42/160 (26.3%); π0.5: 69/160 (43.1%).",
+      "interpretation": "Tactile-WAM leads the listed WAM variants but trails π0.5 overall. Gains are uneven: tube insertion reaches 17/20 against DreamZero's 4/20, while HDMI insertion is 0/20.",
+      "evidenceIds": [
+        "e10"
+      ]
+    },
+    {
+      "task": "ManiFeel manipulation",
+      "setting": "Nine simulation tasks; 60K training steps; 50 execution trials per task.",
+      "metric": "Overall execution success",
+      "value": "Reported 147/450 (32.7%).",
+      "comparison": "DreamZero: 70/450 (15.6%); π0.5: 165/450 (36.7%).",
+      "interpretation": "The reported improvement over DreamZero is 17.1 percentage points. Tactile-WAM leads on peg, gear, and bulb insertion and bolt–nut assembly, but π0.5 has higher aggregate success.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Physical contact-rich manipulation",
+      "setting": "Five tasks, with power insertion additionally evaluated under dim lighting; six conditions with 20 trials each.",
+      "metric": "Overall physical execution success",
+      "value": "Reported 59/120 (49.2%).",
+      "comparison": "π0.5: 24.2%; DreamZero: 21.7%; VT-WAM: 15.8%.",
+      "interpretation": "These are reported robot execution outcomes. The prose reports first place in all six conditions and 50% success for dim-light power insertion; the figure itself was not inspected.",
+      "evidenceIds": [
+        "e09",
+        "e12"
+      ]
+    },
+    {
+      "task": "Cumulative mechanism ablation",
+      "setting": "ManiFeel; 60K training steps; the same stated evaluation budget.",
+      "metric": "Execution success",
+      "value": "Reported sequence: naive tactile fusion 15.1%; +VideoClean 28.4%; +proxy supervision and bias 32.7%.",
+      "comparison": "RGB-only DreamZero: 15.6%. VideoClean adds 13.3 percentage points; the final paired additions add 4.3 percentage points.",
+      "interpretation": "The directional mask accounts for the largest observed increment. Proxy supervision and attention bias are added together, so their individual effects are unidentified.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Preservation of the DreamZero visual trajectory",
+      "setting": "84 paired held-out UniVTAC samples; step-matched 20K checkpoints; matched conditioning and diffusion seeds.",
+      "metric": "Prediction-to-DreamZero MSE, lower is better",
+      "value": "Reported reduction from 0.001568 to 0.001227 (21.8%).",
+      "comparison": "VideoClean versus unrestricted fusion; reported paired improvement 0.000342, with 95% bootstrap CI [0.000117, 0.000555].",
+      "interpretation": "This measures agreement with a reference model's predictions. It does not directly measure execution success or ground-truth dynamics accuracy.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Longer visual rollout preservation",
+      "setting": "Fourth autoregressive rollout chunk, H4, in the same 20K evaluation.",
+      "metric": "Prediction-to-DreamZero MSE",
+      "value": "Reported reduction from 0.002448 to 0.001505 (38.5%).",
+      "comparison": "VideoClean is closer to DreamZero on 90.5% of H4 samples; at H1, MSE is 0.000706 versus 0.000695 without VideoClean.",
+      "interpretation": "Reference agreement improves more at later rollout chunks; the mask does not improve this metric uniformly across horizons.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "Ground-truth video prediction",
+      "setting": "Step-matched 20K evaluation accompanying the reference-agreement analysis.",
+      "metric": "Ground-truth MSE and paired improvement",
+      "value": "Reported MSE: 0.001777 with VideoClean versus 0.001748 without it.",
+      "comparison": "Reported paired improvement −0.000029; 95% CI [−0.000257, 0.000202].",
+      "interpretation": "All reported intervals for MSE, MAE, PSNR, and SSIM include zero. This supports an undetected difference, rather than an established improvement or a formal equivalence result.",
+      "evidenceIds": [
+        "e16"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The ablation cannot separate proxy supervision from attention bias. The contact-correction narrative is supported by an illustrated example, but the authors explicitly acknowledge the absence of a bias-only real-robot variant.",
+      "kind": "source",
+      "evidenceIds": [
+        "e13",
+        "e17"
+      ]
+    },
+    {
+      "text": "Initialization is described inconsistently: the methods specify a pretrained Wan backbone that is fully fine-tuned, while experiment sections call the WAM variants trained from scratch. The exact initialization must be resolved before accepting the stated fairness argument or reproducing it.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e20"
+      ]
+    },
+    {
+      "text": "The abstract attributes the 21.8% visual-agreement result to ManiFeel, whereas the detailed experiment specifies UniVTAC. This report follows the detailed protocol. The conclusion's broad state-of-the-art claim also exceeds Tables 1–2, where π0.5 has higher aggregate success on both suites.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e18",
+        "e19"
+      ]
+    },
+    {
+      "text": "The deformation proxy has no demonstrated force calibration. Its spatial averages may discard localized or opposing deformations, so matching the proxy does not by itself establish physically accurate tactile futures.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05"
+      ]
+    },
+    {
+      "text": "Physical evaluation uses a small fixed trial budget without reported control-success confidence intervals or multi-seed variation. Appendix captions additionally describe seven real-world experiments, including phone pick-and-place, while the quantitative protocol specifies six conditions. Those captions cannot be counted as additional quantitative evaluations.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e12",
+        "e21"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction requires synchronized RGB, bilateral tactile, state, action, and language data; the exact Wan initialization; and matched simulator and robot protocols. The supplied text does not fully specify dataset splits, robot hardware, physical control frequency, initialization/reset distributions, or operational success criteria. Appendix C refers several physical details to supplementary material without providing them in the supplied text.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e08",
+        "e09",
+        "e20"
+      ]
+    },
+    {
+      "text": "Implementable details include complete-mosaic resizing, image normalization, percentile action normalization, centered derivative kernels, frozen-decoder gradients, and block-level shared noise. Remaining numerical gaps include λ_τ, attention-bias θ/T/α/b_max, and inference solver and step count. Appendix B's eight-dimensional action width also conflicts with Appendix C's seven-dimensional ManiFeel interface.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e07",
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "text": "A focused mechanism test would compare naive fusion, VideoClean, VideoClean plus proxy supervision, VideoClean plus bias, and the full model on a contact-sensitive task under identical initialization and data. Measure executed success, reference agreement, and ground-truth prediction error separately, with repeated seeds. This would address the missing component isolation without claiming a complete reproduction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13",
+        "e14",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The supplied snapshot is supported architecturally: video, tactile, action, and state tokens share one Wan DiT, with modality projections and output heads. Future visual/tactile latents and actions are jointly denoised, supporting One Model × Joint prediction rather than an inverse-dynamics classification. The proxy loss is auxiliary supervision, while observed tactile routing operates during inference. Tactile sensing supports the multimodal subcategory; no audio modality is studied.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e07"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Joint video-action modeling",
+        "Multimodal, tactile & audio sensing"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q1 · One Model × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "9c74b0c7cde4e949ccf64d315d2b7760647370a7dd73461f4f1fcf8a508f1caa"
+    }
+  },
+  "discussionQuestions": [
+    "How much execution benefit comes independently from proxy supervision and observed-contact attention bias?",
+    "Would local deformation features retain contact information lost by the spatially averaged proxy?",
+    "Does greater agreement with DreamZero predict better control once ground-truth visual accuracy and training initialization are controlled?",
+    "What exact initialization, action interface, and physical evaluation protocol produced the reported results?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author list, and arXiv version line",
+      "detail": "The title and identifier match the catalog. Author identities substantially agree after name-order normalization, including Huang Kaixiang and Chen Yonghang. The supplied title page identifies arXiv:2606.26663v3 dated 27 August 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Sections 1 and 3, Tactile Pollution and Pixel–Contact Misalignment",
+      "detail": "The authors motivate touch through contact states poorly observed in RGB, describe interference from unrestricted tactile fusion, and report a mismatch between pixel variation and contact variation."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 4, Architecture Overview and Joint Visual-Tactile-Action Modeling, Eqs. (7)–(8); p. 10, Appendix B, Backbone and Multimodal Tokenization",
+      "detail": "RGB and tactile inputs use the frozen Wan VAE; bilateral tactile images form a mosaic. One language-conditioned Wan DiT jointly predicts visual futures, tactile futures, and actions. Appendix B identifies the Wan2.2-TI2V-5B backbone and UMT5-XXL language conditioning."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Tactile Asymmetric Attention Mask, Eqs. (9)–(13); p. 11, Causal Multimodal Attention, Eqs. (21)–(23)",
+      "detail": "Video queries are masked from tactile keys. A bounded observed-contact bias applies to same-block action-query/tactile-key connections already permitted by the causal mask. Its parameters are θ, T, α, and b_max."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Touch-aware Proxy, Eqs. (14)–(17); p. 11, Touch-Aware Proxy, Eqs. (24)–(28)",
+      "detail": "The fixed differentiable estimator computes mean directional deformation and divergence for each sensor. Main-text ε is 10^-6. Future targets contain eight adjacent transitions per block; the observed cue uses one pair separated by eight frames and is detached. Proxy SmoothL1 supervision has weight 0.05 and backpropagates through the frozen decoder. No physical-force calibration is established."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 2, World Action Models, Eqs. (2)–(3); p. 12, Flow-matching construction, Eq. (31)",
+      "detail": "Clean targets are interpolated with Gaussian noise and trained against noise-minus-target velocity. Training samples from 1000 discrete noise levels, sharing the level across aligned modalities within each causal block."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Prediction Heads and Objective, Eqs. (29)–(30), and Training Configuration",
+      "detail": "Modality output heads predict flow targets under normalized losses. The DiT and added modules are jointly fine-tuned while VAE and language encoder remain frozen. Training uses AdamW, peak learning rate 10^-5, 5% warmup, cosine decay, BF16, seed 42, eight A100 GPUs, global batch size 8, and ZeRO-2."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Backbone and Latent Representation, Multimodal Tokenization, and Temporal Block Organization, Eq. (20)",
+      "detail": "Complete tactile mosaics and RGB sequences are resized to 320×160 and normalized to [−1,1]. A 33-frame clip becomes nine latent frames, with one clean condition and four future blocks of two latents. Each block aligns with 24 actions. Actions/states use width eight with padding masks and first/99th-percentile normalization."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix C, Experimental Setup",
+      "detail": "UniVTAC uses eight tasks, 100K steps, and 20 trials per task; ManiFeel uses nine tasks, 60K steps, and 50 trials per task. ManiFeel samples observations at 10 fps, runs simulation at 60 Hz with decimation four, and executes eight of 24 predicted actions before replanning. It describes a seven-dimensional action interface. Physical evaluation lists five tasks and six conditions, with 20 trials each, and defers detailed hardware and procedures to supplementary material."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 1, method rows, Tube ins., HDMI ins., and Overall columns",
+      "detail": "Overall successes are Tactile-WAM 48/160, without VideoClean 42/160, DreamZero 34/160, and π0.5 69/160. Tactile-WAM achieves 17/20 tube insertions versus DreamZero's 4/20, and 0/20 HDMI insertions."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 2 and Simulation Results",
+      "detail": "ManiFeel totals are Tactile-WAM 147/450 (32.7%), DreamZero 70/450 (15.6%), and π0.5 165/450 (36.7%). Tactile-WAM leads the listed methods on peg, gear, and bulb insertion and bolt–nut assembly."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Real-Robot Results",
+      "detail": "The prose reports Tactile-WAM 59/120 successes (49.2%), versus π0.5 24.2%, DreamZero 21.7%, and VT-WAM 15.8%. It reports first place across six conditions and 50% success on dim-light power insertion."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Ablation Study and Table 6",
+      "detail": "Success rates are DreamZero 0.156, naive tactile fusion 0.151, added VideoClean 0.284, and full model 0.327. Force supervision and attention bias enter together, and the text explicitly limits attribution to their joint effect."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Tactile Pollution and VideoClean; p. 7, Table 3, MSE row",
+      "detail": "The evaluation uses 84 paired held-out UniVTAC samples at matched 20K checkpoints with matched conditioning and diffusion seeds. Prediction-to-DreamZero MSE changes from 0.001568 to 0.001227, a reported 21.8% reduction; reported paired improvement is 0.000342 with bootstrap CI [0.000117, 0.000555]."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 4, H1 and H4 rows",
+      "detail": "H4 prediction-to-DreamZero MSE changes from 0.002448 to 0.001505, a 38.5% reduction, with VideoClean closer on 90.5% of samples. H1 MSE is 0.000695 without VideoClean and 0.000706 with it."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 5, MSE row and table caption",
+      "detail": "Ground-truth MSE is 0.001748 without VideoClean and 0.001777 with it; paired improvement is −0.000029 with CI [−0.000257, 0.000202]. All four metric intervals include zero."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Effect of Contact-Aware Attention Bias",
+      "detail": "The text describes contact-sensitive attention and correction during bulb insertion but explicitly states that the absence of a bias-only real-robot variant prevents isolating the success-rate contribution."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Abstract; p. 6, Tactile Pollution and VideoClean",
+      "detail": "The abstract labels the 21.8% reference-trajectory MSE reduction as a ManiFeel result; the detailed evaluation instead identifies held-out UniVTAC samples."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 6 Conclusion; p. 5, Tables 1–2, Overall columns",
+      "detail": "The conclusion claims state-of-the-art results on both simulation suites, but both tables show higher aggregate success for π0.5 than Tactile-WAM."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Experimental Setup; p. 11, Training Configuration; p. 12, Baselines and training fairness",
+      "detail": "Experimental sections describe WAM variants as trained from scratch, while the methods describe fully fine-tuning a pretrained Wan DiT. The text does not reconcile those initialization descriptions."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Real-robot protocol and Qualitative Results on Real-Robot Experiments; pp. 28–29, captions S22–S24",
+      "detail": "The quantitative protocol specifies six physical conditions. The qualitative introduction instead mentions seven experiments, and caption S22 adds phone pick-and-place alongside dim-light and standard-light power insertion."
+    }
+  ]
+}

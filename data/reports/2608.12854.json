@@ -1,0 +1,538 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.12854",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T15:00:44.988Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.12854",
+      "title": "BrainWAM: Action-Space Coordination of Semantic Priors and Predictive Dynamics for Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "345f26d920810a66610774bdb300f33fd3a3bc5dfc5f258ca9a7683b7bb8328d",
+      "wordCount": 8119,
+      "accessedAt": "2026-09-07T13:51:54.894814+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method",
+      "3.1 WAM Branch",
+      "3.2 VLA Branch",
+      "3.3 Joint Training with CAB and CIF",
+      "4 Experiments",
+      "4.1 Benchmark and Datasets",
+      "4.2 Implementation Details",
+      "4.3 Main Results",
+      "4.4 Further Analysis and Ablation Studies",
+      "4.5 Qualitative Analysis",
+      "5 Conclusion",
+      "References",
+      "Appendix A Modality Imbalance in Tri-MoT",
+      "Appendix B Implementation and Analysis of CAB, including B.1–B.2",
+      "Appendix C Implementation and Analysis of CIF, including C.1–C.3",
+      "Appendix D Freezing the Pretrained Branches Stabilizes Stage-3 Optimization",
+      "Appendix E Additional Implementation Details",
+      "Appendix F Additional Qualitative Comparisons",
+      "Appendix G Limitations"
+    ],
+    "omissions": [
+      "Figures 1–6 were not visually inspected. Only their supplied captions and surrounding prose were read.",
+      "Separate supplemental material beyond the supplied Appendix A–G was not supplied; its availability remains unverified.",
+      "Some table cells are concatenated in the extraction. Numerical comparisons below use legible aggregate-score columns, clearly separated entries, or explicit explanatory prose; uncertain component scores are omitted.",
+      "References were read as bibliographic text; the cited works were not independently reviewed.",
+      "Code and runtime artifacts were not inspected, and no experiments were reproduced.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: method labels and PDMS column",
+      "Table 2: method labels and EPDMS column",
+      "Table 3: branch labels and PDMS column",
+      "Table 4: PDMS entries, with CAB/CIF assignments confirmed by Section 4.4",
+      "Table 5: video-step, latency, PDMS, and EPDMS columns",
+      "Table 6: CAB-count and PDMS columns",
+      "Table 7: fusion-strategy and PDMS columns",
+      "Table 8: CIF-depth and PDMS columns",
+      "Table 9: update-strategy and PDMS columns"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "BrainWAM combines independently trained semantic and predictive planners through two compact streams of action tokens. Its learned bridge exchanges intermediate action information, and a final fusion module predicts trajectory updates. Video prediction remains active during planning, but early video features can be cached while action denoising continues. The reported 89.5 PDMS and 89.6 EPDMS concern short-horizon, non-reactive NAVSIM simulation, not on-road vehicle execution. [e03, e05, e07, e08, e09, e11, e12, e13]",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "The authors ask how to combine semantic driving constraints with future-scene dynamics without allowing clean VLM representations to dominate noisy video representations in shared attention. Their proposed solution preserves specialized branches and coordinates the action representations each branch produces.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e03",
+      "e05",
+      "e07"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "An action-space coordination architecture connects separate VLA and WAM action experts through intermediate bidirectional communication and final intent fusion.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "text": "The authors diagnose semantic dominance in shared VLM/video/action attention as an explanation for Tri-MoT underperforming WAM alone. The supplied prose reports the attention pattern; the underlying plot was not visually inspected.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e02",
+        "e14"
+      ]
+    },
+    {
+      "text": "Independent video and action flow timesteps permit truncated video denoising with cached predictive features, reducing repeated video-backbone computation during trajectory generation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e11",
+        "e16"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current visual observations; the VLA branch explicitly encodes multi-view images, driving instructions, and ego history. [e03, e05]",
+      "Training targets: future video latents and ego trajectories, perturbed with Gaussian noise and independently chosen video/action timesteps. [e04]",
+      "During coordination and inference, both action experts receive the same noisy trajectory and action timestep. [e06, e11]"
+    ],
+    "outputs": [
+      "A sampled ego trajectory comprising eight waypoints over four seconds at 2 Hz. [e09]",
+      "Internal video/action velocity predictions and a final fused action velocity; cached video features support planning without requiring continued video denoising. [e03, e08, e11]"
+    ],
+    "steps": [
+      {
+        "name": "Build the predictive action stream",
+        "detail": "Wan2.2-TI2V-5B denoises future video latents while a lightweight action expert denoises the trajectory. Dual-MoT uses shared self-attention to couple video and action tokens, with modality-specific feed-forward networks. This branch predicts both video and action vector fields conditioned on the observation.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Build the semantic action stream",
+        "detail": "Qwen3-VL-4B supplies visual-language semantic tokens and ego-history state tokens. A separate action expert processes the noisy trajectory; shared attention among semantic, state, and action tokens produces a semantic action velocity prediction.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Exchange intermediate action information",
+        "detail": "CAB operates on two streams of eight 1024-dimensional action tokens, with bridges inserted at expert layers 9 and 18. Each direction queries the other stream through eight-head cross-attention. Per-channel tanh gates are initialized to zero, so the bridge initially preserves each pretrained stream and subsequently learns residual exchanges.",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "name": "Fuse and decode the trajectory update",
+        "detail": "CIF separately projects the streams, adds source embeddings, and concatenates them for a two-layer, eight-head Transformer. Action-timestep-conditioned AdaLN modulates the layers. The resulting branch outputs are averaged element-wise, and the final decoder predicts the fused action velocity. This is learned representation fusion, not selection between two completed trajectories.",
+        "evidenceIds": [
+          "e08"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage 1 independently trains WAM with video and action velocity losses. Stage 2 independently trains VLA with an action velocity loss. Stage 3 freezes both pretrained branches and trains only CAB, CIF, and the final decoder against the fused action velocity target; it does not continue jointly optimizing the two backbones.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "text": "Each stage runs for 100K steps on eight NVIDIA H20 GPUs with per-GPU batch size 6. Settings include AdamW, peak learning rate 5×10⁻⁵, weight decay 0.01, cosine decay, 200 warmup steps, bf16, DeepSpeed ZeRO-2, and checkpointing every 3K steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "e10"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The action experts start from shared trajectory noise and use identical action timesteps. CAB and CIF produce the fused updates used in three-step rectified-flow action sampling. The video stream can stop earlier, after which its intermediate features are cached and reused by remaining action steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e10",
+          "e11"
+        ]
+      },
+      {
+        "text": "Predictive context is therefore consumed during inference rather than serving only as auxiliary training supervision. The described endpoint is trajectory generation; a low-level vehicle controller and a real-vehicle feedback loop are not established by this evaluation.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e09",
+          "e11",
+          "e21"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "x_t = (1−t)x_0 + tε; u = ε−x_0; L_WAM = L_vid + λ_pred^a L_pred^a.",
+        "explanation": "The flow path interpolates between clean data x_0 and Gaussian noise ε. Video and action use independent timesteps and noise. Their predicted velocities are trained with squared error against the respective u targets; λ_pred^a weights the action term.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "M_pred←sem^l = Ψ_cab^l(A_pred^l, A_sem^l); Ã_pred^l = A_pred^l + tanh(g_pred^l) ⊙ M_pred←sem^l.",
+        "explanation": "The predictive stream queries semantic action tokens and receives a gated residual message; the semantic stream receives the reverse update. Appendix B specifies channel-wise gates, clarifying the compact notation in the main text.",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "expression": "(Z_pred, Z_sem) = CIF(Ã_pred^L, Ã_sem^L); Z = (Z_pred+Z_sem)/2; û_fuse^a = D_fuse(Z,t_a); L_fuse = E||û_fuse^a−u^a||₂².",
+        "explanation": "CIF transforms both refined action streams before averaging them. The decoder predicts an action velocity, and only this fused prediction is supervised during Stage 3.",
+        "evidenceIds": [
+          "e06",
+          "e08"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Trajectory planning on NAVSIM v1",
+      "setting": "Real driving logs evaluated through four-second, non-reactive simulation; exact split identifiers and sample counts are not supplied.",
+      "metric": "PDMS, higher is better",
+      "value": "89.5",
+      "comparison": "AutoVLA: 89.1; DriveLaW: 89.1.",
+      "interpretation": "Reported best learned-planner score in Table 1, exceeding either comparator by 0.4 score points. PDMS combines collision/drivable-area penalties with progress, temporal risk, and comfort; it is not a video prediction metric.",
+      "evidenceIds": [
+        "e09",
+        "e12",
+        "e22"
+      ]
+    },
+    {
+      "task": "Trajectory planning on NAVSIM v2",
+      "setting": "The paper's NAVSIM v2 evaluation adds direction, traffic-light, lane-keeping, and comfort criteria; exact split details are not supplied.",
+      "metric": "EPDMS, higher is better",
+      "value": "89.6",
+      "comparison": "DriveDreamer-Policy: 88.7.",
+      "interpretation": "Reported improvement of 0.9 score points over the strongest listed comparator. This score should not be numerically compared with v1 PDMS because the aggregation differs.",
+      "evidenceIds": [
+        "e09",
+        "e13",
+        "e22"
+      ]
+    },
+    {
+      "task": "Branch complementarity and fusion strategy",
+      "setting": "NAVSIM v1, Table 3 internal ablations.",
+      "metric": "PDMS",
+      "value": "BrainWAM: 89.5; WAM-only: 88.1; VLA-only: 86.1; Tri-MoT: 87.8.",
+      "comparison": "BrainWAM gains 1.4 points over WAM-only, 3.4 over VLA-only, and 1.7 over Tri-MoT.",
+      "interpretation": "Supports the usefulness of coordinated branches in this setup. Tri-MoT falling below WAM-only supports the concern about naive fusion, but does not independently prove the proposed attention-based causal explanation.",
+      "evidenceIds": [
+        "e02",
+        "e14"
+      ]
+    },
+    {
+      "task": "Contribution of intermediate and final coordination",
+      "setting": "NAVSIM v1; Section 4.4 resolves the CAB/CIF row assignments in the extracted Table 4.",
+      "metric": "PDMS",
+      "value": "CAB alone: 88.7; CIF alone: 88.5; CAB and CIF: 89.5.",
+      "comparison": "The combined design exceeds either component alone.",
+      "interpretation": "Intermediate exchange and final fusion provide complementary gains under the reported configurations. No uncertainty estimates establish the robustness of these differences.",
+      "evidenceIds": [
+        "e15",
+        "e23"
+      ]
+    },
+    {
+      "task": "Asynchronous inference trade-off",
+      "setting": "Three action sampling steps; video-step counts varied; latency measured on one NVIDIA H20 GPU.",
+      "metric": "Latency in milliseconds; PDMS; EPDMS",
+      "value": "0 video steps: 382 ms, 79.3, 75.8; 1 step: 475 ms, 89.3, 89.4; 2 steps: 565 ms, 89.5, 89.6; 3 steps: 644 ms, 89.4, 89.6.",
+      "comparison": "One video step recovers most planning performance; two reproduce both headline scores. The third step adds latency without improving either score.",
+      "interpretation": "These are reported measured runtimes and planning scores. The zero-step drop shows dependence on the video pathway, while Appendix G explicitly says the remaining latency does not satisfy strict vehicle deployment requirements.",
+      "evidenceIds": [
+        "e10",
+        "e16",
+        "e21"
+      ]
+    },
+    {
+      "task": "Coordination architecture selection",
+      "setting": "NAVSIM v1, Tables 6–8; both video and action streams use ten synchronized denoising steps.",
+      "metric": "PDMS",
+      "value": "CAB count 1/2/28: 88.9/89.3/89.3. CIF MLP/gate/Transformer: 88.8/89.1/89.3. CIF depth 1/2/3: 89.0/89.3/89.3.",
+      "comparison": "Two CAB blocks match the densest tested configuration; two Transformer layers match three.",
+      "interpretation": "Supports sparse communication and shallow fusion within this separate ten-step protocol. These architectural comparisons should not be treated as direct comparisons against the main asynchronous results.",
+      "evidenceIds": [
+        "e18",
+        "e19"
+      ]
+    },
+    {
+      "task": "Stage-3 parameter update strategy",
+      "setting": "NAVSIM v1, Table 9; the table does not restate its denoising schedule.",
+      "metric": "PDMS",
+      "value": "CAB, CIF, and decoder only: 89.5; full-model fine-tuning: 88.8.",
+      "comparison": "Freezing the pretrained branches improves the reported score by 0.7 points.",
+      "interpretation": "Supports preserving pretrained branches during coordination learning. The authors attribute the difference to unequal branch convergence and unstable representations, but the score comparison alone does not isolate that mechanism.",
+      "evidenceIds": [
+        "e20"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Retaining both branches and the video generator raises computational and memory costs above a single-branch planner. The authors explicitly acknowledge that 475–644 ms inference fails strict practical in-vehicle real-time requirements.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e21"
+      ]
+    },
+    {
+      "text": "The evidence establishes short-horizon trajectory quality in non-reactive simulation. It does not establish successful physical driving, long-horizon recovery, or negotiation with agents that react to the ego vehicle.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09"
+      ]
+    },
+    {
+      "text": "The attention explanation remains a plausible diagnosis. Tri-MoT comparisons and removal of video denoising do not isolate predictive accuracy from other effects, including changed feature distributions or additional visual computation. The attention figures were also unavailable for visual verification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e14",
+        "e16"
+      ]
+    },
+    {
+      "text": "Tables provide no run counts or uncertainty estimates. Small score differences therefore lack demonstrated statistical robustness. The supplied experimental description also does not establish equivalent training data, pretraining exposure, or compute across the external baselines.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e12",
+        "e13",
+        "e22",
+        "e23"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the specified Wan and Qwen pretrained backbones, NAVSIM/OpenScene data and scoring configuration, the three-stage optimization pipeline, and the CAB/CIF architecture. The supplied artifact identifies the reviewed work as arXiv:2608.12854v2, dated 19 August 2026; its title and all nine authors match the catalog.",
+      "kind": "source",
+      "evidenceIds": [
+        "e01",
+        "e03",
+        "e05",
+        "e07",
+        "e08",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "text": "Material gaps include dataset split identifiers and counts, image/video preprocessing, instruction construction, trajectory parameterization, the numerical action-loss weight, timestep sampling and inference grids, integration details, and precise feature-cache interfaces. Named backbones and optimizer settings alone are insufficient for an exact implementation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e11",
+        "e22"
+      ]
+    },
+    {
+      "text": "A focused reproduction could reuse fixed branch checkpoints and compare CIF alone against CAB+CIF under identical data and three-action/two-video-step sampling. Repeated seeds, planning scores, and H20 latency would test the added value of intermediate action communication without requiring a claim to reproduce the entire system.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e15",
+        "e16",
+        "e23"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Q3 quadrant is supported: independently pretrained VLA and WAM branches retain separate action experts, establishing a dual-system architecture. Within WAM, shared attention couples future-video and action vector-field prediction, and predictive features remain in use during inference. Independent denoising schedules do not remove that joint prediction mechanism, and no inverse-dynamics action extraction is described. The efficiency subcategory is supported by the latency ablation, but its real-time-control wording overstates deployment readiness because Appendix G explicitly reports that requirement as unmet.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06",
+        "e11",
+        "e16",
+        "e21"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Joint video-action modeling",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q3 · Dual-system × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "f13c8f390c8fe52d9b594e9d88c077c92e50b86219eecc5cb29bde202fd0031c"
+    }
+  },
+  "discussionQuestions": [
+    "Would balancing semantic/video attention or matching their noise conditions close the Tri-MoT gap under controlled training budgets? [e02, e14]",
+    "Do cached early video features help because they predict future dynamics accurately, or because they provide additional visual representations? [e03, e16]",
+    "Can compressed predictive branches preserve the coordination gains under reactive evaluation and practical vehicle latency constraints? [e09, e21]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title page and arXiv version line",
+      "detail": "The title matches the catalog. The page identifies arXiv:2608.12854v2, dated 19 August 2026, and lists Bing Zhan, Shuyao Shang, Shuo Lu, Yuan Xu, Zhao Wang, Yida Wang, Xueyang Zhang, Kun Zhan, and Jiahao Gu."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 1, Tri-MoT diagnosis; PDF p. 10, Appendix A",
+      "detail": "The authors describe greater action attention to clean semantic tokens than denoising video tokens and interpret this as modality competition motivating action-level coordination."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1, Architecture and Eq. (1)",
+      "detail": "WAM uses Wan2.2-TI2V-5B and an action expert, coupled through shared self-attention with modality-specific feed-forward networks, to predict observation-conditioned video and action vector fields."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Eqs. (2)–(6)",
+      "detail": "Video and action follow independently perturbed linear clean-to-noise paths. Velocity targets equal noise minus clean data; squared-error video and weighted action objectives train WAM."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2, Architecture and Eqs. (7)–(8)",
+      "detail": "Qwen3-VL-4B encodes multi-view images and instructions into semantic tokens and ego history into state tokens. Dual-MoT couples these with noisy action tokens; an action velocity loss trains VLA."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3 opening; PDF p. 4, Section 3.3 Setup and Eq. (9); PDF p. 5, Eq. (13)",
+      "detail": "WAM and VLA are pretrained separately. Stage 3 freezes both branches, shares noisy action inputs and action timesteps, and trains CAB, CIF, and the decoder using only the fused action prediction loss."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.3 CAB, Eqs. (10)–(11); PDF p. 10, Appendix B.1",
+      "detail": "CAB performs bidirectional cross-attention with zero-initialized tanh residual gates. Each stream has eight 1024-dimensional tokens; bridges at layers 9 and 18 use eight heads of dimension 128 and channel-wise gates."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3 CIF, Eqs. (12)–(13); PDF pp. 10–11, Appendix C.1",
+      "detail": "CIF applies separate projections and source embeddings before a two-layer, eight-head Transformer with timestep-conditioned AdaLN. Transformed branch outputs are averaged and decoded into the fused action velocity."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1, Benchmark and Datasets",
+      "detail": "NAVSIM uses OpenScene/nuPlan driving logs and short-horizon non-reactive simulation. Predictions cover four seconds at 2 Hz, yielding eight waypoints. PDMS and EPDMS aggregate distinct sets of safety, progress, compliance, and comfort terms."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.2; PDF p. 11, Appendix E",
+      "detail": "Each stage uses 100K steps, eight H20 GPUs, per-GPU batch size 6, AdamW, learning rate 5×10⁻⁵, weight decay 0.01, cosine decay, 200 warmup steps, bf16, ZeRO-2, and checkpoints every 3K steps. Main action sampling uses three flow steps."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3 Inference; PDF p. 6, Section 4.4 asynchronous denoising continuation; PDF p. 11, Appendix E",
+      "detail": "Action experts share initial trajectory noise and action timesteps. The video branch can terminate early, with intermediate features cached and reused during subsequent action denoising."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, BrainWAM, AutoVLA, and DriveLaW rows, PDMS column",
+      "detail": "BrainWAM reports 89.5 PDMS; AutoVLA and DriveLaW each report 89.1. These are the highest learned-planner aggregate scores listed."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2, BrainWAM and DriveDreamer-Policy rows, EPDMS column",
+      "detail": "BrainWAM reports 89.6 EPDMS, compared with 88.7 for DriveDreamer-Policy, the strongest listed comparator."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 3, all method rows, PDMS column",
+      "detail": "VLA-only scores 86.1, WAM-only 88.1, Tri-MoT 87.8, and BrainWAM 89.5 PDMS."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.4, Effectiveness of CAB and CIF; PDF p. 6, Table 4, PDMS column",
+      "detail": "The prose identifies CAB alone as 88.7 PDMS and CIF alone as 88.5; their combination reaches 89.5."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 5, all rows and columns",
+      "detail": "For zero/one/two/three video steps, measured H20 latency is 382/475/565/644 ms, PDMS is 79.3/89.3/89.5/89.4, and EPDMS is 75.8/89.4/89.6/89.6."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Appendix B and Table 6, CAB-count and PDMS columns",
+      "detail": "With ten denoising steps for both streams, one/two/three/five/twenty-eight CAB blocks obtain 88.9/89.3/89.2/89.3/89.3 PDMS."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Tables 7–8, strategy/depth and PDMS columns",
+      "detail": "Under ten-step joint denoising, MLP/gated/Transformer fusion scores 88.8/89.1/89.3. One/two/three CIF Transformer layers score 89.0/89.3/89.3."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Appendix D and Table 9",
+      "detail": "Full-model Stage-3 fine-tuning scores 88.8 PDMS, versus 89.5 when only CAB, CIF, and the decoder are updated. The authors attribute freezing benefits to stable representations and avoidance of unequal branch adaptation."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix G, Limitations",
+      "detail": "The authors acknowledge higher compute and memory costs than single-branch planners and state that 475–644 ms latency does not meet strict practical in-vehicle real-time requirements."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Eq. (6); PDF p. 5, Sections 4.1–4.2; PDF p. 11, Appendix E",
+      "detail": "The supplied description names benchmarks and optimization settings but does not enumerate dataset splits/counts, full preprocessing, the numerical action-loss coefficient, or exact sampling grids and integration details."
+    },
+    {
+      "id": "e23",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Tables 1–5; PDF pp. 10–11, Tables 6–9",
+      "detail": "The reported result tables contain point values without accompanying run counts, error bars, confidence intervals, or significance tests."
+    }
+  ]
+}

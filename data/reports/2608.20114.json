@@ -1,0 +1,497 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.20114",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:53:51.196Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.20114",
+      "title": "DECOWAM: Decoupled Whole-Body World-Action Model for Legged Mobile Manipulation",
+      "kind": "pdf",
+      "sha256": "4eadfbcfa5af90428082b4adba0bb71e045bca9d0b518b2947a4a00a4cdc0f23",
+      "wordCount": 5922,
+      "accessedAt": "2026-09-07T13:51:52.227225+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and abstract",
+      "I. Introduction",
+      "II. Related Work",
+      "III. Background: FastWAM World–Action Backbone",
+      "IV.A. Problem Formulation",
+      "IV.B. Staged Parameter-Efficient Adaptation",
+      "IV.C. Decoupled Conditional Interfaces",
+      "IV.D. Training Objective and Deployment",
+      "V. The ARMDOG Dataset",
+      "VI.A. Replay Protocol and Compared Models",
+      "VI.B. Main Results and Reference Comparisons",
+      "VI.C. Real-Robot Deployment Experiments",
+      "VI.D. Parameter-Efficient Adaptation and Deployment",
+      "VII. Conclusion",
+      "References",
+      "Figure captions, as supplied text only"
+    ],
+    "omissions": [
+      "Figure images were not supplied or visually inspected.",
+      "Some Table VI cells are concatenated in the extraction; uncertain exact latency and total-parameter values are omitted.",
+      "No appendix appears in the supplied eight-page main text; separate supplementary material availability remains unverified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table I",
+      "Table II",
+      "Table III",
+      "Table IV",
+      "Table V(a)",
+      "Table V(b)",
+      "Table VI: headings and accompanying prose; ambiguous cells excluded"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "DECOWAM adapts a paired video/action flow model to a moving quadruped–arm platform. Its distinctive interfaces transfer privileged future information into a causal student, encourage separate base and arm representations, and condition video prediction on current base velocity. Replay errors improve over its FastWAM initialization. Physical trials show larger observed gains in coordination and displacement robustness than in final task success; those experiments do not isolate the contribution of video prediction itself. [e02, e04, e05, e06, e10, e14, e15]",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "A body-mounted camera mixes environmental motion, arm motion, and base-induced viewpoint changes. Meanwhile, arm/gripper targets and base velocities have different meanings and control timescales. The task is to predict future observations and coordinated commands from current RGB, robot state, and language while using future observations only as training supervision.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e07"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "An embodiment-specific adaptation of FastWAM combines frozen-backbone residual adapters with future-information distillation, adversarial base/arm factors, and a velocity-conditioned video expert.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "text": "ARMDOG supplies synchronized robot observations, commands, and language through a model-facing RGB/state/action interface. The converted snapshot contains 217 episodes; the reported Stage-2 subset contains 214 episodes.",
+      "kind": "source",
+      "evidenceIds": [
+        "e08"
+      ]
+    },
+    {
+      "text": "The authors attribute coherent whole-body behavior to the combined future bottleneck, dual control latents, and explicit ego-motion condition.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e17"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current RGB frame x0",
+      "Current 14-D whole-body state s0, including base velocity",
+      "Language instruction represented by precomputed language context",
+      "Training only: future video and normalized action targets"
+    ],
+    "outputs": [
+      "Eight future RGB frames at 384×320",
+      "A 48-step, 14-D action chunk: six arm channels, one gripper channel, three base-velocity channels, and four padding channels"
+    ],
+    "steps": [
+      {
+        "name": "Preserve the paired prediction interface",
+        "detail": "A WAN video expert predicts flow over future visual latents, while ActionDiT predicts flow over action chunks. Both receive language and proprioceptive context. The structured commands specify arm, gripper, and base velocity rather than individual leg-joint actions.",
+        "evidenceIds": [
+          "e02",
+          "e08"
+        ]
+      },
+      {
+        "name": "Adapt through residual pathways",
+        "detail": "After domain alignment, freeze the FastWAM parameters. Train residual adapters after WAN blocks, using layer normalization, a 128-D down-projection, SiLU, an up-projection, and a scaled residual addition, together with the new conditioning modules.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Distill future information into current-input control",
+        "detail": "Summarize current and future WAN-VAE latents with means and standard deviations. A privileged teacher consumes both summaries and state; a student consumes only the current summary and state. The reported bottleneck is 64-D. Both embeddings reconstruct action chunks, the student matches a stop-gradient teacher, and a geometry loss aligns pairwise teacher distances with action-trajectory distances using batch-median scales. Only the student biases the action expert.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Encourage separate base and arm information",
+        "detail": "Map pooled action context into two 16-D latents. Direct heads reconstruct the assigned base or arm/gripper trajectory. Cross heads predict the opposite trajectory through gradient reversal, making their encoders resist cross-factor prediction. Project the concatenated factors back into action context. This encourages separation; it does not establish statistical independence.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Expose ego-motion to video prediction",
+        "detail": "Project normalized current velocity (vx, vy, ωz) into the WAN hidden dimension and add the same scaled condition to every video token. This supplies a motion-related explanatory variable without explicit geometric warping or conditioning on a predicted future base trajectory.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage 1 adapts FastWAM to ARMDOG for 50,000 steps using video and action losses. Stage 2 freezes that checkpoint and updates 25.95M adaptation parameters. The parameter-efficiency claim therefore concerns the second stage, following substantial backbone adaptation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "text": "Both experts use conditional flow matching. Stage 2 combines video/action losses with future-bottleneck and disentanglement losses. The reported run keeps the auxiliary-loss gates and action-conditioning gates at one throughout Stage 2.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Remove the privileged teacher and auxiliary prediction heads. Compute the student embedding, base/arm factors, and current velocity from current inputs, then sample both flows. Causality here means that future observations are unavailable to inference.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "text": "Actions emerge directly from the action expert. The supplied method specifies no inverse-dynamics conversion of generated frames, rollout-ranking planner, or explicit video-based action selection. Physical evaluation uses common low-level control, but the executed chunk prefix and replanning schedule are unspecified.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e02",
+          "e07",
+          "e14"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "pθ(x1:T, a1:K | x0, s0, ℓ), with T = 8 and K = 48",
+        "explanation": "Equation (1) defines joint conditional future-video and action prediction; it does not specify an inverse-dynamics factorization.",
+        "evidenceIds": [
+          "e02"
+        ]
+      },
+      {
+        "expression": "zt = qt([c, f, s0]); zs = qs([c, s0]); ũa = ua + ηq Bq zs",
+        "explanation": "In Equations (7)–(8), c and f summarize current and future visual latents. The teacher sees privileged future information, while only the causal student enters action context ua through projection Bq.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "yτ = (1 − τ)ε + τy; v* = y − ε; LFM = Eτ,ε[‖Fθ(yτ, τ, c) − v*‖²]",
+        "explanation": "Equations (17)–(18) interpolate Gaussian noise ε and either an action or future-latent target y. Uniformly sampled τ indexes the flow; c denotes conditioning context.",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "expression": "L = Lvideo + Laction + 0.2Lq + 0.1Ldisent",
+        "explanation": "This instantiates Equation (19) for the reported unit gates. Lq combines action reconstruction, teacher–student matching, and trajectory-geometry preservation. Ldisent uses direct and gradient-reversal cross predictions; gradient reversal changes encoder gradients, not the displayed positive reconstruction losses.",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Joint video/action replay prediction",
+      "setting": "Fixed Box-val slice: 23 episodes, eight task folders, shared 16-batch evaluation; eight-frame video and 48-step action outputs.",
+      "metric": "Frame MSE ↓; PSNR ↑; normalized action MSE ↓",
+      "value": "DECOWAM: 8.77e-4; 31.663 dB; 5.38e-5.",
+      "comparison": "FastWAM 50k initialization: 1.032e-3; 31.441 dB; 6.87e-5.",
+      "interpretation": "Both prediction branches improve over the strongest FastWAM stopping point in the reported sweep. These are open-loop prediction measurements, not executed robot success.",
+      "evidenceIds": [
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "Structured-module ablation",
+      "setting": "Separately trained suite sharing Stage-1 initialization and adapters; same replay protocol.",
+      "metric": "Frame MSE ↓; normalized action MSE ↓",
+      "value": "Full suite model: 9.35e-4 and 8.09e-5.",
+      "comparison": "Without future bottleneck: 1.02e-3 and 8.40e-5; without base-velocity conditioning: 1.01e-3 and 8.80e-5; adapter-only: 9.80e-4 and 9.60e-5.",
+      "interpretation": "Individual bottleneck and velocity removals worsen both errors. The adapter-only comparison removes all three structured paths, so it does not independently isolate the base/arm mechanism. This suite must use its own full-model reference.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Action prediction against VLA references",
+      "setting": "Same 23-episode ARMDOG replay slice.",
+      "metric": "Action MSE ↓; MAE ↓; mean normalized-vector L2 error ↓",
+      "value": "DECOWAM: 5.38e-5; 4.01e-3; 2.24e-2.",
+      "comparison": "X-VLA: 2.11e-5; 1.82e-3; 1.00e-2. π0.5: 1.79e-4; 3.60e-3; 2.83e-2.",
+      "interpretation": "X-VLA leads all three action metrics. DECOWAM improves MSE and L2 over π0.5 but has worse MAE; its additional video output does not establish superior action accuracy.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Physical task completion",
+      "setting": "79 closed-loop trials per method; cumulative stage rates use all attempts.",
+      "metric": "Task success ↑; mean completion time ↓",
+      "value": "DECOWAM: 46 completions, 58.2% success, 49 s.",
+      "comparison": "FastWAM: 57.0%, 65 s; π0.5: 49.4%, 50 s.",
+      "interpretation": "These are executed hardware outcomes. Final success is close to FastWAM despite a lower reported completion time. No uncertainty estimates establish a reliable success-rate difference, and the averaging rule for completion time is not specified.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Physical whole-body robustness",
+      "setting": "79 trials per method on the quadruped–arm platform.",
+      "metric": "Coordination success ↑; base-displacement robustness success ↑",
+      "value": "DECOWAM: 44.3%; 30.4%.",
+      "comparison": "FastWAM: 34.2%; 12.7%, corresponding to reported gains of 10.1 and 17.7 percentage points.",
+      "interpretation": "DECOWAM has the highest observed values among listed systems. These margins are more substantial than its final-completion advantage, but operational scoring and perturbation specifications are insufficient for independent replication.",
+      "evidenceIds": [
+        "e15",
+        "e14"
+      ]
+    },
+    {
+      "task": "Adaptation and deployment cost",
+      "setting": "Stage-2 training footprint and reported evaluator latency.",
+      "metric": "Trainable parameters; relative latency",
+      "value": "25.95M trainable parameters; approximately 232-fold fewer updates; reported 11.4% latency increase.",
+      "comparison": "FastWAM full fine-tuning updates 6020.75M parameters.",
+      "interpretation": "Freezing reduces optimization scope, not deployed network size. The preceding Stage-1 cost remains necessary. Exact latency cells are omitted because extraction merges them with neighboring values.",
+      "evidenceIds": [
+        "e03",
+        "e16"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The hardware comparisons evaluate complete systems. They do not substantiate the authors' stronger claim that the experiments isolate world–action modeling or show that generated video causes better control. There is no reported hardware ablation disabling video prediction or independently removing gradient reversal.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e14",
+        "e17"
+      ]
+    },
+    {
+      "text": "Replay covers a narrow box-manipulation slice. Aggregate normalized 14-D action errors do not expose physical-unit errors, separate base/arm quality, or padding contributions. The text does not establish generalization to unseen embodiments or broadly different tasks.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e12"
+      ]
+    },
+    {
+      "text": "Table IV mixes eight-frame outputs with shorter, lower-resolution X-WAM and UVA outputs. Its cross-model ranking therefore does not constitute a uniformly matched video protocol. The FastWAM comparison provides a cleaner adaptation comparison.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e13"
+      ]
+    },
+    {
+      "text": "Dataset accounting needs reconciliation: the text moves from 795 raw episodes to 1,487 filtered episodes without explaining the expansion. It also reports 343,550 frames, 321.3 minutes, and 15 Hz, which are inconsistent under uniform sampling. Converted, Stage-2, and replay subsets are distinguished, but their lineage and disjointness cannot be verified without manifests.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08"
+      ]
+    },
+    {
+      "text": "The ablation suite's full-model action MSE differs materially from the headline checkpoint. Separate training is disclosed, but seed variation and repeated-run uncertainty are absent, limiting confidence in small component effects.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required assets include the precise FastWAM initialization, ARMDOG conversion and immutable splits, language embeddings, normalization statistics, and low-level robot interfaces. The paper describes a planned dataset release; availability, code, checkpoints, and experiments were not independently inspected or reproduced in this supplied-text review.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e08",
+        "e09",
+        "e14"
+      ]
+    },
+    {
+      "text": "Implementation still requires unspecified Stage-2 duration, optimizer and learning-rate schedule, batch size, compute, internal bottleneck-loss weights, and flow-sampling configuration. Deployment additionally needs the action execution cadence, chunk prefix, controller mapping, latency measurement conditions, and robustness-test definitions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e07",
+        "e09",
+        "e14",
+        "e15",
+        "e16"
+      ]
+    },
+    {
+      "text": "A minimal mechanism test would compare adapter-only, full, and gradient-reversal-disabled variants from the same initialization across repeated seeds. Evaluate unpadded base and arm errors separately, then test stationary-base reaching under a fixed physical protocol. This would probe the proposed factorization more directly than aggregate action MSE.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e09",
+        "e11",
+        "e17"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "The named WAN video expert and ActionDiT action expert support the recorded Dual-system architecture; joint training alone would not establish One Model. However, the explicit joint conditional target and inference procedure support joint future/action prediction, making Other mechanisms a questionable paradigm label. No inverse-dynamics action extraction is described. The supplied material does not define quadrant boundaries, so I cannot independently resolve Outside quadrants or assign a replacement. Navigation and action alignment are relevant, while broad generalization remains unestablished. This flags the snapshot for editorial review without changing it.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e05",
+        "e07",
+        "e09",
+        "e14"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Navigation",
+        "Joint video-action modeling",
+        "Generalization & action alignment"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "ca2dd7088f5718900783f591e33e2573fcf48dab5c3bf8d59f2f5e855eb07583"
+    }
+  },
+  "discussionQuestions": [
+    "Does gradient reversal improve coordination beyond separate latent heads and their additional capacity? [e05, e11]",
+    "Does video prediction contribute to physical control beyond shared training, and what controlled deployment ablation could establish that contribution? [e07, e14, e17]",
+    "How do base-only and arm-only physical-unit errors relate to displacement robustness when padding is excluded? [e08, e09, e15]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title page and arXiv version line",
+      "detail": "The title, identifier, and seven listed authors match the catalog. The supplied artifact identifies itself as arXiv:2608.20114v2, dated 21 August 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Section I(a)–(b); p. 3, Sections III and IV.A, Equations (1)–(2)",
+      "detail": "Defines moving-viewpoint and multi-rate challenges, paired WAN/ActionDiT experts, current-input conditioning, eight future frames, 48 action steps, and the 14-channel semantic decomposition."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section IV.B, Equations (3)–(5)",
+      "detail": "Stage 1 adapts FastWAM for 50k steps. Stage 2 freezes it and trains four parameter groups totaling 25.95M versus 6020.75M full-fine-tuning parameters; WAN adapters use a 128-D bottleneck."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section IV.C(a), Equations (6)–(11); p. 5, Section VI.A(a)",
+      "detail": "Describes visual mean/std summaries, privileged teacher and causal student, student-only action conditioning, reconstruction/distillation/geometry losses, batch-median distance scales, and the reported 64-D bottleneck."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV.C(b), Equations (12)–(14)",
+      "detail": "Two 16-D action-context factors receive direct reconstruction supervision and cross-factor gradient-reversal supervision before conditioning the action expert."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV.C(c), Equations (15)–(16)",
+      "detail": "Normalized current base velocity is projected and added to every video token. The text explicitly distinguishes this condition from geometric warping."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV.D, Equations (17)–(19) and inference paragraph",
+      "detail": "Specifies conditional flow matching, objective weights, unit gates, removal of teacher and auxiliary heads, and sampling both flows using only current RGB, state, and language."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section I(d); pp. 4–5, Section V",
+      "detail": "Reports the RGB/state/action/language conversion; 217 converted episodes; 214 Stage-2 episodes; 23 replay episodes and 4,323 frames; channel meanings; and distinct corpus figures of 795 raw episodes, 1,487 filtered episodes, 343,550 frames, 321.3 minutes, and 15 Hz. Release components are described as planned."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section VI.A(a)–(b)",
+      "detail": "Defines the fixed box-validation slice, eight task folders, shared 16 replay batches, output dimensions, checkpoint selection, video metrics, and normalized 14-D action metrics."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table I, FastWAM checkpoint and DECOWAM rows",
+      "detail": "The 50k FastWAM row reports frame MSE 1.032e-3, PSNR 31.441, and action MSE 6.87e-5; DECOWAM reports 8.77e-4, 31.663, and 5.38e-5. The 40k and 80k rows are worse on all listed metrics."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section VI.B(a); p. 6, Table II",
+      "detail": "The separately trained suite compares full, no-bottleneck, no-base-velocity, and adapter-only variants. Their frame/action MSE pairs are 9.35e-4/8.09e-5, 1.02e-3/8.40e-5, 1.01e-3/8.80e-5, and 9.80e-4/9.60e-5."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table III, DECOWAM, X-VLA, and π0.5 rows",
+      "detail": "Action MSE/MAE/L2 are 5.38e-5/4.01e-3/2.24e-2 for DECOWAM, 2.11e-5/1.82e-3/1.00e-2 for X-VLA, and 1.79e-4/3.60e-3/2.83e-2 for π0.5."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table IV, RGB column and accompanying comparison",
+      "detail": "Lists eight-frame 384p interfaces alongside X-WAM's four-frame 160p and UVA's four-frame 128p interfaces, making output horizon and resolution heterogeneous."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section VI.C; p. 7, Table V(a)",
+      "detail": "Physical evaluation uses 79 attempts per method and common low-level control. DECOWAM completes 46 tasks, with 58.2% success and 49 s mean completion time; FastWAM reports 57.0% and 65 s; π0.5 reports 49.4% and 50 s. Stage-rate denominators are all attempts."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table V(b), WBCM-SR and BDP-SR columns and accompanying prose",
+      "detail": "DECOWAM reports 44.3% coordination and 30.4% displacement robustness versus FastWAM's 34.2% and 12.7%; the text reports gains of 10.1 and 17.7 percentage points."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section VI.D, prose surrounding Table VI",
+      "detail": "The prose reports approximately 232-fold fewer Stage-2 trainable parameters and 11.4% additional evaluator latency, explicitly noting that freezing does not shrink the deployed network."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section VI.C, paragraphs beginning with the real-robot attribution and discussion of Figure 5",
+      "detail": "The authors attribute hardware performance to the future bottleneck, dual latents, and ego-motion condition and discuss stationary-base failures in a qualitative example. These are textual attributions; the figure images were not inspected."
+    }
+  ]
+}

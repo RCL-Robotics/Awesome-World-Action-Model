@@ -1,0 +1,580 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.27504",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:41:21.772Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.27504",
+      "title": "ReWorld: Representation Learning for World Action Models",
+      "kind": "pdf",
+      "sha256": "ac7653eb88f7c681815b5397af28a84066cb0d713cf86fec8a88e3e31a643f96",
+      "wordCount": 10872,
+      "accessedAt": "2026-09-07T13:51:24.085069+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2.1 World Models for Driving Video",
+      "2.2 World Action Models",
+      "2.3 Representation Learning for Generative Models",
+      "3.1 Preliminaries",
+      "3.2 Explicitly Shaping the World-to-Action Representation Pathway",
+      "3.3 Future-Predictive World Representations",
+      "3.4 World-Grounded Action Representations",
+      "3.5 Behavior-Aware Action Representations",
+      "3.6 Progressive Representation Curriculum",
+      "4.1 Experimental Setup",
+      "4.2 Main Results",
+      "4.3 Representation Analysis",
+      "4.4 Ablation Studies",
+      "4.5 Qualitative and Additional Results",
+      "5 Conclusion",
+      "Acknowledgments",
+      "References",
+      "Author biographies"
+    ],
+    "omissions": [
+      "Read the complete supplied main text. Figure captions and surrounding discussion were read, but figure images were not inspected.",
+      "Some Table 2 cells merge adjacent values. Results below use the clearly separated PDMS column and safety values independently restated in Section 4.2; ambiguous cells are omitted.",
+      "No appendix appears in the supplied text. Separate supplemental material availability remains unverified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2: legible PDMS values and safety values cross-checked against Section 4.2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6(a–b)",
+      "Table 7",
+      "Table 8(a–b)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "ReWorld improves a chained driving model by supervising the representations connecting its video generator and trajectory planner. It adds intermediate video-flow prediction, alignment between action states and attended video information, and repulsion from simulator-scored unsafe trajectory neighbors. Planning consumes video features from one maximum-noise forward pass without rendering a future video. Its strongest evidence combines controlled video-generation comparisons with improved planning scores in NAVSIM’s non-reactive simulator; physical driving is not demonstrated. [e03–e09, e13–e19]",
+  "readingTimeMinutes": 12,
+  "problem": {
+    "text": "The authors identify a representation bottleneck in DriveLaW: final video and trajectory losses do not explicitly require intermediate video features to expose future dynamics, action states to retain retrieved world information, or nearby trajectories to separate according to behavioral quality. ReWorld targets this intermediate pathway while retaining the underlying chained architecture.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Intermediate Video DiT heads learn the generator’s own flow target. Their discrepancy with the final prediction subsequently supplies an inference-time video guidance direction.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04"
+      ]
+    },
+    {
+      "text": "A cosine alignment objective grounds post-cross-attention action states in their attended video readouts, using frozen video parameters and a stop-gradient target.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05"
+      ]
+    },
+    {
+      "text": "A sequential curriculum adds behavior-sensitive fine-tuning through nearby low-scoring trajectories mined with NAVSIM. This supervision uses simulator scores during offline mining without requiring trajectory scoring at inference.",
+      "kind": "source",
+      "evidenceIds": [
+        "e01",
+        "e06",
+        "e07",
+        "e08"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Driving video clips and their VAE latents; future video supplies generation supervision. [e03]",
+      "Ego kinematic history and navigation command, encoded as structured planner context and motion-conditioned text for the video branch. [e03]",
+      "Expert waypoint trajectories and training-scene candidate trajectories scored by NAVSIM. [e06, e07]"
+    ],
+    "outputs": [
+      "Future driving video in generation mode. [e04, e13]",
+      "Ego trajectories consisting of position and yaw waypoints; the described model output is a plan rather than a physical actuator command. [e03]"
+    ],
+    "steps": [
+      {
+        "name": "Connect separate video and action transformers",
+        "detail": "A 2B Video DiT processes causal VAE latents and frozen-T5 text conditioning. A separate 133M Action DiT combines noised trajectory tokens, driving context, and video block features F through cross-attention. Cached features are activations reused within the current computation, not an offline feature dataset.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Make intermediate world states predictive",
+        "detail": "A lightweight head at Video DiT block 8 predicts the same noise-minus-clean velocity as the final head. This directly constrains a representation that lies along the planner’s conditioning pathway.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Retain attended world information",
+        "detail": "At Action DiT cross-attention layer 12, align each post-attention action state with its output-projected video readout. The target is detached within each optimization step, but recomputed using attention weights that can change as the action model learns.",
+        "evidenceIds": [
+          "e05",
+          "e10"
+        ]
+      },
+      {
+        "name": "Mine behavioral ambiguity and fine-tune jointly",
+        "detail": "Generate 64 candidate trajectories per training scene, retain candidates scoring below 0.6, and select the one nearest the expert in normalized waypoint space. Recover a clean trajectory estimate from the action-flow prediction and repel it from that negative in a delta representation. Expert flow matching remains the attraction term. Joint fine-tuning propagates planning gradients into online, non-detached video features.",
+        "evidenceIds": [
+          "e06",
+          "e07",
+          "e10"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage 1 initializes the Video DiT from LTX-Video and trains generation plus intermediate supervision for 20k steps, global batch 64, using AdamW with learning rate 1×10⁻⁵ and weight decay 5×10⁻². The numerical intermediate-loss weight is not supplied.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e10"
+        ]
+      },
+      {
+        "text": "Stage 2 is described as initializing from DriveLaW, freezing the Video DiT, and training the Action DiT for 6k steps at batch 128 with alignment weight 0.05. Stage 3 trains both branches for 10k steps at batch 160 with repulsion weight 0.04. Its stated objective retains flow matching but drops alignment.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e10"
+        ]
+      },
+      {
+        "text": "Video and action flow times are sampled independently. The authors report approximately halving the optimization steps needed to reach comparable video validation performance; the supplied prose does not provide an exact convergence endpoint or a wall-clock speedup.",
+        "kind": "author-claim",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "For planning, initialize the video latent with Gaussian noise and extract F using one Video DiT forward pass at the first reverse-flow step. Reuse F across five action-flow steps. No future-video decoding or test-time candidate scoring is required by the reported planner.",
+        "kind": "source",
+        "evidenceIds": [
+          "e01",
+          "e03",
+          "e10"
+        ]
+      },
+      {
+        "text": "Video generation instead uses 30 sampling steps and self-guidance scale 1.4. Guidance modifies the sampling velocity, not the training objective or the planner’s first-step feature interface.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e10"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "z_tv = (1−t_v)z_0 + t_v ε_z; a_ta = (1−t_a)a_0 + t_a ε_a.",
+        "explanation": "Equations (1–6) interpolate clean video latents or normalized trajectories toward Gaussian noise. Squared-error flow objectives predict ε_z−z_0 and ε_a−a_0, respectively. Flow time denotes noise level, not driving time.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "L_Video = L_Gen + λ_Mid L_Mid; L_Mid = mean_l E||q_l(h_tv^(l))−(ε_z−z_0)||²; v_w = v_i + γ(v_f−v_i).",
+        "explanation": "Equations (8–11) supervise selected intermediate heads during training, then combine intermediate velocity v_i and final velocity v_f during sampling. At γ=1, sampling uses the final prediction; larger γ extrapolates along the cross-layer difference.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "r_i^(k) = Σ_j α_ij^(k)v_j^(k); L_align = mean_(k,i)[1−cos(a_i^(k), sg(r_i^(k)))].",
+        "explanation": "Equations (12–14) align action state a with its attended video readout r. Here α denotes attention weights, v denotes video value vectors, and sg blocks gradients through the target. The default supervised layer set is K={12}.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "â_0 = a_ta − t_a v_φ^a(a_ta,t_a,c_a,F); L_RDE = −mean_(b∈V,ℓ,d)|Δ(τ̂_b)_(ℓ,d)−Δ(τ_b^neg)_(ℓ,d)|.",
+        "explanation": "Equations (18–20) recover an instantaneous clean estimate, denormalize it, and maximize distance from the selected negative. Δ contains normalized position increments and sine/cosine yaw channels. V includes scenes with valid negatives; an empty V gives zero repulsion loss.",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "expression": "PDMS = NC × DAC × (5·EP + 5·TTC + 2·Comf.) / 12.",
+        "explanation": "Equation (22) combines collision and drivable-area factors multiplicatively with weighted progress, time-to-collision, and comfort. It evaluates simulated planning behavior, separately from video-generation quality.",
+        "evidenceIds": [
+          "e09"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Future-video generation",
+      "setting": "nuScenes validation set; intermediate supervision plus self-guided sampling at γ=1.4",
+      "metric": "FVD ↓; FID ↓",
+      "value": "Reported FVD 61.9; FID 4.4",
+      "comparison": "DriveLaW: FVD 81.3; FID 4.6",
+      "interpretation": "The reported 23.9% relative FVD reduction belongs to the combined training-and-sampling method. Reader analysis: this is video-quality evidence, not executed driving performance or a direct physical-dynamics accuracy test.",
+      "evidenceIds": [
+        "e13",
+        "e04"
+      ]
+    },
+    {
+      "task": "Non-reactive simulated driving",
+      "setting": "NAVSIM v1 Navtest; same chained architecture",
+      "metric": "PDMS ↑",
+      "value": "Reported 90.4",
+      "comparison": "DriveLaW 89.1; DAC increases from 97.1 to 98.2 and TTC from 96.7 to 97.7.",
+      "interpretation": "Reader analysis: the gain is 1.3 PDMS points and includes better reported compliance and collision-risk components. Its demonstrated scope is this simulator and evaluation split.",
+      "evidenceIds": [
+        "e09",
+        "e14"
+      ]
+    },
+    {
+      "task": "Video representation transfer",
+      "setting": "UCF-101 split 1; frozen final-block features, global mean pooling, linear classifier; 33-frame 224×224 clips",
+      "metric": "Top-1 accuracy",
+      "value": "Reported full-curriculum accuracy 80.2%",
+      "comparison": "DriveLaW 68.3%; ReWorld Stage 1 71.7%; LTX-Video 66.8%",
+      "interpretation": "Reader analysis: the full curriculum improves the linear probe by 11.9 percentage points over DriveLaW. Recognition transfer does not directly measure trajectory quality.",
+      "evidenceIds": [
+        "e11",
+        "e15"
+      ]
+    },
+    {
+      "task": "Controlled representation-learning comparison",
+      "setting": "nuScenes test evaluation after 120k training steps on nuPlan and nuScenes; batch 32; 224×224×25 clips; no text encoder",
+      "metric": "FVD ↓",
+      "value": "Reported 270.4",
+      "comparison": "Vanilla Flow 304.1; Self-Flow 283.3",
+      "interpretation": "Reader analysis: ReWorld leads this controlled comparison. These values belong to a different training and evaluation protocol from the main validation-set FVD result.",
+      "evidenceIds": [
+        "e12",
+        "e16"
+      ]
+    },
+    {
+      "task": "Video-side training cost",
+      "setting": "Per-step measurement at 224×224×25, batch size 1",
+      "metric": "Normalized training cost",
+      "value": "Reported 1.003×",
+      "comparison": "Vanilla flow matching 1.0×",
+      "interpretation": "The reported overhead is 0.3% for this video-training measurement. Reader analysis: it does not quantify total curriculum cost, offline negative mining, or deployment latency.",
+      "evidenceIds": [
+        "e17",
+        "e06",
+        "e10"
+      ]
+    },
+    {
+      "task": "Self-guidance ablation",
+      "setting": "Intermediate supervision at Video DiT block 8",
+      "metric": "FVD ↓",
+      "value": "Reported 78.9 at γ=1.0; 61.9 at γ=1.4; 69.7 at γ=1.6",
+      "comparison": "DriveLaW without the proposed intermediate supervision reports 81.3.",
+      "interpretation": "Reader analysis: intermediate supervision alone gives a smaller improvement than the combined method. Excess guidance degrades the result, supporting a tuned sampling effect rather than a monotonic benefit.",
+      "evidenceIds": [
+        "e18",
+        "e13"
+      ]
+    },
+    {
+      "task": "Action-objective ablation",
+      "setting": "NAVSIM Navtest; same chained architecture",
+      "metric": "PDMS ↑",
+      "value": "Reported alignment only 89.5; repulsion only 89.8; sequential combination 90.4",
+      "comparison": "DriveLaW 89.1",
+      "interpretation": "Reader analysis: both additions help in the reported configurations. The table does not establish equal optimization budgets or isolate the effect of video unfreezing.",
+      "evidenceIds": [
+        "e19",
+        "e10"
+      ]
+    },
+    {
+      "task": "Repulsion-strength ablation",
+      "setting": "Stage 3 initialized from the best Stage 2 checkpoint, whose PDMS is 89.5",
+      "metric": "PDMS ↑",
+      "value": "Reported 90.4 at λ_RDE=0.04",
+      "comparison": "89.4 at λ_RDE=0.02; 85.5 at λ_RDE=0.10",
+      "interpretation": "Reader analysis: repulsion needs careful balancing against imitation; excessive weight substantially worsens this benchmark score.",
+      "evidenceIds": [
+        "e20",
+        "e07"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "NAVSIM is explicitly non-reactive. Neither its planning scores nor the video metrics establish safety with responsive traffic agents or physical deployment. Qualitative claims about geometry and smooth plans were not independently checked because figure images were unavailable.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e13",
+        "e14",
+        "e21"
+      ]
+    },
+    {
+      "text": "The action ablations combine different losses, training stages, and freezing choices without a documented equal-budget control. Reported tables provide no repeated-seed uncertainty, limiting causal and statistical conclusions about the improvements.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e19",
+        "e20"
+      ]
+    },
+    {
+      "text": "Repulsion is unbounded below in isolation and depends on an imitation anchor. The authors acknowledge this competition; the weight ablation shows that stronger behavioral separation is not automatically better.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07",
+        "e20"
+      ]
+    },
+    {
+      "text": "The absence of external representation teachers does not mean the system lacks pretrained components or external behavioral supervision: it uses LTX-Video, a VAE, frozen T5 conditioning, and simulator-scored trajectory candidates.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e10"
+      ]
+    },
+    {
+      "text": "The supplied results do not separately quantify how Stage 3 planning gradients affect video fidelity after joint adaptation. Longer horizons and multimodal scenarios are left for future work.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e13",
+        "e21"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the LTX-Video and DriveLaW initialization assets, nuPlan/nuScenes video processing, NAVSIM v1 trajectory supervision and simulator access, and training-only candidate mining. UCF-101 split 1 is additionally required for the representation claim.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e09",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "text": "Clarify the checkpoint handoff: Section 3.6 describes sequential stages, but Section 4.1 states that Stage 2 initializes from DriveLaW without explicitly saying how Stage 1’s video weights enter that checkpoint.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e08",
+        "e10"
+      ]
+    },
+    {
+      "text": "Missing implementation details include λ_Mid, exact trajectory and delta normalization, Stage 2/3 optimizer settings, candidate-generator guidance and noise scales, the probe timestep and classifier schedule, evaluation sample counts, and hardware. The supplied text is insufficient for an exact numerical reproduction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e07",
+        "e10",
+        "e11",
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "text": "A focused mechanism test would hold the candidate pool, initialization, unfreezing, and Stage 3 budget fixed while comparing no repulsion, random low-scoring negatives, and nearest low-scoring negatives. Repeated-seed PDMS components would test whether geometric hardness supplies the claimed behavioral signal.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e19"
+      ]
+    },
+    {
+      "text": "The paper states that code is available at https://github.com/xiaomi-research/ReWorld. That repository was not inspected, availability was not independently verified, and no experiments were reproduced.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e01"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "Dual-system is supported by the separate Video DiT and Action DiT connected through cached features; joint fine-tuning does not change that architecture. The exact IDM/Q4 label is less secure: the documented objective generates trajectories conditioned on intermediate video features, without specifying inverse dynamics from an observed current/future state pair. A broad latent-future-to-action definition could include it, but conventional IDM is not established. Autonomous driving, action alignment, and the specific UCF recognition-transfer result are supported. The recorded snapshot is preserved unchanged.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e07",
+        "e09",
+        "e15"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Visual planning & IDM",
+        "Generalization & action alignment"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "2d5371a535fffb7388e90615c11f1d1a4fa2013226d6916495017c910db3b57c"
+    }
+  },
+  "discussionQuestions": [
+    "Does nearest low-scoring negative selection outperform random low-scoring selection under identical candidate pools and training budgets? [e06, e19]",
+    "What video-generation quality remains after Stage 3 reshapes the planner-facing video features? [e07, e13]",
+    "Do the compliance and collision-risk improvements persist with reactive traffic agents? [e09, e14]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author list, arXiv footer, and Abstract",
+      "detail": "The title, identifier, and eleven authors match the catalog. The supplied artifact identifies arXiv:2606.27504v2 dated 24 August 2026. The abstract links the GitHub repository and reports planning without reinforcement learning or test-time scoring."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Section 1; PDF p. 4, Section 3.2",
+      "detail": "The authors motivate explicit supervision of future-predictive video states, world-grounded action states, and behavior-sensitive trajectories as remedies for an intermediate representation bottleneck."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Equations (1–7) and planning-inference paragraphs",
+      "detail": "The architecture contains a 2B Video DiT and 133M Action DiT, VAE latents, frozen T5 conditioning, and waypoint flow matching. Planning extracts video features at the initial maximum-noise step and reuses them without decoding video. Training samples video and action flow times independently."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Equations (8–11)",
+      "detail": "Intermediate heads predict the native video velocity target, with default supervised block 8. The text reports approximately halved convergence steps and defines sampling-only self-guidance. It attributes FVD 61.9 to intermediate supervision combined with guidance."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.4, Equations (12–14)",
+      "detail": "Post-cross-attention action states are aligned by cosine similarity to detached attended video readouts at layer 12. Video parameters are frozen; readouts are recomputed each forward pass and their attention weights depend on the action model."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.5, Equations (15–17); PDF p. 7, Section 4.1, hard-negative mining paragraph",
+      "detail": "Training-scene mining generates 64 candidates using a flow-matching generator with guidance and noise adjustment. NAVSIM scores candidates; the nearest normalized-space candidate scoring below 0.6 becomes the negative. Scenes lacking such candidates do not contribute to repulsion."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.5, Equations (18–21)",
+      "detail": "The clean action estimate is recovered from the flow prediction, denormalized, and mapped to normalized position increments and sine/cosine yaw. Negative mean absolute distance supplies repulsion, with zero loss for empty valid batches. Stage 3 jointly updates both branches using flow matching plus repulsion and drops alignment."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.6",
+      "detail": "The conceptual curriculum proceeds through video supervision, frozen-video action alignment, and joint behavioral fine-tuning. Mining uses training scenes only; planning retains the first-step video-feature interface."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, Tasks, datasets, and metrics; Equation (22)",
+      "detail": "Video training uses nuPlan and nuScenes; trajectory learning uses NAVSIM. NAVSIM is described as a non-reactive closed-loop benchmark. Evaluation distinguishes FID/FVD, NAVSIM v1 PDMS components, and UCF-101 probing; Equation (22) defines PDMS."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1, Backbone and sequential pretraining; Representation curriculum",
+      "detail": "Stage 1 uses LTX-Video initialization, 20k steps, batch 64, AdamW learning rate 1×10⁻⁵ and weight decay 5×10⁻². Stage 2 names DriveLaW initialization, 6k steps, batch 128 and alignment weight 0.05. Stage 3 uses 10k steps, batch 160 and repulsion weight 0.04. Sampling uses 30 video steps, guidance 1.4, and five trajectory steps."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1, Frozen linear probing; Equation (23)",
+      "detail": "UCF-101 split 1 probing uses 33-frame 224×224 clips, the final block of the 28-layer Video DiT, token mean pooling, and a linear classifier. The text states a shared timestep, normalization, and classifier schedule without giving their complete settings."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1, Unified representation-learning protocol",
+      "detail": "The controlled comparison trains methods from scratch for 120k steps on nuPlan and nuScenes with batch 32, 224×224×25 clips, and no text encoder; FVD is evaluated on the nuScenes test set."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, DriveLaW and ReWorld rows; Section 4.2, Video generation",
+      "detail": "Validation-set FID/FVD are 4.6/81.3 for DriveLaW and 4.4/61.9 for ReWorld. The prose reports FVD 78.9 under standard sampling and a 23.9% relative reduction for the guided result."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2, DriveLaW and ReWorld rows, PDMS column; PDF p. 7, Section 4.2, Closed-loop planning",
+      "detail": "Navtest PDMS increases from 89.1 to 90.4. The prose separately states DAC 97.1 to 98.2, TTC 96.7 to 97.7, and NC 99.0 to 99.1, avoiding reliance on merged adjacent table cells."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3, Top-1 Acc. column",
+      "detail": "Frozen probe accuracies are LTX-Video 66.8%, DriveLaW 68.3%, ReWorld Stage 1 71.7%, and full ReWorld 80.2%."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 4, Vanilla Flow, Self-Flow, and ReWorld rows",
+      "detail": "Under the stated 120k-step protocol, FVD is 304.1 for Vanilla Flow, 283.3 for Self-Flow, and 270.4 for ReWorld."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 5, caption and Vanilla Flow/ReWorld rows; Section 4.3 continuation",
+      "detail": "Video-side per-step cost is measured at 224×224×25 with batch 1. Vanilla flow is 1.0× and ReWorld is 1.003×; the surrounding text attributes the small overhead to its intermediate prediction head."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 6(a–b)",
+      "detail": "Block 8 yields the best listed FVD, 61.9. With that block, guidance scales 1.0, 1.4, and 1.6 yield FVD 78.9, 61.9, and 69.7, respectively."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 7; PDF pp. 9–10, Section 4.4, action-representation ablations",
+      "detail": "PDMS is 89.1 for DriveLaW, 89.5 with alignment alone, 89.8 with repulsion alone, and 90.4 with their sequential combination. The text identifies the alignment experiment as frozen-video training; the table does not specify equal budgets or uncertainty."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 8(a–b), captions and relevant weight rows",
+      "detail": "The best Stage 2 alignment weight is 0.05, giving PDMS 89.5. Starting from that checkpoint, repulsion weights 0.02, 0.04, and 0.10 yield PDMS 89.4, 90.4, and 85.5."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.2, qualitative discussion; PDF pp. 10–11, Section 4.5; PDF p. 11, Section 5",
+      "detail": "The text describes video and simulated trajectory examples, including three-second generated futures conditioned on one second of history. The conclusion proposes longer horizons and multimodal extensions. These descriptions were read without inspecting the figure images."
+    }
+  ]
+}

@@ -1,0 +1,554 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.09381",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T15:38:42.354Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.09381",
+      "title": "JEPA-WAM: Learning Vision-Language-Action Policies with Joint-Embedding World Modeling",
+      "kind": "pdf",
+      "sha256": "342e84d7920b38223a487c7cca0533f81b259fe85f29b3c3f3d8501acaea8d78",
+      "wordCount": 9332,
+      "accessedAt": "2026-09-07T13:53:00.404931+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method, including 3.1–3.4",
+      "4 Experiments, including 4.1–4.4",
+      "5 Conclusion",
+      "6 Limitations",
+      "References",
+      "A Implementation Details, including A.1–A.5",
+      "B Experimental Details, including B.1–B.3",
+      "C Additional Analysis, including C.1–C.3",
+      "D Complete RoboTwin 2.0 Results",
+      "E Real-World Detailed Results, including E.1–E.2"
+    ],
+    "omissions": [
+      "The complete supplied main text and appendices were read. Figure images and original PDF layout were not supplied or visually inspected.",
+      "Merged task-level cells in Tables 13–14 were not numerically interpreted. Ambiguous individual-gap cells in Table 8 were not used for reported results.",
+      "Separate supplemental material was not supplied; its availability remains unverified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7",
+      "Table 8: aggregate results and accompanying prose",
+      "Table 9",
+      "Table 10",
+      "Table 11",
+      "Table 12",
+      "Tables 13–14: headers and aggregate results; merged task cells unresolved",
+      "Table 15",
+      "Table 16",
+      "Table 17",
+      "Table 18",
+      "Table 19"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "JEPA-WAM uses prediction of jointly encoded current–future visual embeddings as training supervision for a robot policy. A shared Qwen predictor supplies both dense transition features and dedicated action-conditioning representations; a separate flow-matching expert generates actions. The transition head is discarded at deployment. Reported policy evaluations support improved robustness, while ablations distinguish the contribution of the pretrained visual encoder from the additional transition objective. The work therefore establishes a useful predictive training signal, with no inference-time imagined rollout or planning demonstrated. [e03, e04, e05, e07, e11, e13]",
+  "readingTimeMinutes": 12,
+  "problem": {
+    "text": "The authors seek explicit transition supervision that improves manipulation under distribution shift without the deployment expense of future-video generation. Their specific concerns are that compressed latent targets can lose spatial detail and that separate predictive modules may weakly influence the representations used to generate actions.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A frozen V-JEPA encoder jointly embeds current and future observations into a dense target with matching camera and patch ordering, preserving spatial correspondence during supervision.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03"
+      ]
+    },
+    {
+      "text": "One shared predictor produces supervised visual-token states and dedicated action readouts, allowing transition loss to update the policy backbone without supplying the predicted transition tensor to the action expert.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "An auxiliary future-token branch transfers the objective to pretrained π0.5 while masking its action tokens from those new queries. The resulting gains test whether transition supervision adds value beyond robot-policy pretraining.",
+      "kind": "source",
+      "evidenceIds": [
+        "e08",
+        "e10",
+        "e11"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current camera images in a fixed view order and a language instruction for the shared predictor. [e03, e04]",
+      "Proprioceptive state and a noisy action chunk for the action expert. [e05]",
+      "During training, demonstration actions and a future observation at offset δ. [e03, e05]"
+    ],
+    "outputs": [
+      "Continuous action chunks for policy execution. [e05, e07]",
+      "During training only, predicted joint current–future V-JEPA features for auxiliary supervision. [e04, e07]"
+    ],
+    "steps": [
+      {
+        "name": "Encode spatially organized observations",
+        "detail": "A frozen V-JEPA 2.1 ViT-L/16 processes each 384×384 camera image independently, yielding a 24×24 grid of 1024-dimensional features. Concatenation preserves camera order. A two-layer projector maps these features into Qwen's 896-dimensional hidden space.",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      },
+      {
+        "name": "Construct the transition target",
+        "detail": "For each camera, stack current and future frames and jointly encode them with the frozen encoder. Its two-frame temporal tubelet yields the same spatial grid as the current image representation. This target is neither a future-only embedding nor subtraction of independently encoded endpoints; the authors interpret it as task-shared temporal structure.",
+        "evidenceIds": [
+          "e03",
+          "e14"
+        ]
+      },
+      {
+        "name": "Share prediction features, separate action readout",
+        "detail": "Qwen2.5-0.5B processes projected visual tokens, instruction and 64 action placeholders. Final visual-token states feed a token-wise transition MLP; placeholder states form the action-conditioning representation. Thus, sharing occurs inside the predictor, while the action expert receives a dedicated readout.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Generate continuous actions",
+        "detail": "A 16-layer DiT receives the action readout, proprioception, noisy actions and 32 learnable future tokens. These learned tokens are distinct from the predicted transition tensor. LIBERO uses 7-dimensional actions with horizon 8 and target offset 31; RoboTwin uses 14-dimensional actions with horizon and offset 50. Future-frame indices are clipped at trajectory boundaries.",
+        "evidenceIds": [
+          "e03",
+          "e05"
+        ]
+      },
+      {
+        "name": "Adapt pretrained π0.5",
+        "detail": "Append 64 future queries to the VLM prefix, reshape their 2048-dimensional outputs into an 8×8 map, project to 1408 channels and bilinearly upsample to 24×24. Supervise against a frozen V-JEPA ViT-G target. Queries can attend to image and language context, but original action tokens cannot attend to them.",
+        "evidenceIds": [
+          "e08"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Vision–language initialization trains the projector and full Qwen backbone on LLaVA v1.5 assistant responses for two epochs, keeping V-JEPA frozen. Robot-policy training then freezes the encoder, projector and base Qwen weights, optimizing Qwen LoRA adapters, the transition head and action expert.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "text": "The base policy combines patch-wise cosine supervision with flow matching using transition weight 0.5. LIBERO predicts flow velocity; RoboTwin instead predicts the clean action trajectory. The π0.5 auxiliary weight warms linearly to 0.1 over the first 1,000 optimization steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The base policy encodes current observations, computes action readouts and generates a chunk from Gaussian noise using four Euler steps. It requires no future observation and executes neither target encoding nor the transition prediction head.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "text": "For π0.5, the teacher and spatial prediction head are also training-only. Future queries remain in the inference prefix, but the action-attention mask remains, so predicted future features do not explicitly condition action generation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08"
+        ]
+      },
+      {
+        "text": "The deployed mechanism is a policy shaped by predictive supervision. The supplied method does not describe evaluating candidate actions through a dynamics model, inverse-dynamics action extraction, or planning over predicted futures.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e07",
+          "e08"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "Y_{t,t+δ} = Concat_v sg[E_J(Stack_time(O_t^v, O_{t+δ}^v))]",
+        "explanation": "Equation (2): E_J is the frozen encoder, v indexes cameras, δ selects the future frame and sg stops gradients. Joint encoding preserves the target's correspondence with current visual-token positions.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "L_wm = (1 / (B N_vis)) Σ_b Σ_n [1 − cos(Ŷ_{t,t+δ,n}^{(b)}, Y_{t,t+δ,n}^{(b)})]",
+        "explanation": "Equation (5) averages cosine distance over batch examples and visual patches. A prediction head maps shared-predictor visual states to Ŷ; the loss updates that head and the trainable predictor adapters.",
+        "evidenceIds": [
+          "e04",
+          "e06"
+        ]
+      },
+      {
+        "expression": "a_τ = (1−τ)ε + τa; L_act = E[||A_ψ(a_τ, τ, s_t, C_t) − (a−ε)||²]; L = L_act + λ_wm L_wm",
+        "explanation": "Equations (6)–(7): a is a demonstrated action chunk, ε is Gaussian noise, τ is flow time, s_t is proprioception and C_t is the action readout. The displayed velocity objective applies to the default setup; RoboTwin uses clean-action prediction instead.",
+        "evidenceIds": [
+          "e05",
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO manipulation",
+      "setting": "Joint training on the four standard suites; corresponding ID evaluation.",
+      "metric": "Average task success rate",
+      "value": "JEPA-WAM: 96.7%; π0.5 + JEPA objective: 97.8%.",
+      "comparison": "Fast-WAM: 97.6%; original π0.5: 96.9%.",
+      "interpretation": "The base model remains competitive but does not lead the listed non-robot-pretrained methods on ID success.",
+      "evidenceIds": [
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus robustness",
+      "setting": "Transfer from LIBERO demonstrations without OOD fine-tuning.",
+      "metric": "Average task success rate",
+      "value": "JEPA-WAM: 79.2%; π0.5 + JEPA objective: 86.3%.",
+      "comparison": "ResVLA: 77.1%; original π0.5: 84.5%.",
+      "interpretation": "These are the highest listed averages within the respective pretraining groups. Cross-method comparisons also differ in architecture and pretraining; the ablations provide stronger mechanism-specific evidence.",
+      "evidenceIds": [
+        "e09",
+        "e11",
+        "e13"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0 bimanual manipulation",
+      "setting": "Train on Clean demonstrations; evaluate the same 20 tasks under Clean and Random conditions.",
+      "metric": "Average task success rate, Clean / Random",
+      "value": "JEPA-WAM: 79.9% / 36.9%; π0.5 + JEPA objective: 84.6% / 37.5%.",
+      "comparison": "DP3: 73.9% / 8.3%; original π0.5: 75.4% / 37.2%.",
+      "interpretation": "The base model substantially improves Random performance over DP3, but substantial distribution-shift degradation remains. The pretrained variant's Random improvement is small.",
+      "evidenceIds": [
+        "e09",
+        "e12"
+      ]
+    },
+    {
+      "task": "Representation and target ablations",
+      "setting": "Shared LIBERO-Plus policy-training setup.",
+      "metric": "Average task success rate",
+      "value": "Joint current–future target: 79.2%.",
+      "comparison": "V-JEPA without transition prediction: 77.0%; DINO+SigLIP without transition prediction: 73.2%; future-only target: 77.3%; endpoint difference: 70.9%.",
+      "interpretation": "The visual encoder accounts for part of the robustness. Joint transition supervision adds a further benefit and performs better than either isolated future encoding or endpoint subtraction.",
+      "evidenceIds": [
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "task": "Spatial supervision and action-readout ablations",
+      "setting": "LIBERO-Plus controlled variants.",
+      "metric": "Average task success rate",
+      "value": "JEPA-WAM: 79.2%.",
+      "comparison": "iREPA alignment: 74.7%; layer-16 supervision: 76.5%; full-hidden-sequence action conditioning: 73.1%.",
+      "interpretation": "Results favor final-layer patch supervision and dedicated action readouts. They do not uniquely establish the proposed interference explanation.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Frozen temporal-gap decoding",
+      "setting": "RoboTwin Clean-20; episode-disjoint probe splits; fixed future anchors across six gap classes.",
+      "metric": "Classification accuracy with episode-bootstrap 95% confidence interval",
+      "value": "Joint target: 67.2% [65.3, 69.1].",
+      "comparison": "Endpoint difference: 47.0% [45.0, 49.1]; future-only: 16.7%.",
+      "interpretation": "Temporal separation is more linearly accessible in the joint embedding. This evaluates frozen representations, not executed robot performance.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "Frozen trajectory-structure decoding",
+      "setting": "Predict intermediate robot-state residuals after removing straight-line endpoint interpolation.",
+      "metric": "Mean R²",
+      "value": "Joint target: 0.582; reported paired improvement: 0.097, 95% CI [0.082, 0.112].",
+      "comparison": "Endpoint difference: 0.485. Conversely, direct endpoint-displacement prediction favors differencing: 0.740 versus 0.718.",
+      "interpretation": "Joint encoding better exposes predictable within-interval structure, but is not uniformly superior across targets and does not identify a unique intervening trajectory.",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "task": "Physical bimanual manipulation",
+      "setting": "Five Cobot Magic tasks; 100 training demonstrations per task; 10 rollouts per task and setting. OOD changes backgrounds or initial configurations.",
+      "metric": "Mean normalized task-completion score, ID / OOD",
+      "value": "JEPA-WAM: 59.82% / 54.18%; π0.5 + JEPA objective: 90.34% / 84.68%.",
+      "comparison": "π0: 51.82% / 22.50%; original π0.5: 77.52% / 72.50%.",
+      "interpretation": "These are physical rollout scores with partial credit, not binary success rates. The unchanged objectives and instructions constrain the demonstrated generalization to the tested scene shifts.",
+      "evidenceIds": [
+        "e18",
+        "e19"
+      ]
+    },
+    {
+      "task": "Inference efficiency",
+      "setting": "Paper's recorded RoboTwin inference setting.",
+      "metric": "Median latency and reported inference frequency",
+      "value": "JEPA-WAM: 85.00 ms, 11.76 Hz; π0.5 + JEPA objective: 55.12 ms, 18.14 Hz.",
+      "comparison": "ABot-M0: 125.23 ms, 7.99 Hz; original π0.5: 54.05 ms, 18.50 Hz.",
+      "interpretation": "Reported measurements show a small latency increase for the pretrained variant. These inference frequencies do not specify the robot's low-level control frequency.",
+      "evidenceIds": [
+        "e20"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors acknowledge that task-shared temporal targets may be insufficient when the same observation requires substantially different transitions under different instructions. Language-conditioned or multimodal targets remain future work.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e21"
+      ]
+    },
+    {
+      "text": "The spatial diagnostic supports only moderate correspondence between representation changes and RGB changes. It does not establish precise motion localization; no figure-based judgment is possible from this supplied text.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "text": "The iREPA ablation changes both convolutional transformation and target normalization, while full-hidden conditioning changes the action readout and its token set. Their degradations support the chosen designs but do not isolate spatial mixing or objective interference as unique causes.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "text": "Policy headline results lack reported seed-level uncertainty. The physical evaluation has only 10 rollouts per task and setting, so small score differences should not be treated as established population-level improvements. Probe confidence intervals do not supply uncertainty for policy performance.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e12",
+        "e15",
+        "e18",
+        "e19"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required components include the V-JEPA and Qwen checkpoints, vision–language initialization data, demonstration observations/actions and exact camera ordering. The main implementation uses LoRA rank 32, scale 64 and dropout 0.1. LIBERO training specifies 60K steps on eight GPUs, global batch 128, BF16, AdamW, peak learning rate 2×10⁻⁴, cosine decay to 10⁻⁵, 3% warmup, zero weight decay and gradient clipping at 1.0.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e06"
+      ]
+    },
+    {
+      "text": "A focused reproduction should compare V-JEPA-only, future-only and joint-target policies with matched initialization, demonstrations and repeated seeds on LIBERO-Plus. This directly tests the incremental transition objective without claiming to reproduce every benchmark or the pretrained transfer.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "text": "The supplied appendices leave simulation evaluation seed counts, latency hardware, detailed action normalization and the full physical control schedule unspecified. The paper mentions a GitHub project page, but no repository or checkpoint was inspected and no experiment was reproduced.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e01",
+        "e05",
+        "e09",
+        "e18",
+        "e20"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The latent prediction/JEPA and action-alignment categories are supported. Other mechanisms and Outside quadrants are consistent with auxiliary transition supervision whose prediction head is absent at deployment. Dual-system is less determinate: transition features and action readouts share Fθ, but a separate DiT generates actions. The source establishes this architecture, not the catalog's boundary between systems. Consequently, the snapshot cannot be endorsed unconditionally or replaced with One Model solely because the losses are trained jointly.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e07",
+        "e08"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Latent prediction & JEPA",
+        "Generalization & action alignment"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "dc5a2ca533e6e648b8fb8ee7084571d3f3e21c51cce7729f054031942f359a00"
+    }
+  },
+  "discussionQuestions": [
+    "Would language-conditioned targets improve policies when identical scenes support conflicting task instructions? [e21]",
+    "Does joint encoding still outperform future-only supervision across repeated seeds and matched initialization? [e13, e14]",
+    "Can separate normalization and spatial-mixing ablations identify why iREPA alignment degrades performance? [e13]",
+    "Which aspects of the learned transition representation explain the limited Random-setting gain when adapting π0.5 on RoboTwin? [e12, e16]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author list, arXiv version line and Abstract",
+      "detail": "Title, identifier and all nine authors match the catalog. The supplied version is arXiv:2608.09381v1, dated 10 August 2026. The abstract mentions a GitHub project page."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Section 1 Introduction",
+      "detail": "The motivation concerns deployment cost, loss of spatial detail in compressed representations and weak coupling between separate predictive supervision and action representations."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1, Eqs. (1)–(2); p. 11, Appendix A.1",
+      "detail": "Defines frozen per-view encoding, joint two-frame targets, stop-gradient and matching spatial order. A.1 specifies encoder dimensions, temporal tubelets, benchmark horizons, offsets and boundary clipping."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2, Eqs. (3)–(5); p. 11, Appendix A.1",
+      "detail": "Shared Qwen visual-token states predict transition features with patch-wise cosine loss; 64 action-placeholder states provide a dedicated readout. A.1 specifies projector and prediction-head dimensions."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2, Eq. (6); p. 11, Appendix A.1; p. 13, Appendices B.1–B.2",
+      "detail": "Defines flow matching, proprioceptive conditioning and action chunks. The DiT has 16 layers and 32 learnable future tokens. LIBERO uses 7-D actions; RoboTwin uses 14-D actions and clean-action prediction."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Appendices A.1–A.3, Eqs. (10)–(12)",
+      "detail": "Specifies LoRA settings, LLaVA initialization, frozen and trainable modules, transition weight, noise schedule and LIBERO optimizer, batch, precision and training duration."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix A.5, JEPA-WAM deployment paragraph",
+      "detail": "Deployment omits target encoding and transition prediction. The action expert starts from Gaussian noise and uses four Euler integration steps."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.4, Eqs. (8)–(9); p. 12, Appendices A.4–A.5",
+      "detail": "Describes π0.5 future queries, spatial projection, ViT-G targets, loss warmup and attention masking. Queries remain at inference; the teacher and prediction head do not."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1; p. 13, Appendices B.1–B.2",
+      "detail": "LIBERO training covers four suites with direct LIBERO-Plus transfer. RoboTwin trains on Clean demonstrations and evaluates the same 20 tasks in Clean and Random settings."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 1, Avg. column",
+      "detail": "Lists LIBERO averages: JEPA-WAM 96.7, Fast-WAM 97.6, π0.5 96.9 and π0.5 with JEPA supervision 97.8."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2, Avg. column and caption",
+      "detail": "Lists LIBERO-Plus averages: JEPA-WAM 79.2, ResVLA 77.1, π0.5 84.5 and its JEPA variant 86.3, grouped by robot-policy pretraining."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 3, AVG Clean and Random columns",
+      "detail": "Reports DP3 73.9/8.3, JEPA-WAM 79.9/36.9, π0.5 75.4/37.2 and its JEPA variant 84.6/37.5 over 20 tasks."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.3 and Table 4; p. 14, Appendix C.1",
+      "detail": "Reports representation and integration ablations. C.1 specifies that iREPA changes convolution and normalization, Lower-16 changes the supervised layer, and Full hidden removes action placeholders."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix C.1, Eq. (13) and Table 6",
+      "detail": "Defines endpoint subtraction and reports averages of 70.9 for endpoint difference, 77.3 for future-only and 79.2 for joint encoding."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–15, Appendix C.2, probe setup, Eq. (16) and Table 7",
+      "detail": "Describes episode-disjoint frozen probes and paired episode bootstrapping. Table 7 reports gap-classification accuracy and confidence intervals for joint, difference, current-only and future-only features."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix C.2, Eqs. (17)–(19), Tables 9–10",
+      "detail": "Residual-trajectory R² is 0.582 for joint versus 0.485 for difference, with paired improvement 0.097 and CI [0.082, 0.112]. Direct displacement instead favors difference, 0.740 versus 0.718."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Appendix C.2, spatial diagnostic, Eqs. (20)–(22) and Table 11",
+      "detail": "Matched static controls relate patch-feature changes to RGB changes. The authors characterize correspondence as moderate and explicitly avoid interpreting it as precise motion localization."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix B.3 and Table 5",
+      "detail": "Specifies the physical platform, five tasks, 100 demonstrations per task, unchanged OOD instructions, 10 rollouts per setting and task-specific partial-credit scoring."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 21–22, Appendix E, Table 15 Avg. column and Tables 16–19",
+      "detail": "Table 15 provides exact ID/OOD completion-score averages for all four policies; Tables 16–19 supply the corresponding rollout records and task means."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix C.3 and Table 12",
+      "detail": "Reports median latency and frequency under the RoboTwin inference setting for π0.5, its JEPA variant, JEPA-WAM and ABot-M0; hardware is not specified there."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 6 Limitations",
+      "detail": "The authors identify reduced expressiveness for instruction-dependent alternative transitions and propose language-conditioned or multimodal targets."
+    }
+  ]
+}

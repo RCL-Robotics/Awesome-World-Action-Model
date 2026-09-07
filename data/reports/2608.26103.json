@@ -1,0 +1,531 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.26103",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:26:08.639Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.26103",
+      "title": "Zero-WAM: In-Context World-Action Modeling from Human Videos for Open-Ended Task Generalization",
+      "kind": "pdf",
+      "sha256": "4f06ad8631437e2723e470c539327c9298477790779b88164f0a41f67b4d7ab7",
+      "wordCount": 11303,
+      "accessedAt": "2026-09-07T13:50:54.404759+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Data Curation",
+      "2.1 Task-Diverse Video-Action Data",
+      "2.2 In-Context Human Video Generation Pipeline",
+      "2.3 In-Context HumanGen Dataset",
+      "3 Zero-WAM: In-Context World Action Modeling",
+      "3.1 Preliminaries",
+      "3.2 Human Video as Task Specification",
+      "3.3 In-Context Future Chunk Prediction",
+      "3.4 Training and Inference",
+      "4 Experiments",
+      "4.1 Implementation",
+      "4.2 Simulation Experiments",
+      "4.3 Real-World Experiments",
+      "4.4 Ablation Studies",
+      "5 Conclusions and Discussions",
+      "6 Related Works",
+      "6.1 Cross-Task Robotic Manipulation",
+      "6.2 World Action Models",
+      "6.3 Human Video Data for Robotic Manipulation",
+      "References"
+    ],
+    "omissions": [
+      "Review covers the complete supplied main text and references, not independent inspection of the PDF artifact.",
+      "Figure images were not supplied or visually inspected. Ablation numbers are taken from explicit body prose, not reconstructed plots.",
+      "No appendix appears in the supplied 21-page text; separate supplementary material availability remains unverified.",
+      "The title page identifies arXiv:2608.26103v2, dated 27 August 2026. Its title and author list agree with the catalog; the catalog does not specify a revision.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: extracted dataset comparison",
+      "Table 2: extracted RoboTwin success rates",
+      "Table 3: extracted real-world success rates"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "Zero-WAM translates a human demonstration video into predicted robot futures, then uses a separate action Transformer to decode executable actions. Its distinctive training intervention makes intermediate video features predict farther future chunks, encouraging those features to retain task information from the demonstration. HumanGen supplies synthetic human instructions paired with action-labeled robot trajectories. Reported closed-loop success averages 46.95% on seven held-out RoboTwin tasks; physical tests demonstrate narrower transfer to unseen tabletop configurations. These are execution results, although broad open-ended generalization remains beyond the evaluation. [E04, E05, E06, E07, E08, E11, E12, E13, E20]",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "A robot encountering an unseen manipulation task must recover spatial goals and temporal structure from its deployment-time instruction. The authors argue that language often underspecifies these details, while human videos expose them visually. Training must also prevent a policy from ignoring the video because familiar robot histories already predict the immediate next step.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "E02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "An automatic robot-to-human video generation pipeline constructs HumanGen, reported as 74.2K paired instructions across 8.6K tasks. Task-diverse VA separately balances robotic pretraining by task rather than raw trajectory frequency.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05"
+      ]
+    },
+    {
+      "text": "Human video becomes prefix context for robot future prediction. Executable actions are decoded through robot-domain inverse dynamics, allowing task semantics to pass through predicted robot futures without directly conditioning the action branch on human video.",
+      "kind": "source",
+      "evidenceIds": [
+        "E06",
+        "E07"
+      ]
+    },
+    {
+      "text": "In-context future chunk prediction, or IFP, supervises farther future videos through the main branch's intermediate representation. The authors propose this auxiliary objective as a way to strengthen demonstration use without retaining its additional prediction modules during deployment.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E08",
+        "E09"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Robot video history x≤i and temporally aligned action history a≤i",
+      "Human demonstration video h in ICL mode",
+      "Language instruction ℓ in language-only mode; optionally alongside human video"
+    ],
+    "outputs": [
+      "Predicted next robot video chunk xᵢ₊₁",
+      "Executable action chunk aᵢ₊₁ conditioned on the next robot video",
+      "Additional strided future video predictions during IFP training only"
+    ],
+    "steps": [
+      {
+        "name": "Construct task-level supervision",
+        "detail": "Public robot trajectories are grouped by manipulation action and object, yielding more than 6,000 tasks and approximately 400K sampled trajectories per epoch. For human-video pairing, a VLM parses a robot trajectory, an image editor transforms its first frame into a human scene, and a video generator synthesizes the manipulation. VLM screening checks semantics and physical plausibility.",
+        "evidenceIds": [
+          "E03",
+          "E04"
+        ]
+      },
+      {
+        "name": "Encode and distinguish the two visual domains",
+        "detail": "The same Wan VAE encodes human and robot videos. Human tokens precede robot tokens as task memory. A height-axis RoPE offset distinguishes their coordinates; the implementation uses ΔH = 32. This supplies semantic correspondence across embodiments rather than explicit human-motion retargeting.",
+        "evidenceIds": [
+          "E07",
+          "E10"
+        ]
+      },
+      {
+        "name": "Predict robot futures and decode actions",
+        "detail": "Video and action Transformers have separate QKV projections, feed-forward networks and output heads, while interacting through shared attention over one sequence. Action tokens follow future-video tokens. The action branch attends to robot history, the next robot video and language, with direct attention to human video excluded.",
+        "evidenceIds": [
+          "E06",
+          "E07"
+        ]
+      },
+      {
+        "name": "Make current features informative about later outcomes",
+        "detail": "IFP concatenates features from multiple video-Transformer layers and projects them into a fused representation φ. Separate auxiliary modules denoise strided future targets in parallel. They receive φ, robot history and language; their access to human-video information passes through φ. The intended effect is to make the deployed video branch encode longer-term task evolution.",
+        "evidenceIds": [
+          "E08"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Training uses teacher-forced robot prefixes. The action branch receives the ground-truth next robot video, creating a training-to-inference change when generated video replaces it. Video and action prediction both use flow matching; IFP adds a weighted future-video loss for HumanGen samples.",
+        "kind": "source",
+        "evidenceIds": [
+          "E07",
+          "E09"
+        ]
+      },
+      {
+        "text": "Initialization uses Wan-2.2-TI2V-5B. The video branch has 30 layers and hidden dimension 3072; the action branch also uses dimension 3072 and initialization from video parameters. IFP uses four targets with stride two and weights (0.5, 0.25, 0.15, 0.15).",
+        "kind": "source",
+        "evidenceIds": [
+          "E10"
+        ]
+      },
+      {
+        "text": "AdamW uses peak learning rate 10⁻⁴ and weight decay 0.01. Pretraining samples Task-diverse VA and HumanGen at 1:5 and costs 15,360 GPU hours. ICL training drops human latents with probability 0.1 and language with probability 0.4. RoboTwin post-training runs 4,000 steps on 64 GPUs, mixing VA, HumanGen and RoboTwin at 2:10:3.",
+        "kind": "source",
+        "evidenceIds": [
+          "E10",
+          "E11"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "IFP modules are removed. Human video is encoded once and cached as prefix memory; the reported ICL implementation disables language. Each step generates robot video before decoding its aligned executable actions. Evaluation uses closed-loop rollouts. The implementation fixes chunk size to two, uses video or ICL guidance scale five, and action guidance scale 1.0.",
+        "kind": "source",
+        "evidenceIds": [
+          "E07",
+          "E09",
+          "E10",
+          "E11"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "pθ(xᵢ₊₁,aᵢ₊₁ | x≤i,a≤i,c) = pθvid(xᵢ₊₁ | x≤i,a≤i,c) · pθact(aᵢ₊₁ | x≤i,a≤i,xᵢ₊₁,c)",
+        "explanation": "Equation (4) factorizes joint prediction into future-video generation followed by inverse dynamics. Here x denotes video chunks, a action chunks and c task context. Equations (7)–(8) refine the action context by excluding direct human-video conditioning.",
+        "evidenceIds": [
+          "E06",
+          "E07"
+        ]
+      },
+      {
+        "expression": "xₜ = (1−t)x₀ + tε; v*ₜ = ε−x₀; Lfm = E[‖vθ(xₜ,t,c)−v*ₜ‖²₂]",
+        "explanation": "Equations (1)–(2) interpolate between clean video and Gaussian noise. The model learns the path velocity and generates by integrating from noise toward t = 0. Equations (17)–(18) apply the analogous construction to action chunks.",
+        "evidenceIds": [
+          "E09"
+        ]
+      },
+      {
+        "expression": "jₖ = (i+1)+1+(k−1)s; φᵢ₊₁ = Pfuse(Concat({rᵢ₊₁ₘ}ₘ₌₁ᴹ)); Lifp = Σₖ₌₁ᴷ wₖ Lfm(xⱼₖ; φᵢ₊₁,x≤i,a≤i,ℓ)",
+        "explanation": "Equations (11)–(14) define the auxiliary targets and feature bottleneck. With K = 4 and s = 2, target indices are i+2, i+4, i+6 and i+8. Intermediate features r come from the current noised next-video chunk. Human context must reach the auxiliary predictors through φ.",
+        "evidenceIds": [
+          "E08",
+          "E10"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Seven unseen RoboTwin manipulation tasks",
+      "setting": "Clean RoboTwin 2.0; 43 post-training tasks and seven held-out tasks; reported 100 closed-loop rollouts per task per seed, across three seeds. Zero-WAM uses generated human instructions; baselines use language.",
+      "metric": "Macro-average simulation task success, mean ± SD across seeds",
+      "value": "46.95% ± 0.72%",
+      "comparison": "LingBot-VA: 17.45% ± 1.40%; WAN-Action: 10.98% ± 1.07%. Reported gains are 29.50 and 35.97 percentage points.",
+      "interpretation": "Author-reported execution performance favors Zero-WAM on every evaluated task. The main comparison combines changes in pretraining, task interface and auxiliary supervision.",
+      "evidenceIds": [
+        "E11",
+        "E12"
+      ]
+    },
+    {
+      "task": "Stack blocks three",
+      "setting": "Same held-out RoboTwin protocol",
+      "metric": "Simulation task success, mean ± SD across seeds",
+      "value": "9.00% ± 2.16%",
+      "comparison": "Both main baselines: 0.00% ± 0.00%",
+      "interpretation": "Author-reported nonzero success demonstrates some long-horizon transfer, while the low absolute rate limits claims of reliable sequential manipulation.",
+      "evidenceIds": [
+        "E11",
+        "E12"
+      ]
+    },
+    {
+      "task": "Object-to-container placement",
+      "setting": "Bimanual Franka; 120 adaptation demonstrations from 30 training combinations; held-out configurations contain an unseen object or container; reported 30-trial evaluation.",
+      "metric": "Physical robot task success",
+      "value": "53.3%",
+      "comparison": "Language-conditioned LingBot-VA: 43.3%",
+      "interpretation": "Author-reported success supports configuration transfer using human-video-only instructions. No uncertainty interval is supplied.",
+      "evidenceIds": [
+        "E13",
+        "E14"
+      ]
+    },
+    {
+      "task": "Three-object sequential manipulation",
+      "setting": "Bimanual Franka; 96 adaptation demonstrations from 16 combinations; human video specifies object order, including unseen objects and containers; reported 30-trial evaluation.",
+      "metric": "Physical robot task success",
+      "value": "33.3%",
+      "comparison": "Language-conditioned LingBot-VA: 10.0%",
+      "interpretation": "Author-reported results support improved sequence following, although most trials remain unsuccessful.",
+      "evidenceIds": [
+        "E13",
+        "E15"
+      ]
+    },
+    {
+      "task": "Two-table-leg insertion",
+      "setting": "Bimanual Franka; 36 adaptation demonstrations; unseen insertion configurations specified by human video; reported 30-trial evaluation.",
+      "metric": "Physical robot task success",
+      "value": "16.7%",
+      "comparison": "Language-conditioned LingBot-VA: 0.0%",
+      "interpretation": "Author-reported physical insertion succeeds occasionally. Qualitative transfer examples do not establish an additional measured success rate.",
+      "evidenceIds": [
+        "E13",
+        "E16"
+      ]
+    },
+    {
+      "task": "Human-video prompt ablation",
+      "setting": "Same RoboTwin task split; Zero-WAM without robotic pretraining and WAN-Action both start from Wan weights and train on the 43 seen tasks.",
+      "metric": "Seven-task macro-average simulation success",
+      "value": "36.36% with Zero-WAM w/o pretrain",
+      "comparison": "Language-only WAN-Action: 10.98%",
+      "interpretation": "The reported comparison supports the human-video-conditioned training configuration without large-scale robotic pretraining. It does not directly measure whether particular demonstration content causally controls predictions.",
+      "evidenceIds": [
+        "E17"
+      ]
+    },
+    {
+      "task": "IFP ablation",
+      "setting": "Same RoboTwin task split; full Zero-WAM versus Zero-WAM without IFP",
+      "metric": "Seven-task macro-average simulation success",
+      "value": "46.95% with IFP",
+      "comparison": "28.55% without IFP",
+      "interpretation": "The reported gain supports auxiliary future supervision. It is consistent with the shortcut-suppression hypothesis, without independently establishing that mechanism.",
+      "evidenceIds": [
+        "E08",
+        "E18"
+      ]
+    },
+    {
+      "task": "Task-balanced robotic pretraining ablation",
+      "setting": "Text-only Zero-WAM retains HumanGen robot trajectories but masks human-video conditioning; comparison uses LingBot-VA.",
+      "metric": "Seven-task macro-average simulation success",
+      "value": "39.44%",
+      "comparison": "LingBot-VA: 17.45%; reported gain of 21.99 percentage points",
+      "interpretation": "The result supports the curated pretraining configuration. Because the paper states that most, rather than all, sampled data overlap LingBot-VA's corpus, it does not fully isolate sampling balance.",
+      "evidenceIds": [
+        "E19"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify stationary tabletop manipulation as the main evaluation domain and leave mobile manipulation, dynamic unstructured settings and substantially longer horizons to future work.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E20"
+      ]
+    },
+    {
+      "text": "Simulation instructions are synthesized from corresponding robot trajectories before the task split. This establishes transfer from generated prompts for held-out tasks; it does not independently establish equivalent performance with naturally recorded human demonstrations. The supplied text also lacks a complete overlap audit against heterogeneous pretraining tasks.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E05",
+        "E11"
+      ]
+    },
+    {
+      "text": "The principal baselines differ in task interface and pretraining history. Real-world comparisons likewise give Zero-WAM video instructions and LingBot-VA detailed text. These comparisons assess complete systems with different information channels, rather than equal-information policy architectures.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E11",
+        "E13",
+        "E19"
+      ]
+    },
+    {
+      "text": "IFP's restricted access to human context is a plausible architectural incentive, but auxiliary modules still receive robot history and language. The success ablation alone cannot show that shortcuts disappear or quantify how much human-video information the main representation retains.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E08",
+        "E18"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the pretrained backbone, paired video/action data, human-video generation services and the exact RoboTwin task split. The authors modify success criteria for stamp seal and move stapler to pad; those definitions are essential for comparable evaluation. The project link was not opened, code was not inspected, and no experiments were reproduced.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E01",
+        "E04",
+        "E10",
+        "E11"
+      ]
+    },
+    {
+      "text": "The supplied method leaves several implementation details unresolved: selected IFP feature layers, global action/IFP loss coefficients, action representation and normalization, denoising schedules, complete freezing policy, and precise observation-to-action timing. Data generation also needs complete prompts, filtering implementation and task-specific sampling bounds.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E08",
+        "E09",
+        "E10"
+      ]
+    },
+    {
+      "text": "Request raw rollout counts and aggregation code: task means such as 84.87% are not explained by an unweighted average of three 100-rollout success rates. Preserve the published values without silently correcting them until their denominators or aggregation are clarified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E11",
+        "E12"
+      ]
+    },
+    {
+      "text": "A focused mechanism test would repeat the IFP ablation with matched data and compute, then replace correct human prompts with wrong-task or shuffled-order prompts. Measuring executed success and prediction changes would test whether IFP specifically increases useful reliance on demonstration content.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E08",
+        "E17",
+        "E18"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Dual-system × IDM classification is supported by two parameter-separated modality Transformers and explicit future-video-conditioned inverse dynamics. Sharing attention and a token sequence does not erase that architectural separation. Human-prefix caching supports the memory tag; IFP supports the long-horizon modeling tag as training supervision, with limited demonstrated long-horizon execution. IFP itself is removed during inference.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E06",
+        "E07",
+        "E08",
+        "E09",
+        "E12"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Visual planning & IDM",
+        "Generalization & action alignment",
+        "Memory & long-horizon modeling"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "c1d97415e0bc8fa5f49c4ed98ba215836d372159e517d23d470e3fea95e6cbd9"
+    }
+  },
+  "discussionQuestions": [
+    "Does IFP increase sensitivity to correct task order and decrease success under wrong-task human prompts, beyond its reported aggregate gain? [E08, E18]",
+    "How much performance survives when simulation instructions are independently recorded human demonstrations rather than videos synthesized from held-out robot trajectories? [E05, E11]",
+    "With identical trajectories, compute and language-only conditioning, how much benefit comes specifically from task-balanced sampling? [E19]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "E01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title page and arXiv version line",
+      "detail": "The title and authors match the catalog. The page identifies arXiv:2608.26103v2, dated 27 August 2026, and provides a project URL."
+    },
+    {
+      "id": "E02",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 1, task specification and shortcut-learning discussion",
+      "detail": "The authors motivate human video through spatial and temporal information absent from language, and identify history-based next-chunk prediction as a route to ignoring human context."
+    },
+    {
+      "id": "E03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 2.1",
+      "detail": "Five public robot datasets are repartitioned by action/object task, with dataset-dependent sampling bounds. The resulting training epoch samples more than 6,000 tasks and approximately 400K trajectories."
+    },
+    {
+      "id": "E04",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 2.2",
+      "detail": "The pipeline parses robot-video task states, edits the first frame into a human scene, generates human manipulation video, and screens semantic preservation and physical plausibility. Pairing retains the original executable robot actions."
+    },
+    {
+      "id": "E05",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Table 1 HumanGen row and Section 2.3",
+      "detail": "HumanGen is reported as 74.2K instructions across 8.6K tasks. Its subsets include external and in-house pretraining pairs, 2,500 Simulation ICL pairs across 50 tasks, and 252 real-world pairs. Simulation uses 43 training tasks and seven held-out tasks."
+    },
+    {
+      "id": "E06",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 3.1, Equations (3)–(4) and Mixture-of-Transformers Design",
+      "detail": "Prediction factorizes into future video followed by inverse-dynamics action decoding. Video and action Transformers have separate modality parameters, share attention interactions, and place actions after future-video representations."
+    },
+    {
+      "id": "E07",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 3.2, Equations (5)–(10)",
+      "detail": "Human tokens provide video-branch prefix context. The action branch excludes direct human attention and uses ground-truth future video during training, generated video during inference. Human and robot videos share the VAE, with distinct height-axis RoPE coordinates."
+    },
+    {
+      "id": "E08",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 3.3, Equations (11)–(14)",
+      "detail": "IFP fuses intermediate current-video features and predicts strided future chunks using auxiliary modules initialized from the last video layer. Their conditions include fused features, robot history and language, with human information accessible through the fused features."
+    },
+    {
+      "id": "E09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Equations (1)–(2); PDF p. 9, Section 3.4, Equations (15)–(20) and Inference",
+      "detail": "Video and action losses use Gaussian-noise flow matching. HumanGen adds weighted IFP supervision. Deployment removes IFP and caches the encoded human video as prefix memory."
+    },
+    {
+      "id": "E10",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 4.1",
+      "detail": "Implementation specifies Wan initialization, video depth 30, both hidden dimensions 3072, RoPE offset 32, four IFP targets with stride two and stated weights, AdamW settings, data ratio, dropout, 15,360 GPU hours, chunk sizes and inference guidance scales."
+    },
+    {
+      "id": "E11",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 4.2, Setting, Training, Baselines, Evaluation and footnote 1",
+      "detail": "The clean RoboTwin protocol holds out seven of 50 tasks, generates instructions from robot trajectories, post-trains for 4,000 steps on 64 GPUs with mixture 2:10:3, and reports three seeds with 100 rollouts per task per seed. Two task success criteria are modified for all methods."
+    },
+    {
+      "id": "E12",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 2, Average, Stack blocks three and Place empty cup rows; Section 4.2 Results",
+      "detail": "Average success is 46.95±0.72 for Zero-WAM, 17.45±1.40 for LingBot-VA and 10.98±1.07 for WAN-Action. Stacking is 9.00±2.16 versus zero for both baselines. Place empty cup is reported as 84.87±0.18. Zero-WAM leads all seven rows."
+    },
+    {
+      "id": "E13",
+      "sourceId": "primary",
+      "location": "PDF pp. 11 and 13, Section 4.3; PDF p. 11, Table 3 caption",
+      "detail": "Bimanual Franka evaluation holds out task configurations after embodiment adaptation. Zero-WAM uses human video alone; LingBot-VA receives detailed text. The table reports a 30-trial evaluation; prose defines object/container novelty, three-object ordering and two-leg target-hole assignments."
+    },
+    {
+      "id": "E14",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 3, Object-to-container placement row; Section 4.3 matching paragraph",
+      "detail": "Placement uses 30 training combinations and 120 demonstrations, with reported success 43.3% for LingBot-VA and 53.3% for Zero-WAM."
+    },
+    {
+      "id": "E15",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 3, Three-object sequential manipulation row; PDF p. 13, matching paragraph",
+      "detail": "Sequential manipulation uses 16 training combinations and 96 demonstrations, with reported success 10.0% for LingBot-VA and 33.3% for Zero-WAM."
+    },
+    {
+      "id": "E16",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 3, Two-table-leg insertion row; PDF p. 13, matching paragraph",
+      "detail": "Insertion uses 36 demonstrations, with reported success 0.0% for LingBot-VA and 16.7% for Zero-WAM. Additional color/type transfer is described qualitatively."
+    },
+    {
+      "id": "E17",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Section 4.4, Effect of in-context human video prompts, body prose",
+      "detail": "Zero-WAM without robotic pretraining and WAN-Action share Wan initialization. Their reported averages are 36.36% and 10.98%; both obtain zero stacking success. LingBot-VA retains robotic pretraining."
+    },
+    {
+      "id": "E18",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Section 4.4, Effect of in-context future chunk prediction, body prose",
+      "detail": "Adding IFP increases reported average success from 28.55% to 46.95% and stacking success from 0.00% to 9.00%."
+    },
+    {
+      "id": "E19",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Section 4.4, Effect of task-balanced robotic data, body prose",
+      "detail": "The text-only variant masks human conditioning but retains ICL robot samples. It reaches 39.44%, exceeding LingBot-VA by 21.99 percentage points. The authors state that most sampled robot data are covered by LingBot-VA's pretraining corpus."
+    },
+    {
+      "id": "E20",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Section 5, Discussions",
+      "detail": "The authors describe the experiments as primarily stationary tabletop manipulation and identify mobile manipulation, dynamic unstructured environments and substantially longer horizons as future extensions."
+    }
+  ]
+}

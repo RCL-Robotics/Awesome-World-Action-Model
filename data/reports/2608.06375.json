@@ -1,0 +1,564 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.06375",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T16:33:10.060Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.06375",
+      "title": "ω-0: A Latent Predictive World Action Model for Concurrent Humanoid Loco-Manipulation",
+      "kind": "pdf",
+      "sha256": "c56d4115741a7979bb63ed4ff8e76e25c8e6ca933d6b18f2d122d8a46ec4d02c",
+      "wordCount": 18057,
+      "accessedAt": "2026-09-07T13:53:46.698453+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page: identifier, authors and version",
+      "1 Introduction",
+      "2 Related Work, including 2.1–2.3",
+      "3 Method, including 3.1–3.5",
+      "4 ω-HOME Dataset, including 4.1–4.3",
+      "5 Implementation and Experiments; 5.1 Datasets and Data Processing",
+      "6 Implementation Details, including 6.1–6.7",
+      "7 Conclusion",
+      "References",
+      "Appendix A Data Format and Preprocessing, including A.1–A.3",
+      "Appendix B Inference Details and RTC Deployment, including B.1–B.2 and Algorithm 1",
+      "Appendix C Real-World Evaluation Details, including C.1–C.2",
+      "Appendix E Per-Task Baseline Comparison, including E.1–E.3",
+      "Appendix D Task Gallery and D.2 Full ω-HOME Task Cards: supplied textual descriptions"
+    ],
+    "omissions": [
+      "Figure images were not inspected. Captions and task-card text were read, but graphical trajectories, demonstrations and chart values were not visually verified.",
+      "The garbled Figure 3 extraction was not used for numerical dataset distributions.",
+      "Separate supplemental material availability was not verified; no external material or code was inspected.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: evaluation task suite",
+      "Table 2: overall real-world evaluation",
+      "Table 3: additional ω-HOME pretraining",
+      "Table 4: component ablations",
+      "Table 5: generalization ablations",
+      "Table 6: apple and drawer trial annotations",
+      "Table 7: table-wiping trial annotations",
+      "Table 8: garbage-collection trial annotations",
+      "Table 9: bed-cleaning trial annotations",
+      "Table 10: floor-mopping trial annotations",
+      "Table 11: pick-and-place trial annotations",
+      "Table 12: clothes-to-bucket trial annotations",
+      "Table 13: washing-machine loading trial annotations",
+      "Table 14: fruit-arrangement trial annotations",
+      "Table 15: washing-machine unloading trial annotations",
+      "Table 16: refrigerator-retrieval trial annotations"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "ω-0 combines future visual latent prediction with direct diffusion of whole-body controller actions for humanoid manipulation during movement. Current images supply V-JEPA features; future supervision comes from a frozen Wan encoder, while SONIC supplies the execution interface [E03, E06, E07]. The authors report 79.1% real-robot success for the egocentric policy across eleven tasks [E13]. Reader assessment: the results favor the complete system, but the visual-prediction ablation bundles several changes, and deployment-time use of video queries remains ambiguous [E15, E18].",
+  "readingTimeMinutes": 13,
+  "problem": {
+    "text": "Household activities such as mopping, wiping and appliance loading require coordinated stepping, torso adjustment, grasping and sustained contact. The authors argue that separating locomotion from manipulation limits these behaviors, while generating detailed future videos adds computation and can introduce visual inconsistencies that do not improve control. They seek compact predictive supervision that helps generate executable whole-body actions.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "E02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A coupled visual-latent predictor and action DiT connect future visual queries to motion queries, then directly generate controller-compatible action chunks.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03",
+        "E06",
+        "E07"
+      ]
+    },
+    {
+      "text": "A three-stage pipeline transfers whole-body action semantics from tokenized human motion, grounds public motions through SONIC simulation replay, and adapts the policy to physical demonstrations with temporal action-prefix conditioning.",
+      "kind": "source",
+      "evidenceIds": [
+        "E04",
+        "E05",
+        "E08"
+      ]
+    },
+    {
+      "text": "The paper introduces ω-HOME: 40.3 hours, 4,827 episodes and 24 household tasks recorded at 30 Hz, with synchronized visual, motion, state and action supervision.",
+      "kind": "source",
+      "evidenceIds": [
+        "E10"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Language instruction and a current image with an egocentric/exocentric view identifier; supported modalities include egocentric RGB and exocentric RGB-D [E03, E10].",
+      "A 47-dimensional proprioceptive state containing body joints, hand joints and a continuous 6D root-orientation representation [E17].",
+      "During recurrent deployment, an unexecuted action segment from the preceding prediction supplies prefix context [E18]."
+    ],
+    "outputs": [
+      "A 25-step action chunk with 66 dimensions per step: a 64-dimensional controller latent and two scalar hand commands [E17, E18].",
+      "Future visual latent predictions used for predictive supervision; optional decoded video is excluded from real-time control [E07]."
+    ],
+    "steps": [
+      {
+        "name": "Construct an action-aware observation prefix",
+        "detail": "A pretrained whole-body VLM supplies semantic features from image and instruction. These are concatenated with T5 language features, a learned view token and frozen V-JEPA current-image features. Robot state enters the subsequent action-conditioning pathway.",
+        "evidenceIds": [
+          "E06",
+          "E07"
+        ]
+      },
+      {
+        "name": "Couple visual and motion queries",
+        "detail": "Separate prefix, motion-query and video-query streams first undergo self-attention. Both query streams attend to the prefix; motion queries then attend to video queries. Positional encoding follows token structure: 2D for spatial visual-prefix tokens, 3D for future video tokens and 1D for temporal action queries.",
+        "evidenceIds": [
+          "E06"
+        ]
+      },
+      {
+        "name": "Denoise controller actions",
+        "detail": "The resulting motion features are fused with language and encoded robot state. An action DiT predicts clean action latents from noisy chunks under this condition. The described mechanism does not reconstruct actions through an explicit inverse-dynamics model.",
+        "evidenceIds": [
+          "E07"
+        ]
+      },
+      {
+        "name": "Execute through whole-body control",
+        "detail": "Action chunks are stitched, denormalized and passed to SONIC. Its low-level controller produces executable humanoid commands; renewed camera observations and proprioception close the feedback loop.",
+        "evidenceIds": [
+          "E09",
+          "E17",
+          "E18"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage 1 trains a whole-body FAST tokenizer on unified SMPL motion using an L1 reconstruction objective. Qwen3-VL-2B-Instruct then learns autoregressive action-token prediction from language and images. Later stages use its hidden features, rather than executing its discrete token output.",
+        "kind": "source",
+        "evidenceIds": [
+          "E04",
+          "E05",
+          "E11"
+        ]
+      },
+      {
+        "text": "Stage 2 uses ARCTIC, Xperience-10M and Motion-X. Human motions are standardized and replayed through SONIC to obtain robot states and action latents; unsuccessfully tracked motions are discarded. Future target embeddings come from frozen Wan, while V-JEPA encodes current images. The VLM, V-JEPA and Wan encoders remain frozen while the predictor and action-conditioning modules are optimized.",
+        "kind": "source",
+        "evidenceIds": [
+          "E05",
+          "E07",
+          "E17"
+        ]
+      },
+      {
+        "text": "Stage 3 fine-tunes one policy on 2,220 trajectories across eleven downstream tasks. It retains the frozen encoders and combines visual prediction with RTC action denoising: a clean prefix of randomly sampled length between zero and eight anchors prediction, and action loss applies only to the remaining suffix.",
+        "kind": "source",
+        "evidenceIds": [
+          "E08",
+          "E10"
+        ]
+      },
+      {
+        "text": "The additional-data experiment excludes the eleven downstream tasks from the ω-HOME Stage-2 pool, then still fine-tunes on their downstream demonstrations. This tests additional pretraining data, not unseen-task execution without robot fine-tuning.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "E14"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "DDIM samples action chunks. Deployment predicts 25 actions, executes the first eight and refreshes visual/state input. Text tokenization is cached. The paper reports approximately 0.14 seconds per inference and throughput above 7 Hz; this does not specify the low-level controller frequency.",
+        "kind": "source",
+        "evidenceIds": [
+          "E07",
+          "E18"
+        ]
+      },
+      {
+        "text": "An unexecuted segment from the previous chunk initializes the next prefix. Linear overlap blending smooths boundaries before denormalization and controller execution. The optional video decoder is not used for policy inference.",
+        "kind": "source",
+        "evidenceIds": [
+          "E07",
+          "E18"
+        ]
+      },
+      {
+        "text": "The exact inference graph remains unclear: the method routes motion queries through video-query attention, whereas Appendix B says the future-latent branch is unnecessary for control. The text does not establish whether deployment omits only visual outputs or also removes video-query computation.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "E06",
+          "E07",
+          "E18"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "z_τ = √ᾱ_τ z_0 + √(1−ᾱ_τ) ε;  ẑ_0 = D_θ(z_τ, τ | Φ_cond([h_m, f_ℓ, E_s(s_t)]))",
+        "explanation": "The clean controller-action chunk z_0 is corrupted with Gaussian noise ε. The DiT predicts z_0 directly, conditioned on motion features h_m, language features f_ℓ and encoded proprioception.",
+        "evidenceIds": [
+          "E07"
+        ]
+      },
+      {
+        "expression": "L_stage2 = ‖ẑ_0−z_0‖²₂ + λ_video ‖h_v−E_Wan(o^v_{t+1:t+K})‖²₂",
+        "explanation": "Action reconstruction and future visual prediction share training. The visual target is a frozen Wan representation of future observations; V-JEPA supplies current-image features, not these target embeddings.",
+        "evidenceIds": [
+          "E06",
+          "E07"
+        ]
+      },
+      {
+        "expression": "z̃_τ^{1:M}=z_0^{1:M};  L_stage3 = ‖ẑ_0^{M+1:H}−z_0^{M+1:H}‖²₂ + λ_video L_video",
+        "explanation": "RTC replaces the noisy prefix with clean actions. Only the non-prefix action suffix receives denoising loss, teaching continuation from temporal context.",
+        "evidenceIds": [
+          "E08"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Eleven physical household tasks",
+      "setting": "One egocentric multi-task policy; ten real-robot trials per task after downstream fine-tuning.",
+      "metric": "Success rate; summed mean subtask score, maximum 41; task progress",
+      "value": "Reported ω-0Ego: 79.1%; 35.8; 88.7%.",
+      "comparison": "ψ-0: 44.5%; 23.6; 59.6%. DiT4DiT: 43.6%; 23.1; 61.0%.",
+      "interpretation": "These are reported executed-robot outcomes. Reader arithmetic on Tables 6–16 confirms 87 fully successful trials out of 110 and the score of 35.8; the progress definition requires clarification.",
+      "evidenceIds": [
+        "E09",
+        "E12",
+        "E13",
+        "E20"
+      ]
+    },
+    {
+      "task": "Viewpoint-conditioned household execution",
+      "setting": "The same task suite; Omni uses exocentric observations for five specified tasks and egocentric observations for the remainder.",
+      "metric": "Success rate; score; task progress",
+      "value": "Reported ω-0Omni: 81.8%; 36.7; 90.3%.",
+      "comparison": "ω-0Ego: 79.1%; 35.8; 88.7%.",
+      "interpretation": "The comparison changes available viewpoint information during evaluation as well as training. It does not isolate benefits transferable to exclusively onboard perception.",
+      "evidenceIds": [
+        "E13"
+      ]
+    },
+    {
+      "task": "Future-prediction mechanism ablation",
+      "setting": "Household task suite; remove video queries, their prediction loss and motion-to-video attention.",
+      "metric": "Success rate; score; task progress",
+      "value": "Reported ablation: 64.5%; 30.6; 77.9%.",
+      "comparison": "Full Ego: 79.1%; 35.8; 88.7%.",
+      "interpretation": "The success difference is 14.6 percentage points. It supports the combined predictive branch, but does not isolate the visual loss from its additional queries and attention connections.",
+      "evidenceIds": [
+        "E15"
+      ]
+    },
+    {
+      "task": "Temporal-conditioning ablation",
+      "setting": "Household task suite with training-time RTC removed.",
+      "metric": "Success rate",
+      "value": "Reported: 71.8%.",
+      "comparison": "Full Ego: 79.1%.",
+      "interpretation": "The 7.3-percentage-point difference favors temporal conditioning. The table does not provide a direct quantitative smoothness or chunk-boundary discontinuity metric.",
+      "evidenceIds": [
+        "E15"
+      ]
+    },
+    {
+      "task": "Additional humanoid pretraining",
+      "setting": "Add ω-HOME trajectories from tasks excluded from the downstream task set to Stage 2; subsequently fine-tune downstream.",
+      "metric": "Success rate",
+      "value": "Reported with additional data: Ego 80.4%; Omni 82.4%.",
+      "comparison": "Without additional data: Ego 79.1%; Omni 81.8%.",
+      "interpretation": "The reported gains are modest. Trial denominators or repeated-run aggregation for these percentages are not explained.",
+      "evidenceIds": [
+        "E14"
+      ]
+    },
+    {
+      "task": "Cross-object generalization",
+      "setting": "After full ω-HOME fine-tuning: shelf pear, differently colored washer clothing and refrigerator waffle tasks.",
+      "metric": "Average success rate",
+      "value": "Reported full model: 83.3%.",
+      "comparison": "Without video queries: 66.7%.",
+      "interpretation": "Supports transfer across the tested object variations while preserving familiar task structures.",
+      "evidenceIds": [
+        "E16"
+      ]
+    },
+    {
+      "task": "Cross-scene generalization",
+      "setting": "Clothes retrieval in another bedroom and walking to wipe a table in a different scene.",
+      "metric": "Average success rate",
+      "value": "Reported full model: 79.5%.",
+      "comparison": "Without video queries: 15.0%.",
+      "interpretation": "A large reported difference on two tasks; the evaluation denominator and averaging procedure require clarification.",
+      "evidenceIds": [
+        "E16"
+      ]
+    },
+    {
+      "task": "Human-data transfer",
+      "setting": "Fine-tune with human demonstrations for walking to and closing a closet door, with robot action-latent grounding.",
+      "metric": "Success rate",
+      "value": "Reported full model: 60.0%.",
+      "comparison": "Without video queries: 20.0%.",
+      "interpretation": "Evidence concerns a specific transfer task after adaptation, rather than unrestricted transfer from arbitrary human videos.",
+      "evidenceIds": [
+        "E05",
+        "E16"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Task progress is internally inconsistent. Section 6.1 defines progress by the first failed stage and writes m/n, whereas Appendix E describes the fraction of completed stages. Reader calculation from Tables 6–16 reproduces the reported 88.7% by averaging all completed-stage fractions, including post-failure completions. That differs from a strict completed-prefix metric.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E19",
+        "E20"
+      ]
+    },
+    {
+      "text": "Ten trials per task provide limited precision, and the aggregate tables omit uncertainty estimates. Baselines share downstream evaluation but differ in pretrained representations, adapted action interfaces, controllers and RTC support. Their ranking measures the complete adapted systems rather than an isolated world-modeling contribution.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E12",
+        "E13"
+      ]
+    },
+    {
+      "text": "Some percentages cannot be reconstructed from the stated trial protocol alone. In particular, the two-task cross-scene result of 79.5% would require a different denominator or aggregation than one set of ten trials per task. Table 3 likewise needs denominator clarification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E12",
+        "E14",
+        "E16"
+      ]
+    },
+    {
+      "text": "The attention equations do not explicitly feed candidate executed actions into a forward transition model. They establish predictive representation conditioning, but do not establish counterfactual action evaluation, planning search or calibrated prediction of action consequences.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E06",
+        "E07"
+      ]
+    },
+    {
+      "text": "The authors report that using Wan for current-image encoding can improve offline future-latent prediction yet worsen robot execution. No numerical offline prediction comparison accompanies this discussion, so it supports a qualitative caution rather than a quantified prediction-control relationship.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E15"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the Qwen, V-JEPA, Wan and T5 components; SONIC simulation replay and deployment interfaces; processed public motions; ω-HOME and downstream splits; and a compatible G1 platform with the documented cameras and hands. The paper reports training on eight H100 GPUs. No code was inspected or experiments reproduced in this review.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E05",
+        "E09",
+        "E10",
+        "E11"
+      ]
+    },
+    {
+      "text": "Preserve the action/state formats, training-set normalization statistics, z-up coordinates and initial-yaw normalization. The controller latent uses mean/standard-deviation normalization; state and hand commands use min-max scaling. Public-motion filtering is described qualitatively, without numerical tracking-acceptance thresholds.",
+      "kind": "source",
+      "evidenceIds": [
+        "E05",
+        "E17"
+      ]
+    },
+    {
+      "text": "Missing details include exact replay/checkpoint versions, retained trajectory lists, split identities, predictor configuration, optimization schedules, λ_video, DDIM step count, inference hardware, deployment prefix/overlap lengths and T5 freezing status. Algorithm 1 also places blending after its execution step, so executable scheduling needs clarification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E07",
+        "E08",
+        "E10",
+        "E11",
+        "E18"
+      ]
+    },
+    {
+      "text": "A focused replication should hold data, controller, queries, RTC and model size fixed while disabling only future-latent supervision, then separately remove motion-to-video attention. Physical trials should report success, clearly defined progress and measured chunk-boundary discontinuities. This would separate predictive supervision from architectural and continuity effects.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E15",
+        "E18",
+        "E19"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "WAM and latent-prediction membership are supported. The architecture explicitly separates a joint latent predictor from an action DiT, providing evidence for a modular pipeline, although the precise Dual-system boundary depends on catalog definitions. The recorded IDM and consequent Q4 placement conflict with the described mechanism: actions are directly denoised from current conditions and query features, without an inverse-dynamics stage or video-to-action inversion. Joint training alone also does not establish One Model. Navigation appears within locomotion-heavy household tasks, while explicit visual planning is not demonstrated. The supplied snapshot is preserved without assigning a replacement quadrant.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E06",
+        "E07",
+        "E13",
+        "E18"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Latent prediction & JEPA",
+        "Visual planning & IDM",
+        "Navigation"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "f606342244667eebce84c9803f1f80fe7376313b1254bb6afb808520bec36c23"
+    }
+  },
+  "discussionQuestions": [
+    "Which video-query operations remain in the deployed action-conditioning graph?",
+    "Does future supervision improve execution when query capacity and attention structure are held fixed?",
+    "How much of the advantage survives matched sensing, controller interfaces and RTC across baselines?",
+    "Which progress definition and trial aggregation reproduce every reported evaluation table?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "E01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title page and arXiv version line",
+      "detail": "The supplied title, identifier and eleven authors match the catalog. The artifact identifies itself as arXiv:2608.06375v2, dated 9 August 2026."
+    },
+    {
+      "id": "E02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Section 1 Introduction",
+      "detail": "The motivation concerns simultaneous locomotion, posture and manipulation, and replacing video-centered control intermediates with compact future predictive supervision."
+    },
+    {
+      "id": "E03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1 Overview",
+      "detail": "The architecture contains an action VLM, joint video-action latent predictor and separate action DiT; the resulting controller-compatible chunks are executed by SONIC."
+    },
+    {
+      "id": "E04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, tokenizer reconstruction and autoregressive training equations",
+      "detail": "FAST tokenization uses action reconstruction supervision; Qwen3-VL-2B-Instruct predicts action tokens, and its hidden representation conditions later stages."
+    },
+    {
+      "id": "E05",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.3 supervision construction; p. 10, Section 5.1 public datasets and processing",
+      "detail": "ARCTIC, Xperience-10M and Motion-X motions are standardized and replayed through SONIC to obtain robot states and action latents. Unreliably tracked motions are discarded."
+    },
+    {
+      "id": "E06",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.3, state, prefix, RoPE and cross-attention equations",
+      "detail": "V-JEPA current-image, T5 text, view and VLM features form the prefix. Motion and video queries attend to this prefix; motion queries subsequently attend to video queries."
+    },
+    {
+      "id": "E07",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 3.3, visual loss, diffusion equations, Stage-2 objective and freezing paragraph",
+      "detail": "Wan supplies frozen future targets. The action DiT predicts clean latents with an x0 loss; the joint objective adds visual latent error. VLM, V-JEPA and Wan are frozen. DDIM is used for sampling, and optional video decoding is excluded from control."
+    },
+    {
+      "id": "E08",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 3.4, RTC equations; p. 16, Section 6.5, Training-time RTC",
+      "detail": "Stage 3 retains frozen encoders and trains on real trajectories with clean action prefixes and suffix-only denoising loss. The ablation discussion specifies prefix lengths between zero and eight."
+    },
+    {
+      "id": "E09",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 3.5; p. 17, Section 6.6",
+      "detail": "Generated action latents are executed through SONIC with visual and proprioceptive feedback. The authors describe evaluation demonstrations as autonomous G1 executions without teleoperation, motion replay or scripted intervention."
+    },
+    {
+      "id": "E10",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Sections 4–4.3; p. 10, Section 5.1, Stage-3 data paragraph",
+      "detail": "ω-HOME contains 40.3 hours, 4,827 episodes and 24 tasks at 30 Hz. Modalities and teleoperation hardware are described. Downstream multi-task fine-tuning uses 2,220 trajectories across eleven tasks."
+    },
+    {
+      "id": "E11",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 6 Implementation Details",
+      "detail": "The implementation names Qwen3-VL-2B-Instruct, V-JEPA, T5 and FAST over SMPL, and reports eight NVIDIA H100 GPUs for all three training stages."
+    },
+    {
+      "id": "E12",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–12, Sections 6.1–6.2 and 6.4 evaluation protocol",
+      "detail": "Each method is a single multi-task policy evaluated in ten trials per task. Baseline adaptations include changed action heads, different freezing choices, ψ-0's AMO interface and GR00T's sequential inference without matching RTC."
+    },
+    {
+      "id": "E13",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Table 2, ψ-0, DiT4DiT and ω-0 rows; p. 14, Section 6.4 viewpoint paragraph",
+      "detail": "Table 2 reports Ego 79.1/35.8/88.7 and Omni 81.8/36.7/90.3 for success, score and progress. ψ-0 reports 44.5/23.6/59.6; DiT4DiT reports 43.6/23.1/61.0. Omni uses exocentric observations for five named tasks."
+    },
+    {
+      "id": "E14",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Table 3; p. 14, Section 6.4 additional-data paragraph",
+      "detail": "Additional ω-HOME pretraining excludes downstream tasks. Reported success rises from 79.1 to 80.4 for Ego and from 81.8 to 82.4 for Omni after downstream fine-tuning."
+    },
+    {
+      "id": "E15",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Table 4; p. 16, Section 6.5, Future Visual Latent Prediction, Training-time RTC and Current-Image Encoder",
+      "detail": "Removing video queries reports 64.5/30.6/77.9 versus full Ego 79.1/35.8/88.7; removing RTC reports 71.8% success. The video ablation also removes its loss and cross-attention. The Wan comparison describes better offline prediction but worse execution."
+    },
+    {
+      "id": "E16",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Section 6.7, generalization protocols; p. 18, Table 5",
+      "detail": "The settings contain three object-variation tasks, two scene-variation tasks and one human-transfer task. Full/ablated success rates are 83.3/66.7, 79.5/15.0 and 60.0/20.0, respectively."
+    },
+    {
+      "id": "E17",
+      "sourceId": "primary",
+      "location": "PDF p. 22, Appendix A.1–A.3",
+      "detail": "Actions comprise a 64-dimensional latent plus two scalar hand commands; state has 47 dimensions. The appendix specifies latent standardization, state/hand min-max scaling, z-up coordinates and initial-yaw subtraction."
+    },
+    {
+      "id": "E18",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Appendix B.1–B.2, overlap equation and Algorithm 1",
+      "detail": "Deployment predicts 25 actions and executes eight, with approximately 0.14-second inference. It caches text, refreshes observations, reuses unexecuted action prefixes and blends overlaps. The text calls the future-latent branch unnecessary for control; algorithm ordering lists execution before blending."
+    },
+    {
+      "id": "E19",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 6.1 metric definitions; p. 26, Appendix E.2–E.3",
+      "detail": "The main text distinguishes non-prefix subtask score from first-failure progress and writes progress as m/n. Appendix E instead describes progress as the fraction of completed stages."
+    },
+    {
+      "id": "E20",
+      "sourceId": "primary",
+      "location": "PDF pp. 24–25, Appendix C.2, Tables 6–16",
+      "detail": "Legible binary milestone annotations cover all ten Ego trials for every evaluation task. Table 8 includes later completed stages after earlier failures, permitting separate calculation of all-stage and prefix completion."
+    }
+  ]
+}

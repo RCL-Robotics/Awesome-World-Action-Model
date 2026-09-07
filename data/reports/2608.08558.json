@@ -1,0 +1,592 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.08558",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T15:49:27.152Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.08558",
+      "title": "Vid2WAM: Distilling Video Diffusion Priors into World Action Models",
+      "kind": "pdf",
+      "sha256": "d5583e7f0c6eadc048496ce0ffc3c2272539149f2c7e232ff0db2a6cfea0e274",
+      "wordCount": 9009,
+      "accessedAt": "2026-09-07T13:53:30.281871+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "Introduction",
+      "Related Work",
+      "Method: Problem Formulation and Overview",
+      "Method: Teacher-Derived Distillation Targets",
+      "Method: Source-Aware Student Training",
+      "Experiments: Experimental Setup",
+      "Experiments: Simulation Results",
+      "Real-World Experiments",
+      "Ablation Studies",
+      "Inference Latency Analysis",
+      "Conclusion",
+      "References",
+      "A Implementation Details",
+      "B Sensitivity to Novel-Task Selection",
+      "C Real-World Experiment Details",
+      "D Full RoboTwin Task-Level Results"
+    ],
+    "omissions": [
+      "Review covers the complete supplied text, including appendices. Figure captions were read, but no figure images or original PDF layouts were visually inspected.",
+      "Table S15's boldface markers identifying withheld tasks are unavailable in the extraction; task membership was not inferred from individual scores.",
+      "Separate supplemental material availability was not verified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table S1",
+      "Table S2",
+      "Table S3",
+      "Table S4",
+      "Table S5",
+      "Table S6",
+      "Table S7",
+      "Table S8",
+      "Table S9",
+      "Table S10",
+      "Table S11",
+      "Table S12",
+      "Table S13",
+      "Table S14: header and aggregate row",
+      "Table S15: header and aggregate rows"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Vid2WAM converts generated robot videos into two offline teaching signals: future latents for world modeling and inverse-dynamics pseudo-actions for control. Source-specific adapters let real and synthetic supervision update shared backbones through different residual corrections; deployment retains only the student action path [e03–e05, e20]. Reported RoboTwin improvements support this transfer strategy, but LIBERO's main withheld-task success is only 2.3%, despite a 78.3% full-benchmark average. The evidence therefore supports useful, strongly task-dependent adaptation rather than uniformly reliable novel-task execution [e11, e12, e14].",
+  "readingTimeMinutes": 13,
+  "problem": {
+    "text": "The authors question whether WAM future-prediction targets must come from target-task expert demonstrations. Generating videos could expand supervision beyond those trajectories, but converting every generated future into an imperfect action label discards predictive information and introduces generation/IDM errors. The problem is to retain both visual dynamics and action grounding while keeping the large generator out of deployment.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "An offline transfer pipeline supplies a WAM with student-compatible future latents and embodiment-specific pseudo-actions from the same generated rollout.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e08"
+      ]
+    },
+    {
+      "text": "Separate real/pseudo residual adapters surround a shared action backbone, providing inexpensive source-dependent corrections while retaining the real-domain path at inference.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e17"
+      ]
+    },
+    {
+      "text": "The experiments establish improvements under matched downstream real-demonstration budgets, with additional synthetic supervision for Vid2WAM. The ablations support using both teaching channels, although they do not directly measure suppression of pseudo-label noise.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e17"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Student condition: current visual observation o₀, proprioceptive state e₀, and instruction ℓ [e03].",
+      "Real training trajectories: observations, future videos, expert actions, and robot states [e03].",
+      "Offline synthesis condition: initial observation and instruction, including held-out-task conditions [e08, e10]."
+    ],
+    "outputs": [
+      "Deployment: an action chunk a₁:H; real-world experiments use joint-action chunks for both arms [e03, e16].",
+      "Training supervision: generated future-video latents, pseudo-actions, and predicted robot states [e03, e08]."
+    ],
+    "steps": [
+      {
+        "name": "Adapt the video teacher",
+        "detail": "Initialize the teacher from LVP's Wan2.1-I2V-14B checkpoint and fine-tune its diffusion transformer on the regime's available demonstration videos. Freeze the teacher after adaptation; held-out-task trajectories are excluded from regime-specific teacher and IDM training.",
+        "evidenceIds": [
+          "e06",
+          "e10"
+        ]
+      },
+      {
+        "name": "Generate and translate future supervision",
+        "detail": "Generate instruction-conditioned rollouts from initial observations. Decode teacher outputs to RGB and re-encode them with the frozen student VAE: the teacher and student use 16 and 48 latent channels respectively, so their latent tensors are not directly interchangeable.",
+        "evidenceIds": [
+          "e03",
+          "e08"
+        ]
+      },
+      {
+        "name": "Recover action and state labels",
+        "detail": "Separate action and state IDMs label the generated videos. Each IDM processes three temporally spaced RGB frames through an ImageNet-initialized ResNet-50, spatial softmax, and an MLP. These recovered labels accompany the future latents in an offline buffer.",
+        "evidenceIds": [
+          "e03",
+          "e07"
+        ]
+      },
+      {
+        "name": "Train shared backbones with source routing",
+        "detail": "Real and pseudo samples share the video expert and ActionDiT, but use separate input/output residual adapters around the action backbone. Flow-matching losses supervise real actions/videos and synthetic actions/videos.",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e17"
+        ]
+      },
+      {
+        "name": "Apply valid-region supervision",
+        "detail": "Real-world synthetic examples contain only an overhead view. Missing wrist views are black-padded, and pseudo-video loss is restricted to the valid overhead latent region. Padding masks also exclude invalid video times and action positions; valid pseudo-action supervision remains active.",
+        "evidenceIds": [
+          "e19"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Teacher adaptation runs for approximately 500 epochs with frozen UMT5, CLIP, and video-VAE modules. Teacher generation uses 49-frame chunks and 40 sampling steps. Chunks are assembled into longer videos; simulation supervision uses the first eight seconds, whereas real-world pseudo-rollouts retain all 20 seconds.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e08"
+        ]
+      },
+      {
+        "text": "IDMs train for 200,000 iterations using normalized-target Smooth L1 loss. Validation randomly holds out frame-level samples, capped at 2,000, and selects the checkpoint with lowest validation loss.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "text": "The student video backbone starts from Wan2.2-TI2V-5B. Each update consumes 128 real and 128 pseudo samples, with β=1, λ_real=1, and λ_pseudo=0.25. Training lasts ten epochs for LIBERO/real-world and five for RoboTwin. Adapters use a 128-dimensional bottleneck and zero-initialized up-projections.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09"
+        ]
+      },
+      {
+        "text": "Table S5 reports expert/pseudo trajectory budgets of 400/400 for LIBERO low-data, 1,366/312 for LIBERO novel, 1,000/1,000 for RoboTwin low-data, 19,250/8,250 for RoboTwin novel, and 360/180 for the real-world experiment.",
+        "kind": "source",
+        "evidenceIds": [
+          "e10"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "A current-frame pass through the video backbone supplies world features for direct action prediction. The teacher, IDMs, auxiliary future-video head, and pseudo-domain adapters are discarded; the shared ActionDiT and real-domain adapters remain.",
+        "kind": "source",
+        "evidenceIds": [
+          "e20"
+        ]
+      },
+      {
+        "text": "Future prediction shapes the learned representation during training. Deployment does not require sampling a future video or recovering actions from an imagined rollout. The reported chunk latency alone does not determine the closed-loop feedback rate.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e18",
+          "e20"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "Ada_d(x) = x + α W_up^d σ(W_down^d LN(x))",
+        "explanation": "Equation (3): d selects real or pseudo parameters. The bottleneck residual modifies an action token around a shared default path. Initializing W_up^d to zero makes the adapter initially an identity map.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "y_t = (1 − t)y + tε; L_FM(y,d) = E[||fθ(y_t,t,c;d) − (ε − y)||₂²]",
+        "explanation": "Equations (4)–(5): y is an action or future-video target, ε is Gaussian noise, t is the interpolation time, and c is the policy condition. The model learns the velocity from the clean target toward noise.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "L = λ_real[L_FM(a,real) + βL_FM(z,real)] + λ_pseudo[L_FM(â,pseudo) + βL_FM(ẑ,pseudo)]",
+        "explanation": "Equations (6)–(7): a and z are expert action/video targets; â and ẑ are synthetic counterparts. β balances modalities, while the λ coefficients balance sources. The reported configuration downweights the pseudo-domain objective to one quarter of the real-domain weight.",
+        "evidenceIds": [
+          "e05",
+          "e09"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboTwin novel-task manipulation",
+      "setting": "15 withheld tasks; clean and randomized conditions; 100 trials per task per condition",
+      "metric": "Executed simulator task success (%)",
+      "value": "Clean: 54.7; randomized: 55.3",
+      "comparison": "Fast-WAM: 45.0 and 42.8 respectively",
+      "interpretation": "Gains are 9.7 and 12.5 percentage points using the rounded Table 1 entries. These are withheld-task execution results.",
+      "evidenceIds": [
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "RoboTwin low-data manipulation",
+      "setting": "50 tasks; Table S5 specifies 10 clean plus 10 randomized expert trajectories per task and an equal total synthetic budget",
+      "metric": "Executed simulator task success (%)",
+      "value": "Clean: 55.4; randomized: 45.4",
+      "comparison": "Fast-WAM: 52.1 and 39.1 respectively",
+      "interpretation": "Synthetic supervision improves both evaluation conditions. The appendix's data accounting is more specific than the main text's general ten-demonstration description.",
+      "evidenceIds": [
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "LIBERO low-data manipulation",
+      "setting": "Four suites, 40 tasks; 10 expert trajectories per task; 50 evaluation trials per task",
+      "metric": "Average executed task success (%)",
+      "value": "89.7",
+      "comparison": "Fast-WAM: 87.3; Motus: 87.7; π0.5: 86.9",
+      "interpretation": "The gain over the closest architectural baseline is 2.4 percentage points.",
+      "evidenceIds": [
+        "e10",
+        "e12"
+      ]
+    },
+    {
+      "task": "LIBERO novel regime",
+      "setting": "Main split withholds suite-local IDs 8/9; evaluation averages 32 seen and eight withheld tasks",
+      "metric": "Full-benchmark average task success (%)",
+      "value": "78.3",
+      "comparison": "Fast-WAM: 76.7; π0.5: 77.9",
+      "interpretation": "Most evaluated tasks are seen. This aggregate needs the withheld-only results to assess novel-task adaptation.",
+      "evidenceIds": [
+        "e10",
+        "e12",
+        "e14"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus perturbation robustness",
+      "setting": "Low-data regime; 500 variants per suite spanning seven perturbation factors",
+      "metric": "Overall executed task success (%)",
+      "value": "39.0",
+      "comparison": "Fast-WAM: 33.6; Motus: 27.9",
+      "interpretation": "The average improves, but robustness remains limited in absolute terms and gains are not uniform across perturbations.",
+      "evidenceIds": [
+        "e10",
+        "e13"
+      ]
+    },
+    {
+      "task": "LIBERO withheld-task sensitivity",
+      "setting": "Only the two withheld task IDs in each suite are evaluated",
+      "metric": "Withheld-task average success (%)",
+      "value": "IDs 0/1: 38.3; IDs 3/6: 7.0; IDs 8/9: 2.3",
+      "comparison": "Fast-WAM: 7.5, 0.0, and 0.0 respectively",
+      "interpretation": "Every split improves, but absolute transfer depends strongly on task selection. The main 8/9 split remains close to failure.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus withheld-task sensitivity",
+      "setting": "Only withheld tasks, with benchmark perturbations",
+      "metric": "Withheld-task average success (%)",
+      "value": "IDs 0/1: 25.8; IDs 3/6: 3.3; IDs 8/9: 4.8",
+      "comparison": "Fast-WAM: 13.0, 0.3, and 1.0 respectively",
+      "interpretation": "Positive transfer persists across splits, with low absolute success on the harder withheld sets.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "Physical bimanual novel-task manipulation",
+      "setting": "No real target-task trajectories; 20 robot trials per task",
+      "metric": "Physical task success (%)",
+      "value": "Pick Test Tube: 30; Take Tissue: 15; Tomato Basket: 30",
+      "comparison": "Fast-WAM: 5, 5, and 25 respectively",
+      "interpretation": "These measurements concern executed robot behavior. They demonstrate some transfer to the tested tasks, with modest success and small evaluation samples.",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "task": "Distillation and adapter ablations",
+      "setting": "LIBERO low-data; Vid2WAM variants share teacher, IDMs, buffers, and training hyperparameters",
+      "metric": "Average executed task success (%)",
+      "value": "Full: 89.7; Dual Action DiT: 89.1; No Adapter: 88.5; Pseudo Action Only: 86.4; Future Latent Only: 88.2",
+      "comparison": "Fast-WAM: 87.3; online Teacher Policy: 71.3",
+      "interpretation": "Both teaching channels together perform best. Adapters improve over fully shared training, but noise mitigation is inferred from performance rather than directly measured.",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "task": "Policy inference",
+      "setting": "Chunk-level timing on one RTX 4090; cold-start costs excluded",
+      "metric": "Latency, mean ± standard deviation (ms)",
+      "value": "212.5 ± 11.7",
+      "comparison": "Fast-WAM: 209.1 ± 4.7; Teacher Policy: 4894.5 ± 106.6; π0.5: 76.7 ± 0.4",
+      "interpretation": "Distillation retains approximately Fast-WAM-level chunk latency while avoiding online teacher generation. π0.5 remains faster; end-to-end robot control timing is not established.",
+      "evidenceIds": [
+        "e18"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Full-suite novel-regime averages can obscure poor target-task execution. LIBERO and LIBERO-Plus withheld-only tables show that improved relative performance can coexist with very low absolute success, particularly for the main split.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e12",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "text": "The novel-regime comparison combines a methodological change with additional target-conditioned synthetic training data and offline computation. Real demonstration budgets are matched, but baselines directly transfer without the same synthetic exposure. The paper also establishes withholding for regime-specific training without auditing all upstream LVP/Wan pretraining exposure.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e10"
+      ]
+    },
+    {
+      "text": "Random frame-level IDM validation can place temporally correlated or overlapping windows from the same trajectory across splits. Its tolerance-based accuracy does not establish pseudo-action reliability on generated videos or physical executability.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07"
+      ]
+    },
+    {
+      "text": "Table S7 says Pseudo-Action Only removes the future-latent loss without explicitly stating whether real-video supervision remains. Consequently, the comparison does not unambiguously isolate removal of synthetic future targets alone.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "text": "The general low-data description specifies ten expert trajectories per task, whereas Table S5 counts ten clean plus ten randomized trajectories for each RoboTwin task. Reproduction should resolve this accounting explicitly.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10"
+      ]
+    },
+    {
+      "text": "The task-success tables provide point estimates without training-seed uncertainty or confidence intervals. Real-world evaluation uses only 20 trials per task, limiting conclusions about small differences between policies.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e12",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the specified teacher/student checkpoints, regime-specific trajectories and task splits, separate action/state IDMs, and stored synthetic buffers. Real-world replication additionally needs the dual-Piper camera setup and overhead-image augmentation procedure. No code was inspected and no experiments were reproduced in this review.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e09",
+        "e10",
+        "e16",
+        "e19"
+      ]
+    },
+    {
+      "text": "The supplied text leaves the student action horizon H, numerical domain-specific IDM strides, student inference solver schedule, complete rollout-stitching procedure, and total training GPU-hours unspecified. Table S6's 1,000 flow-matching training steps should not be treated as an inference sampling count.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e07",
+        "e08",
+        "e09",
+        "e18"
+      ]
+    },
+    {
+      "text": "A focused mechanism test would reuse one LIBERO low-data buffer and compare full Vid2WAM, No Adapter, and Future Latent Only across training seeds. Holding data and updates fixed while measuring executed success and pseudo-label error separately would test whether action supervision and source routing provide distinct benefits.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e10",
+        "e17"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The documented video expert and separately parameterized ActionDiT support Dual-system; shared training across real/pseudo domains does not establish a single backbone. Other mechanisms and Outside quadrants fit the deployed computation: future-video prediction is auxiliary supervision, while current-frame world features drive direct action prediction. The IDM is an offline labeler, not the deployed controller. The joint future/action training objective remains important, but does not imply joint future/action sampling at inference. Generalization and inference-efficiency themes are supported, subject to the weak LIBERO withheld-task results and the limited scope of chunk-level timing.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e14",
+        "e17",
+        "e18",
+        "e20"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Generalization & action alignment",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "4b44ec6c1f90a44f65bf23e38fb15391c61558e7617362b06008e916d2f709c4"
+    }
+  },
+  "discussionQuestions": [
+    "Would the advantage persist against an action-only policy given identical synthetic conditions, buffers, and optimization budgets? [e10, e17]",
+    "What causes the large variation between LIBERO withheld-task splits: teacher rollout quality, inverse dynamics, or student execution? [e14]",
+    "Would trajectory-disjoint IDM validation better predict the usefulness of pseudo-actions than the reported frame-level split? [e07]",
+    "Does source routing reduce erroneous shared-backbone updates, or primarily compensate for visual and action distribution shifts? [e04, e17]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author list, and arXiv version line",
+      "detail": "The supplied title, identifier, and all ten catalog authors match. The observed version is arXiv:2608.08558v1, dated 9 August 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Introduction and contribution paragraphs",
+      "detail": "The authors identify demonstration-dependent future supervision and imperfect action-only transfer as bottlenecks, and propose offline visual/action transfer with source-aware adaptation."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Method: Problem Formulation and Overview; Teacher-Derived Distillation Targets; Eqs. (1)–(2)",
+      "detail": "The student receives observation, proprioception, and instruction to predict action chunks. Teacher rollouts provide future latents; IDMs recover action and state sequences for an offline buffer."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Source-specific residual adaptation, Eq. (3)",
+      "detail": "Real and pseudo domains have separate residual adapters before and after the shared action backbone. Zero-initialized up-projections preserve the initial identity path; only real adapters survive deployment."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Training objective, Eqs. (4)–(7)",
+      "detail": "Action and video targets use Gaussian interpolation and velocity regression. Four real/pseudo action/video losses are combined using modality and source weights."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Appendix A: Video teacher training; Table S1; Eqs. (S1)–(S3)",
+      "detail": "Teacher initialization uses LVP weights on Wan2.1-I2V-14B. The transformer is fine-tuned for around 500 epochs while UMT5, CLIP, and VAE modules remain frozen."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Appendix A: Inverse dynamics model and IDM training and validation; Tables S2/S4; Eqs. (S4)–(S7)",
+      "detail": "Separate action/state models use three-frame ResNet-50 inputs and normalized Smooth L1 training for 200,000 steps. Validation splits frame samples with a 5%/2,000 cap; accuracy requires every coordinate's absolute error to be below 0.05."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table S3 and Pseudo-data construction; PDF p. 17, Rollout-duration cutoff",
+      "detail": "Generation uses 49-frame chunks and 40 sampling steps. RGB decoding and student-VAE re-encoding bridge 16-channel teacher and 48-channel student latents. Longer rollouts are assembled, with eight-second simulation truncation and complete 20-second real-world rollouts."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Table S6; PDF p. 11, Vid2WAM Training Details",
+      "detail": "Student initialization is Wan2.2-TI2V-5B. Settings include a 128-dimensional adapter bottleneck, β=1, λ_real=1, λ_pseudo=0.25, and batches of 128 per source. Epoch counts are ten for LIBERO/real-world and five for RoboTwin."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Simulation Benchmarks and Evaluation Regimes; PDF p. 5, Baselines; PDF p. 13, Table S5",
+      "detail": "Protocols specify 100 trials per RoboTwin task, 50 per LIBERO task, and 500 LIBERO-Plus variants per suite. Baselines share downstream real demonstrations. Table S5 supplies regime budgets, task counts, and exclusion of withheld trajectories from teacher/IDM training."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 1, Ours/Fast-WAM rows; PDF pp. 18–19, Tables S14/S15 aggregate rows",
+      "detail": "Table 1 reports low-data clean/randomized success of 55.4/45.4 for Vid2WAM versus 52.1/39.1 for Fast-WAM, and novel-subset success of 54.7/55.3 versus 45.0/42.8. Appendix aggregates corroborate the rounded values."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 3, Low-data and Novel blocks, Avg. column",
+      "detail": "LIBERO averages are 89.7 for Vid2WAM versus 87.3 Fast-WAM, 87.7 Motus, and 86.9 π0.5 in low-data; novel-regime averages are 78.3, 76.7, and 77.9 for Vid2WAM, Fast-WAM, and π0.5."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2, Low-data block, Overall and perturbation columns",
+      "detail": "LIBERO-Plus low-data overall success is 39.0 for Vid2WAM, 33.6 for Fast-WAM, and 27.9 for Motus. Individual perturbation results do not show uniform superiority."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–13, Appendix B; PDF p. 13, Table S12; PDF p. 15, Table S11",
+      "detail": "The main split withholds IDs 8/9 in each suite. Withheld-only LIBERO averages for splits 0/1, 3/6, and 8/9 are 38.3, 7.0, and 2.3 for Vid2WAM versus 7.5, 0.0, and 0.0 for Fast-WAM. Full-suite results are reported separately."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Table S13, Avg. column",
+      "detail": "Withheld-only LIBERO-Plus averages for splits 0/1, 3/6, and 8/9 are 25.8, 3.3, and 4.8 for Vid2WAM versus 13.0, 0.3, and 1.0 for Fast-WAM."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Real-World Setup; PDF p. 7, Table 4 and Real-World Experiments; PDF p. 15, Detailed Task Description",
+      "detail": "The platform uses two Piper arms and three D435 cameras. Each task has 20 evaluation trials. Novel-task success for Pick Test Tube, Take Tissue, and Tomato Basket is 30/15/30% for Vid2WAM versus 5/5/25% for Fast-WAM."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Ablation Studies and Table 5; PDF p. 11, Details on ablation variants; PDF p. 14, Table S7",
+      "detail": "Shared-buffer variants score 89.7 full, 89.1 Dual Action DiT, 88.5 No Adapter, 86.4 Pseudo Action Only, and 88.2 Future Latent Only. Fast-WAM scores 87.3 and Teacher Policy 71.3. Table S7 documents separate video/action experts and loss removals."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 6 and Inference Latency Analysis",
+      "detail": "RTX 4090 chunk timings exclude cold starts. Mean/standard-deviation milliseconds are 212.5/11.7 for Vid2WAM, 209.1/4.7 for Fast-WAM, 4894.5/106.6 for Teacher Policy, and 76.7/0.4 for π0.5."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Appendix A input layouts; PDF pp. 15–17, Appendix C: Initial-State Augmentation and Spatial and Temporal Masking",
+      "detail": "Each novel real-world task uses two real overhead seed observations to generate 30 clean and 30 distractor-conditioned images. Missing wrist regions are padded and excluded from pseudo-video loss; temporal and action padding receive validity masks."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Method overview; PDF p. 4, Figure 2 caption text; PDF p. 14, Table S7, default inference path",
+      "detail": "The textual deployment description retains current-frame video-backbone features, the shared ActionDiT, and real-domain adapters. It removes teacher, IDM, future-video prediction head, and pseudo adapters. No visual inspection of Figure 2 is implied."
+    }
+  ]
+}

@@ -1,0 +1,568 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.26200",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T14:33:28.399Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.26200",
+      "title": "GameWAM: A World Action Model for Video Games",
+      "kind": "pdf",
+      "sha256": "0dc18fa7f9b64e069b98f604576f7910186478ce2fedb1b3f9c40b8261632255",
+      "wordCount": 21030,
+      "accessedAt": "2026-09-07T13:51:09.728863+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "Sections 1–3: Introduction, related work, and data construction",
+      "Sections 4.1–4.3: Model, control, history, and objectives",
+      "Sections 5.1–5.5: Evaluation, results, ablations, and LASI",
+      "Section 6: Conclusion",
+      "AI use, ethics, and reproducibility statements",
+      "References",
+      "Appendix A.1–A.6: Extended method",
+      "Appendix B.1–B.6: Data and training construction",
+      "Appendix C.1–C.6: Implementation and evaluation protocols",
+      "Appendix D.1–D.5.8: Additional experimental analysis",
+      "Appendix E.1–E.2: Scope and interpretation boundaries"
+    ],
+    "omissions": [
+      "Figure images were not inspected. Only supplied captions and associated prose were read.",
+      "Several category-level cells in Table 1 are concatenated in extraction; numerical comparisons from that table are restricted to legible aggregate columns.",
+      "Exact ViZDoom rewards cannot be recovered from the supplied Figure 4 text.",
+      "Separate supplemental-material availability was not verified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: Caption and legible aggregate ASR columns",
+      "Table 2: MCU Mini ablations",
+      "Table 3: Minecraft action interface",
+      "Table 4: ViZDoom action interface",
+      "Table 5: Model scale and token accounting",
+      "Table 6: Masking comparison",
+      "Table 7: VoxeLibre transfer"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "GameWAM learns native game control through separate video and action diffusion transformers that share an encoded visual history. Its default design uses future-video supervision during training but generates only actions during online control; the Video DiT still encodes realized observations. It predicts 16 actions, executes eight, and replans, with bounded visual memory across cycles. Reported Minecraft results favor this formulation over the compared agents and over directly coupling noisy future video with actions. The paper also identifies LASI: sampled low-frequency action noise can steer camera motion and accumulate into persistent turning when reused. These are digital-game control results, with no physical deployment evaluated. [e05, e06, e08, e13, e15, e19, e22, e23]",
+  "readingTimeMinutes": 12,
+  "problem": {
+    "text": "Native gameplay combines concurrent keys, continuous camera motion, rapidly changing observations, and persistent state. GUI interaction adds a distribution shift within the same mouse channels: camera displacement becomes cursor displacement. The authors seek dynamics-informed action learning that handles both regimes while retaining frequent feedback and useful history despite limited visual-token and cache budgets.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The authors introduce GameWAM as a world–action model for native gameplay and GUI control, claiming priority for this setting. The concrete architectural contribution combines separate generative branches with shared realized-context representations; the priority claim is not independently established here.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e02",
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "text": "The method integrates per-timestep gameplay/GUI routing, overlapping action prediction with shorter commitment, and hierarchical visual history. Synchronized regular VPT, event-centered VPT, and scripted GUI trajectories supply complementary supervision.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e07",
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "text": "LASI is investigated through fixed-condition source interventions, single-forward diagnostics, iterative-path comparisons, and executed-action alignment. This distinguishes source-induced camera variation from the further harm caused by repeatedly reusing one source.",
+      "kind": "source",
+      "evidenceIds": [
+        "e18",
+        "e19",
+        "e20",
+        "e21",
+        "e22"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "224×224 RGB observations sampled every two native actions, task instructions, and realized visual history. [e08]",
+      "Optional state: Minecraft orientation, cursor position, selected hotbar slot, and GUI state; ViZDoom planar position, heading, and health, with missing fields masked. [e07]",
+      "Gaussian action sources during inference; independently corrupted video and action targets during training. [e06, e11]"
+    ],
+    "outputs": [
+      "Training predictions: future video-latent and native-action flow fields, gameplay/GUI routing logits, and an auxiliary history-based visual-feature prediction. [e06, e07, e10]",
+      "Online control: native action chunks, decoded into continuous movements and binary controls, with only their committed prefixes executed. [e07, e08]"
+    ],
+    "steps": [
+      {
+        "name": "Construct aligned supervision",
+        "detail": "Pair each action with its pre-action state and observation. Filter null actions together with paired frames. Build event-centered VPT windows from state transitions and instruction metadata, then filter temporal redundancy and allocate event quotas. Scripted GUI demonstrations use the same action representation. ViZDoom demonstrations come from APPO experts.",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      },
+      {
+        "name": "Encode realized context",
+        "detail": "The Video DiT converts current observations and persistent history into layer-wise clean-prefix keys and values used by both branches. The branches retain separate hidden states, parameters, and flow-time modulation. Under the default mask, noisy future actions cannot attend to noisy future video, or vice versa; both objectives nevertheless train the shared visual-context pathway.",
+        "evidenceIds": [
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "name": "Generate heterogeneous native controls",
+        "detail": "The Action DiT jointly generates continuous and binary-valued coordinates through continuous flow modeling. A timestep-wise router selects a gameplay or GUI flow prediction for the complete action vector. Continuous normalization is mode-specific; binary normalization is shared. Decoding thresholds binary controls and enforces at most one selected hotbar slot. Minecraft uses 22 coordinates; ViZDoom uses a masked nine-coordinate interface.",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "name": "Predict, commit, and observe",
+        "detail": "Each decision predicts 16 native actions and executes the first eight. The remaining suffix is discarded before replanning from environment feedback. Three committed blocks form a 24-action cycle. During training, overlapping targets are anchored every eight actions and teacher-forced from their own causally valid prefixes; this extends supervision without committing a longer open-loop sequence.",
+        "evidenceIds": [
+          "e08"
+        ]
+      },
+      {
+        "name": "Maintain bounded history",
+        "detail": "Within-cycle observations extend a transient KV cache. At cycle boundaries, executed observations become compressed visual segments; two recent segments remain explicit. Evicted segments update attention-pooled memory at two temporal scales through content-dependent gates with half-life priors. Persistent history has at most 40 tokens, while the cycle cache is reset. Predicted but unexecuted observations never enter either memory branch.",
+        "evidenceIds": [
+          "e09"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The Video DiT starts from Wan2.2-TI2V-5B. The approximately 1B Action DiT adapts video weights to a narrower backbone: both have 30 layers and 24 heads, with widths 3072 and 1024 respectively. The VAE and text encoder remain frozen; both DiTs, action heads/router, history module, and proprioceptive encoder are trained.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "text": "Minecraft samples mix 80% Event-Anchored VPT, 5% Regular VPT, and 15% scripted GUI. The event dataset has a 200,000-window budget, with 96-frame windows spanning [t−87,t+8]. Training windows use stride two near a radius-eight event neighborhood and stride 16 elsewhere; regular and GUI streams use strides 32 and eight. Dataset construction and training-window sampling are separate operations.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "text": "Optimization combines video and grouped action flow losses, routing BCE, and predictive-history regularization. The reported run uses two epochs, 21,900 optimizer steps, global batch 352, fused AdamW, BF16, and ZeRO-2 on eight H200 GPUs, taking approximately 22 hours. Visual and action flow times are independently sampled.",
+        "kind": "source",
+        "evidenceIds": [
+          "e10",
+          "e11"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Default evaluation performs ten first-order action-denoising steps while retaining Video-DiT encoding of realized context. Future-video denoising is omitted. Routing uses predicted rather than ground-truth modes, and the environment supplies feedback after each committed block.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07",
+          "e08",
+          "e11"
+        ]
+      },
+      {
+        "text": "An independent action source is sampled at every replanning step. The authors use this to disrupt coherent LASI accumulation; it does not remove the underlying source sensitivity. Quantitative LASI trajectory diagnostics instead use a deterministic 20-step integration path.",
+        "kind": "source",
+        "evidenceIds": [
+          "e18",
+          "e22"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "X^m_σ = (1−σ)X^m_0 + σε^m; U^m = ε^m−X^m_0, m∈{v,a}",
+        "explanation": "Clean video or action targets are interpolated with Gaussian sources. Each branch learns the corresponding velocity, and inference integrates from noise level one to zero.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "expression": "Vis(A_j)=P_c,j∪A_j; Vis(V_j)=P_c,j∪V_j",
+        "explanation": "The clean prefix P contains persistent history and realized within-cycle observations. This mask couples learning through that prefix while excluding direct exchange between current noisy future modalities.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "expression": "A_exec=A_plan[1:E], E<P; Y_j=A[jE+1:jE+P]",
+        "explanation": "The executed prefix is shorter than the generated target. With P=16 and E=8, neighboring training targets overlap by eight actions while online decisions retain an eight-action feedback cadence.",
+        "evidenceIds": [
+          "e08"
+        ]
+      },
+      {
+        "expression": "L=λ_vL_v+λ_aL_a+λ_mL_mode+λ_hL_hist",
+        "explanation": "Weights are 1, 1, 0.05, and 0.5 respectively. Continuous and discrete action residuals are separately normalized over valid coordinates and equally weighted. History predicts a stop-gradient current visual feature using cosine and squared-error distances; this is an auxiliary training objective.",
+        "evidenceIds": [
+          "e10",
+          "e11"
+        ]
+      },
+      {
+        "expression": "X̃=CX; Z̃=CZ; CᵀC=I; R_zero=1−V_zero/V_base",
+        "explanation": "LASI uses an orthonormal temporal DCT on eight-step camera chunks. Modes zero through two define the tested low-frequency band. R_zero measures the fraction of within-condition, source-induced output variance removed by zeroing that source band.",
+        "evidenceIds": [
+          "e18",
+          "e19"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Minecraft task completion",
+      "setting": "MCU Mini: 30 tasks, ten runs per task; MCU All: over 800 tasks, five runs per task; final second-epoch checkpoint.",
+      "metric": "Average success rate (%)",
+      "value": "GameWAM: Mini 50.7; All 46.6.",
+      "comparison": "OpenHA: Mini 36.8, All 31.5. Game-TARS: All 42.5; Mini not reported.",
+      "interpretation": "These are reported environment task-completion results. Different training data, inputs, and model classes make this a system-level comparison. Category-level ± values represent variation across per-task success rates, not uncertainty across independent training runs.",
+      "evidenceIds": [
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "task": "MCU interaction cost",
+      "setting": "Default model; native actions averaged over successful episodes within each category.",
+      "metric": "Executed steps per successful episode",
+      "value": "Embodied 138; GUI 155; Combat 203.",
+      "comparison": "Joint-mask variant: 141, 145, and 175 respectively.",
+      "interpretation": "Lower successful-episode step counts do not establish lower total episode cost. The joint variant's lower GUI and Combat counts accompany lower MCU All success, so success-conditioned efficiency requires joint interpretation with completion rates.",
+      "evidenceIds": [
+        "e12",
+        "e15"
+      ]
+    },
+    {
+      "task": "Mechanism ablations",
+      "setting": "MCU Mini, Table 2.",
+      "metric": "Average success rate (%)",
+      "value": "Full 50.7; action-only supervision 35.7; coarser sampling 36.7; no event-anchored sampling 38.0; unified action distribution 38.3; P=E 41.3; no cross-cycle history 46.7.",
+      "comparison": "Removing video supervision produces the largest reported average reduction.",
+      "interpretation": "The results support predictive visual supervision and the temporal/action formulation within this training setup. They do not establish a need for test-time future imagination. Memory benefits are heterogeneous: removing history improves the embodied point estimate while reducing GUI and Combat performance.",
+      "evidenceIds": [
+        "e14",
+        "e06"
+      ]
+    },
+    {
+      "task": "Cross-modal masking",
+      "setting": "Matched model/evaluation settings; frequency separately measured over ten closed-loop episodes on one H200.",
+      "metric": "Mini/All ASR (%) and online execution frequency (Hz)",
+      "value": "Modality-decoupled: 50.7/46.6 and 12.51 Hz.",
+      "comparison": "Joint video–action: 46.3/39.6 and 8.12 Hz.",
+      "interpretation": "Direct noisy-future coupling is unnecessary for the strongest reported control result. Timing includes model-side replanning but excludes environment simulation and execution, so the frequency is not a measured end-to-end game rate.",
+      "evidenceIds": [
+        "e12",
+        "e15"
+      ]
+    },
+    {
+      "task": "Zero-shot transfer to VoxeLibre",
+      "setting": "Unchanged Minecraft checkpoint; deterministic control mapping; six basic gameplay tasks, 20 episodes each; no GUI tasks.",
+      "metric": "Micro-averaged success rate",
+      "value": "71/120 episodes, 59.2%.",
+      "comparison": "Task success ranges from 10.0% for Kill Cow to 85.0% for Chop Tree; no comparator is reported.",
+      "interpretation": "This demonstrates limited transfer to a related voxel game, with substantial task variation. It does not establish broad out-of-domain or GUI transfer.",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "task": "Controlled LASI interventions",
+      "setting": "Final Minecraft checkpoint; 24 fixed conditions × 16 sources; yaw DCT0; condition-cluster bootstrap intervals.",
+      "metric": "Source association, donor-follow rate, and source-induced variance removed",
+      "value": "Correlation 0.890, 95% CI [0.835,0.936]; donor-follow 94.8%, CI [92.2,97.1]%; zeroing removes 99.25% of variance, CI [98.93,99.50]%.",
+      "comparison": "Only low-frequency source coefficients are replaced or zeroed while conditioning remains fixed.",
+      "interpretation": "Interventions support causal source-to-camera influence under these conditions. Variance removal is not an improvement in task success or a measure of dynamics accuracy.",
+      "evidenceIds": [
+        "e18",
+        "e19"
+      ]
+    },
+    {
+      "task": "LASI during closed-loop execution",
+      "setting": "300 traces across 30 tasks, containing 16,707 valid replanning steps.",
+      "metric": "Episode-adjusted mean low-frequency correlation",
+      "value": "Correct alignment 0.33763; maximum of 999 permutation-null statistics 0.06466; permutation p=0.001.",
+      "comparison": "Correct alignment also ranks first among 75 circular shifts.",
+      "interpretation": "A source-aligned component remains detectable in executed camera actions. This does not attribute the entire trajectory or all task failures to the source.",
+      "evidenceIds": [
+        "e21",
+        "e22"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "GameWAM is a low-level controller without an explicit task graph, inventory plan, recipe representation, or long-horizon search. Its predominantly visual memory is supervised for visual prediction rather than task-relevant retrieval. The authors acknowledge that largely atomic MCU tasks provide limited evidence for extended resource planning.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e23"
+      ]
+    },
+    {
+      "text": "The video-loss ablation supports usefulness of that supervision, but does not isolate calibrated world dynamics as the cause. Similarly, the unified-action ablation changes specialization and normalization together, and removing all cross-cycle history does not isolate recent memory, long memory, or its auxiliary loss.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e10",
+        "e14"
+      ]
+    },
+    {
+      "text": "The proposed optimization-interference explanation for weaker joint masking remains a hypothesis. The paper reports faster action fitting and weaker visual optimization, but does not directly isolate gradient interference.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "text": "LASI has no demonstrated mechanism-level correction. Single-forward transfer and later model-path amplification narrow the phenomenon, but do not identify a unique internal cause. The authors report trade-offs from attempted training-time suppression and retain source resampling as mitigation.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e20",
+        "e22"
+      ]
+    },
+    {
+      "text": "The authors report competitive ViZDoom rewards across four maps, each evaluated over 50 episodes, but exact rewards cannot be checked from the supplied plot extraction. Selected rollout descriptions cannot establish behavior frequencies. All evaluated execution occurs in digital games.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e16",
+        "e23"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires Wan initialization, the frozen encoders, aligned VPT/MineStudio streams, APPO expert trajectories, state/action masks, mode statistics, event sampling, and the block/memory configuration. The reported optimization and sampling settings provide a substantial recipe, but exact Action-DiT weight-width adaptation, binary decoding thresholds, and the complete ViZDoom collection/training recipe remain insufficiently specified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e07",
+        "e08",
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "text": "The paper promises a future release of code, preprocessing scripts, datasets, weights, and configurations subject to licensing. This supplied-text review did not inspect code or reproduce experiments; the release statement does not establish artifact availability.",
+      "kind": "source",
+      "evidenceIds": [
+        "e24"
+      ]
+    },
+    {
+      "text": "A focused replication would hold checkpoint, conditions, and high-frequency source coefficients fixed, repeat low-frequency donor swaps, then compare repeated-source and independently resampled closed-loop runs. Measuring task success alongside camera drift would test both controlled sensitivity and practical mitigation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e18",
+        "e19",
+        "e21",
+        "e22"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "Separate Video and Action DiTs, with distinct widths, hidden states, prediction parameters, and flow modulation, support the recorded Dual-system architecture. Joint prediction is supported as a learning formulation with future-video and action targets sharing a trainable realized-context pathway. The qualification is consequential: default noisy futures are modality-decoupled, and reported online control omits future-video generation. Thus Q3 describes the architecture and training formulation, not obligatory joint future/action sampling during deployment. Action generation is direct flow prediction rather than inverse dynamics. Bounded cross-cycle history supports the memory subcategory, while broad long-horizon competence remains incompletely evaluated.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e09",
+        "e23"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Joint video-action modeling",
+        "Memory & long-horizon modeling"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q3 · Dual-system × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "59cd0116e906965950f5f6a5d023fd84a0ba92ada24529670c092a43d91e9c5d"
+    }
+  },
+  "discussionQuestions": [
+    "Would matched-compute controls distinguish dynamics-specific benefits of video supervision from broader representation regularization? [e06, e14]",
+    "How much of the P>E improvement survives when total supervised target presentations are held constant? [e08, e14]",
+    "Can task-aware memory improve extended behavior without sacrificing the bounded history budget? [e09, e23]",
+    "Can LASI be reduced while preserving legitimate smooth camera motion and condition-compatible action diversity? [e19, e22]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block, and arXiv version line",
+      "detail": "The title and all four catalog authors match. The supplied artifact identifies arXiv:2608.26200v1, dated 25 August 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract and Section 1",
+      "detail": "The authors motivate native gameplay/GUI control, dense temporal grounding, prediction–commitment separation, persistent history, and their claimed first WAM for this setting."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 22–24, Sections B.1 and B.3–B.5",
+      "detail": "Describes pre-action alignment, paired null-action filtering, regular/event VPT streams, scripted GUI collection, and APPO expert trajectories for four ViZDoom maps."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 25–26, Section C.3",
+      "detail": "Reports event-window construction, the 200,000-window allocation budget, sample-mixture weights, and event-dependent versus fixed training-window strides."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Section C.1; p. 27, Table 5, model initialization and scale rows",
+      "detail": "Specifies Wan initialization, separate 5B/1B branches, layer/head counts and widths, separately initialized action components, frozen encoders, and optimized modules."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.1, Eqs. (3)–(5); p. 20, Section A.4, Eqs. (28)–(30)",
+      "detail": "Defines flow matching and modality-decoupled visibility. Both losses train shared clean-prefix Video-DiT representations; online action-only inference retains prefix encoding while omitting future-video denoising."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Eq. (6); p. 21, Section A.5; pp. 22–23, Tables 3–4 and Section B.2",
+      "detail": "Defines per-step mode routing, mode-specific continuous normalization, binary decoding and hotbar constraints, environment action dimensions, and available state fields."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Eq. (7); pp. 16–17, Section A.1, Eq. (16); p. 25, Section C.2",
+      "detail": "Specifies overlapping teacher-forced targets, execution-grounded feedback, P=16, E=8, three-block cycles, observation resolution, and visual sampling cadence."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Sections A.2–A.3, Eqs. (17)–(27); p. 25, Section C.2",
+      "detail": "Separates transient KV state from persistent history and specifies recent-segment retention, gated multi-timescale updates, two/four-cycle half-lives, and the 40-token history maximum."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.3, Eqs. (10)–(14); pp. 21–22, Section A.6",
+      "detail": "Defines masked continuous/discrete flow reductions, routing BCE, and stop-gradient predictive-history supervision using cosine and squared-error distances."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 26, Sections C.4–C.5, Eqs. (34)–(35)",
+      "detail": "Reports optimization schedule, batch size, hardware, runtime, objective weights, independent flow times, shifted sampling schedule, and ten-step first-order inference."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1 caption; pp. 26–27, Section C.6",
+      "detail": "Defines task runs, final-checkpoint evaluation, successful-episode native steps, task-wise standard deviation, system-level comparison limits, and timing that excludes environment simulation/execution."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1, Avg Mini/All columns, OpenHA, Game-TARS, and GameWAM rows",
+      "detail": "Legible aggregate ASRs are OpenHA 36.8/31.5, Game-TARS All 42.5 with Mini absent, and GameWAM 50.7/46.6."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 2, all variant rows and category/Avg columns",
+      "detail": "Reports full-model and six ablation ASRs. No-history performance is higher on Embodied but lower on GUI and Combat than the full model."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 28, Table 6; pp. 28–29, Section D.2",
+      "detail": "Reports masking-variant success, successful-episode steps, and 12.51 versus 8.12 Hz. The discussion labels asymmetric optimization interference as an unisolated hypothesis."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5.3; p. 8, Figure 4 caption; pp. 29 and 36, Section D.3",
+      "detail": "The authors describe ViZDoom rewards relative to competitors and specify 50 episodes per map. Rollout examples are explicitly qualitative diagnostics, not frequency estimates."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF pp. 36–37, Section D.4 and Table 7",
+      "detail": "An unchanged Minecraft checkpoint with deterministic control mapping achieves 71/120 successes across six VoxeLibre gameplay tasks; GUI transfer is excluded."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5.5, Eq. (15); p. 37, Section D.5.1",
+      "detail": "Defines temporal DCT source analysis, eight-step camera chunks, low modes 0–2, the 24-by-16 controlled matrix, 20-step diagnostic integration, and bootstrap procedure."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 37–38, Sections D.5.2–D.5.3, Eqs. (36)–(39)",
+      "detail": "Provides yaw-DCT0 association and confidence interval, donor-follow rate and interval, and variance removed by zeroing low-frequency source coefficients with its interval."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF pp. 39–40, Sections D.5.5–D.5.6, Eqs. (46)–(49) and accompanying prose",
+      "detail": "Source transfer is measured in one analytic denoiser call. At matched noise level 0.208, analytic and model-path yaw-DCT0 gains are 0.162 and 1.117, showing later path amplification."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 41, Section D.5.7, Eqs. (50)–(52)",
+      "detail": "Reports the 300-trace closed-loop sample, valid replanning count, episode-adjusted alignment, circular-shift ranking, and 999-permutation control."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF pp. 41–42, Section D.5.8, Eqs. (53)–(56); pp. 43–44, Section E.2",
+      "detail": "Describes repeated-source camera drift, resampling mitigation, the explanatory accumulation model, limits of mechanistic attribution, and unsuccessful trade-off-free training-time correction."
+    },
+    {
+      "id": "e23",
+      "sourceId": "primary",
+      "location": "PDF pp. 42–43, Section E.1",
+      "detail": "States limits of low-level planning, visual memory supervision, atomic-task evaluation, data-mixture attribution, and transfer from digital games to physical control."
+    },
+    {
+      "id": "e24",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Reproducibility Statement",
+      "detail": "Promises future public release of training/evaluation code, preprocessing scripts, constructed datasets, weights, and configurations subject to third-party restrictions."
+    }
+  ]
+}

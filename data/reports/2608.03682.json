@@ -1,0 +1,635 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.03682",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T15:14:04.004Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.03682",
+      "title": "PhyAI: Real-Time Physical AI at the Edge, Scalable Rollouts in the Cloud",
+      "kind": "pdf",
+      "sha256": "3e23c2ab7adce5f2f50a126ff4ab9c71e4f15fbe4e9f1ed56fe7e8690802a42b",
+      "wordCount": 14355,
+      "accessedAt": "2026-09-07T13:52:18.890474+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work, including Sections 2.1–2.3",
+      "3 Embodied Task Formulation, including Sections 3.1–3.4",
+      "4 PhyAI Architecture, including Sections 4.1–4.3",
+      "5 Real-Time at the Edge and Scale in the Cloud, including Sections 5.1–5.5",
+      "6 Future Work, including Sections 6.1–6.5",
+      "7 Discussion and Conclusion, including Sections 7.1–7.3",
+      "References",
+      "Appendix A: GR00T N1.7 Success Rate on LIBERO 10",
+      "Appendix B: Reproducing PhyAI π0.5 in RoboTwin",
+      "Appendix C: PhyAI π0.5 Evaluation Across Four LIBERO Suites",
+      "Appendix D: Eight GPU Data Parallel Serving with PhyAI π0.5",
+      "Appendix E: Experimental setup and LIBERO evaluation of PhyAI π0"
+    ],
+    "omissions": [
+      "Original figure images were not inspected. Captions and accompanying prose were read, but ambiguous plot-only values were omitted.",
+      "PDF equation and table layouts were not visually inspected; table results below use legible supplied text.",
+      "Separate supplements beyond the supplied Appendices A–E were not verified.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table 1: Embodied policy architecture taxonomy",
+      "Table 2: Documented runtime capabilities",
+      "Table 3: Acceleration mechanisms",
+      "Table 4: Measurement configurations",
+      "Table 5: Single-request latency",
+      "Table 6: GRPO profiling configuration",
+      "Table 7: GR00T LIBERO-10 success",
+      "Table 8: RoboTwin evaluation settings",
+      "Table 9: π0.5 LIBERO success and timing",
+      "Table 10: Data-parallel serving configuration",
+      "Table 11: π0 LIBERO success"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "PhyAI accelerates existing embodied policies through a shared inference runtime whose adapters retain model-specific conditioning, caches, solvers, and action conversion. Its evidence supports faster model execution and different batching strategies for compact action experts versus joint video-action generation. Appendices add simulator task outcomes; reported end-to-end RL gains remain simulated or projected. The reviewed source is arXiv v3, dated 14 August 2026, with matching catalog title, identifier, and authors. [e01, e02, e12, e18, e19, e21, e23]",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "Separate inference implementations for evaluation, RL rollout, shared serving, and onboard control duplicate optimization and behavioral validation. A common runtime must accommodate reusable multimodal conditions, iterative action solvers, and evolving world latents while respecting different latency and throughput requirements.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A common execution engine separates policy semantics from graph execution, kernels, memory ownership, and device parallelism.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e02",
+        "e06"
+      ]
+    },
+    {
+      "text": "The control-time Roofline relates inference speed to the environment execution window and distinguishes higher control rate from additional deadline margin.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e26"
+      ]
+    },
+    {
+      "text": "Latency comparisons and phase profiles establish architecture-dependent optimization opportunities. Appendix evaluations provide narrower evidence about simulator behavior under particular checkpoints and action schedules.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e12",
+        "e14",
+        "e15",
+        "e16",
+        "e21",
+        "e23",
+        "e25"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Camera observations, language instruction, and robot state for a pretrained policy. [e03]",
+      "Model-specific solver configuration and runtime choices for batching, precision, kernels, and device groups. [e06, e07, e09, e10]"
+    ],
+    "outputs": [
+      "A decoded action chunk ready for controller handoff; physical execution occurs outside the model runner. [e03]",
+      "Optional decoded video for Cosmos3 requests, after coupled video-action latent generation. [e10]"
+    ],
+    "steps": [
+      {
+        "name": "Assign requests and establish state ownership",
+        "detail": "The scheduler chooses runners and device groups. Each runner owns request buffers, KV caches, graph buckets, and solver state. Stateless modeling modules express computation through Layers, which dispatch fused or distributed operators. Adapters retain preprocessing, phase order, cache validity, and action conversion.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "name": "Reuse invariant conditioning and replay generation",
+        "detail": "For standard π0.5 inference, the prefix is fixed across ten Euler steps. PhyAI retains prefix KV and attention metadata, prepares timestep and AdaRMS modulation tables, and captures the stable loop in a CUDA Graph bucket. A new observation or condition invalidates the prefix.",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "name": "Choose and fuse operators for actual shapes",
+        "detail": "Fusion combines normalization, projection, activation, and layout operations to reduce launches and intermediate traffic. Selection depends on shape, dtype, accelerator, and execution configuration. For the profiled π0.5 expert attention shape, the selected FA2 prefill path outperformed the automatically chosen FA3 path.",
+        "evidenceIds": [
+          "e07",
+          "e08"
+        ]
+      },
+      {
+        "name": "Distribute independent requests or coupled generation",
+        "detail": "π0.5 data-parallel workers run independent requests with local state. Cosmos3 partitions each conditional or unconditional GEN transformer with tensor parallelism, exchanges branch velocities for guidance, then updates local video and action UniPC states. Optional video decoding subsequently uses spatially tiled VAE execution.",
+        "evidenceIds": [
+          "e10",
+          "e24"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "PhyAI introduces no new policy-learning objective or distillation procedure. Existing training frameworks retain optimization and environment orchestration; PhyAI targets policy execution during rollout.",
+        "kind": "source",
+        "evidenceIds": [
+          "e02",
+          "e17",
+          "e20"
+        ]
+      },
+      {
+        "text": "Offline round-to-nearest quantization supports W4A16, W8A16, W8A8, and W4A8. The phase and batch studies use BF16, so those measurements do not demonstrate quantization benefits or quality preservation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09",
+          "e11"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Cosmos3 action-only serving still evolves video and action tokens jointly; it omits final video decoding, rather than removing world-latent generation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e10"
+        ]
+      },
+      {
+        "text": "A shared runtime does not guarantee identical outputs across all precision paths. The paper reports reference checks for particular fused kernels and matched simulator evaluation for GR00T, which provide bounded validation of semantic preservation.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e08",
+          "e09",
+          "e21"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "L_critical = L_observe + L_transfer + L_queue + L_inference + L_actuate; M_ctrl = B_ctrl − L_critical",
+        "explanation": "The critical interval ends at controller handoff, excluding physical action execution. B_ctrl is the allowed observation-to-handoff time; nonnegative margin indicates meeting that deadline.",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      },
+      {
+        "expression": "X = L_env / L_inference; Y_seq = X / (1 + X); Y_roof = min(X, 1)",
+        "explanation": "The inference-only sequential period adds inference and environment time; ideal overlap takes their maximum. X above one places inference below the environment window. The roof is an upper bound on normalized control rate, excluding unmeasured transport and handoff overhead.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "Q(B) = B / T_sync(B); T_amort(B) = T_sync(B) / B",
+        "explanation": "Q is completed requests per unit time. Amortized cost divides full-batch time among requests, but each synchronized request still waits T_sync.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "v_guided = v_uncond + γ(v_cond − v_uncond)",
+        "explanation": "Cosmos3 applies guidance to video and action velocities before UniPC updates. The guidance scale γ is distinct from the number of parallel CFG branches.",
+        "evidenceIds": [
+          "e10"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "MiniCPM-Robot single-request inference",
+      "setting": "H100; LIBERO inputs with two 224 × 224 views; official implementation versus PhyAI FLA backend",
+      "metric": "Model-runner latency",
+      "value": "Measured: 22.640 ms",
+      "comparison": "Official: 105.380 ms; reported speedup 4.65×",
+      "interpretation": "Largest speedup in the eleven official-to-PhyAI pairs; this measures inference, not robot task success.",
+      "evidenceIds": [
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "task": "Cosmos3-Nano-Policy-DROID single-request inference",
+      "setting": "Eight H20 GPUs; CFG parallel degree 2 and TP degree 4",
+      "metric": "Model-runner latency",
+      "value": "Measured: 1.18 s",
+      "comparison": "Official: 2.46 s; reported speedup 2.08×",
+      "interpretation": "A matched-hardware comparison; no matched FlashRT result or parallel-scaling curve is supplied.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "MiniCPM-Robot fusion increment",
+      "setting": "H20, BF16; add two hybrid-backbone fused kernels to the CUDA Graph path",
+      "metric": "Inference throughput",
+      "value": "Measured: 36.77 Hz",
+      "comparison": "33.28 Hz before the added kernels; reported gain 10.5%",
+      "interpretation": "A mechanism-relevant incremental comparison, rather than an ablation of every runtime optimization.",
+      "evidenceIds": [
+        "e08"
+      ]
+    },
+    {
+      "task": "π0.5 static-batch scaling",
+      "setting": "Hopper-series GPU; BF16, three cameras, 50 actions, ten Euler steps, CUDA Graphs",
+      "metric": "Throughput and synchronized latency",
+      "value": "Measured at batch 32: 100.02 samples/s and 319.94 ms",
+      "comparison": "Batch 1: 44.26 samples/s and 22.59 ms",
+      "interpretation": "The 10.00 ms amortized cost is not request latency. Expert time share falls from 57.2% to 13.5%, shifting the bottleneck toward conditioning.",
+      "evidenceIds": [
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "task": "GR00T N1.7 static-batch scaling",
+      "setting": "RTX 5090; BF16, two 256 × 256 views, 40 × 132 action shape, four flow steps, CUDA Graphs",
+      "metric": "Throughput and synchronized latency",
+      "value": "Measured at batch 32: 138.8 samples/s and 230.50 ms",
+      "comparison": "Batch 1: 48.8 samples/s and 20.49 ms",
+      "interpretation": "Batch eight already supplies 92.2% of batch-32 throughput; larger batches mainly add waiting as the backbone becomes dominant.",
+      "evidenceIds": [
+        "e11",
+        "e15"
+      ]
+    },
+    {
+      "task": "Cosmos3 static-batch scaling",
+      "setting": "Hopper-series GPU; BF16 eager execution, four denoising steps, guidance scale 3.0, 32 actions, 33 frames at 480 × 832; optional video decode excluded",
+      "metric": "Action-chunk throughput and full-batch latency",
+      "value": "Measured at batch 16: 1.010 chunks/s and 15.85 s",
+      "comparison": "Batch 1: 0.883 chunks/s and 1.132 s; throughput gain 14.3%",
+      "interpretation": "Generation already uses compute heavily at batch one, leaving little batching benefit. These are runtime measurements, not video-quality or executed-action scores.",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "task": "π0.5 RL policy prediction",
+      "setting": "LIBERO-10 GRPO configuration on four A800 80 GB GPUs without NVLink; 32 environments",
+      "metric": "Mean predict-time speedup",
+      "value": "Measured: 2.55×",
+      "comparison": "RLinf reference prediction path",
+      "interpretation": "Prediction acceleration was measured separately from an integrated end-to-end training improvement.",
+      "evidenceIds": [
+        "e17",
+        "e18"
+      ]
+    },
+    {
+      "task": "RL-step acceleration estimate",
+      "setting": "Four-A800 profile; predict occupies 15.9% of the critical path; non-predict work held constant",
+      "metric": "Projected RL-step latency",
+      "value": "Projected: 863.2 s, a 9.7% reduction and 1.11× speedup",
+      "comparison": "Measured baseline step: 955.8 s; assumes 2.55× prediction acceleration",
+      "interpretation": "An Amdahl-law projection assuming no integration overhead, not an observed accelerated training run.",
+      "evidenceIds": [
+        "e17",
+        "e18"
+      ]
+    },
+    {
+      "task": "Separate introductory rollout simulation",
+      "setting": "Eight A100 GPUs, batch 40, 41 policy calls per RL step; fixed non-inference time",
+      "metric": "Simulated rollout-step improvement",
+      "value": "Simulated: 26.5% lower step latency and approximately 1.36× throughput",
+      "comparison": "Inference share changes from 53.1% to 36.2%, a 16.9 percentage-point decrease",
+      "interpretation": "This is a different setup from the four-A800 profile and cannot be pooled with its projection.",
+      "evidenceIds": [
+        "e19"
+      ]
+    },
+    {
+      "task": "GR00T N1.7 simulated manipulation",
+      "setting": "LIBERO-10, A40; 50 fixed initial states per task, 500 episodes; matched checkpoint and simulator settings; eight actions executed per request",
+      "metric": "Episode success rate",
+      "value": "Measured by the authors: 91.8%, 459/500",
+      "comparison": "Official Isaac-GR00T: 91.2%, 456/500",
+      "interpretation": "The difference is three episodes, or 0.6 percentage points. It supports limited behavioral comparability; significance or physical-robot improvement is not established.",
+      "evidenceIds": [
+        "e21"
+      ]
+    },
+    {
+      "task": "π0.5 simulated manipulation",
+      "setting": "Four LIBERO suites; 500 episodes each; BF16, synchronous ten-action chunks",
+      "metric": "Episode success and mean inference time",
+      "value": "Measured by the authors: 1,949/2,000 successes, 97.45%; suite mean inference times 36.10–36.33 ms",
+      "comparison": "No matched reference-runtime success result in Table 9",
+      "interpretation": "Establishes performance for this evaluation configuration, without isolating the runtime's effect on task success.",
+      "evidenceIds": [
+        "e23"
+      ]
+    },
+    {
+      "task": "π0 simulated manipulation",
+      "setting": "LIBERO spatial and object; ten episodes per task, 200 total; batch one; 50-action chunks exhausted before replanning",
+      "metric": "Episode success rate",
+      "value": "Measured by the authors: 71.5%, 143/200",
+      "comparison": "Spatial: 71.0%; object: 72.0%; no matched reference-runtime baseline",
+      "interpretation": "Different checkpoints, horizons, and evaluation coverage prevent direct comparison with the π0.5 aggregate.",
+      "evidenceIds": [
+        "e23",
+        "e25"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Most latency results exclude observation, network transport, queueing, and controller handoff. The LIBERO Roofline uses inference-only timings and ideal overlap; environment-bound placement does not establish deployed deadline reliability or measured RTC performance.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e11",
+        "e26"
+      ]
+    },
+    {
+      "text": "Comparisons are not uniformly precision matched, and specialized runtimes are faster in several configurations. The reported advantage is over official implementations, not universal runtime leadership.",
+      "kind": "source",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "text": "The RL narrative remains internally uneven: the introduction presents an eight-A100 simulation, Section 5.4 presents four-A800 profiling and projections, and Section 6.3 still describes usable RLinf integration as future work. None establishes measured end-to-end accelerated RL training.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e17",
+        "e18",
+        "e19",
+        "e20"
+      ]
+    },
+    {
+      "text": "Logical tensor traffic is modeled rather than measured HBM traffic, and the Hopper SKU is unspecified in the phase study. The compute diagnosis motivates Cosmos3 parallelism but does not quantify its communication or scaling efficiency.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e16"
+      ]
+    },
+    {
+      "text": "Section 5.5 excludes closed-loop quality from the main performance study, but Appendices A, C, and E do report simulator success. These qualify that disclaimer without establishing physical deployment performance. Appendix B provides a RoboTwin procedure but no numerical success result.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e20",
+        "e21",
+        "e22",
+        "e23",
+        "e25"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "The authors link code and benchmark harnesses. Neither repository contents nor experiments were inspected or executed in this review; availability and reproducibility are therefore author-reported.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e02",
+        "e11"
+      ]
+    },
+    {
+      "text": "Reproduction needs the exact runtime commit, checkpoint revisions, accelerator SKU, kernel choices, and timing boundaries. The profiles specify PyTorch 2.11.0 and CUDA 13.0, but use different warm-up and sampling counts across models.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e13",
+        "e15",
+        "e16"
+      ]
+    },
+    {
+      "text": "A small mechanism test should hold π0.5 inputs, initial noise, precision, and solver steps fixed while comparing reference execution, graph replay, and added fusion. Measure full-chunk latency and action agreement, including requests with changed observations to exercise cache invalidation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e11"
+      ]
+    },
+    {
+      "text": "Preserve control protocols when reproducing success: GR00T executes eight actions, Appendix C π0.5 executes ten, the data-parallel demonstration uses one, and π0 consumes fifty. RoboTwin additionally requires matching normalization statistics and correcting wrist-camera ordering.",
+      "kind": "source",
+      "evidenceIds": [
+        "e21",
+        "e22",
+        "e23",
+        "e24",
+        "e25"
+      ]
+    },
+    {
+      "text": "The data-parallel demonstration specifies eight H20 workers, 32 clients, a 20 ms batching window, and local graph batches of four with padding. It documents a concurrent serving configuration, but supplies no quantitative scaling result.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e24"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "Foundational infrastructure and technical-resource placement fit this inference systems paper. Architecture, prediction paradigm, and quadrant are appropriately not applicable to PhyAI itself. The training-optimization label fits rollout execution; no distillation method is introduced. Cosmos3's joint GEN sequence describes a hosted policy and does not make the shared runtime a One Model WAM.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e06",
+        "e09",
+        "e10",
+        "e17"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Surveys & technical resources",
+        "Training optimization & distillation"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "cfa3bc46387824385c61b89c3f04fe2bdb7889572e3b89479ea9a8d022286bb2"
+    }
+  },
+  "discussionQuestions": [
+    "How much of the projected RL improvement survives actual backend integration, weight synchronization, and changed rollout scheduling? [e18, e20]",
+    "At a fixed action-handoff budget, how do batching and executed horizon jointly affect task success, observation age, and p99 deadline margin? [e04, e05, e26]",
+    "For Cosmos3, what TP/CFG configuration minimizes complete request latency after collectives and optional video decoding are included? [e10, e16]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and arXiv version line",
+      "detail": "The title and author list match the catalog; the source identifies arXiv:2608.03682v3, dated 14 August 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Section 1, runtime motivation and contributions",
+      "detail": "The paper motivates a common policy inference path across deployment settings, separates adapters from execution services, and links the project repository."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.1, Equations (1)–(2)",
+      "detail": "Observations, instruction, and robot state produce an action chunk. The observation-to-handoff interval excludes subsequent physical action execution."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.2, Equations (3)–(8)",
+      "detail": "Defines deadline margin, full and inference-only control periods, normalized rates, and the sequential and ideal-overlap curves."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Sections 3.3–3.4, Equation (9)",
+      "detail": "Throughput and amortized batch cost differ from synchronized request waiting time; remote serving additionally incurs transfer and queueing."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4 opening and Section 4.1",
+      "detail": "Describes adapter semantics, scheduler placement, runner-owned mutable state, stateless modeling modules, and Layers-based operator selection."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.2, Graph replay and Profiled operator selection",
+      "detail": "Details π0.5 prefix reuse across ten Euler steps, precomputed modulation tables, observation-triggered invalidation, and profiled FA2 attention selection."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.2, Kernel fusion",
+      "detail": "Describes fused operators and reports MiniCPM-Robot throughput increasing from 33.28 to 36.77 Hz on H20 BF16, with FP32 and BF16 reference checks for two kernels."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.2, Quantization",
+      "detail": "Offline RTN supports four listed weight/activation formats; the phase and batch measurements use BF16."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 4.3, Equation (10)",
+      "detail": "Describes independent DP requests, Cosmos3 joint video/action GEN computation, TP and CFG communication, guided UniPC updates, and optional tiled VAE decoding."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 5.1, Table 4 and Equations (11)–(13)",
+      "detail": "Defines runner timing boundaries, model configurations, estimated FLOPs and logical traffic, locally measured reference roofs, and PyTorch/CUDA versions."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Section 5.2 and Table 5; PDF p. 1, Figure 1 caption text",
+      "detail": "Table 5 gives eleven official/PhyAI latency pairs, including MiniCPM-Robot H100 and Cosmos3 H20×8. Prose identifies faster specialized paths and precision caveats; the caption specifies MiniCPM-Robot LIBERO inputs."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Section 5.3, PI0.5 paragraphs",
+      "detail": "Reports batch-one and batch-32 throughput and latency, ten warm-ups and fifty timed iterations, and substantial variance for Thor batch four."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Section 5.3, PI0.5 phase-analysis paragraphs",
+      "detail": "At batch one the expert contributes 8.8% of estimated FLOPs and 57.2% of profiled time; its time share falls to 13.5% at batch 32."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Section 5.3, GR00T paragraphs; PDF p. 13, Figure 6 caption text",
+      "detail": "Reports batch scaling, early throughput saturation, and the Action Head-to-Backbone bottleneck shift. The caption specifies warm-up and timing counts."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Section 5.3, Cosmos3 paragraph; PDF p. 14, Cosmos3 phase-analysis paragraphs",
+      "detail": "Specifies eager BF16 generation settings and sampling counts, reports limited batch throughput gains, excludes optional video decode, and diagnoses generation compute as the measured limit."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–15, Section 5.4, Table 6 and profiling narrative",
+      "detail": "The four-A800 GRPO profile uses 32 environments. A stable step takes 955.8 s; maximum accumulated per-rank prediction time is 152.4 s, or 15.9% of the step."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Section 5.4, prediction-speedup and Amdahl-law paragraphs",
+      "detail": "Reports measured 2.55× prediction acceleration and projects 863.2 s per step, a 9.7% reduction, under fixed non-predict work and no integration overhead."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 1, simulated RL rollout paragraph",
+      "detail": "The eight-A100 simulation uses batch 40 and 41 policy calls; inference shares of 53.1% and 36.2% imply the stated 26.5% step reduction under fixed non-inference time."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Sections 5.5 and 6.3",
+      "detail": "The main study limits claims to runtime performance. The RLinf future-work section describes the current result as simulation and plans usable integration with full-step measurements."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 22, Appendix A, Evaluation protocol and Table 7",
+      "detail": "Matched GR00T evaluation on A40 uses 500 LIBERO-10 episodes and eight executed actions per query; official and PhyAI success counts are 456 and 459."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF pp. 22–23, Appendix B and Table 8",
+      "detail": "RoboTwin instructions specify checkpoint normalization, a 32×14 action output, ten executed actions, camera-order correction, and run validation, without a numerical success result."
+    },
+    {
+      "id": "e23",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Appendix C, Simulation protocol and Table 9",
+      "detail": "Four suites each contain 500 episodes with synchronous ten-action chunks. Success counts total 1,949/2,000; suite mean inference times range from 36.10 to 36.33 ms."
+    },
+    {
+      "id": "e24",
+      "sourceId": "primary",
+      "location": "PDF p. 24, Appendix D and Table 10",
+      "detail": "Eight H20 workers serve 32 clients using a maximum 20 ms batching wait, fixed local graph batches of four, padding, and one-action handoffs."
+    },
+    {
+      "id": "e25",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Appendix E, Policy execution, Evaluation protocol, and Table 11",
+      "detail": "π0 exhausts 50-action chunks before replanning and succeeds in 71 spatial and 72 object episodes out of 100 each."
+    },
+    {
+      "id": "e26",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Section 7.1",
+      "detail": "Measured π0.5 inference is shorter than environment execution on four LIBERO suites. Capacity, cost, p99 margin, and deadline-miss tradeoffs are proposed for future evaluation."
+    }
+  ]
+}

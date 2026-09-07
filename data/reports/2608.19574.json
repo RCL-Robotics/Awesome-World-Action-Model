@@ -1,0 +1,505 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.19574",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T15:00:44.987Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.19574",
+      "title": "HiTac-WAM: A Hierarchical Tactile World Action Model for Contact-Rich Robot Manipulation",
+      "kind": "pdf",
+      "sha256": "a7fde63b1c8c1aee4afc3d5b537247209a28c7dc134eb4f6664189d4e3fd302a",
+      "wordCount": 5950,
+      "accessedAt": "2026-09-07T13:51:59.191780+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "I. Introduction",
+      "II. Related Work, A–C",
+      "III. Method, A–D",
+      "IV. Experiments, A–C",
+      "V. Results, A–D",
+      "VI. Conclusion",
+      "References"
+    ],
+    "omissions": [
+      "Review covers the complete supplied eight-page main text. Figure captions and surrounding prose were read, but no figure images were visually inspected.",
+      "No appendix appears in the supplied article; separate supplemental material availability remains unverified.",
+      "No code was inspected and no experiments were reproduced.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [],
+    "tablesReviewed": [
+      "Table I, PDF p. 6",
+      "Table II, PDF p. 7",
+      "Table III, PDF p. 7"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "HiTac-WAM makes touch predictive at two decision points: choosing an action chunk and checking its execution. A tactile branch inside a pretrained video–action model forecasts contact, deformation and slip consequences for each proposal. These forecasts influence candidate ranking and provide an aligned reference for recovery. The experiments support this mechanism on three robot tasks, although forecast accuracy on model-generated proposals remains unmeasured separately. [E03, E04, E06, E07, E11, E18]",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "Visually plausible action rollouts can conceal missed contact, inadequate pressure, slip or jamming. The authors therefore seek candidate-specific tactile forecasts that distinguish physical outcomes before execution and remain useful for detecting deviations afterward.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "E02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "An explicit contact-to-deformation-to-slip hierarchy uses detached upstream conditioning and contact gating to structure each candidate’s tactile forecast.",
+      "kind": "source",
+      "evidenceIds": [
+        "E04",
+        "E05"
+      ]
+    },
+    {
+      "text": "A directed attention mask integrates tactile forecasting into the video–action backbone while preventing tactile tokens from influencing visual and action queries.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03"
+      ]
+    },
+    {
+      "text": "The same candidate-aligned forecast supports both pre-execution ranking and persistent-residual monitoring during execution, linking prediction to selection and corrective replanning.",
+      "kind": "source",
+      "evidenceIds": [
+        "E06",
+        "E07"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Synchronized RGB observations, robot state and language instruction. [E03, E08]",
+      "Bilateral tactile history and observed/undeformed sensor grids. [E03, E04]",
+      "Candidate action chunks and their corresponding predicted visual futures. [E03, E06]"
+    ],
+    "outputs": [
+      "Per-candidate bilateral contact probabilities, contact-gated 3D deformation fields and slip risks. [E04]",
+      "A selected action chunk with its temporally aligned tactile reference. [E06]",
+      "Execution-time deviation scores that can trigger retreat and replanning. [E07]"
+    ],
+    "steps": [
+      {
+        "name": "Generate and screen proposals",
+        "detail": "The pretrained WAM samples action chunks and paired visual rollouts from common visual, robot-state and language context using independent noise draws. Actions have seven dimensions per step. Kinematic checks remove invalid chunks before tactile evaluation.",
+        "evidenceIds": [
+          "E03",
+          "E06"
+        ]
+      },
+      {
+        "name": "Build candidate-conditioned tactile features",
+        "detail": "FG-CLTP encodes bilateral tactile history into projected tokens in the shared backbone. Tactile queries access tactile history, aligned action tokens and predicted visual representations; visual/action queries cannot access tactile keys or values. Consequently, touch influences control through selection and verification rather than direct tactile conditioning of action generation.",
+        "evidenceIds": [
+          "E03",
+          "E06",
+          "E07"
+        ]
+      },
+      {
+        "name": "Forecast the ordered interface state",
+        "detail": "A contact head predicts sensor-specific contact. Its detached transition feature conditions deformation increments relative to the current grid. Slip prediction receives detached contact estimates and ungated future-deformation magnitude. Contact gates the final deformation and slip outputs. Stop-gradient blocks direct downstream updates to upstream heads, while their shared trainable tactile representation still couples learning.",
+        "evidenceIds": [
+          "E04",
+          "E05"
+        ]
+      },
+      {
+        "name": "Rank and retain the forecast",
+        "detail": "A batched tactile evaluation supplies normalized costs for phase-inconsistent contact, excessive or imbalanced deformation, and slip. These combine with visual task progress to select a candidate. The controller retains that candidate’s forecast and compares each subsequent tactile observation with the prediction aligned to the action just executed.",
+        "evidenceIds": [
+          "E06",
+          "E07"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Each task has 200 episodes split into 160 training, 20 validation and 20 test episodes before window extraction. Streams run at 30 Hz. Tactile history uses offsets [-12, -6, -2, 0], actions use [0, ..., 23], and targets use [1, ..., 24]. No window crosses a split.",
+        "kind": "source",
+        "evidenceIds": [
+          "E08"
+        ]
+      },
+      {
+        "text": "Task-specific tactile modules train for 10,000 steps on eight H100 GPUs with AdamW, learning rate 0.0001 and global batch size 64. Named updates cover tactile projections/queries, action–tactile fusion and prediction heads. Contact onset/release weights are 2/1; positive slip weight is 30. The slip-loss coefficient is zero for 3,000 steps, then 0.01.",
+        "kind": "source",
+        "evidenceIds": [
+          "E03",
+          "E08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Selection and Full use four candidates and score weights (progress, contact, deformation, slip) = (1.0, 1.0, 1.0, 0.5). Slip cost combines worst-case and mean risk. The forecast horizon is 24 steps; the executed prefix is eight steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "E08",
+          "E10"
+        ]
+      },
+      {
+        "text": "Observed contact and slip are computed causally. A task-specific KDE, fitted to standardized residuals from successful validation episodes, scores deviations. Three consecutive threshold exceedances abort the remaining prefix, trigger return to a safe state, and restart observation and generation. Evaluation permits at most two corrective attempts per trial.",
+        "kind": "source",
+        "evidenceIds": [
+          "E07",
+          "E10"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "Ĉ = σ(f_C(z,a)); ΔD̂ = f_D(z,sg(z_C),a); D̂ = Ĉ ⊙ (D_t + ΔD̂); p̂_slip = σ(f_R(z,sg(Ĉ),sg(‖D_t + ΔD̂‖_2))); R̂_slip = Ĉ p̂_slip.",
+        "explanation": "Equation (3) defines the hierarchy. Here z is the tactile feature, a the aligned action, z_C a contact transition feature, and sg stop-gradient. D_t is current deformation relative to the undeformed grid. Training supervises the ungated increment and slip probability; control uses gated outputs.",
+        "evidenceIds": [
+          "E04"
+        ]
+      },
+      {
+        "expression": "L = L_C + L_D + βL_R; L_C = BCE(Ĉ,C) + λ_on L_onset + λ_rel L_release; L_D = Σ_{h,s} C_{t+h,s}ρ_δ(ΔD̂_{t+h,s}−ΔD_{t+h,s}) / (Σ_{h,s} C_{t+h,s}+ε_D); L_R = WBCE(p̂_slip,R_slip).",
+        "explanation": "Equation (4) combines contact classification/timing, contact-masked Huber deformation regression and class-weighted slip classification. The Huber penalty averages over grid coordinates. Ground-truth contact masks deformation supervision; ε_D handles contact-free windows.",
+        "evidenceIds": [
+          "E05"
+        ]
+      },
+      {
+        "expression": "J^(k) = −w_prog ρ_task^(k) + w_C J_C^(k) + w_D J_D^(k) + w_R J_R^(k); k* = argmin_{k∈K_valid} J^(k).",
+        "explanation": "Equation (5) rewards predicted visual progress and penalizes undesirable tactile consequences. Each component is normalized to [0,1] before weighting. Contact cost concerns task-phase consistency, rather than suppressing contact universally.",
+        "evidenceIds": [
+          "E06"
+        ]
+      },
+      {
+        "expression": "r_{t+i} = d(T_obs_{t+i}, T̂^(k*)_{t+i}); S_{t+i} = −log p_KDE^(task)(std_task(r_{t+i})).",
+        "explanation": "Equation (6) scores forecast–observation discrepancies using successful-execution residual density. The discrepancy concatenates bilateral contact/slip absolute errors and deformation Top-20 Z MAE. Persistent low-density residuals trigger recovery; slip probability alone is not the detector.",
+        "evidenceIds": [
+          "E07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Held-out tactile forecasting",
+      "setting": "Three tasks with 20 test episodes each; Table II reports unweighted task means.",
+      "metric": "Contact F1; onset/release MAE; 3D L2; Top-20 Z MAE; deformation norm ratio",
+      "value": "0.921; 2.1/2.3 frames; 0.058 mm; 0.076 mm; 0.960",
+      "comparison": "Task contact F1 ranges from 0.908 to 0.931. Deformation errors are evaluated on ground-truth contact frames.",
+      "interpretation": "These are measured forecast metrics on held-out sequences, not robot task-success measurements.",
+      "evidenceIds": [
+        "E08",
+        "E09",
+        "E12"
+      ]
+    },
+    {
+      "task": "Slip forecasting",
+      "setting": "Table II held-out predictions; positive slip events occupy 1.39% of frames.",
+      "metric": "AUPRC",
+      "value": "Mean 0.247; task range 0.232–0.258",
+      "comparison": "Reported chance-level reference: 0.0139.",
+      "interpretation": "The authors use slip output as a ranking signal and explicitly decline to treat it as a calibrated alarm.",
+      "evidenceIds": [
+        "E09",
+        "E12",
+        "E18"
+      ]
+    },
+    {
+      "task": "Hierarchy ablation",
+      "setting": "Matched training budgets; separately trained Table III models.",
+      "metric": "3D displacement L2",
+      "value": "Directed hierarchy: 0.056 mm",
+      "comparison": "Deformation-only: 0.068 mm; independent heads: 0.064 mm; contact-conditioned: 0.059 mm. Reported reduction versus deformation-only: 17.6%.",
+      "interpretation": "Most improvement appears after contact conditioning. The 0.056 mm ablation result is distinct from Table II’s 0.058 mm mean; the caption explicitly permits differences between independently trained rows.",
+      "evidenceIds": [
+        "E13"
+      ]
+    },
+    {
+      "task": "Contact-conditioning intervention",
+      "setting": "Fixed checkpoint; conditioning replaced with embeddings indexed by ground-truth, predicted, shuffled or zero contact.",
+      "metric": "3D displacement L2",
+      "value": "0.053, 0.056, 0.071 and 0.078 mm, respectively",
+      "comparison": "Predicted contact approaches ground-truth conditioning; corrupted signals degrade accuracy.",
+      "interpretation": "Reader analysis: this supports use of the conditioning signal. It does not independently isolate the benefit of stop-gradient or establish physical causality.",
+      "evidenceIds": [
+        "E04",
+        "E14"
+      ]
+    },
+    {
+      "task": "Cumulative slip conditioning",
+      "setting": "Section V-B textual account of conditioning diagnostics.",
+      "metric": "Slip AUPRC",
+      "value": "0.154 → 0.188 → 0.218 → 0.247",
+      "comparison": "Slip-only → shared hidden state → contact conditioning → contact plus deformation; reported endpoint improvement: 60.4% relative.",
+      "interpretation": "Additional structured context improves slip ranking. Numerical confidence-interval bounds are not supplied in the prose and are not inferred from the unseen figure.",
+      "evidenceIds": [
+        "E15"
+      ]
+    },
+    {
+      "task": "Executed chip grasping, blackboard erasing and USB insertion",
+      "setting": "30 trials per method–task pair; 360 main-comparison trials. Success requires intact chip transfer and three-second stability, effective erasing contact with more than 80% removal, or full USB insertion with LED activation and no sustained jamming.",
+      "metric": "Real-robot success rate (%)",
+      "value": "Selection: 70.0 / 73.3 / 40.0, average 61.1. Full: 76.7 / 90.0 / 50.0, average 72.2.",
+      "comparison": "DreamZero: 33.3 / 50.0 / 10.0, average 31.1. Reactive Tactile: 40.0 / 60.0 / 20.0, average 40.0. Values follow the task order above.",
+      "interpretation": "Selection and verification improve observed execution outcomes. DreamZero samples one candidate while Selection ranks four, so this comparison alone does not isolate tactile ranking from generation budget.",
+      "evidenceIds": [
+        "E10",
+        "E11"
+      ]
+    },
+    {
+      "task": "Fixed-budget candidate ranking",
+      "setting": "Four candidates per arm, matched candidate seeds and validity rules, independent executions; 90 trials per arm. The tactile arm reuses the main Selection trials.",
+      "metric": "Real-robot success rate with two-sided 95% Wilson interval",
+      "value": "Tactile ranking: 61.1%, [50.8, 70.5]",
+      "comparison": "Task-progress ranking: 35.6%, [26.4, 45.8].",
+      "interpretation": "This descriptive comparison controls proposal count and supports tactile ranking beyond visual progress. Reused Selection trials are not an independent replication.",
+      "evidenceIds": [
+        "E10",
+        "E16"
+      ]
+    },
+    {
+      "task": "Online verification",
+      "setting": "Post-hoc inspection of 90 Full-configuration trials.",
+      "metric": "Trigger and subsequent-outcome counts",
+      "value": "18 trials triggered replanning; 16 coincided with observed anomalies, and 12 of those subsequently succeeded.",
+      "comparison": "Two triggers were classified as false with no observed outcome effect. At most three of 21 untriggered failures involved an undetected anomaly.",
+      "interpretation": "These descriptive counts do not establish detector recall or causal recovery benefit because anomaly annotation was not exhaustive.",
+      "evidenceIds": [
+        "E10",
+        "E17"
+      ]
+    },
+    {
+      "task": "Video/action preservation",
+      "setting": "Comparison with the WAM without tactile prediction.",
+      "metric": "LPIPS and normalized action-trajectory MAE",
+      "value": "Reported increases of 1.4% and 0.9%, respectively",
+      "comparison": "Relative changes only; absolute metric values are not supplied.",
+      "interpretation": "These output metrics describe preservation costs and do not measure executed robot success.",
+      "evidenceIds": [
+        "E09",
+        "E15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors do not separately evaluate forecast accuracy on model-generated action chunks. Held-out recorded-action accuracy therefore leaves a gap precisely where candidate ranking uses the predictor.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E18"
+      ]
+    },
+    {
+      "text": "Slip is uncalibrated, and detector statistics rely on incomplete post-hoc annotation. Controlled anomaly tests would be needed to characterize detection sensitivity and failure modes reliably.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E09",
+        "E10",
+        "E17",
+        "E18"
+      ]
+    },
+    {
+      "text": "Evidence covers three tasks on fixed hardware with separately trained tactile modules. Transfer across sensors, objects or tasks is not established. Full also adds corrective attempts, so its improvement does not isolate forecast-based triggering from extra recovery opportunities.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E08",
+        "E10",
+        "E11"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the pretrained WAM and FG-CLTP encoder, synchronized bilateral DM-Tac W2 and RGB streams, calibrated marker grids, contact/slip labels, and the episode-level splits. The supplied training schedule is concrete, but module-by-module freezing and several preprocessing details are not fully specified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E08"
+      ]
+    },
+    {
+      "text": "Deployment additionally requires exact task-progress/cost formulas and normalization, kinematic validity checks, KDE kernel/bandwidth, thresholds, label-generation rules and safe-return behavior. These are described incompletely. Stream synchronization at 30 Hz does not establish inference throughput; deployment latency is unreported.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E06",
+        "E07",
+        "E08",
+        "E10"
+      ]
+    },
+    {
+      "text": "A focused reproduction should first compare independent, contact-conditioned and hierarchical heads under identical splits and budgets, then repeat fixed-checkpoint contact corruption. A subsequent matched-candidate execution test should evaluate both ranking and forecast accuracy on generated proposals.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E13",
+        "E14",
+        "E16",
+        "E18"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "One Model has architecture evidence: tactile tokens participate in a shared backbone through a directed attention mask. The tactile modality classification is also supported. Other mechanisms/Outside quadrants is defensible for candidate-conditioned tactile prediction, ranking and verification; however, the underlying WAM jointly generates video and actions, so assigning the composite system requires a catalog convention not supplied here. Training is supervised tactile-module adaptation, with no reported reinforcement-learning objective or demonstrated action-generator policy post-training. The Policy post-training & WM-RL tag therefore remains insufficiently substantiated. The recorded snapshot is preserved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E02",
+        "E03",
+        "E05",
+        "E06",
+        "E07",
+        "E08"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Multimodal, tactile & audio sensing",
+        "Policy post-training & WM-RL"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "ea4b9806e2e6982f1c2e487c9158e8711a67696bf14c8d451f26fb070d38bdc2"
+    }
+  },
+  "discussionQuestions": [
+    "Does tactile forecast accuracy persist on sampled proposals, especially candidates that ranking rejects? [E06, E18]",
+    "Does stop-gradient improve robustness beyond contact gating and explicit upstream conditioning? [E04, E05, E13]",
+    "Would forecast-residual monitoring outperform current-touch anomaly detection under identical recovery and execution budgets? [E07, E10, E17]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "E01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author list and arXiv imprint",
+      "detail": "Title and all six authors match the catalog. The supplied artifact identifies arXiv:2608.19574v1, dated 20 August 2026."
+    },
+    {
+      "id": "E02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Section I, Introduction",
+      "detail": "The motivation contrasts visually similar candidate rollouts with different contact outcomes and proposes structured candidate forecasts retained for execution-time checking."
+    },
+    {
+      "id": "E03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section III-A, Equations (1)–(2)",
+      "detail": "Defines multimodal history, H-by-7 action chunks, forecast alignment, FG-CLTP tactile encoding, shared-backbone directed attention and the named trainable tactile modules."
+    },
+    {
+      "id": "E04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section III-B, Equation (3a–c) and preceding definitions",
+      "detail": "Defines marker-grid deformation increments, detached contact transition features, detached contact/deformation conditioning for slip, contact gating and the contact-embedding intervention."
+    },
+    {
+      "id": "E05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section III-B, Equation (4) and explanation",
+      "detail": "Specifies contact BCE with transition terms, ground-truth-contact-masked Huber loss and weighted slip BCE. Slip loss does not directly update upstream heads through detached inputs."
+    },
+    {
+      "id": "E06",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section III-C, Equation (5)",
+      "detail": "Describes independent-noise candidate generation, kinematic filtering, batched tactile forecasting, normalized progress/tactile scores and retention of the selected forecast."
+    },
+    {
+      "id": "E07",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section III-D, Equation (6) and continuation",
+      "detail": "Aligned causal tactile observations produce contact, slip and deformation residuals. Task-standardized KDE scores from successful validation episodes trigger safe-state return and regeneration after persistent deviations."
+    },
+    {
+      "id": "E08",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section IV-A, Platform, Data, and Training",
+      "detail": "Documents fixed IMETA-Y1 hardware, bilateral sensors, three RGB views, 200 episodes per task with 160/20/20 splits, 30-Hz alignment, window offsets and the stated optimizer, compute and loss schedules."
+    },
+    {
+      "id": "E09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section IV-B; Section V-A",
+      "detail": "Defines contact timing, contact-frame deformation metrics, Top-20 Z MAE, norm ratio, slip AUPRC and video/action preservation metrics. Slip prevalence is 1.39%; the authors treat slip output as a ranking signal."
+    },
+    {
+      "id": "E10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section IV-C, Closed-Loop Protocol",
+      "detail": "Specifies baselines, four-candidate ranking, weights, 30 trials per task, task success criteria, eight-step execution prefixes, three-score persistence, two corrective attempts and non-exhaustive detector annotation."
+    },
+    {
+      "id": "E11",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table I, all method rows and task/average columns",
+      "detail": "DreamZero, Reactive Tactile, Selection and Full average 31.1%, 40.0%, 61.1% and 72.2% success. The table supplies the corresponding per-task values for 360 trials."
+    },
+    {
+      "id": "E12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table II, task rows and Mean row",
+      "detail": "Mean F1/onset/release are 0.921/2.1/2.3; mean 3D L2/Top-20 Z/norm are 0.058/0.076/0.960; mean slip AUPRC is 0.247. Means are unweighted across tasks."
+    },
+    {
+      "id": "E13",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table III and caption; Section V-B",
+      "detail": "Deformation-only, independent, contact-conditioned and directed-hierarchy L2 values are 0.068, 0.064, 0.059 and 0.056 mm. The caption distinguishes independently trained ablations from Table II."
+    },
+    {
+      "id": "E14",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section V-B, paragraph beginning 'With the checkpoint fixed'",
+      "detail": "The prose reports L2 values of 0.053, 0.056, 0.071 and 0.078 mm for ground-truth, predicted, shuffled and zero-contact conditioning. These values were read from prose, not figure images."
+    },
+    {
+      "id": "E15",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section V-B, cumulative slip-conditioning and preservation paragraphs",
+      "detail": "Slip AUPRC increases through 0.154, 0.188, 0.218 and 0.247, a reported 60.4% relative gain. Video LPIPS and action MAE rise by 1.4% and 0.9% relative to the WAM without tactile prediction."
+    },
+    {
+      "id": "E16",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section V-C, paragraph continuing below Figure 7",
+      "detail": "Fixed-budget tactile ranking achieves 61.1% with Wilson interval [50.8,70.5], versus task-progress ranking at 35.6% with [26.4,45.8]; the tactile arm reuses Selection trials."
+    },
+    {
+      "id": "E17",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section V-D, Online Forecast Verification",
+      "detail": "Among 90 Full trials, 18 triggered; 16 coincided with anomalies and 12 of those succeeded afterward. Two were false triggers. At most three of 21 untriggered failures involved undetected anomalies."
+    },
+    {
+      "id": "E18",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section VI, final paragraph",
+      "detail": "The authors acknowledge no separate forecast-quality evaluation on model-generated chunks and no slip calibration for online detection. Proposed future work includes controlled anomalies, on-policy adaptation and learned corrective policies."
+    }
+  ]
+}
