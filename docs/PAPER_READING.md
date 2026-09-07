@@ -6,13 +6,15 @@ The website and repository remain private. These commands do not publish the sit
 
 The illustrated reading format follows the [OpenMOSS UniPi report](https://openmoss.ai/Awesome-WAM/report/2302.00111/index.html): a narrow fixed chapter directory on desktop, a full paper title and metadata panel, a paper-overview table, centered numbered sections, and original figures embedded in the explanation. Below 980 px, the directory appears beneath the title panel. The eight sections cover overview, motivation, research context, formulation, method, experiments, limitations and reproducibility. The collection retains its green and ivory palette and heading typography. Our source-attributed reading notes, WAM classification assessment and proposed reproduction checks remain distinct from the reference report's prose. Title-block authors and affiliations are verified from each original PDF and recorded in `data/illustrated-report-metadata.json`.
 
-## Ten-paper review checkpoint
+## Approved format and review checkpoint
 
-The user requested ten redesigned reports before approving the remaining catalog. `data/report-pilot.json` records those IDs and the `awaiting-user-review` state. The earlier text-only batch has been stopped, and the runner refuses to start while that state is active. Do not remove the checkpoint or infer approval from elapsed time.
+The user approved the ten redesigned reports on September 8, 2026 (Asia/Dubai) and requested the rest of the catalog in the same format after committing and pushing the pilot. `data/report-pilot.json` records the approval time and retains those ten IDs. The collection keeps the pilot first, followed by accepted editions in catalog order. If a checkpoint is set to `awaiting-user-review`, processing the remainder is blocked; elapsed time is not approval.
 
-The ten illustrated editions are in `data/illustrated-reports/`, with original figure/table crops in `public/report-assets/<paper-id>/`. They supplement the existing evidence records in `data/reports/`; older text notes retain their pages and are labeled separately. The reading index presents the ten samples together. Every Explore card has a bottom-right reading link: completed reports open directly; queued entries open their filtered reading status.
+Illustrated editions are in `data/illustrated-reports/`, with original figure/table crops in `public/report-assets/<paper-id>/`. They supplement the existing evidence records in `data/reports/`; older text notes retain their pages and are labeled separately until their illustrated edition is complete. Every Explore card has a bottom-right reading link: completed reports open directly; queued entries open their filtered reading status.
 
-Follow the [illustrated edition guide](../skills/wam-paper-reader/references/illustrated-report-guide.md). Each sample contains 4–6 original visuals, three substantial tutorial steps, two proposed reproduction checks and a visual audit. Each crop records its original PDF hash, page, figure/table number, normalized bounds and image dimensions. Visually inspect both the source page and final crop. Preserve scientific content, headers, axes, legends and relevant footnotes. Never replace the paper's graphics with generated illustrations or reconstructed numbers.
+Follow the [illustrated edition guide](../skills/wam-paper-reader/references/illustrated-report-guide.md). A standard edition contains 4–6 original visuals, three substantial tutorial steps, two proposed reproduction checks and a visual audit. Each crop records its original PDF hash, page, figure/table number, normalized bounds and image dimensions. Visually inspect both the source page and final crop. Preserve scientific content, headers, axes, legends and relevant footnotes. Never replace the paper's graphics with generated illustrations or reconstructed numbers.
+
+Surveys, theory and partial readings can document source-grounded `visualLimitations` to explain fewer visuals or the absence of quantitative tables or ablations. They still require at least one inspected original PDF visual. Abstract-only or no-PDF resources remain honestly scoped text reports with a private `illustration-unavailable` outcome, never an empty illustrated edition. Verified title metadata is required for every accepted edition. An optional `featuredResultTask` selects an existing result for the overview; it does not supply a new result.
 
 Figures enlarge inside the current page with an accessible dialog and Escape-to-close support. The main report retains equations, training/inference distinctions, results with evaluation settings, classification evidence, limitations and the source ledger. Raw PDFs and intermediate page renders remain outside the repository. Original figures and tables are attributed to the paper's authors.
 
@@ -22,7 +24,7 @@ The versioned skill is [WAM Paper Reader](../skills/wam-paper-reader/SKILL.md). 
 
 Example prompt:
 
-> Use $wam-paper-reader and its illustrated edition guide to read this catalog paper from its verified primary PDF. Inspect the method figure, original quantitative tables and ablations, then create faithful attributed crops and verify their legibility. Explain how to read each visual, what it supports and where the evidence stops. Write the English tutorial and trace every scientific claim to source evidence. Preserve separate training/inference explanations, equations, evaluation conditions, taxonomy analysis and proposed reproduction checks. Respect the ten-paper checkpoint; leave remaining work paused until the user approves the samples. Do not update Notion or publish the website.
+> Use $wam-paper-reader and its illustrated edition guide to read this catalog paper from its verified primary PDF in the approved format. Inspect the method figure, original quantitative tables and ablations, then create faithful attributed crops and verify their legibility. Explain how to read each visual, what it supports and where the evidence stops. Write the English tutorial and trace every scientific claim to source evidence. Preserve separate training/inference explanations, equations, evaluation conditions, taxonomy analysis and proposed reproduction checks. Record source limitations explicitly and do not invent missing experiments. Do not update Notion or publish the website.
 
 ## Source preparation
 
@@ -41,7 +43,7 @@ Only a verified, readable primary source can enter the reading runner. Identity 
 
 ## Read and resume
 
-**Currently paused for user review.** The commands below describe the preliminary text-note runner, not the completed illustrated workflow. A text-only run cannot produce a finished illustrated report. Resume catalog-wide work only after the user approves the ten samples and the visual workflow is included in that work.
+The illustrated runner resumes work by completed bundles, including existing text notes that still need a visual pass. It validates the base report, edition, original PNG assets and title metadata together. Isolated attempts, logs and unavailable outcomes remain outside the repository under `illustrated-runs/<paper-id>/` in the work directory.
 
 The runner uses the existing authenticated Codex CLI and its configured model. On macOS it prefers the CLI bundled with the desktop app when available. Set `CODEX_BIN` to choose another compatible executable; no API key is embedded in the project.
 
@@ -53,24 +55,32 @@ npm run reading:index
 # Show current source and reading totals, and the local worker state.
 npm run reading:status
 
-# Calibrate on one prepared paper first.
-npm run reading:run -- --ids 2302.13971 --limit 1
+# Inspect the illustrated work queue without starting a reader.
+npm run reading:illustrated -- --dry-run
+
+# Inspect the illustrated coordinator and per-paper progress.
+npm run reading:illustrated:status
+
+# Read one prepared paper and inspect its completed bundle first.
+node scripts/reading/run-illustrated.mjs --ids 2302.13971 --limit 1
 
 # Read all remaining prepared sources, one at a time.
-npm run reading:run
+node scripts/reading/run-illustrated.mjs
 
-# Consume sources as the acquisition batch makes them available.
-npm run reading:run -- --watch-sources --concurrency 2
+# Process two independent prepared sources concurrently.
+node scripts/reading/run-illustrated.mjs --concurrency 2
 
 # Retry failed readings after correcting their input or execution problem.
-npm run reading:run -- --retry-errors
+node scripts/reading/run-illustrated.mjs --retry-errors
 ```
 
-`--work-dir` selects another external cache. `--concurrency` accepts 1 or 2; the default is 1. `--limit` bounds new attempts. Completed reports are skipped. Each accepted report is written atomically, and failed drafts stay outside the repository for inspection. Three consecutive reader/validation failures stop the run. A single active-run lock prevents duplicate workers; after an abnormal termination, verify the recorded process is gone before removing a stale lock.
+`--work-dir` selects another external cache (default `../reading_work`). `--concurrency` accepts 1 or 2; the default is 1. `--limit` bounds new attempts. `--timeout-minutes` bounds each reader (default 40). Completed bundles are checked before being skipped; a base JSON alone is not illustrated completion. `--recover-stale-lock` is for a stale coordinator lock after confirming its process has ended. Failed drafts remain private for inspection.
 
-To finish the current group before stopping, send `SIGUSR1` to the coordinator PID recorded in the external `reading.lock`. `SIGINT`/`SIGTERM` stop active attempts; those interrupted entries resume on the next run. The coordinator retains its lock until its readers have exited and its final queue update is saved.
+To finish the current group before stopping, send `SIGUSR1` to the illustrated coordinator. `SIGINT`/`SIGTERM` stop active attempts; interrupted entries resume on the next run. Per-paper status is recorded in the external `illustrated-runs/<paper-id>/status.json`. A source with insufficient illustration material receives `illustration-unavailable` with a precise reason and evidence, while its text report retains the appropriate reading scope.
 
-The runner supplies the complete prepared text when it fits its bounded prompt. A source exceeding 500,000 text characters is explicitly treated as a partial reading, with that omission recorded. Images are not visually inspected by this text-only runner. When a result depends on a figure or ambiguously extracted table, perform an additional visual reading before including it. The source's recorded word count describes the source, not an assertion that every word was supplied in a partial pass.
+The earlier `npm run reading:run` command remains a preliminary text-note workflow. It supplies prepared text, explicitly marks truncation beyond 500,000 characters, and does not inspect images. It cannot complete the approved illustrated format. In either workflow, the source's word count describes the source, not a claim that every word was read in a partial pass.
+
+Each new illustrated bundle receives a separate visual review before acceptance. The coordinator independently renders the declared PDF pages and verifies crop pixels, then attaches the source pages and final crops to a read-only reviewer. The reviewer checks identity, legibility, figure/table labels and the claims made about each visual. A failed check leaves the draft private; the website receives only accepted bundles. Review context, image fingerprints and receipts are retained in the external work directory for inspection and interrupted-run recovery.
 
 ## What the status means
 
@@ -92,4 +102,4 @@ npm run check
 npm run build
 ```
 
-Validation checks schema fields, catalog identities, source fingerprints, safe URLs, evidence/source references, coverage/status consistency and private-path leakage. Illustrated validation additionally checks the ten-paper scope, original visual types, PDF-page links, normalized crop bounds, PNG dimensions, attribution and recorded inspection of every cropped page. It cannot prove the scientific interpretation is correct. Independently inspect important numerical results, primary-source locations, classification assessments and extraction ambiguities. Keep unavailable and partial items visible when reporting batch coverage; do not describe the entire catalog as fully read until the recorded coverage supports that statement.
+Validation checks schema fields, catalog identities, source fingerprints, safe URLs, evidence/source references, coverage/status consistency and private-path leakage. Illustrated validation additionally checks the approval gate, retention of all ten pilot reports, verified title metadata, original visual types, PDF-page links, normalized crop bounds, PNG dimensions, attribution and recorded inspection of every cropped page. Exceptions require explicit source-grounded visual limitations; abstract-only and empty editions are rejected. Validation cannot prove the scientific interpretation is correct. Independently inspect important numerical results, primary-source locations, classification assessments and extraction ambiguities. Keep unavailable and partial items visible when reporting batch coverage; do not describe the entire catalog as fully read until the recorded coverage supports that statement.

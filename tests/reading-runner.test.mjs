@@ -45,7 +45,7 @@ async function fixture(t, scopes = ['full-paper', 'full-paper', 'full-paper']) {
   const papers = scopes.map((_, index) => ({ id: `fixture-${index}`, title: `Fixture paper ${index}`, authors: 'Example Author', venue: null, paperUrl: `https://example.org/paper-${index}`, majorCategory: 'WAM', subcategories: [], architecture: 'One Model', predictionParadigm: 'IDM', quadrant: 'Q2 · One Model × IDM', classificationStatus: null }));
   await put(join(repo, 'data/papers.json'), papers); await put(join(repo, 'data/meta.json'), { updatedAt: '2026-09-07T00:00:00Z' });
   // These isolated fixtures exercise lifecycle behavior after a review checkpoint.
-  // The actual repository remains paused and is covered by illustrated-reports.test.mjs.
+  // The refusal test below changes only its isolated fixture back to awaiting review.
   await put(join(repo, 'data/report-pilot.json'), { state: 'approved', paperIds: [] });
   const text = 'Fixture source text.\n';
   for (const [index, paper] of papers.entries()) {
@@ -68,6 +68,16 @@ async function fixture(t, scopes = ['full-paper', 'full-paper', 'full-paper']) {
   });
   return { folder, repo, work, control, papers, text, run, started: id => exists(join(control, `started-${id}`)), release: id => writeFile(join(control, `release-${id}`), ''), lock: join(work, 'reading.lock') };
 }
+
+test('batch refuses to start while an isolated user review checkpoint is active', async t => {
+  const f = await fixture(t, ['full-paper']);
+  await put(join(f.repo, 'data/report-pilot.json'), { state: 'awaiting-user-review', paperIds: f.papers.map(paper => paper.id) });
+  const run = f.run(['--limit', '1'], { WAM_TEST_AUTO: '1' });
+  assert.equal((await run.done).code, 2, run.error);
+  assert.match(run.error, /ten illustrated pilot reports require user review/);
+  assert.equal(await exists(f.lock), false);
+  assert.equal(await exists(join(f.control, 'invocations.jsonl')), false);
+});
 
 test('SIGUSR1 drains the active group, preserves the lock, and resumes only remaining entries', { timeout: 20000 }, async t => {
   const f = await fixture(t); const run = f.run(['--concurrency', '2']);

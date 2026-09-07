@@ -1,4 +1,5 @@
 import pilot from '../../data/report-pilot.json';
+import { papers } from './catalog';
 import type { ClaimKind } from './reports';
 
 export interface ReportVisual {
@@ -27,15 +28,23 @@ export interface IllustratedReport {
   thesis: string;
   standfirst: string;
   evidenceIds: string[];
+  featuredResultTask?: string;
+  visualLimitations?: { text: string; kind: 'source' | 'analysis'; evidenceIds: string[] };
   visuals: ReportVisual[];
   walkthrough: { heading: string; text: string; kind: ClaimKind; evidenceIds: string[] }[];
   reproductionChecks: { title: string; text: string; evidenceIds: string[] }[];
   visualAudit: { inspectedPages: number[]; notes: string };
 }
 const loaded = import.meta.glob('../../data/illustrated-reports/*.json', { eager: true, import: 'default' }) as Record<string, IllustratedReport>;
-export const illustratedReports = pilot.paperIds.flatMap(id => Object.values(loaded).filter(report => report.paperId === id));
+const byId = new Map(Object.values(loaded).map(report => [report.paperId, report]));
+const orderedIds = [...pilot.paperIds, ...papers.map(paper => paper.id).filter(id => !pilot.paperIds.includes(id))];
+export const illustratedReports = orderedIds.flatMap(id => {
+  const report = byId.get(id);
+  return report ? [report] : [];
+});
 export const illustratedFor = (id: string) => illustratedReports.find(report => report.paperId === id);
 export const pilotAwaitingReview = pilot.state === 'awaiting-user-review';
+export const pilotReportCount = pilot.paperIds.length;
 export const illustratedSections = [
   { id: 'overview', label: '1. Paper overview' },
   { id: 'motivation', label: '2. Motivation' },

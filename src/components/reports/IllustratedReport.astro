@@ -11,7 +11,7 @@ import { type ReadingReport, reportAnchor, assessmentLabel, appendixLabel } from
 import { type IllustratedReport as IllustratedEdition, illustratedReports, illustratedSections } from '../../lib/illustrated-reports';
 interface Props { paper: Paper; report: ReadingReport; edition: IllustratedEdition; }
 const { paper, report, edition } = Astro.props;
-const titleBlock = (paperMetadata as Record<string, { authors: string; affiliations?: string; sourceSha256: string; page: number }>)[paper.id];
+const titleBlock = (paperMetadata as Record<string, { authors: string; affiliations?: string; sourceSha256: string; page?: number; location?: string }>)[paper.id];
 if (!titleBlock || titleBlock.sourceSha256 !== report.sources[0].sha256) throw new Error(`Unverified title-block metadata for ${paper.id}`);
 const seriesIndex = illustratedReports.findIndex(item => item.paperId === paper.id);
 const methodVisuals = edition.visuals.filter(item => item.section === 'mechanism');
@@ -33,7 +33,8 @@ const featuredTasks: Record<string, string> = {
   '2608.28995': 'Short-range physical planning',
   '2608.08839': 'Robustness to perturbations',
 };
-const featured = report.results.find(result => result.task === featuredTasks[paper.id]);
+const featuredTask = edition.featuredResultTask ?? featuredTasks[paper.id];
+const featured = featuredTask ? report.results.find(result => result.task === featuredTask) : report.results[0];
 const coreContribution = report.contributions[0];
 ---
 <article class="rn-report ir-report">
@@ -45,7 +46,7 @@ const coreContribution = report.contributions[0];
       <p><strong>Authors:</strong> {titleBlock.authors}</p>
       {titleBlock.affiliations && <p><strong>Affiliations:</strong> {titleBlock.affiliations}</p>}
       <p><strong>Source:</strong> {paper.venue ? `${venueLabel(paper.venue)} · ` : ''}<a href={report.sources[0].url}>{paper.id} ↗</a>{paper.projectUrl && <> · <a href={paper.projectUrl}>Project page ↗</a></>} · <a href={paperPath(paper.id)}>Catalog record</a></p>
-      <p><strong>Reading:</strong> {seriesIndex + 1} / 10 · {edition.visuals.length} original figures & tables · ~{readingMinutes} min · <button id="print-report" type="button">Print / save PDF</button></p>
+      <p><strong>Reading:</strong> {seriesIndex + 1} / {illustratedReports.length} · {edition.visuals.length} original {edition.visuals.length === 1 ? 'visual' : 'figures & tables'} · ~{readingMinutes} min · <button id="print-report" type="button">Print / save PDF</button></p>
     </div>
   </header>
   <ReportContents sections={illustratedSections}/>
@@ -97,9 +98,10 @@ const coreContribution = report.contributions[0];
     <section id="mechanism" class="ir-section" data-report-section>
       <h2>5. Method in detail</h2>
       {edition.walkthrough.map((step,index) => <div class="ir-walkthrough"><h3>5.{index + 1} {step.heading}</h3><Claim claim={{text:step.text,kind:step.kind,evidenceIds:step.evidenceIds}}/>{methodVisuals[index + 1] && <SourceVisual visual={methodVisuals[index + 1]}/>}</div>)}
+      {methodVisuals.slice(edition.walkthrough.length + 1).map(visual => <SourceVisual visual={visual}/>)}
       <h3 id="execution">5.4 Training and inference</h3>
-      <h4>During training</h4>{report.method.training.map(claim => <Claim claim={claim}/>)}
-      <h4>During inference</h4>{report.method.inference.map(claim => <Claim claim={claim}/>)}
+      <h4>During training</h4>{report.method.training.length ? report.method.training.map(claim => <Claim claim={claim}/>) : <p>This reading does not include a training procedure.</p>}
+      <h4>During inference</h4>{report.method.inference.length ? report.method.inference.map(claim => <Claim claim={claim}/>) : <p>This reading does not include an inference procedure.</p>}
       <h3>5.5 Implementation flow</h3>
       <ol class="ir-implementation">{report.method.steps.map(step => <li><strong>{step.name}</strong><p>{step.detail} <EvidenceRefs ids={step.evidenceIds}/></p></li>)}</ol>
     </section>
@@ -107,11 +109,12 @@ const coreContribution = report.contributions[0];
     <section id="results" class="ir-section" data-report-section>
       <h2>6. Experiments & results</h2>
       <p>{plainSynopsis}</p>
-      <h3>6.1 Read the original evidence</h3>{resultVisuals.map(visual => <SourceVisual visual={visual}/>)}
+      {edition.visualLimitations && <div class="ir-note"><strong>Source and visual limitations</strong><Claim claim={edition.visualLimitations}/></div>}
+      <h3>6.1 Read the original evidence</h3>{resultVisuals.length ? resultVisuals.map(visual => <SourceVisual visual={visual}/>) : <p>No results visual is included in this edition. The source-specific visual limitations are recorded above.</p>}
       <h3>6.2 Results and evaluation conditions</h3>
-      <div class="ir-table-scroll" role="region" aria-label="Results with settings and comparisons" tabindex="0"><table class="ir-results-table"><thead><tr><th scope="col">Task & protocol</th><th scope="col">Reported result</th><th scope="col">Comparison & interpretation</th></tr></thead><tbody>{report.results.map(result => <tr><td><strong>{result.task}</strong><p>{result.setting}</p></td><td><strong>{result.value}</strong><p>{result.metric}</p></td><td><p>{result.comparison}</p><p>{result.interpretation} <EvidenceRefs ids={result.evidenceIds}/></p></td></tr>)}</tbody></table></div>
+      {report.results.length ? <div class="ir-table-scroll" role="region" aria-label="Results with settings and comparisons" tabindex="0"><table class="ir-results-table"><thead><tr><th scope="col">Task & protocol</th><th scope="col">Reported result</th><th scope="col">Comparison & interpretation</th></tr></thead><tbody>{report.results.map(result => <tr><td><strong>{result.task}</strong><p>{result.setting}</p></td><td><strong>{result.value}</strong><p>{result.metric}</p></td><td><p>{result.comparison}</p><p>{result.interpretation} <EvidenceRefs ids={result.evidenceIds}/></p></td></tr>)}</tbody></table></div> : <p>No quantitative results are included in this reading.</p>}
       <h3 id="ablation">6.3 Ablations and diagnostic examples</h3>
-      <p>Read component removals and qualitative examples within their stated evaluation conditions.</p>{ablationVisuals.map(visual => <SourceVisual visual={visual}/>)}
+      {ablationVisuals.length ? <><p>Read component removals and qualitative examples within their stated evaluation conditions.</p>{ablationVisuals.map(visual => <SourceVisual visual={visual}/>)}</> : <p>No ablation or diagnostic visual is included in this edition. The source-specific visual limitations are recorded above.</p>}
     </section>
 
     <section id="boundaries" class="ir-section" data-report-section>
@@ -137,7 +140,7 @@ const coreContribution = report.contributions[0];
         {seriesIndex > 0 ? <a href={pathFor(`reports/${illustratedReports[seriesIndex - 1].paperId}/`)}>← {illustratedReports[seriesIndex - 1].shortTitle}</a> : <span/>}
         {seriesIndex < illustratedReports.length - 1 && <a href={pathFor(`reports/${illustratedReports[seriesIndex + 1].paperId}/`)}>{illustratedReports[seriesIndex + 1].shortTitle} →</a>}
       </nav>
-      <p><a href={`${pathFor('reports/')}#illustrated`}>View all ten illustrated readings</a> · <a href={pathFor()}>Explore the library</a></p>
+      <p><a href={`${pathFor('reports/')}#illustrated`}>View all {illustratedReports.length} illustrated readings</a> · <a href={pathFor()}>Explore the library</a></p>
       <p class="ir-small">Awesome WAM · English reading reports · Private preview</p>
     </footer>
   </div>

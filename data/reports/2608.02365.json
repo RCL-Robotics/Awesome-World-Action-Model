@@ -1,0 +1,461 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.02365",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-07T20:47:36.323720+00:00",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.02365",
+      "title": "Faster-WAM: Do World Action Models Need Deep Action Modules?",
+      "kind": "pdf",
+      "sha256": "c244f0d03968783f48341bb34891a81d61e2c04ef04df2cf7f5b15f08c2ca96e",
+      "wordCount": 7258,
+      "accessedAt": "2026-09-07T13:54:22.210148+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3.1 Dock of Transformers",
+      "3.1.1 KV-Fusion Docking Mechanism",
+      "3.1.2 Video-Action RoPE Alignment",
+      "3.2 Faster-WAM",
+      "4.1 Implementation Details",
+      "4.2 Benchmarks and main results",
+      "4.3 Ablation Study",
+      "5 Conclusion",
+      "References, as supplied bibliography only",
+      "Appendix A: RoPE alignment derivation"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Read all 15 pages of extracted text, including the bibliography and Appendix A. Visually inspected PDF pages 1, 3, 4, 5, 6, 7, 8, 14 and 15; remaining pages were read as text.",
+      "All three numbered figures and both numbered tables were visually inspected. Final crops were reopened individually after extraction from 300-DPI source renders.",
+      "No external supplemental material, project implementation or cited paper was inspected. No experiments were reproduced.",
+      "Title, identifier and authors were checked against the retained PDF title page, which is version 1 dated 3 August 2026."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1: MoT, H-Bridge and DoT architectural comparison",
+      "Figure 2: video hub, KV-Fusion and task heads",
+      "Figure 3(a): cumulative LIBERO-Plus ablation",
+      "Figure 3(b): learned cross-layer fusion-weight heatmap"
+    ],
+    "tablesReviewed": [
+      "Table 1: LIBERO and RoboTwin success, latency columns and both footnotes",
+      "Table 2: all LIBERO-Plus perturbation columns and aggregate results"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Faster-WAM couples a pretrained 30-layer video backbone to a single-layer action head through learned cross-layer key/value fusion and positional alignment. Deployment uses current-frame features and ten action-denoising steps without generating future video. Its reported 66.5 ms latency accompanies a LIBERO-Plus improvement over Fast-WAM, but RoboTwin success falls and two result descriptions conflict with printed figures or tables. [e-fusion, e-rope, e-inference, e-latency, e-shifts, e-robotwin, e-discrepancies]",
+  "readingTimeMinutes": 12,
+  "problem": {
+    "text": "The authors argue that mirroring a deep video transformer in the action module duplicates computation unnecessarily. They ask whether a shallow head can recover the useful hierarchy of video representations without maintaining a corresponding deep action stack.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e-problem"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Dock of Transformers makes a video transformer a representation hub with flexible head interfaces. Faster-WAM tests this general proposal with one action head; the additional head types drawn in the conceptual diagrams are not separate demonstrated applications.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-problem",
+        "e-interface",
+        "e-boundaries"
+      ]
+    },
+    {
+      "text": "KV-Fusion combines all video layers using learned channel projections and per-attention-head layer mixing, then aligns video keys with the action head’s one-dimensional rotary position basis.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-fusion",
+        "e-rope"
+      ]
+    },
+    {
+      "text": "The demonstrated action module has approximately 30M head parameters plus 20M fusion parameters. The complete model still contains roughly 5.05B trainable parameters, including the video backbone.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-implementation"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Camera observations, task language and robot proprioception; multiview images are spatially concatenated before video encoding. [e-implementation, e-training]",
+      "Training uses demonstration videos and action sequences. Deployment processes only the current conditioning frame, with noisy action tokens supplied to the action head. [e-training, e-inference]"
+    ],
+    "outputs": [
+      "A 32-step robot-action chunk obtained through ten action-denoising steps. Future-video generation is omitted during inference. [e-inference]"
+    ],
+    "steps": [
+      {
+        "name": "Expose the full video hierarchy",
+        "detail": "Run the 30-layer video DiT and retain keys and values associated with the conditioning frame from every layer. The lightweight head can access this hierarchy without matching its depth.",
+        "evidenceIds": [
+          "e-interface",
+          "e-fusion",
+          "e-implementation"
+        ]
+      },
+      {
+        "name": "Project and fuse keys and values",
+        "detail": "Undo video RoPE on the keys, merge heads for separate key/value channel projections, then mix backbone layers using a learned matrix for each attention head. Keys and values share the layer-mixing coefficients, while their channel projections differ.",
+        "evidenceIds": [
+          "e-fusion"
+        ]
+      },
+      {
+        "name": "Restore a compatible positional basis",
+        "detail": "Normalize fused keys and apply one-dimensional RoPE compatible with action queries. The appendix derives why leaving the keys in a three-dimensional video basis introduces a mismatched cross term. Values have no rotary position transform.",
+        "evidenceIds": [
+          "e-rope"
+        ]
+      },
+      {
+        "name": "Denoise through mixed-context attention",
+        "detail": "The action query reads concatenated action and fused-video keys/values in its single transformer layer. The video hub and head retain separate attention computations. Direct action text cross-attention is removed, but language still conditions the video pathway.",
+        "evidenceIds": [
+          "e-interface",
+          "e-rope",
+          "e-implementation",
+          "e-inference"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The backbone, action head, KV-Fusion and proprioceptive encoder are jointly optimized, while the video VAE is frozen. The model starts from Wan2.2-TI2V-5B; the absence of additional embodied pretraining does not mean training from scratch.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-implementation",
+          "e-training"
+        ]
+      },
+      {
+        "text": "The training recipe follows Fast-WAM objectives and uses AdamW with learning rate 1e-4, weight decay 0.01, cosine decay and logit-normal timesteps. A 32-action horizon corresponds to nine video frames after factor-four temporal downsampling. The paper does not fully restate the inherited loss and masking specification.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training"
+        ]
+      },
+      {
+        "text": "LIBERO training uses 2,000 demonstrations for ten epochs at global batch 128. RoboTwin uses 27,500 demonstrations for five epochs at global batch 1024. These settings and the pretrained backbone must accompany any claim of data efficiency.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Only the observed conditioning frame passes through the video backbone. Its keys and values support action denoising, without sampling future video. The one-layer head is evaluated repeatedly for ten denoising steps per 32-action chunk, at guidance scale 1.0.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-inference"
+        ]
+      },
+      {
+        "text": "The inference path is direct action generation from video features. It neither solves an explicit inverse-dynamics problem from generated future frames nor establishes a one-step action sampler. Removing direct text cross-attention also does not remove language conditioning from the overall model.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-interface",
+          "e-implementation",
+          "e-inference"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "O^a_{(j)}=\\operatorname{Softmax}\\!\\left(\\frac{Q^a_{(j)}[K^a_{(j)},\\widetilde K^v_{(j)}]^\\top}{\\sqrt d}\\right)[V^a_{(j)},\\widetilde V^v_{(j)}]",
+        "explanation": "The unnumbered mixed-attention expression on page 4: j is an action-layer index, d is the per-head key dimension, and bracketed key/value sequences concatenate along the token axis. A tilde denotes video features fused into the action head’s space.",
+        "evidenceIds": [
+          "e-interface"
+        ]
+      },
+      {
+        "expression": "\\widetilde K^v_h=\\overline K^v_h\\times_1 A_h,\\qquad\\widetilde V^v_h=\\overline V^v_h\\times_1 A_h,\\qquad A_h\\in\\mathbb R^{L_a\\times L_v},\\quad(L_a,L_v)=(1,30)",
+        "explanation": "Equation (3): h indexes an attention head, barred tensors have undergone channel projection, and the mode-one product mixes the layer axis. The same learned A_h mixes keys and values. Its coefficients are not specified as nonnegative probabilities or observation-dependent gates.",
+        "evidenceIds": [
+          "e-fusion",
+          "e-layer-weights"
+        ]
+      },
+      {
+        "expression": "\\widetilde k^v_j=R_{\\mathrm{1D}}(b_j)\\,\\mathcal N\\!\\left(\\mathcal F\\!\\left(R_{\\mathrm{3D}}(p_j)^\\top\\widehat k^v_j\\right)\\right)",
+        "explanation": "Composition of Appendix A Equations (18)–(19): p_j=(t_j,y_j,x_j) is a video-token position, the hatted key already carries 3D RoPE, transpose rotation removes that encoding, F denotes fusion, N denotes key normalization, and b_j is its assigned position in the head’s 1D basis. Here j indexes a video token, rather than the action layer used in the first equation. The derivation establishes a compatible relative-position form; it does not prove physical invariance.",
+        "evidenceIds": [
+          "e-rope"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Complete action-chunk inference",
+      "setting": "A 24GB consumer GPU; 32-action horizon and ten denoising steps for Faster-WAM. The reported timing includes encoding, backbone processing and action denoising.",
+      "metric": "Reported latency",
+      "value": "66.5 ms",
+      "comparison": "Fast-WAM: 211.7 ms, approximately 3.2× slower by the reported values; π0: 68.2 ms; π0.5: 71.4 ms; X-VLA: 105.3 ms.",
+      "interpretation": "Fast-WAM’s time sums separately measured T5 and model execution. LingBot-VA and Motus are unmeasured because of memory capacity. The GPU model and timing dispersion are unspecified, and a chunk latency is not a measured physical control frequency.",
+      "evidenceIds": [
+        "e-inference",
+        "e-latency"
+      ]
+    },
+    {
+      "task": "LIBERO manipulation",
+      "setting": "40 tasks, 50 trials per task, four suites; 2,000 training demonstrations.",
+      "metric": "Mean success rate",
+      "value": "98.5%",
+      "comparison": "Fast-WAM: 97.6%; LingBot-VA: 98.5%; π0.5: 96.9%. Faster-WAM’s Long suite is 97.8%, versus Fast-WAM 95.2%.",
+      "interpretation": "The 0.9 percentage-point aggregate gain over Fast-WAM accompanies a 2.6-point Long-suite gain, but does not establish a statistically resolved advantage over a tied or nearly saturated baseline.",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-libero",
+        "e-boundaries"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0 manipulation",
+      "setting": "50 tasks, 100 trials per task in clean and randomized conditions; 27,500 training demonstrations.",
+      "metric": "Success rate",
+      "value": "89.70% clean; 88.64% randomized; 89.17% average",
+      "comparison": "Fast-WAM: 91.42%, 91.86%, 91.64%; LingBot-VA: 92.90%, 91.50%, 92.20%.",
+      "interpretation": "The mean is 2.47 percentage points below Fast-WAM and 3.03 below LingBot-VA. The efficiency result therefore has a task-dependent accuracy tradeoff. These are simulator evaluations.",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-robotwin",
+        "e-boundaries"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus robustness",
+      "setting": "The same LIBERO-trained checkpoints, evaluated on 10,030 perturbed instances across seven categories.",
+      "metric": "Reported average success rate",
+      "value": "75.0%",
+      "comparison": "Fast-WAM: 51.5%, a 23.5 percentage-point gap; π0.5: 85.7%; GEACT: 80.3%.",
+      "interpretation": "Every listed perturbation category improves over Fast-WAM, but the strongest listed aggregate VLA baselines remain higher. Background and robot changes still yield only 57.0% and 49.0%.",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-shifts"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus cumulative design ablation",
+      "setting": "Sequential changes; all four Faster-WAM variants use a one-layer head.",
+      "metric": "Success rate in Figure 3(a)",
+      "value": "60.3% final-layer-only → 66.8% fused KV → 71.3% aligned RoPE → 75.0% without action text cross-attention",
+      "comparison": "Figure 3(a) and Table 2 show Fast-WAM at 51.5%; Section 4.3 instead says 49.5%.",
+      "interpretation": "The conditional additions are +6.5, +4.5 and +3.7 percentage points. The initial depth/interface change combines factors, and the cumulative design cannot establish each component’s independent contribution or resolve the conflicting baseline text.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-discrepancies"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "No physical robot deployment is reported. The conclusion identifies real-world validation as future work, so simulated robustness should not be presented as demonstrated physical control.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-boundaries"
+      ]
+    },
+    {
+      "text": "Two source inconsistencies remain unresolved: Table 2 prints sensor success as 82.3%, whereas the prose says 82.7%; Figure 3(a) and Table 2 use a 51.5% Fast-WAM baseline, whereas the ablation prose says 49.5%. Results here follow the original table and plotted labels.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-discrepancies"
+      ]
+    },
+    {
+      "text": "Baseline success rates are drawn from cited studies, while latency operations differ slightly and Fast-WAM’s time is assembled from two separate measurements. No exact GPU SKU, precision, confidence intervals or training-seed dispersion is supplied. These omissions limit a strictly matched efficiency or significance comparison.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-latency",
+        "e-boundaries"
+      ]
+    },
+    {
+      "text": "The cumulative ablation and signed fusion-weight heatmap support the proposed interface but do not isolate every factor or measure causal layer importance. The broader multi-head DoT design is represented conceptually; only the action application is evaluated.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-problem",
+        "e-ablation",
+        "e-layer-weights",
+        "e-boundaries"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reconstruction needs the Wan2.2-TI2V-5B initialization, the stated datasets and preprocessing, a 30-layer video hub, a one-layer 24-head action module, and separate key/value projections with shared layer-mixing coefficients. Preserve the current-frame-only inference boundary and ten-step action schedule.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-fusion",
+        "e-implementation",
+        "e-training",
+        "e-inference"
+      ]
+    },
+    {
+      "text": "The inherited Fast-WAM loss/masking recipe, exact rotary position assignment and normalization conventions, training hardware, inference precision and timing methodology require implementation-level verification. This reading did not inspect code or external supplements and cannot certify those missing details.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-training",
+        "e-rope",
+        "e-latency"
+      ]
+    },
+    {
+      "text": "Before reproducing the ablation or sensor result, obtain the underlying evaluation artifacts to reconcile the two printed inconsistencies. Until then, retain the contradictory locations explicitly rather than silently replacing one number.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-discrepancies"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The efficient-control WAM classification is supported by joint optimization of a pretrained video backbone and an action head. Other mechanisms and Outside quadrants are defensible for the deployment path: it generates actions from current-frame features without generated-future conditioning or joint future-video/action sampling. The recorded Dual-system architecture depends on whether separately parameterized hub/head modules count as separate systems; they form one jointly trained policy. The paper does not settle that catalog boundary, so the full snapshot receives an unclear assessment.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-interface",
+        "e-implementation",
+        "e-inference"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "61c102ee83b678a9ccc4cc80614a2defe49c3ddcdc3cc090aaa7fa65a6c1c4ba"
+    }
+  },
+  "discussionQuestions": [
+    "Would the one-layer advantage survive a matched depth-by-routing experiment that holds RoPE alignment, language access and training budget fixed?",
+    "Does the speed advantage persist with identical end-to-end timing boundaries and hardware, and how much RoboTwin success must be traded for each latency reduction?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and version stamp",
+      "detail": "The title is Faster-WAM: Do World Action Models Need Deep Action Modules? Authors are Liheng Ma, Rui Heng Yang, Zhanguang Zhang, Mateo Clemente, Ziwen Hu, Tongtong Cao and Yingxue Zhang. The affiliations are Huawei Noah’s Ark Lab, Huawei Celia Team and Department of Foundation Model, 2012 Labs. The stamp reads arXiv:2608.02365v1 [cs.AI], 3 Aug 2026."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract, Introduction and Figure 1",
+      "detail": "The authors question matching the action expert to the depth of a pretrained video transformer. Figure 1 contrasts MoT one-to-one layer pairing, H-Bridge connections to selected layers, and DoT docking heads with access to the backbone hierarchy. The multi-head diagram is a general architecture; Faster-WAM instantiates an action head."
+    },
+    {
+      "id": "e-interface",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Figure 2 and unnumbered mixed-attention expression",
+      "detail": "The docking interface exposes video keys and values and fuses them into head-compatible representations. An action query attends over concatenated action and fused-video keys/values. The video backbone is the representation hub; its depth need not equal that of the head."
+    },
+    {
+      "id": "e-fusion",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.1.1, Equations (1)–(3)",
+      "detail": "Current-conditioning-frame keys and values from all video layers enter KV-Fusion. Keys have video RoPE removed. Separate learned channel projections W_K and W_V map merged-head features into the action feature space. A learned per-head matrix A_h of shape L_a by L_v mixes layers with the same coefficients for keys and values. Faster-WAM uses L_a=1 and L_v=30."
+    },
+    {
+      "id": "e-rope",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Sections 3.1.1–3.1.2, Equations (4)–(5); Appendix A, pp. 14–15, Equations (6)–(20)",
+      "detail": "Video keys initially carry 3D spatiotemporal RoPE, while action queries use 1D RoPE. Inverse rotation, fusion, key normalization and 1D re-rotation put keys in the head basis; values have no RoPE. Appendix A derives the mixed-basis cross term and the aligned relative-position form. The hub and heads use separate attention computations rather than MoT shared attention."
+    },
+    {
+      "id": "e-implementation",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, Architecture and Training",
+      "detail": "The video backbone is Wan2.2-TI2V-5B with 30 transformer layers. The one-layer action head has hidden size 1024 and attention dimension 3072=24×128. It has about 30M parameters; KV-Fusion adds about 20M, for about 5.05B trainable parameters. Action text cross-attention is removed. The backbone, action head, KV-Fusion and proprioceptive encoder are jointly optimized; the video VAE is frozen."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Sections 3.2 and 4.1–4.2",
+      "detail": "The paper follows Fast-WAM training objectives and inference procedure without additional embodied pretraining. Training uses AdamW, learning rate 1e-4, weight decay 0.01, cosine decay and logit-normal flow timesteps. The action horizon is 32; factor-four temporal downsampling yields nine training video frames per chunk, and multiview images are spatially concatenated before the VAE. LIBERO uses 2,000 demonstrations, ten epochs and global batch 128. RoboTwin uses 27,500 demonstrations, five epochs and global batch 1024."
+    },
+    {
+      "id": "e-inference",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Sections 3.2 and 4.1, Inference",
+      "detail": "At inference the model processes only the conditioning frame, without generating future video. Its current-frame video KV conditions action denoising. A 32-step action chunk uses ten denoising steps with classifier-free guidance scale 1.0. Reported latency includes encoding, backbone forward execution and action denoising, with some variation in operations across methods."
+    },
+    {
+      "id": "e-evaluation",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.2, Benchmarks",
+      "detail": "LIBERO evaluates 40 tasks with 50 trials per task. LIBERO-Plus applies seven perturbation categories to the same LIBERO-trained checkpoints, yielding 10,030 instances. RoboTwin 2.0 evaluates 50 tasks with 100 trials per task under clean and randomized conditions. Baseline success rates are drawn from cited works."
+    },
+    {
+      "id": "e-libero",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, LIBERO columns",
+      "detail": "Faster-WAM achieves Spatial 98.4%, Object 100.0%, Goal 97.0%, Long 97.8% and average 98.5%. Fast-WAM reports 98.2%, 100.0%, 97.0%, 95.2% and 97.6%. LingBot-VA also averages 98.5%; π0 averages 94.1% and π0.5 96.9%."
+    },
+    {
+      "id": "e-latency",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1 including both footnotes and Section 4.2.1; p. 6, Section 4.1",
+      "detail": "On a 24GB consumer GPU, Faster-WAM latency is 66.5 ms, versus Fast-WAM 211.7 ms, π0 68.2 ms, π0.5 71.4 ms and X-VLA 105.3 ms. Fast-WAM’s value sums separately measured T5 and model latency. LingBot-VA and Motus have N/A because they exceed the stated memory capacity. The exact GPU model, precision and latency dispersion are not specified."
+    },
+    {
+      "id": "e-robotwin",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, RoboTwin 2.0 columns",
+      "detail": "Faster-WAM reports 89.70% clean, 88.64% randomized and 89.17% average. Fast-WAM reports 91.42%, 91.86% and 91.64%; LingBot-VA reports 92.90%, 91.50% and 92.20%. Faster-WAM exceeds the listed VLA averages but trails these two WAMs."
+    },
+    {
+      "id": "e-shifts",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2 and Section 4.2.3",
+      "detail": "Faster-WAM success across background, camera, language, light, object, robot and sensor perturbations is 57.0%, 67.9%, 92.1%, 94.3%, 82.7%, 49.0% and 82.3%, with a reported 75.0% average. Fast-WAM reports 53.7%, 16.4%, 68.9%, 78.2%, 60.7%, 44.5%, 37.7% and 51.5%. π0.5 averages 85.7% and GEACT 80.3%."
+    },
+    {
+      "id": "e-discrepancies",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2 versus Section 4.2.3, and Figure 3(a) versus Section 4.3",
+      "detail": "The sensor cell in Table 2 is 82.3%, while the prose says 82.7%. Figure 3(a) labels the Fast-WAM baseline 51.5%, agreeing with Table 2, while Section 4.3 calls that baseline 49.5%. This report preserves the printed table/plot numbers and records both prose discrepancies without inferring corrected experimental data."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 3(a); pp. 8–9, Section 4.3",
+      "detail": "The plotted LIBERO-Plus sequence is Fast-WAM 51.5%, one-layer Final Only 60.3%, adding fused KV 66.8%, adding RoPE alignment 71.3%, and removing action text cross-attention 75.0%. The last four points all use a one-layer head. The sequence is cumulative rather than a full factorial experiment."
+    },
+    {
+      "id": "e-layer-weights",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 3(b); p. 9, Section 4.3",
+      "detail": "The heatmap displays 30 backbone-layer columns and 24 attention-head rows, with signed layer-fusion weights. Middle layers contribute strongly in the plotted weights, while information is distributed across the hierarchy. These are learned fusion parameters, not per-input routing probabilities or controlled measures of causal importance."
+    },
+    {
+      "id": "e-boundaries",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5, Conclusion; pp. 7–8, Tables 1–2 and Figure 3",
+      "detail": "All reported control benchmarks are simulated; deployment on real robots is stated as future work. The reported tables and ablation plot do not provide confidence intervals or training-seed variation. The broad DoT proposal is demonstrated through a single action-head application."
+    }
+  ]
+}
