@@ -1,0 +1,453 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.13960",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T11:13:08.383Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2607.13960",
+      "title": "GigaWorld-Policy-0.5: A Faster and Stronger WAM Empowered by AutoResearch",
+      "kind": "pdf",
+      "sha256": "d7b5d197ed6160a506ace836c74e7f1f467ba4f0d06432179d3f94d43ef9f297",
+      "wordCount": 7938,
+      "accessedAt": "2026-09-07T13:55:42.305781+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and Abstract (p. 1)",
+      "1. Introduction (pp. 1–3)",
+      "2. Related Work, including 2.1 and 2.2 (pp. 3–4)",
+      "3. Method: 3.1 Overview, 3.2 Model Architecture, 3.3 Training Pipeline, 3.4 Inference Acceleration (pp. 4–7)",
+      "4. Experiments: metrics, implementation, 4.1 Real-World Results, 4.2 Ablation Studies (pp. 7–11)",
+      "5. Conclusion (p. 12)",
+      "References [1]–[68] (pp. 13–17)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "All five supplied text chunks were read completely. The extraction's image omission was addressed by rendering and visually inspecting PDF pages 1–12 and all six final original crops; reference pages 13–17 were read as text only.",
+      "Identity/version note: the exact title and identifier match. The title page displays arXiv:2607.13960v3 [cs.RO], 17 Jul 2026, and a separate report date of 2026-7-20. The catalog's submittedDate is 2026-07-17. Earlier revisions and a revision history were not supplied, so no equivalence between editions is asserted.",
+      "Author metadata note: all 28 individually named catalog authors appear on the title page. The catalog additionally lists GigaWorld Team, which is not printed in that author list; the title block instead credits GigaAI and Tsinghua University. Metadata records the inspected individual credits and both institutions.",
+      "No code, external project pages, prior papers or separate supplements were inspected, and no experiments were reproduced. The supplied PDF contains no appendix."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, latency–performance overview (p. 1)",
+      "Figure 2, training and inference architecture (p. 4)",
+      "Figure 3, Tableware Arrangement demonstration (p. 7)",
+      "Figure 4, Food Heating demonstration (p. 8)",
+      "Figure 5, mixed-pretraining ablation (p. 10)",
+      "Figure 6, AutoResearch search and checkpoint progression (p. 11)"
+    ],
+    "tablesReviewed": [
+      "Table 1, fruit picking (p. 8)",
+      "Table 2, object placement (p. 9)",
+      "Table 3, long-horizon tasks (p. 9)",
+      "Table 4, inference latency and robot performance (p. 10)",
+      "Table 5, learning-rate sweep (p. 11)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "GigaWorld-Policy-0.5 trains action prediction together with future visual dynamics, then omits future-video tokens during robot deployment. Specialized visual and action Transformer experts, mixed pretraining and runtime optimization yield stronger reported manipulation scores and an 85 ms RTX 4090 C++ inference path. The evidence is real-robot execution, but small trial counts, partial-credit metrics and incomplete implementation details limit broader conclusions.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Future-video generation can dominate WAM inference cost. The paper asks how to retain action–dynamics supervision while decoding actions fast enough for closed-loop manipulation, extending the predecessor's action-centered causal mask rather than introducing that principle anew.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A Mixture-of-Transformers (MoT) design specializes visual dynamics and action denoising while retaining multimodal self-attention and an optional future branch.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e05"
+      ]
+    },
+    {
+      "text": "Mixed action-conditioned world modeling (AC-WM) and WAM pretraining improves subsequent fruit-task learning in the reported ablation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e11"
+      ]
+    },
+    {
+      "text": "AutoResearch uses short pilot runs and validation action error to select training configurations; KV caching, compilation and C++ deployment reduce inference cost.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07",
+        "e10",
+        "e12",
+        "e13"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current left/front/right camera observations",
+      "Proprioceptive state and language instruction",
+      "Training: aligned action chunks and future observations"
+    ],
+    "outputs": [
+      "Predicted action chunk for robot control",
+      "Training or optional inference: future composite visual observations"
+    ],
+    "steps": [
+      {
+        "name": "Compose and encode context",
+        "detail": "Place the front camera above the left/right views in one composite image. A Wan VAE encodes vision, MLPs encode states/actions, and umT5 supplies language conditioning.",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "name": "Specialize the experts",
+        "detail": "Visual and action experts have separate cross-attention and feed-forward modules but exchange information through multimodal self-attention in a unified token sequence. Visual hidden/FFN dimensions are 3072/14336; action dimensions are 1024/4096.",
+        "evidenceIds": [
+          "e05",
+          "e08"
+        ]
+      },
+      {
+        "name": "Constrain information flow",
+        "detail": "Action tokens access current context but cannot attend to future visual tokens. Future visual tokens can attend to actions. Consequently, the future objective can shape training without becoming a required input to deployed action prediction.",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e05"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Initialize the visual expert from GigaWorld-1, described as pretrained on over ten thousand video hours. Copy corresponding weights into the action expert, taking leading compatible dimensions when shapes differ. Robot pretraining uses 2K hours of filtered open-source and internally collected robot data, mixing AC-WM with WAM; target-robot post-training jointly optimizes action and future-visual prediction.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e08"
+        ]
+      },
+      {
+        "text": "Flow matching uses independently sampled action/visual timesteps with modality-specific shifts. Interpolated Gaussian noise and clean tokens define a velocity-regression objective; future dynamics provide auxiliary supervision. The paper does not state a frozen-module schedule or the AC-WM/WAM mixture ratio.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "text": "The fruit-task AutoResearch study reports approximately 3.9 hours and 930 episodes, with 300 training and 30 validation episodes. Candidates share initialization, split, optimizer and evaluation protocol. After 1K-step pilots, the selected learning rate is 6×10⁻⁵, batch size 16, and final checkpoint 30K steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "e12",
+          "e13"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Encode the current observation, state and instruction, reuse cached context keys/values across decoding steps, and decode actions without generating future tokens. The stack uses torch.compile and a C++ pipeline spanning preprocessing through action post-processing. Subsequent control depends on fresh robot observations; no video-to-action inverse-dynamics stage is described.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "text": "Section 3.4 calls decoding autoregressive, whereas Section 3.1 specifies flow-matching action chunks. Their exact scheduling relationship, denoising-step count and executed chunk prefix are not provided here.",
+        "kind": "open-question",
+        "evidenceIds": [
+          "e04",
+          "e07",
+          "e08"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "K=\\left\\lfloor p/\\Delta\\right\\rfloor",
+        "explanation": "In Eqs. (1)–(3), p is action-chunk length, Δ is the future-observation temporal stride, and K counts predicted observations within that horizon. The model conditions on composite observation o_t^{comp}, state s_t and instruction l. Numerical p and Δ are deferred to the predecessor.",
+        "evidenceIds": [
+          "e04",
+          "e08"
+        ]
+      },
+      {
+        "expression": "\\tau^{a}=\\frac{\\gamma^{a}r^{a}}{1+(\\gamma^{a}-1)r^{a}},\\qquad \\tau^{v}=\\frac{\\gamma^{v}r^{v}}{1+(\\gamma^{v}-1)r^{v}}",
+        "explanation": "Equation (4): r^a and r^v are independent uniform samples on (0,1); γ^a and γ^v are action and visual flow-shift factors. The resulting τ^a and τ^v form the joint timestep vector τ.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}=\\mathbb{E}_{x_1,x_0,\\tau}\\!\\left[\\left\\|g_\\theta(x_\\tau,\\tau\\mid o_t^{\\mathrm{comp}},s_t,l)-\\nu_\\tau\\right\\|_2^2\\right]",
+        "explanation": "Equation (8): g_θ predicts flow velocity. Equations (6)–(7) construct x_τ by modality-wise interpolation between Gaussian noise x₀ and clean action/visual tokens x₁; ν_τ stacks each modality's clean-minus-noise difference. This is a supervised prediction loss, not an executed-action reward.",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Fruit picking: text following",
+      "setting": "AgileX PiPER 6-DoF arm; six fruit instructions; scores averaged over 10 real-world trials under the stated protocol.",
+      "metric": "Graded SR: reaching, grasping, moving and placing each contribute 0.25.",
+      "value": "Reported average 0.85.",
+      "comparison": "π0.5 0.76; Motus 0.80; FastWAM 0.78; GigaWorld-Policy 0.80.",
+      "interpretation": "A 0.05 absolute score gain over the strongest baselines; not an 85% complete-task success rate.",
+      "evidenceIds": [
+        "e08",
+        "e09a"
+      ]
+    },
+    {
+      "task": "Object placement: text following",
+      "setting": "Same real-robot text-following protocol; bowl, fork and spoon placed on a plate or into a basket.",
+      "metric": "Graded SR, four equally weighted stages.",
+      "value": "Reported average 0.89.",
+      "comparison": "Motus 0.83; GigaWorld-Policy 0.81; FastWAM 0.77; π0.5 0.76.",
+      "interpretation": "The reported 0.06 gain over Motus concerns object–destination instructions, without a documented unseen-composition split.",
+      "evidenceIds": [
+        "e08",
+        "e09b"
+      ]
+    },
+    {
+      "task": "Long-horizon manipulation",
+      "setting": "Food Heating and Tableware Arrangement; 10 physical trials per task.",
+      "metric": "Binary success only when the full sequence completes.",
+      "value": "0.80 on each listed task; reported average 0.80.",
+      "comparison": "Average 0.60 for π0.5, Motus and GigaWorld-Policy; 0.50 for FastWAM.",
+      "interpretation": "A 20-percentage-point average gain. The prose says three tasks, but Table 3 contains only two; no third result is supplied.",
+      "evidenceIds": [
+        "e08",
+        "e09c"
+      ]
+    },
+    {
+      "task": "Action-only inference latency",
+      "setting": "Table 4: A100 and local RTX 4090; compiled/cached implementation and separate C++ deployment row.",
+      "metric": "Inference latency in milliseconds, lower is better.",
+      "value": "189/110 ms on A100/RTX 4090; C++ deployment 140/85 ms, with reported SR 0.85 in both rows.",
+      "comparison": "FastWAM 229/182 ms; π0.5 225/110 ms; GigaWorld-Policy 360/293 ms. Motus has no RTX 4090 value.",
+      "interpretation": "The 85 ms headline requires C++ deployment. Table 4 is not a controlled architecture-only ablation or a measured robot servo frequency.",
+      "evidenceIds": [
+        "e07",
+        "e10"
+      ]
+    },
+    {
+      "task": "Mixed-pretraining ablation on fruit picking",
+      "setting": "WAM-only versus mixed AC-WM/WAM pretraining, followed by the same post-training recipe.",
+      "metric": "Reported fruit-task SR at post-training checkpoints.",
+      "value": "With AC-WM: 68%, 80%, 83%, 85% at 20K/30K/40K/50K steps.",
+      "comparison": "Without AC-WM: 53%, 63%, 70%, 75% at the same checkpoints.",
+      "interpretation": "Supports faster downstream learning and a 10-point final gain; no uncertainty bands or matched pretraining-compute account are supplied.",
+      "evidenceIds": [
+        "e08",
+        "e11"
+      ]
+    },
+    {
+      "task": "AutoResearch learning-rate selection",
+      "setting": "Table 5, 1K-step pilots with the stated common split and initialization.",
+      "metric": "Validation action MSE, lower is better.",
+      "value": "6×10⁻⁵: 0.409764.",
+      "comparison": "3×10⁻⁵: 0.416832; 4.316×10⁻⁵: 0.449387; 8×10⁻⁵: 0.461381.",
+      "interpretation": "Best among these four pilots, not a measured advantage of agent automation over equal-budget manual search.",
+      "evidenceIds": [
+        "e12",
+        "e13"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Ten-trial evaluations and absent confidence intervals leave uncertainty unresolved. The paper supplies neither a broad out-of-distribution evaluation nor a dedicated failure analysis; its conclusion does not establish general-purpose manipulation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e09a",
+        "e09b",
+        "e09c",
+        "e14"
+      ]
+    },
+    {
+      "text": "AutoResearch leaves 600 of the stated 930 episodes unallocated. Warmup is mentioned but no schedule or warmup comparison is reported. Figure 6 labels the 8×10⁻⁵ pilot 0.463, whereas Table 5 gives 0.461381; use the table for exact pilot numbers. The very different pilot and extended-training MSE scales lack an explicit reconciliation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e12",
+        "e13"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required ingredients include GigaWorld-1 initialization, Wan VAE, umT5, robot trajectories with synchronized views/state/actions/language, and the stated expert dimensions. Recover the missing mixture ratio, filtering rules, p/Δ, action normalization, flow shifts, optimizer settings, freezing policy, training hardware/compute and runtime versions before claiming full reproduction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e07",
+        "e08",
+        "e12"
+      ]
+    },
+    {
+      "text": "Proposed checks: compare mixed and WAM-only pretraining under matched data/compute and repeated seeds; separately benchmark the same action-only checkpoint with cached/compiled and C++ runtimes on an RTX 4090, controlling preprocessing and decoding settings. These would distinguish training transfer from implementation speed.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e10",
+        "e11"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Efficient inference & real-time control",
+        "Generalization & action alignment"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "14b9a2305b0eea417f4aadd910a45d92ed53f5d50e7c4db27437b4a0192cf1b8"
+    },
+    "reasoning": {
+      "text": "WAM and efficient-control labels are supported. Architecture evidence shows two experts inside an integrated multimodal token sequence, so Dual-system is ambiguous if it means separately operating world-model and policy systems. Training jointly predicts actions/futures, while deployment uses direct action decoding without inverse dynamics or future rollout. Other mechanisms/Outside quadrants therefore depends on whether the taxonomy describes training or inference; the snapshot is preserved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e07",
+        "e10"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Would mixed pretraining retain its gain at equal pretraining compute and across repeated seeds?",
+    "Does validation action MSE rank physical task completion reliably?",
+    "How much of the latency gain comes from expert size versus runtime changes?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, alphabetical author list and arXiv margin",
+      "detail": "Exact catalog title and identifier are printed; the artifact is marked v3 with 17 Jul 2026 in the margin and 2026-7-20 above the title. It lists 28 individual authors, GigaAI and Tsinghua University, without a GigaWorld Team author label."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract and Section 1",
+      "detail": "The authors motivate avoiding future-video cost and explicitly inherit the predecessor's action-centered training/inference separation; the new recipe adds MoT, mixed pretraining and automated search."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and caption; pp. 5–6, Sections 3.1–3.2, causal-mask paragraphs",
+      "detail": "Training shows visual/action experts, two prediction branches and loss; inference marks future tokens/output optional and adds KV cache. Text specifies that futures attend to actions, while actions cannot attend to futures. The small mask icon has no row/column legend."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.1, Eqs. (1)–(7) and intervening paragraphs",
+      "detail": "Defines composite multiview observations, action horizon p, visual stride Δ and K=floor(p/Δ); front view is above left/right. Modality-specific shifted uniform timesteps control Gaussian-noise/clean-token interpolation and velocity targets."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Eq. (8) and Section 3.2",
+      "detail": "Squared velocity regression trains the model. Wan VAE, state/action MLPs and umT5 encode inputs. Experts have separate cross-attention/FFNs and multimodal self-attention in a unified sequence. Visual initialization uses GigaWorld-1; action weights copy compatible leading dimensions. Future tokens can be omitted."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 3.3",
+      "detail": "GigaWorld-1 initialization is described as using over ten thousand video hours; robot pretraining uses 2K hours of filtered open-source/internal data and adds AC-WM to WAM. Aligned target-robot trajectories support joint post-training; deployed inference generates only actions. Mixture ratio and freezing schedule are not stated."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 3.4",
+      "detail": "Context KV caching, torch.compile and a C++ pipeline including image preprocessing, tensor construction, execution, cache management and action post-processing are described. The paragraph calls generation autoregressive without giving the flow-matching decoding schedule or software versions."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4 Evaluation Metrics; p. 8, Implementation Details and Section 4.1 protocol",
+      "detail": "Text following assigns 0.25 to each of four stages; long-horizon SR is binary. Experiments use an AgileX PiPER 6-DoF arm and 10 trials in the stated protocols. Visual hidden/FFN dimensions are 3072/14336, action dimensions 1024/4096; chunk length and visual stride are deferred to GigaWorld-Policy."
+    },
+    {
+      "id": "e09a",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1, six fruit rows and Average row; p. 9, Section 4.1 first paragraph",
+      "detail": "Reported average graded SR is 0.85 versus π0.5 0.76, Motus 0.80, FastWAM 0.78 and predecessor 0.80. Proposed-method fruit scores are banana 0.95, apple 0.80, lemon 0.83, grape 0.93, avocado 0.78 and strawberry 0.85. No uncertainty is tabulated."
+    },
+    {
+      "id": "e09b",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 2, instruction rows and Average row",
+      "detail": "Six object-placement instructions vary bowl/fork/spoon and plate/basket destinations. Reported averages are π0.5 0.76, Motus 0.83, FastWAM 0.77, predecessor 0.81 and proposed method 0.89; an unseen-composition split is not specified."
+    },
+    {
+      "id": "e09c",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 3 and immediately preceding paragraph",
+      "detail": "Food Heating and Tableware Arrangement each score 0.80; their displayed average is 0.80 versus 0.60, 0.60, 0.50 and 0.60 for the four baselines. The prose says three tasks although only two task rows appear."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 4, all latency columns; Section 4.2, Effect of MoT architecture",
+      "detail": "A100/RTX 4090 latencies: π0.5 225/110 ms, Motus 3231/unreported, FastWAM 229/182, predecessor 360/293, proposed model 189/110, proposed C++ deployment 140/85. Both proposed rows report SR 0.85. Text attributes the 189 ms setting to KV cache and compilation; no matched single-expert control is tabulated."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 4.2 mixed AC-WM/WAM ablation; p. 10, Figure 5 labels and legend",
+      "detail": "Both pretraining variants use the same downstream recipe on fruit picking. At 20K/30K/40K/50K steps, with AC-WM scores 68/80/83/85%, without scores 53/63/70/75%. The plot has no uncertainty bands; matched pretraining compute is not documented."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, AutoResearch-driven hyperparameter study; p. 11, Table 5 and selection paragraphs",
+      "detail": "Study states 3.9 hours, 930 episodes, 300 training and 30 validation; remaining allocation is unspecified. Four 1K-step learning-rate pilots yield action MSE 0.416832, 0.449387, 0.409764 and 0.461381 for 3e-5, 4.316e-5, 6e-5 and 8e-5. The 6e-5 row has training action loss 0.252476; 3e-5 has lowest visual loss 0.172330. Final batch size is 16 and checkpoint 30K. Warmup details and a manual-search control are absent."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Figure 6, Panels A/B, labels, legend and caption; Table 5",
+      "detail": "Panel A uses keep/discard markers for 1K-step pilots, labels the 8e-5 bar 0.463 rather than Table 5's 0.461381, and marks a 64-frame candidate stopped early. Panel B specifies lr=6e-5, bs=16, frames=48; action MSE labels are 0.000507/0.000113/0.000173 at 10K/30K/50K, with 30K kept and 50K discarded. The cross-panel metric-scale difference is not explained."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Section 5 Conclusion; pp. 8–11, reported experiment scope",
+      "detail": "The conclusion reiterates action-only deployment and 85 ms RTX 4090 C++ latency. The reported evaluation consists of the listed manipulation tasks, latency comparisons and training studies; no dedicated limitations section, broad OOD benchmark or failure taxonomy is supplied."
+    }
+  ]
+}
