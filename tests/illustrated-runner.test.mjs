@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, mkdir, readFile, writeFile, rm, symlink, link, chmod } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readFile, readdir, realpath, writeFile, rm, symlink, link, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -68,6 +68,23 @@ test('limited non-PDF sources remain honest text reports and resume without empt
   assert.equal(await exists(join(f.output, 'data/illustrated-reports/fixture.json')), false);
   await writeFile(join(f.output, 'data/reports/fixture.json'), '{}');
   await assert.rejects(verifyCompletion(f.output, status, f.manifest), /artifact changed/);
+});
+test('acquisition omissions are retained alongside the reader scope disclosures', async t => {
+  const f = await fixture(t);
+  const readerOmission = 'The reader did not inspect any separate supplemental release.';
+  f.report.coverage.omissions = [readerOmission];
+  await writeJSON(join(f.attempt, 'report.json'), f.report);
+  const draft = await readFile(join(f.attempt, 'report.json'), 'utf8');
+  const bundle = await validateBundle(f);
+  assert.deepEqual(new Set(bundle.report.coverage.omissions), new Set([...f.manifest.omissions, readerOmission]));
+  assert.equal(await readFile(join(f.attempt, 'report.json'), 'utf8'), draft);
+  await publishBundle(f.output, f.attempt, bundle);
+  assert.deepEqual((await readJSON(join(f.output, 'data/reports/fixture.json'))).coverage.omissions, bundle.report.coverage.omissions);
+
+  f.report.coverage.omissions = [...f.manifest.omissions, readerOmission];
+  await writeJSON(join(f.attempt, 'report.json'), f.report);
+  const repeated = await validateBundle(f);
+  assert.equal(repeated.report.coverage.omissions.length, 2);
 });
 test('a faithful original PDF crop validates and interrupted publication is recoverable', async t => {
   const f = await fixture(t, true), bundle = await validateBundle(f);
@@ -154,7 +171,31 @@ async function runnerFixture(t, ids = ['fixture-a', 'fixture-b', 'fixture-c']) {
   }
   await writeJSON(join(control, 'template.json'), template);
   const fake = join(root, 'fake-codex.mjs');
-  await writeFile(fake, `#!${process.execPath}\nimport fs from 'node:fs/promises';import path from 'node:path';\nconst c=JSON.parse(await fs.readFile('context.json','utf8')), d=process.env.ILLUSTRATED_CONTROL;\nawait fs.writeFile(path.join(d,c.paper.id+'.started'),JSON.stringify(process.argv));\nif(process.env.WAIT_WORKER==='yes')while(true){try{await fs.access(path.join(d,c.paper.id+'.release'));break}catch{await new Promise(r=>setTimeout(r,20))}}\nconst r=JSON.parse(await fs.readFile(path.join(d,'template.json'),'utf8'));r.paperId=c.paper.id;r.generatedAt=c.generatedAt;r.sources=[c.primary];r.relatedPaperIds=[];r.taxonomy.recordedClassification=c.classification;r.reportStatus='partial-text-reviewed';r.coverage={...r.coverage,scope:'selected-sections',figuresReviewed:[],tablesReviewed:[],omissions:c.manifest.omissions};\nawait fs.writeFile('report.json',JSON.stringify(r));await fs.writeFile('metadata.json',JSON.stringify({title:c.manifest.observedTitle,authors:'Fixture Author',sourceSha256:c.manifest.sha256,location:'Title heading'}));\nawait fs.writeFile('source-audit.jsonl',c.config.chunks.map((x,i)=>JSON.stringify({operation:'read',chunk:i+1,sha256:x.sha256})).join('\\n'));\nawait fs.writeFile('receipt.json',JSON.stringify({schemaVersion:1,paperId:c.paper.id,outcome:'illustration-unavailable',reason:'The supplied text has no PDF.',evidenceIds:[r.evidence[0].id],baseReportPath:'report.json',editionPath:null,metadataPath:'metadata.json'}));console.log(JSON.stringify({type:'turn.completed'}));\n`);
+  await writeFile(fake, `#!${process.execPath}
+import fs from 'node:fs/promises';
+import path from 'node:path';
+const c = JSON.parse(await fs.readFile('context.json', 'utf8')), d = process.env.ILLUSTRATED_CONTROL;
+let prompt = ''; for await (const chunk of process.stdin) prompt += chunk;
+let calls = 0; try { calls = Number(await fs.readFile(path.join(d, c.paper.id + '.calls'), 'utf8')); } catch {}
+calls++;
+await fs.writeFile(path.join(d, c.paper.id + '.calls'), String(calls));
+await fs.writeFile(path.join(d, c.paper.id + '.prompt-' + calls), prompt);
+await fs.writeFile(path.join(d, c.paper.id + '.started'), JSON.stringify(process.argv));
+if (process.env.WAIT_WORKER === 'yes') while (true) {
+  try { await fs.access(path.join(d, c.paper.id + '.release')); break; }
+  catch { await new Promise(r => setTimeout(r, 20)); }
+}
+let plan = {}; try { plan = JSON.parse(await fs.readFile(path.join(d, c.paper.id + '.plan.json'), 'utf8')); } catch {}
+const r = JSON.parse(await fs.readFile(path.join(d, 'template.json'), 'utf8'));
+r.paperId = c.paper.id; r.generatedAt = c.generatedAt; r.sources = [c.primary]; r.relatedPaperIds = [];
+r.taxonomy.recordedClassification = c.classification; r.reportStatus = 'partial-text-reviewed';
+r.coverage = { ...r.coverage, scope: 'selected-sections', figuresReviewed: [], tablesReviewed: [], omissions: c.manifest.omissions };
+await fs.writeFile('report.json', JSON.stringify(r));
+await fs.writeFile('metadata.json', JSON.stringify({ title: c.manifest.observedTitle, authors: 'Fixture Author', sourceSha256: c.manifest.sha256, location: 'Title heading' }));
+await fs.writeFile('source-audit.jsonl', c.config.chunks.map((x,i) => JSON.stringify({ operation: 'read', chunk: i + 1, sha256: x.sha256 })).join('\\n'));
+await fs.writeFile('receipt.json', JSON.stringify({ schemaVersion: 1, paperId: c.paper.id, outcome: 'illustration-unavailable', reason: 'The supplied text has no PDF.', evidenceIds: calls <= (plan.invalidUntil || 0) ? ['missing-evidence'] : [r.evidence[0].id], baseReportPath: 'report.json', editionPath: null, metadataPath: 'metadata.json' }));
+console.log(JSON.stringify({ type: 'turn.completed' }));
+`);
   await chmod(fake, 0o755);
   function run(extra = [], wait = false) {
     const child = spawn(process.execPath, [join(repo, 'scripts/reading/run-illustrated.mjs'), '--work-dir', work, ...extra], { env: { ...process.env, CODEX_BIN: fake, ILLUSTRATED_CONTROL: control, WAIT_WORKER: wait ? 'yes' : 'no' }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -165,7 +206,194 @@ async function runnerFixture(t, ids = ['fixture-a', 'fixture-b', 'fixture-c']) {
   }
   return { root, repo, work, control, run };
 }
+async function retainedDraft(f, id, complete = true) {
+  const paper = (await readJSON(join(f.repo, 'data/papers.json'))).find(paper => paper.id === id);
+  const manifest = await readJSON(join(f.work, 'sources', id, 'manifest.json'));
+  const attempt = join(await realpath(f.work), 'illustrated-runs', id, 'attempts', 'retained-fixture');
+  const config = await snapshotSource({ attempt, manifest, repository: f.repo });
+  const primary = { id: 'primary', url: manifest.canonicalUrl, title: manifest.observedTitle, kind: manifest.kind, sha256: manifest.sha256, wordCount: manifest.wordCount, accessedAt: manifest.accessedAt };
+  const context = { paper, manifest, config, primary, classification: classificationSnapshot(paper, date), generatedAt: date, repository: f.repo };
+  const report = structuredClone(template);
+  report.paperId = id; report.generatedAt = date; report.sources = [primary]; report.relatedPaperIds = [];
+  report.taxonomy.recordedClassification = context.classification; report.reportStatus = 'partial-text-reviewed';
+  report.coverage = { ...report.coverage, scope: 'selected-sections', figuresReviewed: [], tablesReviewed: [], omissions: manifest.omissions };
+  await writeJSON(join(attempt, 'context.json'), context);
+  await writeJSON(join(attempt, 'report.json'), report);
+  await writeJSON(join(attempt, 'metadata.json'), { title: manifest.observedTitle, authors: 'Fixture Author', sourceSha256: manifest.sha256, location: 'Title heading' });
+  if (complete) await writeJSON(join(attempt, 'receipt.json'), { schemaVersion: 1, paperId: id, outcome: 'illustration-unavailable', reason: 'The supplied text has no PDF.', evidenceIds: [report.evidence[0].id], baseReportPath: 'report.json', editionPath: null, metadataPath: 'metadata.json' });
+  await writeFile(join(attempt, 'events.jsonl'), '');
+  await writeFile(join(attempt, 'source-audit.jsonl'), config.chunks.map((chunk, index) => JSON.stringify({ operation: 'read', chunk: index + 1, sha256: chunk.sha256 })).join('\n'));
+  await writeJSON(join(f.work, 'illustrated-runs', id, 'status.json'), { schemaVersion: 1, paperId: id, state: 'error', phase: 'validation', attempt, generatedAt: date, sourceSha256: manifest.sha256, textSha256: manifest.textSha256, error: 'Retained test draft awaits validation.', validationRepairs: 0 });
+  return { attempt, context, report, manifest };
+}
 async function until(predicate) { const start = Date.now(); while (!await predicate()) { if (Date.now() - start > 15_000) throw new Error('Timed out waiting for fixture worker'); await new Promise(resolve => setTimeout(resolve, 30)); } }
+test('complete failed drafts resume validation without another writer or changed provenance', async t => {
+  const f = await runnerFixture(t, ['fixture-a']);
+  const draft = await retainedDraft(f, 'fixture-a');
+  const before = await fileHash(join(draft.attempt, 'report.json'));
+  const result = await f.run(['--retry-errors', '--resume-drafts']).completion;
+  assert.equal(result.code, 0, result.output);
+  assert.equal(await exists(join(f.control, 'fixture-a.started')), false);
+  const status = await readJSON(join(f.work, 'illustrated-runs/fixture-a/status.json'));
+  assert.equal(status.state, 'illustration-unavailable');
+  assert.equal(status.attempt, draft.attempt);
+  assert.equal(status.recoveredDraft, true);
+  assert.equal(status.validationRepairs, 0);
+  assert.equal(status.generatedAt, date);
+  assert.equal(status.sourceSha256, draft.manifest.sha256);
+  assert.equal(status.textSha256, draft.manifest.textSha256);
+  const published = await readJSON(join(f.repo, 'data/reports/fixture-a.json'));
+  assert.equal(published.generatedAt, date);
+  assert.deepEqual(published.sources, draft.report.sources);
+  assert.deepEqual(published.taxonomy.recordedClassification, draft.context.classification);
+  assert.equal(await fileHash(join(draft.attempt, 'report.json')), before);
+});
+test('an incomplete retained draft starts a fresh writer instead of fabricating completion', async t => {
+  const f = await runnerFixture(t, ['fixture-a']);
+  const draft = await retainedDraft(f, 'fixture-a', false);
+  const result = await f.run(['--retry-errors', '--resume-drafts']).completion;
+  assert.equal(result.code, 0, result.output);
+  assert.equal(await readFile(join(f.control, 'fixture-a.calls'), 'utf8'), '1');
+  const status = await readJSON(join(f.work, 'illustrated-runs/fixture-a/status.json'));
+  assert.equal(status.state, 'illustration-unavailable');
+  assert.notEqual(status.attempt, draft.attempt);
+  assert.equal(status.recoveredDraft, false);
+  assert.equal(await exists(join(draft.attempt, 'receipt.json')), false);
+});
+for (const [field, value] of [['python', '/tmp/untrusted-reader-python'], ['pdftoppm', '/tmp/untrusted-reader-pdftoppm'], ['sourceFile', 'alternate-source.raw']]) {
+  test(`retained drafts cannot substitute the trusted ${field}`, async t => {
+    const f = await runnerFixture(t, ['fixture-a']);
+    const draft = await retainedDraft(f, 'fixture-a');
+    const context = await readJSON(join(draft.attempt, 'context.json'));
+    context.config[field] = value;
+    await writeJSON(join(draft.attempt, 'context.json'), context);
+    await writeJSON(join(draft.attempt, 'source-config.json'), context.config);
+    const result = await f.run(['--retry-errors', '--resume-drafts']).completion;
+    assert.equal(result.code, 1, result.output);
+    const status = await readJSON(join(f.work, 'illustrated-runs/fixture-a/status.json'));
+    assert.equal(status.state, 'error');
+    assert.match(status.error, /Untrusted retained source configuration/);
+    assert.equal(await exists(join(f.control, 'fixture-a.started')), false);
+    assert.equal(await exists(join(f.repo, 'data/reports/fixture-a.json')), false);
+  });
+}
+test('matching edits to both retained configs cannot hide unread source chunks', async t => {
+  const f = await runnerFixture(t, ['fixture-a']);
+  const manifestPath = join(f.work, 'sources/fixture-a/manifest.json');
+  const manifest = await readJSON(manifestPath);
+  const fullText = 'Verified primary source with distinct complete section coverage.\n'.repeat(600);
+  await writeFile(manifest.textPath, fullText);
+  manifest.sha256 = manifest.textSha256 = await fileHash(manifest.textPath);
+  manifest.wordCount = fullText.trim().split(/\s+/).length;
+  await writeJSON(manifestPath, manifest);
+  const draft = await retainedDraft(f, 'fixture-a');
+  const context = await readJSON(join(draft.attempt, 'context.json'));
+  assert.ok(context.config.chunks.length > 1);
+  context.config.chunks.pop();
+  await writeJSON(join(draft.attempt, 'context.json'), context);
+  await writeJSON(join(draft.attempt, 'source-config.json'), context.config);
+  const result = await f.run(['--retry-errors', '--resume-drafts']).completion;
+  assert.equal(result.code, 1, result.output);
+  const status = await readJSON(join(f.work, 'illustrated-runs/fixture-a/status.json'));
+  assert.equal(status.state, 'error');
+  assert.match(status.error, /Retained text chunk inventory changed/);
+  assert.equal(await exists(join(f.control, 'fixture-a.started')), false);
+  assert.equal(await exists(join(f.repo, 'data/reports/fixture-a.json')), false);
+  assert.equal(await fileHash(join(draft.attempt, 'source.raw')), manifest.sha256);
+  assert.equal(await fileHash(join(draft.attempt, 'source.txt')), manifest.textSha256);
+});
+test('three consecutive failures stop scheduling while an active reader may finish publishing', async t => {
+  const f = await runnerFixture(t, ['fixture-active', 'fixture-bad1', 'fixture-bad2', 'fixture-bad3', 'fixture-pending']);
+  for (const id of ['fixture-bad1', 'fixture-bad2', 'fixture-bad3']) await writeFile(join(f.work, 'sources', id, 'source.txt'), 'changed fingerprint');
+  const running = f.run(['--concurrency', '2'], true);
+  await until(async () => await exists(join(f.control, 'fixture-active.started')) && await exists(join(f.work, 'illustrated-runs/fixture-bad3/status.json')));
+  await writeFile(join(f.control, 'fixture-active.release'), '');
+  const result = await running.completion;
+  assert.equal(result.code, 1, result.output);
+  const active = await readJSON(join(f.work, 'illustrated-runs/fixture-active/status.json'));
+  assert.equal(active.state, 'illustration-unavailable', result.output);
+  assert.equal(await exists(join(f.repo, 'data/reports/fixture-active.json')), true);
+  assert.equal(await exists(join(f.control, 'fixture-pending.started')), false);
+  for (const id of ['fixture-bad1', 'fixture-bad2', 'fixture-bad3']) assert.equal((await readJSON(join(f.work, 'illustrated-runs', id, 'status.json'))).state, 'error');
+  assert.match(result.output, /"interrupted":false/);
+  assert.equal(await exists(join(f.work, 'illustrated-runs/illustrated.lock')), false);
+});
+test('one feedback repair can correct validation and preserves the first worker evidence', async t => {
+  const f = await runnerFixture(t, ['fixture-a']);
+  await writeJSON(join(f.control, 'fixture-a.plan.json'), { invalidUntil: 1 });
+  const result = await f.run().completion;
+  assert.equal(result.code, 0, result.output);
+  assert.equal(await readFile(join(f.control, 'fixture-a.calls'), 'utf8'), '2');
+  const status = await readJSON(join(f.work, 'illustrated-runs/fixture-a/status.json'));
+  assert.equal(status.state, 'illustration-unavailable');
+  assert.equal(status.validationRepairs, 1);
+  const feedback = await readFile(join(f.control, 'fixture-a.prompt-2'), 'utf8');
+  assert.match(feedback, /Unresolved receipt evidence/);
+  const history = await readdir(join(status.attempt, 'worker-history'), { recursive: true });
+  const receipt = history.find(name => name.endsWith('receipt.json'));
+  assert.ok(receipt, 'The first worker receipt must remain in private history.');
+  assert.deepEqual((await readJSON(join(status.attempt, 'worker-history', receipt))).evidenceIds, ['missing-evidence']);
+  assert.ok(history.some(name => name.endsWith('events.jsonl')));
+});
+for (const name of ['source-tool.py', 'SKILL.md', 'report-guide.md', 'illustrated-report-guide.md', 'worker-history', 'tmp', 'prompt.txt', 'events.jsonl', 'stderr.log']) {
+  test(`feedback repair rejects a symlinked ${name} before any outside write`, async t => {
+    const f = await runnerFixture(t, ['fixture-a']);
+    const draft = await retainedDraft(f, 'fixture-a');
+    const receiptPath = join(draft.attempt, 'receipt.json');
+    const receipt = await readJSON(receiptPath);
+    receipt.evidenceIds = ['missing-evidence'];
+    await writeJSON(receiptPath, receipt);
+    // Missing events must not disable validation of the other reused paths.
+    await rm(join(draft.attempt, 'events.jsonl'));
+    const outside = join(f.control, 'outside');
+    const directory = ['worker-history', 'tmp'].includes(name);
+    if (directory) await mkdir(outside);
+    const sentinel = directory ? join(outside, 'sentinel.txt') : outside;
+    await writeFile(sentinel, 'outside must remain unchanged');
+    await rm(join(draft.attempt, name), { force: true });
+    await symlink(outside, join(draft.attempt, name));
+    const result = await f.run(['--retry-errors', '--resume-drafts']).completion;
+    assert.equal(result.code, 1, result.output);
+    const status = await readJSON(join(f.work, 'illustrated-runs/fixture-a/status.json'));
+    assert.match(status.error, /Symlink/);
+    assert.equal(await readFile(sentinel, 'utf8'), 'outside must remain unchanged');
+    if (directory) assert.deepEqual(await readdir(outside), ['sentinel.txt']);
+    assert.equal(await exists(join(f.control, 'fixture-a.started')), false);
+    assert.equal(await exists(join(f.repo, 'data/reports/fixture-a.json')), false);
+  });
+}
+test('feedback repair rejects dangling links and hard-linked helper destinations', async t => {
+  for (const kind of ['dangling', 'hard']) {
+    const f = await runnerFixture(t, ['fixture-a']);
+    const draft = await retainedDraft(f, 'fixture-a');
+    const receiptPath = join(draft.attempt, 'receipt.json');
+    await writeJSON(receiptPath, { ...await readJSON(receiptPath), evidenceIds: ['missing-evidence'] });
+    const helper = join(draft.attempt, 'source-tool.py'), outside = join(f.control, 'outside');
+    await rm(helper);
+    if (kind === 'dangling') await symlink(outside, helper);
+    else { await writeFile(outside, 'outside must remain unchanged'); await link(outside, helper); }
+    const result = await f.run(['--retry-errors', '--resume-drafts']).completion;
+    assert.equal(result.code, 1, result.output);
+    const status = await readJSON(join(f.work, 'illustrated-runs/fixture-a/status.json'));
+    assert.match(status.error, kind === 'dangling' ? /Symlink/ : /hard links/);
+    if (kind === 'dangling') assert.equal(await exists(outside), false);
+    else assert.equal(await readFile(outside, 'utf8'), 'outside must remain unchanged');
+    assert.equal(await exists(join(f.control, 'fixture-a.started')), false);
+  }
+});
+test('a still-invalid feedback repair fails after two writer calls without publication', async t => {
+  const f = await runnerFixture(t, ['fixture-a']);
+  await writeJSON(join(f.control, 'fixture-a.plan.json'), { invalidUntil: 100 });
+  const result = await f.run().completion;
+  assert.equal(result.code, 1, result.output);
+  assert.equal(await readFile(join(f.control, 'fixture-a.calls'), 'utf8'), '2');
+  const status = await readJSON(join(f.work, 'illustrated-runs/fixture-a/status.json'));
+  assert.equal(status.state, 'error');
+  assert.equal(status.validationRepairs, 1);
+  assert.match(status.error, /Unresolved receipt evidence/);
+  assert.equal(await exists(join(f.repo, 'data/reports/fixture-a.json')), false);
+  assert.equal(await exists(join(f.work, 'illustrated-runs/illustrated.lock')), false);
+});
 test('mock workers drain, resume and preserve unavailable outcomes without repeating model work', async t => {
   const f = await runnerFixture(t);
   const first = f.run(['--concurrency', '2'], true);

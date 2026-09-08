@@ -59,6 +59,24 @@ export async function verifySource(manifest, workDir) {
     if (await fileHash(path) !== expected) throw new Error(`${field} hash mismatch`);
   }
 }
+function splitSourceText(text) {
+  const parts = [];
+  for (let start = 0; start < text.length;) {
+    let end = Math.min(start + 12_000, text.length);
+    if (end < text.length && /[\uD800-\uDBFF]/.test(text[end - 1])) end--;
+    parts.push(text.slice(start, end));
+    start = end;
+  }
+  return parts;
+}
+export async function verifyStoredContext(context, manifest, { python = DEFAULT_PYTHON, pdftoppm = DEFAULT_PDFTOPPM } = {}) {
+  const config = context.config;
+  if (!config || config.python !== python || config.pdftoppm !== pdftoppm || config.sourceFile !== (manifest.kind === 'pdf' ? 'source.pdf' : 'source.raw') || JSON.stringify(config.manifest) !== JSON.stringify(manifest)) throw new Error('Untrusted retained source configuration');
+  const text = await readFile(manifest.textPath, 'utf8');
+  if (hashText(text) !== manifest.textSha256) throw new Error('Retained source text fingerprint changed');
+  const expected = splitSourceText(text).map((part, index) => ({ path: `chunks/${index + 1}.txt`, sha256: hashText(part) }));
+  if (!expected.length || JSON.stringify(config.chunks) !== JSON.stringify(expected)) throw new Error('Retained text chunk inventory changed');
+}
 export async function snapshotSource({ attempt, manifest, repository, python = DEFAULT_PYTHON, pdftoppm = DEFAULT_PDFTOPPM }) {
   await mkdir(join(attempt, 'chunks'), { recursive: true });
   const sourceFile = manifest.kind === 'pdf' ? 'source.pdf' : 'source.raw';
@@ -68,13 +86,10 @@ export async function snapshotSource({ attempt, manifest, repository, python = D
   const text = await readFile(join(attempt, 'source.txt'), 'utf8');
   const chunks = [];
   // Preserve every character, including extraction page labels. Small chunks fit a tool response.
-  for (let start = 0; start < text.length;) {
-    let end = Math.min(start + 12_000, text.length);
-    if (end < text.length && /[\uD800-\uDBFF]/.test(text[end - 1])) end--;
-    const value = text.slice(start, end), name = `chunks/${chunks.length + 1}.txt`;
+  for (const value of splitSourceText(text)) {
+    const name = `chunks/${chunks.length + 1}.txt`;
     await writeFile(join(attempt, name), value);
     chunks.push({ path: name, sha256: hashText(value) });
-    start = end;
   }
   if (!chunks.length) throw new Error('Source text is empty');
   await copyFile(join(repository, 'scripts/reading/illustrated-source.py'), join(attempt, 'source-tool.py'));
@@ -113,7 +128,14 @@ export async function validateBundle({ attempt, context, verifyCrops = verifyOri
   const config = await read('source-config.json');
   if (JSON.stringify(config) !== JSON.stringify(context.config)) throw new Error('Source configuration changed');
   if (await fileHash(await safeFile(attempt, config.sourceFile, 400_000_000)) !== manifest.sha256 || await fileHash(await safeFile(attempt, 'source.txt', 100_000_000)) !== manifest.textSha256) throw new Error('Source snapshot changed');
-  const report = validateReport(await read('report.json'), { paperIds: context.paperIds, manifest });
+  const draft = await read('report.json');
+  // Acquisition limitations belong to the verified source, independently of
+  // the writer's description of how it addressed those limitations.
+  const sourceOmissionsAdded = Array.isArray(draft.coverage?.omissions)
+    ? (manifest.omissions || []).filter(note => !draft.coverage.omissions.includes(note)) : [];
+  const normalized = sourceOmissionsAdded.length
+    ? { ...draft, coverage: { ...draft.coverage, omissions: [...sourceOmissionsAdded, ...draft.coverage.omissions] } } : draft;
+  const report = validateReport(normalized, { paperIds: context.paperIds, manifest });
   if (report.generatedAt !== generatedAt || JSON.stringify(report.taxonomy.recordedClassification) !== JSON.stringify(classification)) throw new Error('Report generation/classification provenance changed');
   const metadata = validateIllustratedMetadata(await read('metadata.json'), report);
   if (metadata.title !== manifest.observedTitle) throw new Error('Verified metadata title differs from primary identity');
@@ -164,7 +186,7 @@ export async function validateBundle({ attempt, context, verifyCrops = verifyOri
       if (await reviewImages({ attempt, context, report, edition, metadata, images }) !== true) throw new Error('Independent image review did not approve this bundle');
     }
   }
-  return { receipt, report, edition, metadata, assets };
+  return { receipt, report, edition, metadata, assets, sourceOmissionsAdded };
 }
 export async function verifyOriginalCrops({ attempt, context, assets, pages = [] }) {
   const directory = join(dirname(attempt), `verification-${Date.now()}`);

@@ -53,6 +53,8 @@ Use this core shape (all fields shown here are required; optional extensions fol
 
 Requirements: normally 4–6 original visuals per paper, including an architecture/method figure, an original quantitative table and an ablation or diagnostic visual/table. `kind` is `figure` or `table`; `section` is `mechanism`, `results`, or `ablation`. `crop` contains normalized PDF-page bounds [left, top, right, bottom]. Use exactly three walkthrough paragraphs and two reproduction checks. Claim kind is `source`, `author-claim`, `analysis`, or `open-question`. All evidence IDs must resolve in that paper's base report; add precise evidence entries there only when needed.
 
+Include every inspected PDF page needed to verify numerical or method details in a visual's reading guide, takeaway or caution in `visualAudit.inspectedPages`, even when that page is not cropped. For example, if a guide explains a training coefficient given on a later methods page, inspect and declare that page too. The independent visual reviewer receives the declared source pages and final crops; a prose evidence entry alone does not supply the missing page.
+
 Optional extensions:
 
 ```json

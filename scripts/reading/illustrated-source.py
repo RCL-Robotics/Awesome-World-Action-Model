@@ -96,10 +96,12 @@ def main():
         if not 1 <= arguments.chunk <= len(chunks):
             raise ValueError("Unknown text chunk")
         chunk = chunks[arguments.chunk - 1]
-        data = contained(root, chunk["path"]).read_text()
-        if hashlib.sha256(data.encode()).hexdigest() != chunk["sha256"]:
+        data = contained(root, chunk["path"]).read_bytes()
+        if hashlib.sha256(data).hexdigest() != chunk["sha256"]:
             raise ValueError("Text chunk changed")
-        print(f"SOURCE CHUNK {arguments.chunk}/{len(chunks)} — retain existing page/section labels\n{data}")
+        # Hash original bytes before decoding; universal-newline reads alter CR/CRLF.
+        text = data.decode("utf-8")
+        print(f"SOURCE CHUNK {arguments.chunk}/{len(chunks)} — retain existing page/section labels\n{text}")
         record(root, {"operation": "read", "chunk": arguments.chunk, "sha256": chunk["sha256"]})
     elif arguments.command == "render":
         path = render(root, config, arguments.page, arguments.dpi)
