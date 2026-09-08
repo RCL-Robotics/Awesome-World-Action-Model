@@ -1,0 +1,319 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.16533",
+  "shortTitle": "Kairos",
+  "thesis": "Kairos trains video and action transformers together, retaining an action-only inference path, but its benchmark gains do not yet establish closed-loop regret reduction.",
+  "standfirst": "Kairos asks what a robot must remember to choose useful actions under partial observation. Its answer combines visual generation, language grounding, action prediction and memory at several temporal scales. The key reading distinction is between learning with future video and consulting generated video during control: the standard policy does the former, while the Kairos-joint variant also does the latter. The visuals below trace that distinction through the architecture, manipulation results and ablations, then examine the measured cost of video generation. They also locate the evidence boundary: plausible videos and successful benchmark actions are prerequisites for the paper's regret-aware ambition, not a direct measurement of it.",
+  "evidenceIds": [
+    "regret",
+    "architecture",
+    "mask",
+    "libero",
+    "training-ablations",
+    "generation-latency",
+    "evaluation-boundary"
+  ],
+  "featuredResultTask": "LIBERO-Plus robustness",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 14,
+      "asset": "report-assets/2606.16533/architecture.png",
+      "width": 1690,
+      "height": 738,
+      "sourceSha256": "ba46b4ca75dd3800d6ae338fcbb76840d5ce8ee4e414bb4788c39e2e1ee70c6a",
+      "sourceUrl": "https://arxiv.org/pdf/2606.16533#page=14",
+      "crop": [
+        0.117,
+        0.09,
+        0.882,
+        0.348
+      ],
+      "alt": "Architecture with frozen VAE and vision-language encoders, robot-state conditioning, separate video/action paths inside mixed attention, training and inference masks, and video/action outputs.",
+      "caption": "Two prediction streams share grounding, while the mask determines whether generated futures can influence actions.",
+      "readingGuide": "Start at the left: the image enters both the VAE and vision-language model, while robot state enters a separate encoder. Green arrows carry conditioning into cross-attention. Snowflakes mark the frozen VAE and VLM components; the flame marks the trainable backbone. Follow the separate visual and action columns through mixed attention and modality-specific gates and feed-forward blocks. Now inspect the small training mask: v₀ denotes observed visual context; future visual rows and action rows each access that context, but their off-diagonal cross-modality cells are blank. The inference mask removes future visual tokens. The shared-attention box therefore needs to be read together with the actual mask.",
+      "takeaway": "The architecture supports learning from video while predicting actions without decoding a future movie. Its visual and action branches retain distinct processing and outputs. The standard mask explains how joint training and action-only deployment coexist; later Kairos-joint experiments deliberately change the future-video access available to actions.",
+      "caution": "The pink modulation arrows do not establish unrestricted cross-modal attention. Figure 4 and the page 18 mask description support separated future groups; the Kairos-joint inference variant on pages 69–70 permits additional future-video access. Neither diagram proves counterfactual rollout accuracy.",
+      "evidenceIds": [
+        "architecture",
+        "mask",
+        "libero",
+        "evaluation-boundary"
+      ]
+    },
+    {
+      "id": "hybrid-memory",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 5",
+      "page": 19,
+      "asset": "report-assets/2606.16533/hybrid-memory.png",
+      "width": 1434,
+      "height": 694,
+      "sourceSha256": "ba46b4ca75dd3800d6ae338fcbb76840d5ce8ee4e414bb4788c39e2e1ee70c6a",
+      "sourceUrl": "https://arxiv.org/pdf/2606.16533#page=19",
+      "crop": [
+        0.116,
+        0.483,
+        0.883,
+        0.77
+      ],
+      "alt": "Hybrid attention diagram: a conditioned diffusion block, repeated groups of two sliding-window blocks plus one dilated-window and one gated-linear block, and two temporal attention maps.",
+      "caption": "Local windows, spaced temporal links and a recurrent memory provide different routes through history.",
+      "readingGuide": "Read the center stack first: two sliding-window blocks are followed by one dilated-window block and one gated-linear block, and the group repeats. The upper-right map is a band around the diagonal, retaining nearby temporal relationships. The lower map places connections farther apart, representing the dilated pathway. These are centered temporal masks, not a strictly lower-triangular autoregressive mask; the local-window equation on page 22 agrees with that reading. The left panel places these operators inside a diffusion block with conditioning, timestep modulation and residual additions. Global history is handled by gated linear attention, whose explicit recurrent update appears on pages 20–21 rather than in the two window maps.",
+      "takeaway": "This factorization assigns dense nearby interactions to local attention and longer retention to a compact recurrent state. It offers a mechanism for preserving information beyond a fixed recent window. The appendix explains why such information can be necessary, but the figure itself does not establish which branch causes the reported long-video advantage.",
+      "caution": "The sufficiency theorem assumes an appropriate predictor factorization, Lipschitz decoding and uniform contraction; these are not verified checkpoint properties. The source proposes branch-specific memory ablations as future work, so the 15-second generation result cannot isolate GLA's contribution.",
+      "evidenceIds": [
+        "memory",
+        "memory-update",
+        "memory-theory",
+        "long-horizon",
+        "future-memory"
+      ]
+    },
+    {
+      "id": "robot-world-benchmark",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 7",
+      "page": 63,
+      "asset": "report-assets/2606.16533/robot-world-benchmark.png",
+      "width": 1570,
+      "height": 531,
+      "sourceSha256": "ba46b4ca75dd3800d6ae338fcbb76840d5ce8ee4e414bb4788c39e2e1ee70c6a",
+      "sourceUrl": "https://arxiv.org/pdf/2606.16533#page=63",
+      "crop": [
+        0.115,
+        0.089,
+        0.885,
+        0.29
+      ],
+      "alt": "WorldModelBench robot-set table comparing model size, instruction following, five physics categories, frame/temporal commonsense and total scores; Kairos totals 9.30.",
+      "caption": "A small composite-score lead reflects several video-quality dimensions, not a direct measure of physical control.",
+      "readingGuide": "Locate the gray Kairos row, then read across rather than jumping immediately to Total Score. Instruction Following measures compliance; Physics Adherence separates Newtonian, deformation, fluid, penetration and gravity checks before reporting its overall score. Common Sense adds frame and temporal measures. Kairos and Cosmos3-Nano tie at 2.36 instruction following and 4.96 physics; their temporal entries differ, at 1.00 and 0.96. The total consequently favors Kairos, 9.30 to 9.26. Compare GigaWorld-0 as a useful counterexample: its 4.98 physics score exceeds Kairos's despite a lower overall score. Retain the asterisk note: these baseline runs were reproduced by the paper's team, not by this reading.",
+      "takeaway": "Kairos-4B achieves the highest total in this robot-video table while matching a larger model on instruction following and aggregate physics. This supports a favorable parameter/performance comparison under the reported protocol. It also shows why describing Kairos as uniquely best at physics would overstate what the component columns say.",
+      "caution": "This is text-and-image-conditioned video evaluation, not executed robot success or a calibrated regret estimate. No uncertainty interval accompanies the 0.04 total-score margin; the composite's numerical advantage should not be promoted into demonstrated safety or causal dynamics fidelity.",
+      "evidenceIds": [
+        "wmb-robot",
+        "evaluation-boundary"
+      ]
+    },
+    {
+      "id": "libero-plus",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 13",
+      "page": 69,
+      "asset": "report-assets/2606.16533/libero-plus.png",
+      "width": 1499,
+      "height": 729,
+      "sourceSha256": "ba46b4ca75dd3800d6ae338fcbb76840d5ce8ee4e414bb4788c39e2e1ee70c6a",
+      "sourceUrl": "https://arxiv.org/pdf/2606.16533#page=69",
+      "crop": [
+        0.115,
+        0.116,
+        0.882,
+        0.404
+      ],
+      "alt": "LIBERO-Plus success table with seven perturbation categories and averages for VLA/WAM baselines, Kairos and Kairos-joint; final averages are 89.0 and 90.8.",
+      "caption": "Generating future video at inference raises average robustness, with uneven gains across perturbations.",
+      "readingGuide": "Read the seven perturbation columns before comparing the Average column. The bottom two shaded rows distinguish standard Kairos from Kairos-joint, which the surrounding text defines by allowing action tokens to attend to generated future visual tokens during joint denoising. Language changes from 86.8 to 95.3, while robot and layout scores also rise. Lighting falls from 97.7 to 97.1 and noise from 96.8 to 95.4, so the improvement is not uniform. Compare the baselines by category as well: π₀.₅ leads the robot and layout columns even though its average is lower. Dashes in other rows remain missing category results and must not be read as zero.",
+      "takeaway": "The average rises from 89.0% to 90.8%, a 1.8-percentage-point gain when generated future video becomes available during inference. This is evidence that the inference variant can improve this benchmark. It is a different comparison from training with a video loss, whose much larger ablation gain appears in Tables 14–15.",
+      "caution": "The table does not report the latency or memory cost of joint inference, nor confidence intervals. Its average therefore cannot determine whether consulting generated video is worthwhile under a particular robot's control deadline or whether the small margin is statistically stable.",
+      "evidenceIds": [
+        "libero",
+        "training-ablations",
+        "deployment-boundary"
+      ]
+    },
+    {
+      "id": "training-ablations",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Tables 14 and 15",
+      "page": 70,
+      "asset": "report-assets/2606.16533/training-ablations.png",
+      "width": 1570,
+      "height": 275,
+      "sourceSha256": "ba46b4ca75dd3800d6ae338fcbb76840d5ce8ee4e414bb4788c39e2e1ee70c6a",
+      "sourceUrl": "https://arxiv.org/pdf/2606.16533#page=70",
+      "crop": [
+        0.115,
+        0.089,
+        0.885,
+        0.193
+      ],
+      "alt": "Two LIBERO-Plus ablation tables: human-centered pretraining raises average success 83.0 to 89.0; joint video/action training raises 65.8 to 89.0.",
+      "caption": "Human pretraining and joint video-action training test two distinct contributors to manipulation performance.",
+      "readingGuide": "Treat the left and right tables as separate experiments. Table 14 removes or includes human-centric pretraining, and the surrounding text states that other settings are fixed; the average rises from 83.0 to 89.0. Table 15 contrasts training only Action DiT with jointly training Video DiT and Action DiT, yielding 65.8 and 89.0. Its row label 'Video Generation & Action Prediction' names the training configuration, not a requirement to generate a video every time the robot acts. Read the gain entries as percentage-point differences. Both tables end at the standard 89.0 configuration, which is distinct from the 90.8 Kairos-joint inference result.",
+      "takeaway": "The reported gains are +6.0 points for human-centered pretraining and +23.2 points for joint generation/prediction training. These are the strongest local evidence that human-centered pretraining and the video objective contribute to downstream action performance. They make the architecture's training rationale more concrete than a leaderboard comparison alone.",
+      "caution": "Joint training changes active branches and objectives, so this ablation does not independently equalize representational capacity or compute. The tables provide no uncertainty estimates or complete matching recipe; reproducing the gain requires controlling those factors rather than merely copying the row names.",
+      "evidenceIds": [
+        "training-ablations",
+        "joint-training",
+        "libero"
+      ]
+    },
+    {
+      "id": "generation-latency",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 5",
+      "page": 58,
+      "asset": "report-assets/2606.16533/generation-latency.png",
+      "width": 1441,
+      "height": 250,
+      "sourceSha256": "ba46b4ca75dd3800d6ae338fcbb76840d5ce8ee4e414bb4788c39e2e1ee70c6a",
+      "sourceUrl": "https://arxiv.org/pdf/2606.16533#page=58",
+      "crop": [
+        0.161,
+        0.796,
+        0.839,
+        0.887
+      ],
+      "alt": "Generation-efficiency table with memory in GB, complexity in PFlops and one/four GPU latency in seconds; Kairos reports 23.5, 2.3, 43 and 9.",
+      "caption": "Video generation becomes much faster, but the table does not time an action-only robot policy.",
+      "readingGuide": "Use the protocol on pages 58–59 to anchor this crop: the comparison generates five-second, 720P text-and-image-conditioned video on NVIDIA A800 hardware. The memory and complexity columns have different units from the final two latency columns. Compare Kairos with the similarly sized Wan2.2-5B row first: latency falls from 201 to 43 seconds on one GPU and from 85 to 9 seconds on four, while memory is nearly unchanged at 23.4 versus 23.5 GB. The much larger models occupy the upper rows. Do not mix these numbers with neighboring Table 4, which measures a distilled robot model at 480P and includes RTX 5090 hardware.",
+      "takeaway": "The table supports a substantial generation-latency advantage in the stated setting, alongside lower reported computational complexity. It does not show a universal memory advantage: Wan uses slightly less. The four-GPU time of nine seconds refers to producing a five-second video, with a different workload from predicting an action chunk.",
+      "caution": "These timings measure video generation. The paper explicitly leaves end-to-end action-only latency unreported, and it provides no joint-inference control timing. Inferring a robot control rate from seconds per generated video would combine incompatible workloads.",
+      "evidenceIds": [
+        "generation-latency",
+        "distilled-latency",
+        "deployment-boundary"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Follow a training target through to an action",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "mask",
+        "flow",
+        "joint-training",
+        "libero"
+      ],
+      "text": "Begin with a synchronized demonstration: observed images and an instruction provide context, while future video and action chunks supply training targets. Flow matching corrupts the targets with noise and teaches velocity predictors to recover their structure. The joint loss adds video and action terms, with a balancing coefficient whose numerical value is not given. Crucially, the standard attention mask lets actions use observed history without reading future-video tokens. Reader interpretation: a video objective can shape useful shared representations even when the deployed action path never renders a movie. This explains why the training ablation and Kairos-joint inference comparison answer different questions. The former asks whether visual prediction helps learn actions; the latter asks whether giving actions access to generated futures adds further value at test time."
+    },
+    {
+      "heading": "Understand what persistent memory can—and cannot—guarantee",
+      "kind": "analysis",
+      "evidenceIds": [
+        "regret",
+        "memory",
+        "memory-update",
+        "memory-theory",
+        "future-memory"
+      ],
+      "text": "Imagine two histories that end in the same recent view but differ in where an object was placed earlier. This is a reader's example of the source's partial-observation problem: a window-only predictor cannot distinguish histories once the relevant event leaves its window. The appendix formalizes the resulting excess squared-error risk through a difference in conditional expectations. Kairos's gated memory offers a route to retain earlier information: it reads the old value associated with a key, discounts the state and writes a correction. Local and dilated attention handle nearer dependencies. The sufficiency theorem then requires the true predictor to admit this factorization and the memory to evolve contractively under additional assumptions. It does not show that a trained checkpoint actually remembers the right object or reduces execution cost."
+    },
+    {
+      "heading": "Build an evidence ladder from videos to control",
+      "kind": "analysis",
+      "evidenceIds": [
+        "wmb-robot",
+        "libero",
+        "training-ablations",
+        "generation-latency",
+        "evaluation-boundary"
+      ],
+      "text": "Start with Table 7: higher instruction-following and physics scores show that generated robot videos satisfy benchmark criteria. Move to LIBERO-Plus: action success under perturbations is stronger evidence about control, and Tables 14–15 connect that performance to specific training choices. Now ask whether either evaluation measures the paper's physical-cost regret. Neither compares decisions from the learned state against decisions from full history under matched real outcomes. The source explicitly proposes imagined-versus-real comparisons, alternative actions from the same initial state and failure/recovery evaluations for that next step. Reader interpretation: the present results support useful components of a regret-aware stack, while the defining closed-loop claim remains open. Generation latency adds a separate engineering dimension and cannot fill the missing decision-quality evidence."
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate joint training from future-video use at inference",
+      "text": "Proposed check, not performed: compare an action-only-trained model with a jointly trained model, then evaluate the latter with future-video access disabled and enabled. Hold the VLM/VAE, action-branch capacity, demonstrations, splits, random seeds and evaluation resets fixed. Run a matched-update comparison and a separately matched-compute comparison, documenting the joint loss weight. Measure success in all seven LIBERO-Plus perturbations, paired uncertainty, peak memory and end-to-end action-chunk latency on the same hardware. A persistent joint-training advantage would support the reported mechanism; disappearance under controlled budgets would weaken that attribution. A joint-inference gain that breaches the control deadline would expose a deployment tradeoff hidden by the average-success table.",
+      "evidenceIds": [
+        "architecture",
+        "mask",
+        "joint-training",
+        "training-ablations",
+        "libero",
+        "deployment-boundary"
+      ]
+    },
+    {
+      "title": "Test whether gated memory preserves delayed task state",
+      "text": "Proposed check, not performed: construct paired tasks whose recent observations are matched but whose earlier object placements or completed subtasks differ. Increase the delay until the relevant event lies beyond the local and dilated windows. Compare full Kairos with a model retrained without GLA under matched data and compute, retaining the same local-window settings; use an always-visible condition as a control. Separately reset the full model's recurrent state at test time as a diagnostic, reporting that this creates a distribution shift. Measure object/subtask-state probe accuracy, action success and latency by delay. A selective, growing full-model advantage after the informative event leaves the windows would support persistent-memory utility; equal degradation would challenge that explanation of the long-horizon result.",
+      "evidenceIds": [
+        "memory",
+        "memory-update",
+        "memory-theory",
+        "long-horizon",
+        "future-memory"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      5,
+      6,
+      14,
+      15,
+      16,
+      18,
+      19,
+      20,
+      21,
+      22,
+      24,
+      27,
+      29,
+      31,
+      32,
+      33,
+      34,
+      36,
+      37,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      49,
+      52,
+      53,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      78,
+      79,
+      85,
+      87,
+      104,
+      108,
+      111,
+      113,
+      115,
+      116,
+      119
+    ],
+    "notes": "All 31 supplied text chunks covering PDF pp. 1–119 were read individually. The declared pages were rendered from the supplied PDF and actually viewed, including identity, architecture/masks, training/evaluation protocols, all retained result tables, deployment boundaries and the appendix conditions used in the interpretation. Six final original PNG crops were each viewed for complete labels and legibility. Figure 4's frozen-module markers and masks were checked against pages 14–16 and 18 and the changed inference mask described on pages 69–70. Figure 5's centered windows were checked against page 22; recurrent updates and conditional theoretical claims were checked against pages 20–21 and Appendix B. Table 7 retains its author-reproduction asterisk note; the other crops retain full relevant headers and rows. Page 75's generated sequences were visually inspected despite little extracted text. Figure 19's Lingbot-14B label conflicts with the surrounding Lingbot-28B text, as disclosed in the base report. Images on pages outside this list were not claimed as visually reviewed. No external supplements or executable artifacts were inspected. Training progression was checked in Table 1 on page 31; AdamW settings were checked in prose on pages 32 and 34. Table 2 on page 44 contains domain tags. DreamGen baseline labels and values were checked against pages 63–64, which identify Wan2.2-14B. Pages 42–46 were inspected for filtering, deduplication, domain tags and the captioning pipeline."
+  }
+}
