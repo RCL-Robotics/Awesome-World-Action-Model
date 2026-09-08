@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.03188",
+  "shortTitle": "GeoSem-WAM",
+  "thesis": "Training a video/action model to predict future geometry and semantics improves reported manipulation success while allowing those dense prediction heads to be removed at deployment.",
+  "standfirst": "Consider a robot choosing where to grasp an object: matching future image appearance need not force its internal features to distinguish object identity from spatial layout. GeoSem-WAM adds future depth and semantic supervision to address that gap. Its video and action experts learn together, but deployment retains action generation without future video rollout. Read the architecture first, then the dense-head mechanism, qualitative probes and success tables. The evidence favors structured supervision within this setup; it leaves annotation quality, optimization details and inference timing unresolved. Several printed simulation averages also require reconciliation before precise comparative gains can be trusted.",
+  "evidenceIds": [
+    "e2",
+    "e3",
+    "e4",
+    "e5",
+    "e7",
+    "e9",
+    "e13"
+  ],
+  "featuredResultTask": "Franka manipulation and visual/geometric generalization",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 3,
+      "asset": "report-assets/2606.03188/architecture.png",
+      "width": 1104,
+      "height": 611,
+      "sourceSha256": "11b2421367cfa8167a2cd96938c7b17776ebf3326db4fa19f7fcf78dfcc3dfad",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03188#page=3",
+      "crop": [
+        0.175,
+        0.088,
+        0.825,
+        0.366
+      ],
+      "alt": "Video and action DiT branches share conditioning; future RGB, depth and semantic outputs sit above a dashed deployment region containing the initial frame, instruction, noisy actions and action decoder.",
+      "caption": "Predict rich future targets during training; retain the observation-to-action route for deployment.",
+      "readingGuide": "Start with the dashed rectangle: the initial RGB frame and instruction supply context, while noisy actions enter the action branch and leave as clean actions. The arrow labeled KV Cache points from Video DiT toward Action DiT; the text describes shared attention between these experts. Above the deployment region, future video passes through the VAE/video path, and DPT outputs future depth and semantic sequences. Those dense outputs provide training supervision and are removed at deployment. The figure simplifies the training path: Eqs. (1)–(6) explicitly add noise to video latents and actions, even though video corruption is not drawn here.",
+      "takeaway": "The architecture supports a representation-learning interpretation of world modeling: future visual and structural targets shape a context representation used by an action expert. It does not require decoding a future video before selecting actions. Geometry and semantic annotations supervise training rather than serving as required observation inputs.",
+      "caution": "Section 3.1 calls inference a single forward pass, but Section 3.2 says actions are iteratively denoised. The figure's KV-cache arrow does not resolve the denoising schedule or cache-update policy. No measured latency accompanies this diagram.",
+      "evidenceIds": [
+        "e3",
+        "e4",
+        "e5"
+      ]
+    },
+    {
+      "id": "dense-head",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/2606.03188/dense-head.png",
+      "width": 1129,
+      "height": 633,
+      "sourceSha256": "11b2421367cfa8167a2cd96938c7b17776ebf3326db4fa19f7fcf78dfcc3dfad",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03188#page=5",
+      "crop": [
+        0.5,
+        0.192,
+        0.832,
+        0.336
+      ],
+      "alt": "VAE tokens enter the bottom of a Video DiT stack; intermediate features branch into four 3D reassemble modules and a downward fusion cascade ending in geometry and semantic outputs.",
+      "caption": "Intermediate video features receive dense spatial and semantic supervision through a shared decoding path.",
+      "readingGuide": "Follow the arrows from the VAE encoder into the bottom Transformer block and upward through Video DiT. At several depths, horizontal branches send features into 3D Reassemble modules. On the right, the 3D Fusion cascade flows downward, combining these multi-level representations before splitting into Geometry and Semantic outputs. This direction matters: the two outputs are decoded from fused intermediate features rather than supplied as perception inputs. Section 3.2 describes projection, reassembly, progressive fusion and upsampling, extending DPT-style operations to video. Eqs. (7) and (8) attach L1 geometry error and pixel-wise semantic cross-entropy at future prediction steps.",
+      "takeaway": "The same video backbone is asked to support both spatial reconstruction and object-level labeling. The proposed benefit is a latent representation useful to the action expert after these heads are removed. Table 3 provides the relevant policy comparison; this diagram alone establishes the supervision pathway, not its effectiveness.",
+      "caution": "The source does not specify token-tap indices, channel sizes, dense-label production or loss coefficients. The figure's four illustrated feature levels are not a complete implementation configuration. Geometry prediction also does not by itself establish explicit 3D scene reconstruction.",
+      "evidenceIds": [
+        "e3",
+        "e5",
+        "e10"
+      ]
+    },
+    {
+      "id": "representation-probes",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 3",
+      "page": 6,
+      "asset": "report-assets/2606.03188/representation-probes.png",
+      "width": 1578,
+      "height": 446,
+      "sourceSha256": "11b2421367cfa8167a2cd96938c7b17776ebf3326db4fa19f7fcf78dfcc3dfad",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03188#page=6",
+      "crop": [
+        0.192,
+        0.088,
+        0.811,
+        0.223
+      ],
+      "alt": "Two colored token-embedding scatter plots appear beside three rows of RGB images, baseline depth predictions, GeoSem-WAM depth predictions and ground-truth depth.",
+      "caption": "Qualitative probes connect structured supervision to semantic separation and depth information in latent tokens.",
+      "readingGuide": "Read the two scatter panels as a qualitative comparison of intermediate video-token embeddings colored by semantic class. The right scatter shows more visibly separated groups, which the caption and discussion associate with GeoSem-WAM's improved semantic organization. In panel (c), read columns (1) through (4) as RGB observation, Fast-WAM probe depth, GeoSem-WAM probe depth and ground-truth depth. Compare object boundaries and the robot silhouette across the latter three columns. The described depth experiment freezes the backbone and trains a simple probe using intermediate tokens, so these images inspect information recoverable from the representation rather than direct robot execution.",
+      "takeaway": "The shown GeoSem-WAM depth predictions more closely resemble the ground-truth shapes than the blurrier baseline examples. Together with the embedding plots, this is qualitative support for the authors' representation hypothesis. The policy-success tables are separate evidence for whether these representations accompany better manipulation.",
+      "caution": "No class-name legend, depth color scale, projection specification or quantitative probe score accompanies the figure. These omissions belong to the source, not the crop. Selected examples cannot establish average depth accuracy or prove that representation changes cause action gains.",
+      "evidenceIds": [
+        "e8",
+        "e7",
+        "e10"
+      ]
+    },
+    {
+      "id": "libero-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "asset": "report-assets/2606.03188/libero-results.png",
+      "width": 1655,
+      "height": 571,
+      "sourceSha256": "11b2421367cfa8167a2cd96938c7b17776ebf3326db4fa19f7fcf78dfcc3dfad",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03188#page=6",
+      "crop": [
+        0.177,
+        0.318,
+        0.826,
+        0.491
+      ],
+      "alt": "LIBERO success table lists VLA and WAM baselines across Spatial, Object, Goal and Long suites, with GeoSem-WAM's bottom row reporting a 98.55 average.",
+      "caption": "LIBERO reports a high mean success rate, with an unresolved Fast-WAM averaging discrepancy.",
+      "readingGuide": "Read each row across the four task suites before looking at the average column. Section 4.2 specifies 50 trials per task under different random seeds; Section 4.1 describes 10 tasks and 500 demonstrations per suite. The bottom GeoSem-WAM row is strongest on some columns, but the Long column favors LingBot-VA. Fast-WAM is the mechanism-relevant baseline because the paper adds structured supervision to its training approach. Compare it with GeoSem-WAM both suite by suite and in the printed average column. This distinction is essential here because the baseline's displayed average does not equal the arithmetic mean of its suite entries.",
+      "takeaway": "GeoSem-WAM reports 99.0, 100.0, 98.2 and 97.0 across the suites, averaging 98.55%. Its printed mean exceeds Fast-WAM's reported 97.60% by 0.95 percentage points and LingBot-VA's 98.50% by 0.05 points. LingBot-VA nevertheless leads on Long, 98.5% versus 97.0%.",
+      "caution": "Fast-WAM's printed suite values average 97.35%, not the reported 97.60%; the source does not reconcile them. Preserve both rather than silently correcting the table. No confidence intervals or fully harmonized baseline training protocol establish the significance of these small average differences.",
+      "evidenceIds": [
+        "e6",
+        "e7",
+        "e10"
+      ]
+    },
+    {
+      "id": "supervision-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 7,
+      "asset": "report-assets/2606.03188/supervision-ablation.png",
+      "width": 1481,
+      "height": 204,
+      "sourceSha256": "11b2421367cfa8167a2cd96938c7b17776ebf3326db4fa19f7fcf78dfcc3dfad",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03188#page=7",
+      "crop": [
+        0.21,
+        0.276,
+        0.791,
+        0.338
+      ],
+      "alt": "Four LIBERO ablation rows toggle geometry and semantic supervision while keeping RGB checked; average success rises from 97.6 to 98.6 with both branches.",
+      "caption": "Both auxiliary objectives improve the displayed success rate; their combination scores highest.",
+      "readingGuide": "Read the checkmarks first. Every row retains RGB supervision, while the second and third rows add geometry or semantics individually and the final row enables both. This is the paper's clearest comparison addressing whether each structured target contributes. The Average SR column contains the success rates; the final delta column is labeled percent. Subtract the displayed success rates from the RGB-only baseline to obtain percentage-point gains. Separately, divide those gains by the baseline to understand why the printed delta values are approximately 0.61, 0.51 and 1.02. The paper does not explicitly define that conversion, so this interpretation is arithmetic analysis.",
+      "takeaway": "Geometry alone raises displayed success from 97.6% to 98.2%, semantics alone to 98.1%, and both to 98.6%. These are gains of 0.6, 0.5 and 1.0 percentage points. The joint setting performs best, supporting complementary usefulness within this reported experiment without establishing statistical interaction or universal benefit.",
+      "caution": "The delta column is consistent with relative percentages, not percentage-point changes. No training-budget control or seed variance is supplied. The joint score is rounded to one decimal here, while Table 1 reports 98.55%; their different precision should remain visible.",
+      "evidenceIds": [
+        "e10",
+        "e7"
+      ]
+    },
+    {
+      "id": "franka-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 8,
+      "asset": "report-assets/2606.03188/franka-results.png",
+      "width": 1655,
+      "height": 155,
+      "sourceSha256": "11b2421367cfa8167a2cd96938c7b17776ebf3326db4fa19f7fcf78dfcc3dfad",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03188#page=8",
+      "crop": [
+        0.177,
+        0.444,
+        0.826,
+        0.491
+      ],
+      "alt": "Franka success table compares Fast-WAM and GeoSem-WAM on seven scenarios, showing a tie on Easy-Pick and gains of 4 to 12 points elsewhere.",
+      "caption": "Physical generalization tests show larger improvements than the simulation averages.",
+      "readingGuide": "Start with the Easy-Pick column, where both policies reach 100%. Then read the B1 and B2 background variants and the D column associated with height generalization. Figure 4 shows the two mats and a standard/elevated comparison with a 4 cm difference. Finish with Multi-Pick, Multi-Goal and Pick-Pour, which increase distractors, target assignments or sequential manipulation demands. The caption specifies 50 independent trials per scenario; the training description separately reports 50 demonstrations per core task. Keep those counts distinct. Finally, inspect the Improvement row against the two policy rows rather than treating it as an independently measured metric.",
+      "takeaway": "GeoSem-WAM improves the background variants by 10 and 8 percentage points and the height-test column by 12 points. Multi-Pick, Multi-Goal and Pick-Pour gain 6, 6 and 4 points. The seven gains average about 6.57 points, which rounds to the printed 6.6; the reported policy averages are 95.4% and 88.9%.",
+      "caution": "Figure 4 labels the standard panel Easy-Pick-D and the elevated panel Depth Setting, so the exact table-to-height-condition mapping remains imperfectly explained. The table gives no confidence intervals, and its trial count does not establish broad robustness outside these selected laboratory variations.",
+      "evidenceIds": [
+        "e11",
+        "e12"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Use future structure as a training target",
+      "text": "The essential separation is between information available to the policy and targets used to teach it. GeoSem-WAM takes current visual observations and language, while demonstrated future video, actions and dense labels supply learning signals. The video DiT is therefore not merely an image generator attached to a robot: its intermediate tokens must also support geometry reconstruction and semantic discrimination. The DPT pathway reassembles several token levels and fuses them before producing dense outputs. Reader interpretation: requiring multiple descriptions of the same future scene could discourage a representation that captures only appearance shortcuts. The actual evidence for that interpretation is limited to the qualitative probes and policy ablation; the architecture itself does not show that every useful geometric or semantic property is learned.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e3",
+        "e4",
+        "e5",
+        "e8",
+        "e10"
+      ]
+    },
+    {
+      "heading": "Separate context computation from action denoising",
+      "text": "During training, both video latents and action chunks are corrupted with Gaussian noise and their experts predict flow targets. At deployment, the paper removes future video generation and the DPT heads, but it explicitly retains noisy-action initialization and iterative denoising in Section 3.2. This makes 'no future rollout' a narrower statement than 'no iteration.' Figure 1's video-to-action KV-cache arrow suggests how an observation-derived context could support an action expert efficiently. Reader interpretation: one context computation followed by repeated action updates could reconcile the overview's single-forward-pass language with the detailed action description. That remains an interpretation because neither a denoising schedule nor cache-update algorithm is supplied. The resulting chunk is intended for control, but the paper leaves chunk execution frequency and feedback timing unspecified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e3",
+        "e4"
+      ]
+    },
+    {
+      "heading": "Read success gains alongside their controls",
+      "text": "The ablation supplies the strongest direct evidence that the added objectives matter: RGB-only, geometry, semantics and joint supervision are compared on LIBERO. Both single additions improve the displayed average and the combination scores highest, but absent seed dispersion and training-budget matching limit a causal conclusion. The Franka table then tests a different question: whether the trained policy succeeds under selected background, height and task-complexity changes. Its larger gains are informative, yet they do not quantify the same generalization distribution as RoboTwin randomization. Reader interpretation: confidence should come from agreement across these distinct observations, not from merging their averages. Simulation reporting also needs care: the Fast-WAM LIBERO suite values and RoboTwin clean/random values do not reproduce all printed aggregates, so exact margins remain qualified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e6",
+        "e7",
+        "e9",
+        "e10",
+        "e11",
+        "e12",
+        "e15"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test whether aligned dense targets explain the ablation gain",
+      "text": "Reader-proposed experiment, not performed: reproduce the four Table 3 conditions using identical demonstrations, splits, initialization, optimization steps and evaluation seeds, logging actual training compute. Add a control with the same auxiliary heads and loss weights but geometry/semantic labels shuffled across training examples. Remove every auxiliary head for evaluation. Report per-task success and uncertainty, plus held-out depth-probe error using identical probes. If correctly aligned labels consistently outperform RGB-only and shuffled-label controls, that supports the structured-information explanation. If shuffled labels match the gain or repeated-seed intervals overlap substantially, the claimed mechanism needs a weaker interpretation. Obtain the missing loss weights and label recipe before calling this a faithful reproduction.",
+      "evidenceIds": [
+        "e3",
+        "e5",
+        "e8",
+        "e10",
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "title": "Resolve the deployment schedule and test the removal claim",
+      "text": "Reader-proposed experiment, not performed: once the actual attention mask, cache policy and denoising schedule are available, instrument a trained checkpoint on the stated RTX 4090. Hold observations, instructions, initial action noise and action-denoising steps fixed. Compare the same checkpoint with future-video/DPT computations retained versus disabled, retaining identical action conditioning. Record video/action forward-call counts, action outputs, latency, peak memory and success on the same Franka conditions. If removal changes actions under matched conditioning, it would reveal an undocumented dependency; if outputs agree and latency falls, the training-only interpretation is supported. Count action updates separately to resolve the single-forward-pass wording. Predefine which standard/elevated setup corresponds to Easy-Pick-D.",
+      "evidenceIds": [
+        "e3",
+        "e4",
+        "e11",
+        "e12"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      12,
+      13,
+      14
+    ],
+    "notes": "Inspected the title/authors/version page, all method and equation pages, all six original figures and all five tables, including the complete task table and both appendices. All six final crops were individually viewed and retain their original labels and table headers. Pages 4–5 establish equations and training details; page 7 establishes hardware and trial protocols; pages 12–14 establish appendix observations and episode scope. Cross-checked Figure 1 against Sections 3.1–3.2 and Figure 2 against Eqs. (7)–(9). Preserved the single-pass versus iterative-action ambiguity, simulation aggregate discrepancies and height-panel naming ambiguity. Figure 6's first-person Depth/Sem legend appears interchanged; no modality-specific conclusion relies on that legend. Reference pages 9–11 were read as text only. Separate supplemental material and code were not inspected."
+  }
+}

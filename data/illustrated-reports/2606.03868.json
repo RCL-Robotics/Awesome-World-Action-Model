@@ -1,0 +1,267 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.03868",
+  "shortTitle": "Donk",
+  "thesis": "Donk reuses one video-action denoising core for observed-scene prediction and text-conditioned paired data generation, with initial hand-camera geometry and an asymmetric visual-to-action information path.",
+  "standfirst": "Donk asks whether a dexterous video-action model can do more than predict the next interaction from a camera image. Its second interface starts from a language instruction and generates both a video and a matching MANO hand trajectory. The key qualification is that “text-only” describes the external input: a separate initializer still supplies first-frame hand-camera geometry. Read the architecture alongside its attention mask, then keep the action and video evaluations separate. The evidence is strongest for offline hand prediction and competitive visual quality. Whether the synthetic pairs improve a deployed robot policy is still an open experimental question.",
+  "evidenceIds": [
+    "e_modes",
+    "e_architecture",
+    "e_attention",
+    "e_anchor",
+    "e_action_results",
+    "e_video_results",
+    "e_text_results",
+    "e_gaps"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2606.03868/architecture.png",
+      "width": 1110,
+      "height": 512,
+      "sourceSha256": "4d6f2dbdb70481740fd9b504f9d84cbb8c67c5426e43fdbe24050ac8a705e382",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03868#page=4",
+      "crop": [
+        0.174,
+        0.089,
+        0.827,
+        0.322
+      ],
+      "alt": "Training diagram with image/video VAE, action and state encoders, noised video/action tokens, a shared DiT, anchor-map controller, frozen text encoder and teacher, Gaze supervision, and video/action decoders.",
+      "caption": "One denoising core produces the visual rollout and its hand trajectory.",
+      "readingGuide": "Start at the left with the image/video, MANO action sequence and initial hand state. The blue and green latent streams are noised before entering the same DiT; the purple state stream supplies initial geometry. Read the right-hand decoders as outputs of the generative pipeline, while Section 3.3 specifies that the training targets are flow velocities. Snowflakes mark frozen modules. The teacher and Gaze paths supply training losses, and the anchor-map controller supplies spatial hints. Cross-check the central fire symbol with the text: only a small subset of Wan layers is trained, alongside the added interfaces.",
+      "takeaway": "The architecture shares computation across video and action generation instead of extracting a trajectory after rendering a completed video. Its geometric control still matters: the first-frame anchor provides an explicit spatial scaffold. Removing the image changes conditioning, while the core denoiser and paired output interface are retained.",
+      "caution": "The upward “Context Prior” arrow is not given a separate computation in Eqs. (6)–(7); those equations define map encoding and first-frame injection. Do not infer an additional feedback algorithm from the schematic. The teacher is training-only.",
+      "evidenceIds": [
+        "e_architecture",
+        "e_anchor",
+        "e_losses",
+        "e_inference"
+      ]
+    },
+    {
+      "id": "attention-mask",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 5,
+      "asset": "report-assets/2606.03868/attention-mask.png",
+      "width": 969,
+      "height": 1782,
+      "sourceSha256": "4d6f2dbdb70481740fd9b504f9d84cbb8c67c5426e43fdbe24050ac8a705e382",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03868#page=5",
+      "crop": [
+        0.629,
+        0.529,
+        0.819,
+        0.799
+      ],
+      "alt": "Two attention grids: the upper has visual f, initial-state s_0 and action a slots; colored visual rows stop before state/action columns, while state and action rows are full. The lower grid omits f_0 and s_0.",
+      "caption": "Joint token processing uses asymmetric access to the generated video.",
+      "readingGuide": "Read the grids together with the adjacent attention paragraph: interpreting rows as queries and columns as readable tokens, colored squares implement allowed access. In the upper panel, later visual rows read the visual columns, whereas the purple state row and green action rows extend across the full sequence. The orange first-frame row reads only itself. This is more specific than assuming that every visual row reads every visual token. The lower panel retains the visual/action asymmetry but removes the first-frame and state slots. Its caption does not identify a mode, so it cannot settle the exact inference layout.",
+      "takeaway": "The supported rule is directional: action and anchor queries can read the visual rollout; video queries do not directly read action or anchor tokens through this self-attention mask. Geometry can still affect video through the separate anchor-map injection. Joint denoising therefore does not imply unrestricted bidirectional token communication.",
+      "caution": "The lower panel omits f_0 and s_0 despite prose saying both conditioning modes share a token layout. Preserve this unresolved presentation difference; do not silently label the panels as two fully specified modes. No attention-mask ablation is reported.",
+      "evidenceIds": [
+        "e_attention",
+        "e_anchor",
+        "e_architecture",
+        "e_ablation"
+      ]
+    },
+    {
+      "id": "action-comparison",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 7,
+      "asset": "report-assets/2606.03868/action-comparison.png",
+      "width": 972,
+      "height": 257,
+      "sourceSha256": "4d6f2dbdb70481740fd9b504f9d84cbb8c67c5426e43fdbe24050ac8a705e382",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03868#page=7",
+      "crop": [
+        0.214,
+        0.13,
+        0.786,
+        0.247
+      ],
+      "alt": "OakInk2 comparison of VITRA, Being-H0-1B, Being-H0-8B, DreamZero-alike and Donk across hand RMSE and best-of-5/best-of-10 displacement, DTW and wrist-rotation errors.",
+      "caption": "Donk leads hand-pose and translation metrics; VITRA retains the rotation advantage.",
+      "readingGuide": "Locate the highlighted Donk row, then compare within each column rather than across different error types. ADE and FDE measure trajectory displacement and endpoint error; DTW-S and DTW-L are the evaluator’s short-window and open-end variants. These displacement errors are in meters. ROT is wrist-orientation geodesic error in degrees. Each trajectory group separates best-of-5 and best-of-10, drawn from ten sampled futures per example. The single hand-RMSE column evaluates MANO finger pose and has no separate K heading. Follow the downward arrows: lower values are better throughout.",
+      "takeaway": "At best-of-10, Donk reaches ADE 0.049 m and FDE 0.079 m, compared with DreamZero-alike’s 0.057 m and 0.094 m. Its hand RMSE is 0.238 versus 0.262. However, VITRA’s ROT is lower: 14.64° versus Donk’s 14.95°, so the advantage is not universal.",
+      "caution": "These are offline best-of-K errors, not robot task success or the reliability of one sampled trajectory. Hand-RMSE units and statistical uncertainty are not stated. The source does not fully specify the DreamZero-alike implementation.",
+      "evidenceIds": [
+        "e_action_protocol",
+        "e_action_results",
+        "e_gaps"
+      ]
+    },
+    {
+      "id": "conditioning-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "asset": "report-assets/2606.03868/conditioning-ablation.png",
+      "width": 1114,
+      "height": 193,
+      "sourceSha256": "4d6f2dbdb70481740fd9b504f9d84cbb8c67c5426e43fdbe24050ac8a705e382",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03868#page=7",
+      "crop": [
+        0.172,
+        0.299,
+        0.827,
+        0.387
+      ],
+      "alt": "Three Donk variants with Gaze/State checkmarks: full, without Gaze, and base without either; all show hand and trajectory error columns.",
+      "caption": "State conditioning and the hand-focused component improve the reported errors in sequence.",
+      "readingGuide": "Read this table from the bottom upward. The base row lacks both listed components. The middle row turns on State while leaving Gaze absent; the top row retains State and adds Gaze. This ordering separates two incremental comparisons under the same best-of-K evaluation as Table 1. Use the checkmarks before interpreting the metric changes. The labels name the state expert and Gaze module in Section 4.1, but do not expose a separate experiment for every anchor-map or attention component. A missing Gaze-only row prevents a complete two-factor comparison.",
+      "takeaway": "Hand RMSE decreases from 0.262 to 0.258 with State, then to 0.238 with Gaze added. Best-of-10 ADE decreases from 0.057 to 0.053 to 0.049 m. The direction is consistent, but contribution sizes depend on the metric: Gaze’s RMSE reduction is larger than State’s.",
+      "caution": "The prose calls the additional Gaze gain smaller, whereas hand RMSE shows 0.020 versus 0.004. The crop preserves the reported values. Without the missing factorial control or repeated runs, interaction effects and uncertainty remain unknown.",
+      "evidenceIds": [
+        "e_ablation",
+        "e_action_protocol",
+        "e_gaps"
+      ]
+    },
+    {
+      "id": "video-fidelity",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 8,
+      "asset": "report-assets/2606.03868/video-fidelity.png",
+      "width": 1222,
+      "height": 343,
+      "sourceSha256": "4d6f2dbdb70481740fd9b504f9d84cbb8c67c5426e43fdbe24050ac8a705e382",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03868#page=8",
+      "crop": [
+        0.259,
+        0.589,
+        0.738,
+        0.693
+      ],
+      "alt": "EgoDex table comparing three Wan baselines with Donk across frame fidelity, semantics, temporal flicker and video-distribution metrics, with per-column direction arrows.",
+      "caption": "Strong frame fidelity coexists with mixed semantic, temporal and distributional results.",
+      "readingGuide": "Begin with the four metric groups rather than the boldface. PSNR, SSIM and LPIPS describe frame fidelity, CLIP-I and CLIP-S address visual identity and text alignment, tLPIPS addresses temporal flicker, and FVD compares video distributions. Their arrows differ, so larger is not always better. Section 4.2 specifies a LOME evaluation using 1,000 EgoDex samples, 17 frames and 832×480 resolution; the caption says all rows share this protocol. Compare Donk first with Wan2.2-TI2V-5B, then examine which other baseline owns each column’s best score.",
+      "takeaway": "Donk improves LPIPS from 0.3061 to 0.2992 and FVD from 81.87 to 75.13 relative to Wan2.2-TI2V-5B, while also leading PSNR, SSIM and CLIP-I. Wan2.1-I2V-14B still has lower FVD, 68.97; VACE has the best CLIP-S and tLPIPS. The result supports competitive visual preservation, with tradeoffs.",
+      "caution": "These video-only scores do not directly measure contact correctness or whether the generated MANO hands match the video. The rows share an evaluation protocol, but include different backbone sizes; this is not an isolated attention-mask experiment.",
+      "evidenceIds": [
+        "e_video_protocol",
+        "e_video_results",
+        "e_qualitative",
+        "e_ablation"
+      ]
+    },
+    {
+      "id": "text-generation",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 9,
+      "asset": "report-assets/2606.03868/text-generation.png",
+      "width": 1275,
+      "height": 343,
+      "sourceSha256": "4d6f2dbdb70481740fd9b504f9d84cbb8c67c5426e43fdbe24050ac8a705e382",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03868#page=9",
+      "crop": [
+        0.312,
+        0.124,
+        0.687,
+        0.202
+      ],
+      "alt": "Text-input comparison of the baseline labeled Wan2.2-5B-I2V and Donk-T2VA: Donk has better FVD, VLM judge and CLIP-S, while the baseline has lower tLPIPS.",
+      "caption": "The text-only interface improves three visual or semantic scores, with more temporal flicker.",
+      "readingGuide": "Check the Input column first: both entries are labeled text, even though the baseline’s printed name includes I2V. Retain that source label rather than substituting an assumed checkpoint. FVD and tLPIPS are lower-is-better; the VLM judge and CLIP-S are higher-is-better. Section 4.3 says the judge receives generated videos and their instructions for 100 EgoDex samples, scoring instruction alignment from 0 to 5. It does not identify the judge or fully specify the other metrics’ sampling protocol. The table deliberately compares only video outputs, because the baseline produces no hand trajectories.",
+      "takeaway": "Donk lowers FVD from 306.2 to 191.1 and raises the judge score from 1.59 to 2.37; CLIP-S rises from 0.2508 to 0.2572. Meanwhile tLPIPS increases from 0.0147 to 0.0215. This supports a visual/semantic benefit in the reported setup, accompanied by worse measured flicker.",
+      "caution": "The judge improvement cannot establish action accuracy, physical feasibility, or usefulness as policy-training data. Figure 5 supplies selected paired examples, not a downstream learning test. The baseline’s precise text-only configuration and the judge rubric require clarification.",
+      "evidenceIds": [
+        "e_text_results",
+        "e_qualitative",
+        "e_gaps"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Start with the initial condition, not an imagined future plan",
+      "text": "The two interfaces differ in what is observed at the beginning. TI2VA receives the image, hand state and camera intrinsics, so both scene appearance and the hand-camera configuration are grounded in an observation. T2VA has no image, but its separately trained initializer samples plausible first-frame geometry from language. Rendering that geometry as a skeleton map makes the hand’s position accessible to the video backbone. The anchor-map adapter and layer-specific MLPs inject gated hints into the first visual frame; the gates start at zero. The source explicitly limits this scaffold to an initial condition. Future hand motion and video are still generated by the shared denoiser. Consequently, a plausible initialized pose should not be read as a supplied future trajectory or proof of correct contact dynamics.",
+      "kind": "source",
+      "evidenceIds": [
+        "e_modes",
+        "e_anchor",
+        "e_inference"
+      ]
+    },
+    {
+      "heading": "Separate shared denoising from unrestricted communication",
+      "text": "The shared sequence contains visual, action and anchor tokens, but the attention rule gives them different permissions. Action and anchor queries can inspect all tokens; visual queries remain within the visual stream. The separate anchor-map controller provides the route by which starting geometry affects video. Training then combines video-flow and valid-hand action-flow errors with hand-focused visual weighting. A frozen teacher regularizes video velocity only on examples retaining the input image. Image dropout exposes the same core to both conditioning regimes, while a small trainable Wan subset limits how much of the pretrained backbone changes. Reader interpretation: these choices make visual preservation and action alignment compatible design goals, but Table 2 does not isolate attention, teacher matching or dropout, so their individual causal contributions remain unmeasured.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e_architecture",
+        "e_attention",
+        "e_anchor",
+        "e_losses",
+        "e_inference",
+        "e_ablation"
+      ]
+    },
+    {
+      "heading": "Treat a data engine as a hypothesis with two separate tests",
+      "text": "A generator that emits paired modalities has cleared only the first requirement for a useful data engine. OakInk2 evaluates how predicted MANO trajectories match recorded futures under best-of-K selection. EgoDex evaluates generated video fidelity and distributional or semantic quality. The text-only comparison adds a VLM judge, but its baseline has no action output, so it cannot establish a comparative action benefit. Figures 4 and 5 show what visual-action correspondence can look like in selected examples; they do not measure the benefit of training another policy on those pairs. Reader interpretation: the next discriminating test should ask whether correctly paired synthetic actions add value beyond extra images, duplicated real data or shuffled pairings. That separates generative plausibility from useful supervision without assuming either implies robot execution success.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e_action_protocol",
+        "e_video_protocol",
+        "e_text_results",
+        "e_qualitative",
+        "e_gaps"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Complete the State × Gaze ablation under fixed sampling",
+      "text": "Reader-proposed check, not performed: reproduce the three reported variants and add the missing Gaze-only condition, keeping training data, Wan initialization, trainable layers, image-drop probability and training budget fixed. Use the same OakInk2 examples and matched random seeds. Report hand RMSE and trajectory metrics at K=1, 5 and 10, plus seed-level uncertainty; first establish a documented single-sample RMSE convention. If Gaze helps only with State, the result supports an interaction rather than an independent additive gain. If improvements disappear at K=1, the best-of-K advantage does not transfer directly to a single predicted trajectory.",
+      "evidenceIds": [
+        "e_ablation",
+        "e_action_protocol",
+        "e_architecture",
+        "e_training",
+        "e_gaps"
+      ]
+    },
+    {
+      "title": "Test whether synchronized generated pairs improve a held-out policy",
+      "text": "Reader-proposed check, not performed: train the same downstream MANO predictor with a fixed real-data set under three equal-budget conditions: repeated real examples, added Donk T2VA pairs, and the same generated videos with action sequences shuffled across compatible hand-validity patterns. Generate synthetic pairs using training-side prompts and anchor statistics only, excluding evaluation subjects and scenes from selection. Evaluate single-sample trajectory errors on a fixed held-out set and separately audit video-hand alignment. Improvement unique to correctly paired synthetic data would support the claimed supervision value. No improvement, or equal gains from shuffled pairs, would weaken that claim. Robot execution would still need a separate test.",
+      "evidenceIds": [
+        "e_problem",
+        "e_modes",
+        "e_anchor",
+        "e_text_results",
+        "e_qualitative",
+        "e_gaps"
+      ]
+    }
+  ],
+  "featuredResultTask": "OakInk2 offline dexterous trajectory prediction (TI2VA)",
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "notes": "Visually inspected the title, author/affiliation block and v1 stamp on p. 1; motivation on pp. 2–3; architecture, attention, equations, conditioning and training/inference details on pp. 4–6, including hardware and optimizer settings on p. 6; action comparison/ablation and evaluation protocols on p. 7; video metrics and qualitative examples on pp. 8–9. Figures 1–5 and Tables 1–4 were viewed. All six final original crops were separately viewed at their native rendered resolution. Figure 2 arrows were cross-checked against Eqs. (6)–(10); Figure 3 permissions and its unlabeled panel-layout difference are disclosed. Every retained scientific numerical or method claim and both proposed checks are supported by these inspected pages. All four text chunks, including references on pp. 10–13, were read; reference pages were not visually inspected. No separate supplement or code was reviewed and no experiments were run."
+  }
+}
