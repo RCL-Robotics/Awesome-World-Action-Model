@@ -1,0 +1,424 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2605.06222",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T17:05:30.453Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2605.06222",
+      "title": "When to Trust Imagination: Adaptive Action Execution for World Action Models",
+      "kind": "pdf",
+      "sha256": "4727ddd9f22de8d6428d073c6c1c9e2d06516b1bbc51734424f9d274ece60d16",
+      "wordCount": 7319,
+      "accessedAt": "2026-09-07T14:01:58.016177+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related work",
+      "3 Method",
+      "3.1 Preliminary",
+      "3.2 Future forward dynamics causal attention",
+      "3.3 Training strategy and dataset construction",
+      "4 Experiments",
+      "4.1 Experimental setups",
+      "4.2 Main results",
+      "4.3 Ablation study",
+      "5 Conclusion",
+      "References",
+      "A Technical appendices and supplementary material",
+      "A.1 Limitations",
+      "A.2 Additional experimental results"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction-only figure omission above was resolved by visually inspecting all 14 PDF pages, Figures 1–4, Tables 1–6, and all five final crops. All five supplied text chunks were read completely, including references and Appendix A.",
+      "The title page identifies arXiv:2605.06222v2 [cs.RO], 9 May 2026, and labels the work a preprint. The exact title and all seven authors match the catalog. Earlier revisions were not supplied, so differences from v1 cannot be established. The title page additionally lists Astribot, Shenzhen, China, omitted from the catalog affiliation string.",
+      "Code, external references, and separate supplements were not inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "FFDC-WAM adds a learned execution verifier to Motus. It compares the current observation with cached predicted visual dynamics, planned actions, and instruction features, then continues or interrupts the rollout. RoboTwin results favor adaptive execution over short chunks, while physical experiments gain success at increased time and inference cost.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A fixed action chunk commits the robot for the same duration regardless of how reliably its predicted future matches physical execution. Short chunks repeatedly invoke an expensive WAM during predictable motion; long chunks can continue through contact errors. The paper asks whether a WAM’s own predicted visual future can help decide when to replan.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Future–reality verification makes execution length depend on a learned assessment of the remaining plan, using predicted visuals at inference time.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-verifier",
+        "e-attention"
+      ]
+    },
+    {
+      "text": "FFDC combines a local temporal attention mask with cached WAM features; a separate binary training set mixes valid rollouts and corrupted or failed segments.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-attention",
+        "e-training"
+      ]
+    },
+    {
+      "text": "The authors introduce Mixture-of-Horizon Training to improve long-horizon coverage, although the explicit recipe specifies start-time sampling and terminal padding rather than a distribution over horizons.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-training"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current real observation and language instruction",
+      "Motus-predicted action segment and temporally aligned past/future predicted visual tokens",
+      "Understanding-expert semantic tokens"
+    ],
+    "outputs": [
+      "Predicted actions and latent visual future from Motus",
+      "FFDC execution confidence and a continue/replan decision"
+    ],
+    "steps": [
+      {
+        "name": "Generate the candidate future",
+        "detail": "Motus jointly predicts an action chunk and latent visual tokens from the current observation and instruction. Figure 2 shows action, video, and understanding experts linked by joint attention. This paper adds verification to that backbone.",
+        "evidenceIds": [
+          "e-backbone",
+          "e-verifier"
+        ]
+      },
+      {
+        "name": "Align imagined and observed states",
+        "detail": "At check time, assemble semantic tokens L, predicted historical visual tokens, the latest real observation O_t, predicted future visuals, the remaining action segment, and a learnable CLS token. The ratio r aligns action and video frequencies. Historical visual tokens here are previous predictions, not a stored history of real images.",
+        "evidenceIds": [
+          "e-verifier"
+        ]
+      },
+      {
+        "name": "Score with restricted attention",
+        "detail": "Future action/visual tokens attend to context and temporally preceding or aligned candidate tokens within a local window. An N-layer Transformer aggregates through CLS, then an MLP and sigmoid produce confidence. The temporal restriction does not establish a causal guarantee of executability.",
+        "evidenceIds": [
+          "e-attention"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The backbone uses summed action and video rectified flow-matching losses. For an episode of length T, sample a start s uniformly, clamp action indices s+i and visual indices s+jr to T, and repeat terminal values beyond the episode. This includes late-stage conditioning states in training.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-backbone",
+          "e-training"
+        ]
+      },
+      {
+        "text": "Verifier positives come from demonstrations and a small number of successful rollouts. Negatives come from failed rollouts and synthetic temporal swaps, gripper-sign flips, Gaussian noise in the second half, and suffix scaling. Binary cross-entropy trains executability labels. Counts, corruption strengths, train/validation separation, and optimization settings are not supplied. Figure 2 marks the video encoder and VLM with snowflakes; a complete freezing schedule is absent.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training",
+          "e-verifier"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "After WAM inference, predicted action/visual and semantic tokens are cached. Each check encodes the latest real observation and evaluates FFDC without a full WAM call. Continue when confidence is at least 0.5; otherwise replan from the latest observation. Physical execution follows the selected actions; the verifier predicts whether to retain them, not replacement controls.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-verifier",
+          "e-attention"
+        ]
+      },
+      {
+        "text": "The text calls verification high-frequency but does not specify its actual interval, numeric candidate horizon k, frequency ratio r, layer count N, or local-window size. Exact per-layer cache reuse when real observations change is also unresolved.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-verifier",
+          "e-attention"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "(\\hat{A}_{t+1:t+H},\\hat{O}_{t+1:t+H})=\\pi_\\theta(o_t,\\ell)",
+        "explanation": "Equation (2): the WAM policy predicts H future actions and their latent visual sequence from observation o_t and instruction ℓ.",
+        "evidenceIds": [
+          "e-backbone"
+        ]
+      },
+      {
+        "expression": "z_t=g_\\psi(\\operatorname{FFDC}(X_t)_{[\\mathrm{CLS}]}),\\quad e_t=\\sigma(z_t),\\quad \\begin{cases}\\text{execute},&e_t\\geq\\tau\\\\\\text{replan},&e_t<\\tau\\end{cases},\\quad\\tau=0.5",
+        "explanation": "Equations (4), (6), and (7): X_t is the assembled verifier sequence, g_ψ the MLP score head, σ the sigmoid, e_t confidence, and τ the decision threshold.",
+        "evidenceIds": [
+          "e-verifier",
+          "e-attention"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{ver}}=-[y\\log\\sigma(z)+(1-y)\\log(1-\\sigma(z))]",
+        "explanation": "Equation (9): y=1 labels an executable segment; y=0 labels a failure-inducing segment. z is the verifier logit.",
+        "evidenceIds": [
+          "e-training"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboTwin random setting: all 50 tasks",
+      "setting": "Online rollouts; 100 executions per task. Random backgrounds, clutter, height, and lighting. Base-Motus trains/executes 16 actions; LC variants train 64 and execute the indicated prefix.",
+      "metric": "Success rate (%); average completion time (s); average WAM inference calls",
+      "value": "FFDC-WAM: 88.20%; 16.1 s; 1.69 calls.",
+      "comparison": "Base-Motus: 85.66%; 24.4 s; 5.47 calls. LC-64: 87.26%; 13.6 s; 1.56 calls.",
+      "interpretation": "The Base-Motus comparison gives +2.54 percentage points, 34.02% less time, and 69.10% fewer calls. LC-64 is faster with slightly lower success. The Base comparison changes backbone training horizon as well as execution.",
+      "evidenceIds": [
+        "e-setup",
+        "e-protocol",
+        "e-simulation"
+      ]
+    },
+    {
+      "task": "RoboTwin hard subsets and clean aggregate",
+      "setting": "The paper selects five hard tasks using Base-Motus performance; Table 1 separates random and clean settings.",
+      "metric": "Success rate (%)",
+      "value": "FFDC: random hard 76.40; clean hard 76.00; clean all-task average 88.90.",
+      "comparison": "Base-Motus: 54.20, 57.80, 87.66. LC-64: 73.00, 74.60, 88.46, respectively.",
+      "interpretation": "Gains concentrate on the hard subset; they are not universal task improvements. Clean HandBlock falls from 87% with Base-Motus to 60% with FFDC in Table 6.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-simulation",
+        "e-appendix-easy"
+      ]
+    },
+    {
+      "task": "Astribot S1 banana/carrot pick-and-place",
+      "setting": "Two physical tasks on a 25-DoF robot; real-world trial counts are not reported.",
+      "metric": "Success rate (%); average completion time (s); average WAM inference calls",
+      "value": "FFDC: banana 80%, carrot 80%; average 80%, 28.1 s, 16 calls.",
+      "comparison": "LC-16: banana 50%, carrot 40%; average 45%, 25.6 s, 14 calls.",
+      "interpretation": "The average improvement is 35 percentage points, accompanied by more time and calls. The paper’s “35%” wording is an absolute rate difference; no uncertainty intervals are supplied.",
+      "evidenceIds": [
+        "e-setup",
+        "e-real"
+      ]
+    },
+    {
+      "task": "FFDC input ablation on five hard RoboTwin tasks",
+      "setting": "One input removed at a time. Section 4.3 does not name the environment setting; the full-model task rows match Table 4’s random rows.",
+      "metric": "Average success rate (%)",
+      "value": "Full model 76.4; without predicted visuals 71.6; real observations 72.4; actions 73.4; language 74.8.",
+      "comparison": "Removing predicted visuals produces the largest mean drop: 4.8 percentage points.",
+      "interpretation": "All four inputs contribute under this protocol. This does not isolate the causal mask, caching, or horizon-training strategy; no repeated-seed uncertainty is reported.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-appendix-hard"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors acknowledge incomplete coverage of real-world deviations by binary supervision, untested verifier scale/capability tradeoffs, and the need to study threshold sensitivity.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-limitations"
+      ]
+    },
+    {
+      "text": "Table 1 prints LC-16 random-easy time as 51.4 s, repeated in Table 5, but random overall time as 22.0 s despite random-hard time of 29.4 s. These cannot form an ordinary weighted average. Figure 1(c) labels its x-axis inference calls while its caption calls it completion time. Neither discrepancy is silently corrected.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-timing-discrepancy",
+        "e-overview-discrepancy"
+      ]
+    },
+    {
+      "text": "Only two physical tasks are evaluated. Missing trial counts, confidence intervals, and a definition of time averaging over successes versus failures limit robustness and efficiency conclusions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-setup",
+        "e-real",
+        "e-simulation"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "The reported implementation uses PyTorch, four 80-GB A100s for backbone training, one A100 for verifier training, and one A100 for evaluation. Reproduction requires the Motus configuration, aligned video/action demonstrations, and executable RoboTwin and robot interfaces. PyTorch version, dataset sizes/splits, training duration, and detailed hyperparameters are absent.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-setup",
+        "e-training",
+        "e-verifier"
+      ]
+    },
+    {
+      "text": "Proposed checks: hold the 64-action backbone fixed while testing aligned versus mismatched predicted visuals at matched inference budgets; then sweep the verification threshold against fixed-prefix controls and measure both success and end-to-end latency. These are follow-ups, not completed reproductions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-protocol",
+        "e-ablation",
+        "e-limitations"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Memory & long-horizon modeling",
+        "Efficient inference & real-time control",
+        "Policy post-training & WM-RL"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "6d2eea9e1947797389ce0d67e87d49622a0d5eb4f3f4840df8ea140766a84cc1"
+    },
+    "reasoning": {
+      "text": "“Other mechanisms,” “Not applicable,” and “Outside quadrants” fit the new contribution: an execution verifier attached to a joint video/action WAM. It neither extracts actions by inverse dynamics nor establishes a new One Model architecture. Efficient inference and long-horizon execution are directly supported; “Policy post-training & WM-RL” is only partly supported by supervised verifier training, with no RL objective shown.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-backbone",
+        "e-verifier",
+        "e-training"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does temporally aligned future vision remain useful after matching verifier capacity and WAM-call budgets?",
+    "How does a threshold calibrated on synthetic corruptions behave on previously unseen physical failure modes?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and arXiv margin",
+      "detail": "Exact title and seven authors verified; arXiv:2605.06222v2 [cs.RO], 9 May 2026, Preprint. Affiliations include Southern University of Science and Technology, The University of Hong Kong, and Astribot."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–4, Sections 1–3.1",
+      "detail": "Fixed chunks trade unnecessary inference against prolonged unreliable execution; WAM-predicted future observations motivate adaptive verification."
+    },
+    {
+      "id": "e-backbone",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Eqs. (1)–(3)",
+      "detail": "Motus jointly predicts action and latent visual sequences from observation and instruction; training sums action and video flow-matching losses."
+    },
+    {
+      "id": "e-verifier",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Eq. (4), Figure 2, Section 3.2 and Eq. (5)",
+      "detail": "Continue for e_t≥0.5, replan below. Verifier inputs include semantics, predicted past/future visual tokens, real observation, actions, and CLS. Figure marks video encoder and VLM with snowflakes. Text caches L as well as predicted actions/visuals; figure cache label omits L."
+    },
+    {
+      "id": "e-attention",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.2, mask definition and Eqs. (6)–(7)",
+      "detail": "N-layer Transformer uses temporal visibility plus local windows; CLS aggregation, MLP and sigmoid score remaining-action validity. Predicted tokens are cached; latest real observation is encoded at checks."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.3, Eqs. (8)–(9)",
+      "detail": "Uniform conditioning starts and terminal repetition construct sequences. Positive demonstrations/successful rollouts and failed/corrupted negatives train binary cross-entropy. Four corruption operators are described without numeric settings or sample counts."
+    },
+    {
+      "id": "e-setup",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1",
+      "detail": "PyTorch and Motus; backbone trained on four 80-GB A100s, verifier on one A100, evaluations on one A100. RoboTwin has 50 tasks, 100 runs per task; random setting adds four perturbation types. Physical tests use 25-DoF Astribot S1 on two tasks."
+    },
+    {
+      "id": "e-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.2, first two paragraphs",
+      "detail": "Base-Motus trains/tests horizon 16; LC-16/32/48/64 train horizon 64 and execute prefixes. Five named hard tasks are selected relative to Base-Motus success; aggregates separate hard/easy and clean/random."
+    },
+    {
+      "id": "e-simulation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1, random/clean average and hard rows; PDF p. 7, Section 4.2",
+      "detail": "Random averages: Base 85.66%, 24.4 s, 5.47 calls; FFDC 88.20%, 16.1 s, 1.69; LC-64 87.26%, 13.6 s, 1.56. FFDC hard success is 76.40% random, 76.00% clean. Clean average FFDC 88.90%, Base 87.66%, LC-64 88.46%."
+    },
+    {
+      "id": "e-rollouts",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 3 and caption; PDF p. 8, Section 4.2, first two paragraphs",
+      "detail": "Illustrated Move can pot rollout uses one FFDC WAM inference versus three Base calls. Hanging mug shows FFDC chunks of 64, 32, and 6 steps with a low-score replan; the unverified long rollout fails."
+    },
+    {
+      "id": "e-real",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Real-world experiments and Figure 4; PDF p. 9, Table 2",
+      "detail": "Banana: LC-16 50%, 25.6 s, 14 calls; FFDC 80%, 26.7 s, 15. Carrot: 40%, 25.6 s, 14 versus 80%, 29.5 s, 17. Average: 45%, 25.6 s, 14 versus 80%, 28.1 s, 16; trial counts absent."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.3 and Table 3, Average and ScanObj rows",
+      "detail": "Average success: full 76.4%, no language 74.8%, no predicted visuals 71.6%, no real observation 72.4%, no actions 73.4%. Full average time 20.5 s and calls 2.34. ScanObj no-language 88% exceeds full 84%."
+    },
+    {
+      "id": "e-limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 10, conclusion continuation; PDF p. 12, Appendix A.1",
+      "detail": "Authors identify incomplete failure-mode coverage, unstudied parameter-scale tradeoff, and fixed 0.5 threshold sensitivity as limitations."
+    },
+    {
+      "id": "e-appendix-hard",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix A.2, Table 4, five random task rows",
+      "detail": "FFDC random hard success rates 93, 44, 88, 73, 84 match Table 3. The appendix reports both clean and random hard-task outcomes."
+    },
+    {
+      "id": "e-appendix-easy",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Tables 5–6, HandBlock and Average rows",
+      "detail": "Appendix contains random/clean easy-task breakdowns. Clean HandBlock success is Base 87%, FFDC 60%; clean easy averages are 90.98% and 90.33%."
+    },
+    {
+      "id": "e-timing-discrepancy",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1, LC-16 T(s) column; PDF p. 13, Table 5, LC-16 Average and later task rows",
+      "detail": "LC-16 random-easy 51.4 s and random-hard 29.4 s conflict with random-average 22.0 s. Table 5 repeats 51.4 s and contains many identical LC-16 success/time entries. Corrected values are not supplied."
+    },
+    {
+      "id": "e-overview-discrepancy",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 1(c), x-axis and caption",
+      "detail": "The x-axis reads WAM inference calls, whereas the caption describes task completion time. Quantitative conclusions in this report use the original tables instead of the scatter plot."
+    }
+  ]
+}
