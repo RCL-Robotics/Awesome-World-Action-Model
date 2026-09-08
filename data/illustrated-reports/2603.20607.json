@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.20607",
+  "shortTitle": "VLA-MBPO",
+  "thesis": "VLA-MBPO improves a separate robot policy with short, multiview imagined rollouts, trading fewer environment interactions for world-model compute and residual prediction bias.",
+  "standfirst": "A robot policy cannot benefit from imagined experience unless the images and rewards remain useful for control. VLA-MBPO tackles that requirement in two places. A pretrained unified multimodal model predicts the next head view, conditions wrist predictions on it, and supplies a success signal. A separate VLA then learns through short branches starting from recorded observations, with a critic estimating what lies beyond each branch. The strongest evidence combines LIBERO policy gains, a rollout-length ablation and physical-robot execution. The reading below follows that chain while keeping model fidelity, task success and the limits of the implementation description distinct.",
+  "evidenceIds": [
+    "e02",
+    "e03",
+    "e04",
+    "e05",
+    "e08",
+    "e10",
+    "e13",
+    "e14"
+  ],
+  "visuals": [
+    {
+      "id": "framework",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 2,
+      "width": 1336,
+      "height": 559,
+      "crop": [
+        0.094,
+        0.084,
+        0.88,
+        0.338
+      ],
+      "alt": "Three-panel diagram: a unified model generates head and wrist observations and a reward answer; short imagined branches feed PPO training of a separate VLA; task photographs appear at right.",
+      "caption": "One model supplies imagined observations and rewards; a separate VLA learns from short branches.",
+      "readingGuide": "Start in panel A with the current camera images and integer action tokens beneath the unified model. The first generated image supplies context for the wrist-view outputs, following the head-to-wrist direction in Eq. (3). The final text question elicits a success answer. In panel B, gray recorded observations provide branch points, while blue squares mark short imagined continuations. Those samples enter an imagined buffer and then Flow-Noise PPO. The return arrow labeled Model Weights summarizes iteration: Algorithm 1 explicitly updates the VLA policy and value head inside the RL loop, after fitting the world model. Panel C provides task examples rather than additional model components.",
+      "takeaway": "The method separates two jobs: generate useful training experience and learn a controller from it. Its unified component combines visual dynamics with reward prediction, while the VLA remains a distinct policy. Short branches let learning revisit intermediate recorded states without asking the world model to simulate every step of an entire task.",
+      "caution": "The diagram alone does not resolve reward aggregation. Section 3 defines a discounted within-chunk reward, whereas Appendix D supplies a binary success prompt and describes a pretrained VLM. The exact implementation connecting these descriptions remains unspecified.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e17"
+      ],
+      "asset": "report-assets/2603.20607/framework.png",
+      "sourceSha256": "52f8b7560bc7e9de4f7c1de4ec4379e9e1eba3bd3aa671999cde4cf0615d59d4",
+      "sourceUrl": "https://arxiv.org/pdf/2603.20607#page=2"
+    },
+    {
+      "id": "world-model-evaluation",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 7,
+      "width": 1298,
+      "height": 330,
+      "crop": [
+        0.105,
+        0.105,
+        0.868,
+        0.255
+      ],
+      "alt": "World-model table comparing head and wrist image metrics, inference time, reward accuracy and F1 for Ctrl-World, Qwen3-VL-8B, UMM-World and two ablations.",
+      "caption": "Interleaving particularly helps wrist-image fidelity, while reward accuracy and F1 tell different stories.",
+      "readingGuide": "Read the two image-metric groups separately: lower LPIPS and higher PSNR/SSIM are preferred for both head and wrist views. The reward columns assess task-success prediction, not image quality. Ctrl-World has no reward entries, and Qwen3-VL has no dynamics entries, so dashes are missing capabilities in this comparison rather than zero scores. Compare UMM-World with the row directly below it to isolate removal of interleaved view decoding, then with the last row for removal of pretrained initialization. These results use LIBERO-Object: 50 training trajectories per task and 10 held-out trajectories per task, evaluated over 40-step rollouts across 10 tasks.",
+      "takeaway": "Wrist LPIPS improves from 0.454 without IVD to 0.254 with it, while reward F1 rises from 0.799 to 0.861. The full model also improves head/wrist LPIPS over Ctrl-World's 0.150/0.435. However, ACC is slightly higher without IVD, 98.5 versus 98.4; the evidence does not support improvement on every reward metric.",
+      "caution": "The inference-time column gives 21, 10 and 8 without a unit or a complete timing protocol. The table reports no uncertainty, explicit cross-view geometry metric or downstream policy ablation for IVD; image-quality gains alone do not establish executed-control gains.",
+      "evidenceIds": [
+        "e07",
+        "e08"
+      ],
+      "asset": "report-assets/2603.20607/world-model-evaluation.png",
+      "sourceSha256": "52f8b7560bc7e9de4f7c1de4ec4379e9e1eba3bd3aa671999cde4cf0615d59d4",
+      "sourceUrl": "https://arxiv.org/pdf/2603.20607#page=7"
+    },
+    {
+      "id": "libero-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 8,
+      "width": 1043,
+      "height": 551,
+      "crop": [
+        0.279,
+        0.111,
+        0.688,
+        0.278
+      ],
+      "alt": "LIBERO success table with Spatial, Object, Goal, Long and average columns; VLA-MBPO leads all columns. The printed Goal delta and VLA-MBPO average are inconsistent with arithmetic on the displayed scores.",
+      "caption": "The largest gain over the initial policy appears on LIBERO-Long.",
+      "readingGuide": "The One-Trajectory SFT line describes initialization, not the full RL data budget. Section 5.2 collects 50 episodes per task and evaluates 50 episodes per task over 10 tasks in each suite. Compare methods vertically within each suite. The blue delta row reports percentage-point gains over SFT, but Goal prints +6.8 although 92.8 minus 85.8 equals 7.0. Likewise, the four displayed VLA-MBPO suite scores average 86.0%, not the printed Avg of 85.9%. The source does not reconcile these inconsistencies; retain its reported values while flagging the arithmetic. BC(WM) imitates successful generated trajectories, IDQL is offline model-free RL, and piRL is online RL under a stated equivalent interaction budget. That budget does not establish compute equivalence.",
+      "takeaway": "Table 2 reports 85.9% average success for VLA-MBPO, versus 76.8% for SFT and 82.6% for piRL; its printed average is retained with the discrepancy above disclosed. Long scores are 66.8%, 54.6% and 61.2%, respectively, giving a consistent 12.2-point gain over SFT. BC(WM)'s 48.6% on Long shows that imitating successful generated trajectories does not reproduce the reported RL improvement.",
+      "caution": "The Goal delta and VLA-MBPO average remain unresolved source inconsistencies. No confidence intervals or seed variation accompany the table. Appendix D increases Long's sample and update budgets, qualifying the shared-hyperparameter claim. These are simulated results; physical execution is evaluated separately in Figure 5.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e19"
+      ],
+      "asset": "report-assets/2603.20607/libero-results.png",
+      "sourceSha256": "52f8b7560bc7e9de4f7c1de4ec4379e9e1eba3bd3aa671999cde4cf0615d59d4",
+      "sourceUrl": "https://arxiv.org/pdf/2603.20607#page=8"
+    },
+    {
+      "id": "physical-robot-results",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 5",
+      "page": 9,
+      "width": 938,
+      "height": 547,
+      "crop": [
+        0.213,
+        0.353,
+        0.765,
+        0.602
+      ],
+      "alt": "Grouped success-rate bars for Plug In, Fold Towel, Insert Pen, Pick Cup and Wipe Board; VLA-MBPO is above SFT and IDQL in all five groups.",
+      "caption": "Physical execution improves across five tasks, with seen and unseen conditions pooled.",
+      "readingGuide": "Use the legend to compare the yellow SFT bar, light green IDQL bar and dark green VLA-MBPO bar within each task group. Plug In and Fold Towel use the Arx-X5 bimanual platform; Insert Pen, Pick Cup and Wipe Board use Galaxy-R1. Each task is evaluated over 50 trials, comprising 30 seen and 20 unseen conditions. Appendix C specifies 50 plug, 60 towel and 100 per Galaxy-task expert demonstrations, plus 50 autonomous trajectories per task for RL data collection. The plot's Plug In label corresponds to the task called Plug Cable in the main experimental description.",
+      "takeaway": "The dark green bar is highest in all five groups, demonstrating improvement in actual robot task completion under the reported protocol. For Wipe Board, the axis suggests approximately 58% success for VLA-MBPO, compared with approximately 36% for IDQL and 28% for SFT. These are readings of unlabeled bars rather than tabulated exact values.",
+      "caution": "Figure 5 provides aggregate bars without separate seen/unseen scores or error bars. It therefore supports overall improvement but cannot quantify unseen-condition generalization independently. The main text's approximate Arx data counts should be read alongside the more specific appendix counts.",
+      "evidenceIds": [
+        "e12",
+        "e13"
+      ],
+      "asset": "report-assets/2603.20607/physical-robot-results.png",
+      "sourceSha256": "52f8b7560bc7e9de4f7c1de4ec4379e9e1eba3bd3aa671999cde4cf0615d59d4",
+      "sourceUrl": "https://arxiv.org/pdf/2603.20607#page=9"
+    },
+    {
+      "id": "rollout-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 9,
+      "width": 997,
+      "height": 301,
+      "crop": [
+        0.288,
+        0.831,
+        0.679,
+        0.922
+      ],
+      "alt": "LIBERO-Long ablation table: success rates 63.9, 66.8 and 62.9 for one-, two- and four-chunk branched rollouts, and 52.8 for full horizon.",
+      "caption": "Two chunks give the best reported tradeoff between short-branch learning and model error.",
+      "readingGuide": "The numbers 1, 2 and 4 count world-model rollout chunks, not individual robot controls. Table 5 uses 10 actions per chunk, so a two-chunk branch spans 20 controls while requiring two chunk-level transitions. All entries concern LIBERO-Long. Read the branched columns first to see the nonmonotonic dependence on horizon, then compare them with Full Horizon. Section 5.4 interprets very short branches as limiting exploration and trajectory stitching, while longer branches accumulate unreliable predictions. The value bootstrap in Eq. (4) matters here: shortening a branch moves more of the return estimate into the learned critic rather than eliminating the remaining task.",
+      "takeaway": "Two chunks reach 66.8% success, exceeding one chunk's 63.9%, four chunks' 62.9% and full horizon's 52.8%. The 14.0-point advantage over full horizon is consistent with the motivation for branching. The result does not say that the shortest possible rollout is always best, even on the same benchmark suite.",
+      "caution": "The table does not separately report critic error, reward error, model error or compute-matched rollout budgets. Its pattern supports the proposed tradeoff, but the authors' causal explanation and value-gap analysis are not directly measured by these success rates.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e14",
+        "e19"
+      ],
+      "asset": "report-assets/2603.20607/rollout-ablation.png",
+      "sourceSha256": "52f8b7560bc7e9de4f7c1de4ec4379e9e1eba3bd3aa671999cde4cf0615d59d4",
+      "sourceUrl": "https://arxiv.org/pdf/2603.20607#page=9"
+    },
+    {
+      "id": "motion-failures",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 14",
+      "page": 27,
+      "width": 1178,
+      "height": 308,
+      "crop": [
+        0.135,
+        0.187,
+        0.828,
+        0.327
+      ],
+      "alt": "Two qualitative failure examples: Wipe Board arm motion at left and towel manipulation at right, comparing orange-bordered reference frames with blue-bordered model predictions.",
+      "caption": "Endpoint prediction can miss large movements and produce implausible deformation.",
+      "readingGuide": "In each example, begin with the image labeled Initial Obs, then compare the orange-bordered reference continuation above with the blue-bordered UMM-World continuation below. The left sequence concerns Wipe Board: focus on the arm configuration and how little it changes between generated future frames. The right sequence concerns Fold Towel: compare towel shape and its relationship to the grippers. Appendix E.2 attributes these errors to difficulty spanning large physical displacement and substantial nonrigid state changes in a single prediction. The figure is a qualitative diagnostic of model behavior, separate from the aggregate executed-policy successes reported earlier.",
+      "takeaway": "A short imagined branch can still contain a consequential wrong transition. The authors document motion collapse and physically implausible towel configurations, showing the limits of direct chunk-end prediction. These examples qualify the method's practical gains: reducing the number of generated transitions reduces opportunities for error accumulation but does not make each prediction reliable.",
+      "caution": "The caption names large prediction horizon, while the accompanying discussion emphasizes movement magnitude and deformation. This is not a controlled horizon sweep at fixed scene and action conditions. The selected examples provide no failure frequency or quantitative link to policy success.",
+      "evidenceIds": [
+        "e04",
+        "e21"
+      ],
+      "asset": "report-assets/2603.20607/motion-failures.png",
+      "sourceSha256": "52f8b7560bc7e9de4f7c1de4ec4379e9e1eba3bd3aa671999cde4cf0615d59d4",
+      "sourceUrl": "https://arxiv.org/pdf/2603.20607#page=27"
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Make the imagined observation match the policy's interface",
+      "text": "The VLA expects camera images and language, so a low-dimensional imagined state would not directly replace its observations. Section 3.1 adapts Bagel to generate images after receiving a discretized sequence of controls. The first prediction is the future head view. Eq. (3) then conditions a future wrist view on that predicted head view and its own current wrist view, without a direct action argument. Figure 10's wrist-generation rows mask the action columns and expose the corresponding current wrist and clean predicted head features. This is an information-flow choice, not an explicit reconstruction of 3D geometry. Appendix D distinguishes ViT semantic features from VAE image features; its mask caption uses t for diffusion noise time, whereas Eq. (3) uses t for environment time. Keeping these two meanings separate prevents a misleading temporal reading of the mask.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e17",
+        "e18"
+      ]
+    },
+    {
+      "heading": "Use a critic to connect short imagined segments",
+      "text": "After data collection and world-model fitting, Algorithm 1 repeatedly samples recorded start observations and creates short imagined branches. Eq. (4) combines rewards within an action chunk with a discounted value prediction at its endpoint. Reader interpretation: the critic carries the burden of estimating consequences beyond the branch, so short rollouts exchange some dynamics-model exposure for dependence on value accuracy. Figure 3 shows selected value estimates moving toward full-trajectory returns, which the authors interpret as stitching across chunks. Theorem 4.2 motivates a tradeoff between policy divergence and chunk-model error as branch length changes; it does not establish the accuracy of a learned success detector. The implementation description also leaves open how the binary endpoint prompt supplies the formal discounted reward sum. A reproduction must settle that mapping before treating the displayed residual as executable pseudocode.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06",
+        "e11",
+        "e17"
+      ]
+    },
+    {
+      "heading": "Test the entire chain from image quality to execution",
+      "text": "Table 1 supports the world-model component: interleaving improves wrist LPIPS and reward F1, although reward accuracy moves slightly in the opposite direction. Table 2 then asks a different question—whether policy optimization improves simulated task completion—and Table 3 shows that a two-chunk branch works better than the tested shorter, longer and full-horizon alternatives. Figure 5 supplies the physical execution test, but merges seen and unseen conditions. Reader interpretation: together these results make a stronger case than image examples alone, while leaving the mediation from improved cross-view fidelity to improved control unisolated. Figure 6 also increases imagined sample count without a compute-matched control. Appendix F reports eight H100 GPUs and hours of model and policy training, so interaction efficiency should be assessed alongside computational cost and the failure examples in Appendix E.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e10",
+        "e13",
+        "e14",
+        "e15",
+        "e21",
+        "e22"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does interleaved decoding improve control at matched budgets?",
+      "text": "Reader-proposed, not run: train pretrained UMM-World with and without IVD on the same LIBERO-Object trajectories, preserving initialization, action encoding and loss settings. Evaluate the same 100 held-out trajectories over 40 steps, measuring per-view LPIPS, reward F1 and an explicitly annotated rate of contradictory gripper/object configurations across views. Then finetune identical VLA initializations with two-chunk branches and equal generated-sample and optimizer-update budgets; evaluate 50 episodes per task. Report generation wall time separately because IVD changes decoding cost. If image metrics improve but policy success does not across repeated seeds, the claimed downstream benefit of view consistency is weakened even though Table 1's perceptual gain is reproduced.",
+      "evidenceIds": [
+        "e04",
+        "e07",
+        "e08",
+        "e09",
+        "e17",
+        "e19"
+      ]
+    },
+    {
+      "title": "Separate rollout error from reward and bootstrap error",
+      "text": "Reader-proposed, not run: on LIBERO-Long, record simulator states alongside the offline images to permit paired simulator and world-model continuations. Hold the fitted model, initial VLA, chunk size and optimization settings fixed; compare one-, two- and four-chunk branches while matching total generated transitions and policy updates. First document how success labels become the discounted chunk reward. For identical action sequences, measure endpoint image error, disagreement between predicted and simulator reward sums, and critic error against longer simulator returns. Repeat policy evaluation across seeds. If longer branches lose success without increasing measured model/reward error, or if the ranking disappears after matching budgets, compounding error alone is insufficient to explain Table 3.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e09",
+        "e14",
+        "e17",
+        "e19"
+      ]
+    }
+  ],
+  "featuredResultTask": "LIBERO policy success",
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      16,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27
+    ],
+    "notes": "Visually inspected the title/author/version page; all Figures 1–14 and Tables 1–5; Algorithm 1; claim-relevant equations; and the appendix pages supporting hardware, data, prompts, configurations, failure analysis and compute. All six final original crops were separately viewed. Table 2's Goal delta and VLA-MBPO average were checked against the displayed scores; both unresolved arithmetic inconsistencies are disclosed while preserving the printed values. Figure 1's generation direction was checked against Eq. (3) and Figure 10's mask; the mask caption's noise timestep was distinguished from environment time. Figure 14's horizon wording was qualified against the accompanying motion/deformation discussion. All seven text chunks were read, including references and complete Appendices A–F; this visual pass is not independent certification of every proof line. No supplemental material, code or experiments were inspected beyond the supplied PDF."
+  }
+}

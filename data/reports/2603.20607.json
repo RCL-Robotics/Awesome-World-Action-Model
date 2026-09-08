@@ -1,0 +1,458 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.20607",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T21:38:07.654Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2603.20607",
+      "title": "Towards Practical World Model-based Reinforcement Learning for Vision-Language-Action Models",
+      "kind": "pdf",
+      "sha256": "52f8b7560bc7e9de4f7c1de4ec4379e9e1eba3bd3aa671999cde4cf0615d59d4",
+      "wordCount": 11661,
+      "accessedAt": "2026-09-07T14:08:57.142465+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract and Sections 1–2: motivation, language-conditioned MDP and PPO",
+      "Sections 3.1–3.3: action-conditioned world model, interleaved decoding, branched rollout and policy optimization",
+      "Section 4: both value-gap theorems",
+      "Sections 5.1–5.4: model evaluation, simulation, physical tasks and ablations",
+      "Sections 6–7, limitations, impact statement and references",
+      "Appendices A–B: lemmas and proofs",
+      "Appendix C: robot hardware, task assets and evaluation protocols",
+      "Appendix D: prompts, attention mask and hyperparameters",
+      "Appendices E–F: visual examples, failure analysis and computational resources"
+    ],
+    "omissions": [
+      "Identity/version note: reviewed arXiv:2603.20607v1 [cs.RO], dated 21 March 2026, with a March 24, 2026 preprint footer. Title and the catalog author string match; the supplied BibTeX reverses Haoxin Lin and Zhichao Wu. The catalog venue says ICML 2026 while its BibTeX says ICLR Workshop; neither venue attribution is established by this preprint. No other revision was supplied or compared.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "The extraction limitation above was addressed by inspecting all 14 figures, all five tables and claim-relevant equation pages in the supplied PDF. All seven supplied text chunks were individually read, including references and appendices. Reading the proofs does not constitute independent mathematical certification.",
+      "Separate supplemental material availability has not been fully verified.",
+      "No code, checkpoints or external resources were inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2): framework",
+      "Figure 2 (p. 3): frame skipping",
+      "Figures 3–4 (p. 8): value learning and predicted observations",
+      "Figure 5 (p. 9): physical-robot success",
+      "Figure 6 (p. 10): generated sample size",
+      "Figure 7 (p. 20): robot platforms",
+      "Figure 8 (p. 21): seen/unseen objects",
+      "Figure 9 (p. 22): physical task sequences",
+      "Figure 10 (p. 24): causal attention mask",
+      "Figure 11 (p. 25): predictions across tasks",
+      "Figures 12–13 (p. 26): consistency examples and partial-observability failures",
+      "Figure 14 (p. 27): motion/deformation failures"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 7): world-model evaluation",
+      "Table 2 (p. 8): LIBERO success",
+      "Table 3 (p. 9): rollout ablation",
+      "Table 4 (p. 23): world-model hyperparameters",
+      "Table 5 (p. 25): RL hyperparameters"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "VLA-MBPO finetunes a separate vision-language-action policy using short imagined rollouts from a Bagel-based dynamics/reward model. Its central choices are action-chunk prediction, head-to-wrist conditional generation and branching from recorded observations. Table 2 reports LIBERO average success rising from 76.8% to 85.9%, with arithmetic discrepancies detailed below; physical-task gains accompany substantial compute costs and unresolved implementation details.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Pixel-input VLAs need imagined observations usable by their visual encoder and rewards accurate enough for policy learning. Independent camera predictions can disagree, while long model rollouts accumulate errors that can reverse sparse success signals. The paper seeks better use of a fixed interaction dataset when collecting additional robot experience is costly.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e04"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Adapt a pretrained unified multimodal model to action-conditioned dynamics and reward prediction, retaining its vocabulary; impose head-to-wrist information flow through interleaved decoding.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04"
+      ]
+    },
+    {
+      "text": "Combine chunk-level world modeling, short branches from offline observations and Flow-Noise PPO. The authors support this design with value-gap bounds, model-quality tests and executed-policy evaluations.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e08",
+        "e10",
+        "e13"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current head and wrist images; task instruction",
+      "Low-level action chunks discretized into integer text tokens for the world model",
+      "Recorded trajectories from the initial policy, plus expert data as specified for physical tasks"
+    ],
+    "outputs": [
+      "Predicted chunk-end camera observations and a learned reward/success signal",
+      "An RL-finetuned VLA policy producing low-level action chunks"
+    ],
+    "steps": [
+      {
+        "name": "Collect and fit",
+        "detail": "Collect trajectories with the initial VLA, then finetune Bagel as UMM-World. Continuous controls become a k-by-d token sequence: k actions, each with d dimensions. The source gives [0,256] as an example discretization range; it does not specify a complete normalization recipe.",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e17"
+        ]
+      },
+      {
+        "name": "Predict a consistent next observation",
+        "detail": "Generate the future head view from both current views and the action sequence. Generate each future wrist view using its current view and the predicted head view. The world model skips intermediate video frames; the robot still executes the underlying controls.",
+        "evidenceIds": [
+          "e04",
+          "e03"
+        ]
+      },
+      {
+        "name": "Branch and improve the policy",
+        "detail": "Sample start observations from the offline buffer, generate short action-chunk trajectories, and update the VLA and its appended MLP value head using Flow-Noise PPO. Algorithm 1 fits the world model before this loop and lists no world-model update inside it.",
+        "evidenceIds": [
+          "e03",
+          "e05"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "World-model settings include learning rate 2e-5 and cross-entropy/MSE weights 0.01/1.0. RL uses action chunks of 10, two rollout chunks, three denoising steps, gamma 0.99 and lambda 0.95. Actor/critic learning rates are 5e-6/1e-4. Contrary to the blanket shared-hyperparameter claim, Long uses 1280 samples and 50 updates-to-data versus 512 and 20 elsewhere.",
+        "kind": "source",
+        "evidenceIds": [
+          "e17",
+          "e19",
+          "e05"
+        ]
+      },
+      {
+        "text": "Flow-Noise forms the PPO likelihood from the action-denoising chain. Conservative model-bias penalties, rejection sampling and extra Q models are omitted; the authors attribute this simplification to world-model accuracy.",
+        "kind": "author-claim",
+        "evidenceIds": [
+          "e05"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "During imagined training, the policy proposes controls, UMM-World predicts their observation consequences and reward, and the critic supplies a bootstrap beyond the short branch. In physical evaluation the finetuned policy acts from observed images and language; the described algorithm does not introduce inference-time world-model search.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e05",
+          "e12"
+        ]
+      },
+      {
+        "text": "The visual states provide feedback between action chunks. Cross-view agreement can improve the input the policy receives without guaranteeing correct physical dynamics or successful execution.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e04",
+          "e08",
+          "e21"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\begin{aligned}s^h_{t+k}&\\sim T_\\theta(\\cdot\\mid s^h_t,s^w_t,a_{t:t+k-1})\\\\s^w_{t+k}&\\sim T_\\theta(\\cdot\\mid s^w_t,s^h_{t+k})\\end{aligned}",
+        "explanation": "Eq. (3): h and w denote head and wrist observations, t is environment time, k is chunk size, a is the control sequence, and T_theta is the learned transition model. Wrist generation has no direct action argument here; the inspected training mask is consistent with this restriction.",
+        "evidenceIds": [
+          "e04",
+          "e18"
+        ]
+      },
+      {
+        "expression": "\\mathcal{T}_t^V=\\sum_{j=1}^{k}\\gamma^{j-1}r(s_{t+j},l)+\\gamma^k V_\\phi(s_{t+k},l)-V_\\phi(s_t,l)",
+        "explanation": "Eq. (4), residual only: r is the per-step task reward, l the instruction, gamma the discount, and V_phi the learned value. The bootstrap carries consequences beyond the branch. The source does not clearly reconcile this within-chunk reward sum with its binary endpoint prompt.",
+        "evidenceIds": [
+          "e05",
+          "e17"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO policy success",
+      "setting": "Four suites, 10 tasks each; 50 offline episodes and 50 evaluation episodes per task; one-trajectory SFT initialization.",
+      "metric": "Average success rate (%)",
+      "value": "Reported Avg 85.9; displayed suite scores: Spatial 87.8, Object 96.6, Goal 92.8, Long 66.8.",
+      "comparison": "Average: SFT 76.8, piRL 82.6, IDQL 77.5, BC(WM) 76.0. Long: SFT 54.6; piRL 61.2.",
+      "interpretation": "The printed Avg entries imply a 9.1-percentage-point gain over SFT; Long gains 12.2 points. Table 2 has two unresolved inconsistencies: Goal's printed delta is +6.8, although 92.8 minus 85.8 equals 7.0 points; the four displayed VLA-MBPO suite scores average 86.0%, whereas Avg prints 85.9%. These reported values are preserved without silently correcting the source. Equivalent interaction budgets do not establish equal total training compute; no uncertainty is supplied.",
+      "evidenceIds": [
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "LIBERO-Object world-model prediction",
+      "setting": "50 training and 10 held-out trajectories per task over 10 tasks; 40-step test rollouts.",
+      "metric": "Head/wrist LPIPS (lower); reward F1 (higher)",
+      "value": "LPIPS 0.094/0.254; F1 0.861.",
+      "comparison": "Ctrl-World LPIPS 0.150/0.435; Qwen3-VL-8B F1 0.841. Without IVD: wrist LPIPS 0.454, F1 0.799; without pretraining: 0.579, 0.496.",
+      "interpretation": "IVD supports image fidelity and F1, but reward ACC slightly increases when IVD is removed (98.4 to 98.5). These metrics measure model predictions, not robot success.",
+      "evidenceIds": [
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "task": "LIBERO-Long rollout-length ablation",
+      "setting": "Same suite; one-, two-, four-chunk branches and full-horizon model rollouts.",
+      "metric": "Success rate (%)",
+      "value": "Two chunks: 66.8.",
+      "comparison": "One: 63.9; four: 62.9; full horizon: 52.8.",
+      "interpretation": "Two chunks outperform full horizon by 14.0 percentage points. This supports the rollout tradeoff but does not separately measure prediction error or bootstrap bias.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Physical Wipe Board execution",
+      "setting": "Galaxy-R1; 50 trials combining 30 seen and 20 unseen conditions; 100 expert and 50 autonomous training trajectories.",
+      "metric": "Success rate (%), approximate axis readings",
+      "value": "Approximately 58.",
+      "comparison": "Approximately 28 for SFT and 36 for IDQL.",
+      "interpretation": "Figure 5 also ranks VLA-MBPO highest on the other four physical tasks. Unlabeled aggregate bars cannot establish separate unseen-condition gains or statistical significance.",
+      "evidenceIds": [
+        "e12",
+        "e13"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors report high sample-generation cost and continued dependence on downstream action-labeled data. Failure examples include unobserved scene structure, large-motion collapse and implausible towel deformation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e16",
+        "e21"
+      ]
+    },
+    {
+      "text": "Theorems compare returns under bounded reward and total-variation assumptions. Their model-error quantities refer to different transition models/distributions; smaller coefficients alone do not prove a tighter realized error. Learned reward-classifier error is not separately controlled.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06"
+      ]
+    },
+    {
+      "text": "Figure 3 offers selected value-learning traces, not a controlled demonstration that stitching causes policy gains. Quantitative results provide no run-to-run uncertainty; physical results merge seen and unseen conditions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e10",
+        "e13"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Use the reported LIBERO collection/evaluation protocol and preserve the larger Long optimization budget. For physical work, Appendix C specifies 50 plug, 60 towel and 100 per Galaxy-task expert demonstrations, plus 50 autonomous trajectories each; the main text only approximates the Arx counts.",
+      "kind": "source",
+      "evidenceIds": [
+        "e09",
+        "e12",
+        "e19"
+      ]
+    },
+    {
+      "text": "The reported compute is eight NVIDIA H100 GPUs, about 7–8 hours for world-model training and 4–6 hours for policy optimization. Reproducing physical timing requires Galaxy-R1 data recorded at 10 Hz despite 100 Hz control, or Arx-X5 control at 15 Hz.",
+      "kind": "source",
+      "evidenceIds": [
+        "e20",
+        "e22"
+      ]
+    },
+    {
+      "text": "Resolve action normalization, trainable/frozen module boundaries, software versions and exact training schedules before implementation. Eq. (4) leaves its GAE residual index fixed across the sum; the reward-sum/binary-prompt mapping and the appendix wording about a pretrained VLM also need clarification against the unified-model description.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e17",
+        "e18",
+        "e19"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Dual-system / Other mechanisms / Outside quadrants classification fits a separate action policy and world model used for policy post-training. Unified dynamics/reward prediction inside UMM-World does not make the entire controller One Model. Multiview conditioning is supported, but the 3D multiview subcategory should not imply an explicit 3D state representation, geometric reconstruction loss or inverse-dynamics action extraction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e18"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Policy post-training & WM-RL",
+        "3D multiview modeling"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "54d768af38c2a97080cbf3736871b9caf895cca54931983e81f2c4361a5b9b5c"
+    }
+  },
+  "discussionQuestions": [
+    "Does interleaved decoding improve executed-policy success when generation compute is matched?",
+    "How sensitive are short-rollout gains to reward calibration and critic bootstrap error?",
+    "Do physical gains persist when seen and unseen trials are reported separately?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block, arXiv margin and preprint footer",
+      "detail": "The title and nine authors match the catalog author string. The artifact identifies arXiv:2603.20607v1, 21 March 2026, and a preprint date of March 24, 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "The paper targets expensive VLA reinforcement learning through pixel-space world modeling, cross-view consistency and shorter imagined rollouts under sparse rewards."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 1 A–C; p. 5, Algorithm 1, lines 1–9",
+      "detail": "A unified dynamics/reward model supplies imagined trajectories to a separate VLA. Data collection and world-model finetuning precede a loop that updates the policy and value function."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2 and Section 3.1; p. 4, action representation, Eq. (3) and Section 3.2",
+      "detail": "Bagel receives discretized action chunks and predicts chunk-end observations without generating intermediate frames. The head prediction conditions on current views and actions; the wrist prediction conditions on its current view and predicted head view. Rollouts branch from offline observations."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Eqs. (1)–(2); pp. 4–5, Section 3.3, Eqs. (4)–(5) and Algorithm 1",
+      "detail": "Flow-Noise PPO trains the action-chunk policy with an appended MLP value head. Eq. (4) uses discounted within-chunk rewards and a terminal value bootstrap; its printed GAE sum leaves the residual subscript fixed at t."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Theorems 4.1–4.2, Eqs. (6)–(7); p. 16, Lemma A.3; pp. 19–20, Theorem B.2 and Eq. (35)",
+      "detail": "The branched bound contains policy-divergence terms decaying with rollout length and n times the chunk-model divergence. The proof uses a bounded common reward and total-variation assumptions; it does not separately bound learned reward-classifier error."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 5.1, Benchmark and Baselines",
+      "detail": "World models train on 50 trajectories per LIBERO-Object task and are evaluated over 40 steps on 10 held-out trajectories per task, across 10 tasks. Ablations remove interleaved decoding or pretrained initialization."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, all rows and metric headers",
+      "detail": "UMM-World head/wrist LPIPS are 0.094/0.254; Ctrl-World has 0.150/0.435. Reward F1 is 0.861 versus Qwen3-VL-8B 0.841. Removing IVD gives wrist LPIPS 0.454, F1 0.799 and ACC 98.5 versus 98.4; removing pretraining gives wrist LPIPS 0.579 and F1 0.496. Inference-time entries 21, 10 and 8 have no stated unit."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5.2, Benchmark and Baselines",
+      "detail": "Each LIBERO suite contains 10 tasks, with 50 collected episodes per task from a one-shot-SFT policy and 50 evaluation episodes per task. Comparators are SFT, BC on successful model trajectories, online piRL under an equivalent interaction budget, and offline IDQL."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2, suite columns, Avg column and delta row",
+      "detail": "VLA-MBPO reports 87.8/96.6/92.8/66.8 across Spatial/Object/Goal/Long and 85.9 average. SFT average is 76.8; piRL 82.6; IDQL 77.5; BC(WM) 76.0. Long values are SFT 54.6, piRL 61.2, IDQL 52.2, BC(WM) 48.6. The printed delta row is +9.6/+8.0/+6.8/+12.2/+9.1. Reader arithmetic identifies two source inconsistencies: Goal 92.8 minus SFT 85.8 is 7.0, not the printed 6.8; the displayed VLA-MBPO suite scores average 86.0, not the printed 85.9. The supplied text does not reconcile these differences."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Generalizable Credit Assignment; p. 8, Figure 3",
+      "detail": "Selected failure/success trajectories compare ground-truth return in blue with predicted value in orange across three displayed training iterations. The authors attribute improvement to cross-chunk value stitching."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5.3, Experiment Setup; pp. 20–21, Appendix C.1, task and data protocols",
+      "detail": "Five physical tasks use Arx-X5 and Galaxy-R1; each evaluation has 30 seen and 20 unseen trials. Appendix C specifies 50 plug, 60 towel, and 100 per Galaxy task expert trajectories, plus 50 autonomous trajectories per task, with expert data also included for RL."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 5, legend, success-rate axis and five task groups",
+      "detail": "VLA-MBPO has the tallest success-rate bar on Plug In, Fold Towel, Insert Pen, Pick Cup and Wipe Board. Wipe Board bars are approximately 58% for VLA-MBPO, 36% for IDQL and 28% for SFT. Bars have no numerical labels, uncertainty or separate seen/unseen groups."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5.4 and Table 3; p. 10, Rollouts Scheme",
+      "detail": "LIBERO-Long success is 63.9, 66.8 and 62.9 for one-, two- and four-chunk branching, and 52.8 for full-horizon rollouts. The discussion attributes the tradeoff to stitching/exploration versus compounding prediction error."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Figure 6 and Imagined Sample Size",
+      "detail": "The plotted success rate increases across generated sample sizes 128, 256, 512, 1280 and 2560. The plot reports no uncertainty or compute-matched comparison."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Section 7, Limitations",
+      "detail": "The authors identify substantial sample-generation cost and the need for downstream world-model finetuning because the UMM was not pretrained on action-labeled robotic data."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Appendix D, Prompt Engineering and Table 4",
+      "detail": "The world-model prompt supplies camera observations and integer action arrays, optionally a future head view. The reward prompt requests a binary Yes/No success decision and calls the detector a pretrained VLM. Table 4 lists learning rate 2e-5, cross-entropy weight 0.01 and MSE weight 1.0."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Appendix D, Causal Attention Mask Implementation; p. 24, Figure 10 and caption",
+      "detail": "The mask distinguishes ViT semantic features and VAE reconstruction features; caption t denotes noise timestep, with t=0 noiseless. Wrist-generation rows expose the matching current wrist and clean predicted head features; action columns are masked for those rows."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Table 5, all hyperparameter rows; p. 23, Hyperparameters",
+      "detail": "The common settings include chunk size 10, two rollout chunks, three denoising steps, gamma 0.99, GAE lambda 0.95, actor/critic learning rates 5e-6/1e-4. Long changes sample size from 512 to 1280 and Update to data from 20 to 50."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Appendix C.1, Galaxy-R1 System and Arx-X5 System",
+      "detail": "Galaxy-R1 has 21 DoF, head and two wrist cameras, 100 Hz control and 10 Hz recorded data. Arx-X5 has 14 DoF, three D435i cameras and 15 Hz control."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF pp. 26–27, Appendix E.2, items 1–2 and Figures 13–14",
+      "detail": "The authors report partial-observability failures, missing unseen scene structure, motion collapse for large displacements and implausible towel configurations. Figure 14 shows qualitative examples without failure frequencies."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF p. 27, Appendix F, Computational Resources",
+      "detail": "All experiments used eight NVIDIA H100 GPUs; reported world-model training takes about 7–8 hours and policy optimization about 4–6 hours under the standard interaction budget."
+    }
+  ]
+}
