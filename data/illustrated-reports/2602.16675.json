@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2602.16675",
+  "shortTitle": "Learning to Unfold Cloth",
+  "thesis": "Geometry-focused observations and demonstration-seeded, augmented replay make a DreamerV2 cloth controller more effective, while depth-sensor limits and garment-specific training constrain transfer.",
+  "standfirst": "A hanging cloth changes shape as the robot reaches for it, so a useful controller must keep updating its understanding of folds and graspable regions. This paper adapts DreamerV2 around that requirement: two depth views become surface-normal images, demonstrations expose the world model to successful unfolding, and replay augmentation broadens the observations used for learning. The strongest evidence combines garment-wise simulation comparisons with a zero-shot physical plane-cloth experiment. Read those results at their actual scope: the initial lift is assumed, simulated garment types use separate agents, and the physical result covers four flat-cloth categories.",
+  "evidenceIds": [
+    "e02-task",
+    "e05-model",
+    "e06-normals",
+    "e07-replay",
+    "e08-training",
+    "e13-physical",
+    "e14-limits"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 1,
+      "asset": "report-assets/2602.16675/architecture.png",
+      "width": 1109,
+      "height": 1083,
+      "sourceSha256": "bd88e04642c648e26f19e4921e0ae8010c8fec3d28619a15320f0ec96776531d",
+      "sourceUrl": "https://arxiv.org/pdf/2602.16675#page=1",
+      "crop": [
+        0.507,
+        0.244,
+        0.942,
+        0.572
+      ],
+      "alt": "System diagram with two depth cameras, depth-to-normal conversion, robot state, a demonstration-seeded replay buffer, random image augmentation, a world model and a separate RL policy feeding robot actions.",
+      "caption": "The three yellow additions change visual representation and the experience available to the world model.",
+      "readingGuide": "Begin at the upper-right cameras and follow their arrows left into Depth2Normals. The converted images I join robot state S. During training, image/state/action/reward trajectories enter replay alongside demonstration episodes. The replay output splits: images pass through random augmentation, while state, action and reward feed the world model directly. A second path carries current images and state into the model. Follow latent Z_t to the RL policy, then action A_t back to the robot. This distinguishes the executed action loop from the stored training trajectories. The caption defines I, S, A, R and Z; the yellow blocks mark this paper’s additions.",
+      "takeaway": "The architecture makes the policy dependent on a learned representation of the current scene while using demonstrations and augmentation to improve model training. The source describes future-state and reward prediction inside the world-model approach. The visible action output comes from a separate policy block, supporting the report’s classical model-based RL classification.",
+      "caution": "This is a system schematic, not a complete Dreamer computation graph. It omits actor-critic objectives and optimization paths; neither parameter sharing nor a separate online trajectory-search procedure can be inferred from the arrows.",
+      "evidenceIds": [
+        "e03-interface",
+        "e05-model",
+        "e07-replay"
+      ]
+    },
+    {
+      "id": "depth-to-normals",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2602.16675/depth-to-normals.png",
+      "width": 1428,
+      "height": 376,
+      "sourceSha256": "bd88e04642c648e26f19e4921e0ae8010c8fec3d28619a15320f0ec96776531d",
+      "sourceUrl": "https://arxiv.org/pdf/2602.16675#page=4",
+      "crop": [
+        0.085,
+        0.059,
+        0.925,
+        0.23
+      ],
+      "alt": "Left-to-right depth conversion pipeline. Normalized depth branches through x and y Sobel operators, a ones matrix and a subject mask; combined vectors are normalized and scaled before background masking.",
+      "caption": "Depth is converted into a color-coded geometry representation before entering the learned model.",
+      "readingGuide": "Follow the central path from depth normalization to the output normal image. The x and y Sobel branches and the matrix of ones feed the normal-vector combination block. The subject-mask branch bypasses that combination and joins only at the final background-masking stage. Vector normalization and scaling into 0–255 occur before masking. These branch directions agree with the caption and method description. The caption specifies a Sobel kernel of size 9 and 256×256 processing; the surrounding text explains the final downsampling to the model’s 64×64 input. Broad, smooth color bands are intended to survive that reduction.",
+      "takeaway": "The image channels now encode surface orientation rather than the cloth’s visible color and texture. The authors intend wrinkles and creases to remain informative even when garment appearance changes. This is a deterministic observation transformation in the pipeline, used for both simulated and real camera depth before world-model inference.",
+      "caution": "Figure 2’s caption mentions both 256×256 processing and 64×64 output; the text clarifies downsampling but leaves interpolation and masking settings unspecified. Geometry-focused images still inherit depth holes and near-contact sensor noise.",
+      "evidenceIds": [
+        "e06-normals",
+        "e12-deployment"
+      ]
+    },
+    {
+      "id": "garment-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table II",
+      "page": 6,
+      "asset": "report-assets/2602.16675/garment-ablation.png",
+      "width": 1438,
+      "height": 245,
+      "sourceSha256": "bd88e04642c648e26f19e4921e0ae8010c8fec3d28619a15320f0ec96776531d",
+      "sourceUrl": "https://arxiv.org/pdf/2602.16675#page=6",
+      "crop": [
+        0.076,
+        0.192,
+        0.922,
+        0.303
+      ],
+      "alt": "Garment evaluation table with long-sleeve, short-sleeve, plane-cloth, shorts and unbuttoned-shirt groups. Each has failure, near-success and success percentages for four Dreamer input/replay configurations and pick/place.",
+      "caption": "The combined method wins on four garment groups; shorts expose a clear exception.",
+      "readingGuide": "Read each garment group as three percentages in the caption’s order: failure, near success, success. Compare down a group to hold garment type fixed. The four learned rows cross RGB or normals with vanilla or modified replay, while the last row is the scripted baseline. Training uses a separate agent for each garment/configuration and one million timesteps; the caption gives 250 evaluation trials per agent. In the plane-cloth group, success progresses from 2.0% for RGB vanilla to 19.6% for RGB modified, 36.0% for normals vanilla and 84.8% for normals with modified replay. The final row provides the 28.8% pick/place comparison.",
+      "takeaway": "The strongest combination reaches 100% short-sleeve success and 84.8% plane-cloth success in this evaluation. Yet it achieves only 17.6% on shorts, below the script’s 55.2%. These garment-wise differences are more informative than a blanket claim of superiority and support treating the method as specialized controllers with uneven task performance.",
+      "caution": "Modified replay changes both demonstration initialization and augmentation, so this table cannot isolate their individual effects. The source gives no uncertainty estimates or numeric boundaries between failure, near success and success; the script also has target-corner information.",
+      "evidenceIds": [
+        "e07-replay",
+        "e08-training",
+        "e09-benchmarks",
+        "e10-garments",
+        "e15-reporting"
+      ]
+    },
+    {
+      "id": "learning-curves",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 5",
+      "page": 6,
+      "asset": "report-assets/2602.16675/learning-curves.png",
+      "width": 1231,
+      "height": 766,
+      "sourceSha256": "bd88e04642c648e26f19e4921e0ae8010c8fec3d28619a15320f0ec96776531d",
+      "sourceUrl": "https://arxiv.org/pdf/2602.16675#page=6",
+      "crop": [
+        0.098,
+        0.358,
+        0.46,
+        0.532
+      ],
+      "alt": "Normalized-return learning curves for modified Dreamer, vanilla Dreamer, vector SAC, image SAC, scripted motion and RAIF. The blue modified-Dreamer trend rises early; the green RAIF trend improves later.",
+      "caption": "The learning curves show how quickly useful unfolding behavior emerges under the stated training setup.",
+      "readingGuide": "Use the legend to distinguish modified Dreamer in blue from vanilla Dreamer in orange, then compare their rise across the training budget. Section IV.A specifies one million timesteps, which clarifies the horizontal scale. The vertical axis is normalized return: episode reward is divided by the maximum episode timesteps and shifted upward by one. It is not percent success. The caption states that image inputs are surface normals and that early stopping occurs at 80% unfold. Vector SAC instead receives cloth-vertex coordinates. The green RAIF line corresponds to the R-AIF comparison described in the text, using the same demonstration episodes as the modified model.",
+      "takeaway": "The modified Dreamer trend improves earlier and stays above vanilla Dreamer in the displayed experiment. R-AIF also improves substantially, whereas the SAC curves remain low. This supports the paper’s qualitative learning-efficiency argument under its chosen setup, but the image alone does not establish a statistically reliable ordering across repeated training runs.",
+      "caution": "Smoothed lines and pale fluctuations are not defined confidence intervals. Smoothing settings and seed variability are absent, and training data or privileged observations differ across baselines. Do not read endpoint heights as garment success rates or wall-clock speed.",
+      "evidenceIds": [
+        "e08-training",
+        "e09-benchmarks",
+        "e11-curves"
+      ]
+    },
+    {
+      "id": "real-world-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table III",
+      "page": 6,
+      "asset": "report-assets/2602.16675/real-world-results.png",
+      "width": 1220,
+      "height": 585,
+      "sourceSha256": "bd88e04642c648e26f19e4921e0ae8010c8fec3d28619a15320f0ec96776531d",
+      "sourceUrl": "https://arxiv.org/pdf/2602.16675#page=6",
+      "crop": [
+        0.511,
+        0.332,
+        0.921,
+        0.484
+      ],
+      "alt": "Physical plane-cloth results: towel 72% success, dishcloth 68%, facecloth 76% and pillowcase 80%, with an average of 74%; failure and average timestep columns are also shown.",
+      "caption": "A simulation-trained plane-cloth policy succeeds in 74% of the reported physical trials.",
+      "readingGuide": "Read the success column across the four physical cloth categories, then the average row. Each category has 25 trials. The accompanying text says cloth properties, placement, pinned corner and fold condition vary between trials. These are deployments of the plane-cloth agent, not physical tests of all five simulated garment-specific agents. The table’s retained note defines failure as exceeding the designated timesteps or performing an unsuccessful unfold without releasing the cloth. The final column reports average timesteps, including the printed overall value of 172; it does not report seconds. Section IV.B supplies the camera, coordinate-conversion and impedance-control context needed to interpret the experiment.",
+      "takeaway": "The displayed successes—72%, 68%, 76% and 80%—support zero-shot transfer for these flat-cloth categories under the corner-suspended setup. The result concerns real robot execution, not visual predictions. It provides a practical demonstration of transfer while leaving a substantial fraction of trials unsuccessful and broader garment transfer untested.",
+      "caution": "No same-protocol real-world baseline or uncertainty interval accompanies this table. Control frequency and the designated timeout are not specified. The paper warns that published success rates from other systems are not directly comparable to these trials.",
+      "evidenceIds": [
+        "e02-task",
+        "e12-deployment",
+        "e13-physical",
+        "e14-limits"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "1. Give the world model geometry that survives appearance changes",
+      "text": "Imagine two episodes with similar cloth folds but different fabric colors. An RGB encoder must learn that the appearance change may be irrelevant to the next grasp. The paper instead computes surface-normal images from depth before learning, deliberately making local orientation prominent. Two viewpoints remain necessary in the described setup: the stand-off view supports scene-level positioning and the wrist view supports precise grasping. Robot position, gripper width and a tension flag supplement those images. The large Sobel kernel smooths orientation bands before reduction to 64×64. Reader interpretation: this shifts part of the representation problem into fixed preprocessing, which can simplify appearance transfer but also exposes the policy to the depth sensor’s failure modes. The reported near-contact failures show why geometry-focused input alone cannot guarantee robust grasping.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03-interface",
+        "e06-normals",
+        "e12-deployment",
+        "e14-limits"
+      ]
+    },
+    {
+      "heading": "2. Make successful unfolding available before exploration discovers it",
+      "text": "The paper’s replay argument starts with a data-coverage problem. A randomly exploring robot may rarely unfold the cloth, leaving its initial world model without observations of the goal configuration. Demonstration episodes supply complete task trajectories before training begins. When replay later samples a temporal image stack, augmentation applies consistently across that stack, preserving the relation between observations over time. The source excludes flips and excessive rotations because image directions must remain compatible with the control axes. These experiences train the model used by the separate RL policy; the paper does not describe direct behavior cloning of demonstration actions. Reader interpretation: demonstrations address which task states are seen, whereas augmentation addresses how those states can appear. Table II bundles both interventions, motivating a separate controlled test of each contribution.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05-model",
+        "e07-replay",
+        "e09-benchmarks",
+        "e10-garments"
+      ]
+    },
+    {
+      "heading": "3. Follow the evidence from simulated reward to physical success",
+      "text": "The reward estimates cloth area from a coarse vertex grid, normalizes it by the initial maximum area and subtracts a timestep penalty. That training signal differs from both the normalized-return plot and the failure/near-success/success categories used in simulation evaluation. Keeping those quantities separate prevents a high curve from being mistaken for a success probability. Table II then tests garment-specific agents, revealing strong plane-cloth and short-sleeve results alongside shorts failures. The physical experiment takes only the plane-cloth agent into the real setup, where depth patching, synchronized sensing and an impedance controller connect the learned policy to actual motion. Its 74% average success therefore establishes a narrower result than universal garment manipulation. Reader interpretation: the most useful reproduction should test whether the proposed observation and replay mechanisms explain this bounded transfer, rather than only matching one aggregate score.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04-reward",
+        "e08-training",
+        "e10-garments",
+        "e11-curves",
+        "e12-deployment",
+        "e13-physical"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate demonstration coverage from replay augmentation",
+      "text": "Reader-proposed check, not performed: on plane-cloth with surface-normal inputs fixed, train four conditions crossing demonstration initialization on/off with sequence-consistent augmentation on/off. Use equal initial replay sizes, equal environment-interaction and optimization budgets, matched randomization schedules and repeated seeds. Compare both normalized-return learning curves and final success under explicitly fixed evaluation thresholds. Track time to the first successful episode and success on a common set of perturbed camera poses. If demonstrations improve early learning but augmentation improves camera-offset robustness, their distinct roles are supported. If either isolated intervention matches the full combination across both outcomes, the claim that both are needed would weaken. Establish missing demonstration counts and hyperparameters before treating this as an exact reproduction.",
+      "evidenceIds": [
+        "e07-replay",
+        "e08-training",
+        "e09-benchmarks",
+        "e10-garments",
+        "e14-limits"
+      ]
+    },
+    {
+      "title": "Test whether shorts failures are caused by limited visual resolution",
+      "text": "Reader-proposed check, not performed: compare the original 64×64 observation pipeline with higher-resolution normals and a garment-centered crop resized to the original input size. Retrain matched shorts agents using the same replay interventions, demonstrations, physical garment sizes, action limits and evaluation initial states. Include a plane-cloth control and the scripted baseline; record grasp-location errors, failure/near/success outcomes, model size and inference cost. The crop condition helps distinguish pixel coverage from a larger network alone. Improvement concentrated on previously tiny or poorly localized corners would support the authors’ pixel-footprint explanation. Persistent shorts failure despite better localization would instead point toward garment geometry or manipulation strategy. Any crop-tracking failures must remain in the evaluation.",
+      "evidenceIds": [
+        "e03-interface",
+        "e06-normals",
+        "e08-training",
+        "e09-benchmarks",
+        "e10-garments",
+        "e14-limits"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "notes": "Visually inspected all eight PDF pages, including the title/authors/version on p. 1, task scope on p. 2, interface and reward equations on p. 3, geometry pipeline on p. 4, replay/training/evaluation protocol on p. 5, quantitative and diagnostic material on p. 6, deployment limitations on p. 7 and references on p. 8. Figures 1–5 and Tables I–III were inspected; five final original crops were also individually viewed. Figure 1’s data-flow arrows and Figure 2’s mask/Sobel branches were checked against their captions and method text. Table notes needed to interpret outcome order, trial counts and failure definitions are retained. All method, numeric and reproduction claims are supported on these declared pages. No appendix is present; separate supplemental material remains unverified, and code and experiments are outside this reading."
+  },
+  "featuredResultTask": "Zero-shot physical plane-cloth unfolding"
+}

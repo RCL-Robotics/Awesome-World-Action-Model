@@ -1,0 +1,459 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.01441",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T19:25:16.698Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2603.01441",
+      "title": "Unifying Language-Action Understanding and Generation for Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "874bd354d18beb421be42cce4562b64704c452debb47b050a1d876463a84f018",
+      "wordCount": 9857,
+      "accessedAt": "2026-09-07T14:05:36.222849+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1. Introduction",
+      "2. Related Work (2.1–2.3)",
+      "3. Method (3.1–3.3)",
+      "4. Experiments (4.1–4.4)",
+      "5. Conclusion",
+      "References",
+      "Appendix A. Action Tokenization (A.1–A.3)",
+      "Appendix B. Dataset (B.1–B.3)",
+      "Appendix C. Qualitative Results"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction-only image limitation above was addressed by visually inspecting all 14 supplied PDF pages, including the embedded supplementary material on PDF pp. 12–14.",
+      "Only the supplied arXiv:2603.01441v1 (2 March 2026) was reviewed; no later revision was compared. The observed title and all ten authors match the catalog.",
+      "Code and external datasets were not inspected; experiments were not reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (PDF p. 1)",
+      "Figure 2 (PDF p. 3)",
+      "Figure 3 (PDF p. 4)",
+      "Figure 4 (PDF p. 8)",
+      "Figure S1 (PDF p. 12)",
+      "Figure S2 (PDF p. 14)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (PDF p. 6)",
+      "Table 2 (PDF p. 6)",
+      "Table 3 (PDF p. 8)",
+      "Table 4 (PDF p. 8)",
+      "Table 5 (PDF p. 8)",
+      "Table 6 (PDF p. 8)",
+      "Table 7 (PDF p. 8)",
+      "Table S1 (PDF p. 12)",
+      "Table S2 (PDF p. 12)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "LinkVLA combines a shared language/action vocabulary, trajectory-to-language supervision and endpoint-conditioned parallel refinement. It improves reported CARLA driving and instruction-following scores, while its 48 ms trajectory-generation timing excludes textual reasoning. It predicts ego plans without learning future scene generation (e03, e06, e07, e10–e13).",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A driving model can describe a lane change yet predict a lane-keeping trajectory. The authors attribute this mismatch partly to separate language/action representations and seek stronger semantic coupling without expensive sequential waypoint decoding. Shared representation is their proposed mechanism, not a guarantee of obedience.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e04"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Extend the text vocabulary with spatial action tokens; train one decoder on instruction-to-trajectory and trajectory-to-instruction tasks.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e06"
+      ]
+    },
+    {
+      "text": "Train endpoint prediction and coarse-path refinement inside that same transformer, replacing sequential waypoint decoding with two action-generation passes.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Front-view image; natural-language instruction or generated commentary; navigation point/command (e03, e08, e18)",
+      "Training target trajectories for action understanding and refinement supervision (e06, e07)"
+    ],
+    "outputs": [
+      "Textual rationale or action description; 20 geometric path tokens and 10 temporal waypoint tokens per frame, decoded to grid-cell centers (e04, e08)"
+    ],
+    "steps": [
+      {
+        "name": "Encode the scene and instruction",
+        "detail": "InternVL2-1B combines InternViT-300M-448px with Qwen2-0.5B-Instruct. Visual embeddings and language/navigation tokens enter the multimodal decoder; geometric and temporal trajectories use the action vocabulary.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Discretize with spatial structure",
+        "detail": "Transform each coordinate logarithmically before uniform binning. The stated domain is x in [0,50] m and y in [-30,30] m; k=5 and transformed step 0.1 yield 5,656 tokens. Gaussian soft labels use radius 10 cells and sigma=1.2. Physical bins are finer near the ego vehicle.",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "name": "Make actions linguistically interpretable",
+        "detail": "Randomly arrange vision/language/action tuples as [V,A,L] or [V,L,A], supervising the last modality with the same decoder. Action understanding supplies auxiliary training supervision; no separate inference-time verifier is described.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "name": "Teach a two-pass action decoder",
+        "detail": "Reorder targets endpoint-first, then train refinement on tokens interpolated from ground-truth endpoints. At inference, predict the endpoint, interpolate from the ego origin, and refine coarse waypoint positions in parallel using vision-language context.",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Use AdamW with cosine scheduling: learning rate 1e-4, weight decay 0.1, betas 0.9/0.999 and dropout 0.1. Training lasts 30 epochs on 32 H20 GPUs, with reported batch size 48 and LoRA rank 32, alpha 64. Frozen modules are not enumerated.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08"
+        ]
+      },
+      {
+        "text": "Driving demonstrations use PDM-lite in CARLA. Adopted language data include 28M QA pairs over 1M Town 12 frames, heuristic labels and paraphrase augmentation. Commentary templates describe route actions, speed actions and IDM-derived reasons.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09",
+          "e15"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Generate commentary first, then condition action generation on it. The two C2F passes describe trajectory decoding, not the entire pipeline. Plans are evaluated in CARLA; the paper does not specify a complete deployment controller or demonstrate physical-vehicle execution.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e07",
+          "e08",
+          "e09",
+          "e11"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "z'=\\operatorname{sign}(z)\\log(1+k|z|),\\qquad z\\in\\{x,y\\}",
+        "explanation": "Equation (1): z is a waypoint coordinate; positive k sets logarithmic scaling. Uniform transformed bins correspond to nonuniform physical cells.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "q(a)=\\frac{1}{Z}\\exp\\!\\left(-\\frac{\\|\\operatorname{pos}(a)-\\operatorname{pos}(a_{\\mathrm{gt}})\\|_2^2}{2\\sigma^2}\\right),\\quad \\mathcal L_{\\mathrm{generation}}=-\\sum_{a\\in C_{\\mathrm{action}}}q(a)\\log p(a)",
+        "explanation": "Equations (2)–(3): a is an action token, a_gt its ground-truth target; pos gives grid coordinates, sigma controls spread, Z normalizes q, and p is the predicted distribution.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "\\mathcal L_{\\mathrm{understanding}}=-\\sum_j\\log p(l_j\\mid V,A,l_{<j}),\\quad \\mathcal L_{\\mathrm{total}}=\\mathcal L_{\\mathrm{generation}}+\\lambda\\mathcal L_{\\mathrm{understanding}}",
+        "explanation": "Equation (4) and following text: V is visual context, A action tokens, l_j the next language token, and l_<j preceding ground-truth tokens. Lambda balances tasks; its chosen value is unspecified.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "expression": "w_i^{\\mathrm{coarse}}=w_0+\\frac{i}{T}(w_T-w_0),\\qquad i\\in\\{1,\\ldots,T\\}",
+        "explanation": "Equation (5): w_0 is the ego origin, w_T the predicted endpoint at inference, and T the waypoint count. This scaffold is input to refinement, not the final executed path.",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ]
+  },
+  "limitations": [
+    {
+      "text": "Evidence covers simulator driving and offline language/action tests. The Objects category can reward collision-directed instructions, so instruction success is not a safety score. Selected qualitative examples do not estimate failure rates.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e13",
+        "e20"
+      ]
+    },
+    {
+      "text": "Reported tables lack seed dispersion or confidence intervals. Shared vocabulary and auxiliary captioning support an alignment hypothesis, but do not prove the authors' stronger claim that the modality gap is eliminated.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e10",
+        "e12",
+        "e16"
+      ]
+    },
+    {
+      "text": "The token-count ablation changes k and vocabulary size together: 5,656 to 7,245 tokens accompanies DS 91.01 to 89.85. Spatial compression and capacity are confounded. Larger soft-label spread also lowers performance.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e17",
+        "e19"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction needs the backbone, expert-generated driving data, adopted language labels, token grid, both sequence orders and endpoint/refinement supervision. Verify the 56-by-101 vocabulary and cell-center decoding before evaluating the 220 routes.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06",
+        "e07",
+        "e09",
+        "e15"
+      ]
+    },
+    {
+      "text": "Unspecified details include lambda, task-sampling probabilities, exact attention masks, LoRA target modules/freeze policy, batch-size scope, driving-data quantity, software versions, waypoint timing and deployment control settings. Radius R is stated, but Eq. (2) does not explicitly encode truncation. These gaps prevent an exact implementation from the paper alone.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e07",
+        "e08",
+        "e09"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "VLA and One Model are supported by architecture: one decoder handles language/action targets, endpoints and refinement. The vision encoder is a component of that system. No future-scene predictor or inverse-dynamics action extraction is described, supporting Not applicable for the world/action prediction quadrant. Autoregressive VLA describes the foundation and AR variant; deployed C2F uses parallel action refinement.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e06",
+        "e07",
+        "e11"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "VLA",
+      "subcategories": [
+        "Autoregressive VLA",
+        "Autonomous driving VLA",
+        "Efficient VLA inference"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "9cd788c12c4e96ee9ca95e18dcc3d808f7e20218e425dc7e4ff10fd75738735a"
+    }
+  },
+  "discussionQuestions": [
+    "Would action understanding retain its benefit under held-out instruction paraphrases and matched training compute?",
+    "How much does C2F depend on endpoint quality when refinement was trained with ground-truth endpoints?"
+  ],
+  "relatedPaperIds": [],
+  "results": [
+    {
+      "task": "Closed-loop driving on Bench2Drive",
+      "setting": "CARLA v2 protocol: 44 scenarios, five routes each; 220 official routes.",
+      "metric": "Driving Score (DS); Success Rate (SR); multi-ability mean, higher is better",
+      "value": "LinkVLA: 91.01 DS; 74.55% SR; 73.40% multi-ability mean.",
+      "comparison": "SimLingo: 85.07 DS; 67.27% SR; 67.28% mean.",
+      "interpretation": "Gains are 5.94 DS points and 7.28 percentage points SR. Efficiency is slightly lower (255.84 versus 259.23), so LinkVLA does not dominate every metric.",
+      "evidenceIds": [
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "Trajectory-generation latency",
+      "setting": "Average per-frame trajectory inference on H20; CoT cost excluded.",
+      "metric": "Milliseconds, lower is better; DS, higher is better",
+      "value": "C2F: 48 ms and 91.01 DS.",
+      "comparison": "LinkVLA AR: 361 ms and 90.66 DS; SimLingo: 34 ms and 85.07 DS.",
+      "interpretation": "C2F removes most sequential action-decoding cost, but remains 14 ms slower than SimLingo. This is not end-to-end system latency.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Instruction following on Action Dreaming",
+      "setting": "Town 13 validation; offline, nonreactive tests with six category-specific success definitions.",
+      "metric": "Mean success rate (%)",
+      "value": "Full LinkVLA: 87.16%.",
+      "comparison": "Baseline 70.11%; tokenization 81.63%; tokenization+C2F 81.87%.",
+      "interpretation": "Alignment adds 5.29 percentage points over the C2F configuration. Final Lane Change reaches 97.42%, while Slower remains 65.57%; category differences matter.",
+      "evidenceIds": [
+        "e09",
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "task": "Language ability on DriveLM-hard",
+      "setting": "Town 13 validation: ten examples per answer type; 330 VQA and 190 commentary types.",
+      "metric": "SPICE / BLEU / ROUGE-L, higher is better",
+      "value": "Full model: VQA 73.0/74.7/77.0; commentary 57.4/65.7/70.8.",
+      "comparison": "Baseline: VQA 66.7/68.9/71.5; commentary 49.2/60.3/64.3.",
+      "interpretation": "These gains concern generated text under the supplied label protocol; they do not independently establish faithful causal reasoning.",
+      "evidenceIds": [
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "task": "Component ablation in closed-loop driving",
+      "setting": "Bench2Drive; successive tokenization, C2F and alignment configurations in Table 5.",
+      "metric": "DS; SR (%)",
+      "value": "Full model: 91.01; 74.55%.",
+      "comparison": "Tokenization: 89.57; 73.18%. Tokenization+C2F: 89.85; 72.27%.",
+      "interpretation": "C2F alone slightly improves DS while lowering SR; adding alignment improves both. This is a sequential, not full factorial ablation; uncertainty is unreported.",
+      "evidenceIds": [
+        "e16"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block, affiliations and arXiv margin",
+      "detail": "The title and all ten authors match the catalog. The artifact identifies arXiv:2603.01441v1, 2 March 2026. Affiliations are State Key Lab of CAD&CG, Zhejiang University; Li Auto. No revision difference is established."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "LinkVLA addresses instruction–trajectory mismatch and sequential decoding latency through unified tokenization, action understanding and coarse-to-fine generation. The authors claim structural elimination of the modality gap."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2 and caption; p. 6, Section 4.2, Training Details",
+      "detail": "InternViT embeddings and language/navigation tokens feed one multimodal model. InternVL2-1B combines InternViT-300M-448px and Qwen2-0.5B-Instruct. Figure 2 shows endpoint prediction, interpolation and refinement."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Unified Token Space and Eqs. (1)–(3)",
+      "detail": "Action grid tokens augment the text vocabulary. Signed logarithmic coordinates prioritize near-origin precision; Gaussian soft targets supervise action probabilities. Predicted tokens decode to cell centers. CoT adds language cross-entropy."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.2, Action Tokenize",
+      "detail": "The domain is x in [0,50] m and y in [-30,30] m. With k=5 and transformed step 0.1, the grid is 56 by 101, or 5,656 tokens. Soft labels use R=10 cells and sigma=1.2; separate path-goal and waypoint-goal tokens support C2F."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Figure 3 and Section 3.2, Eq. (4); p. 7, Unified understanding and generation",
+      "detail": "One decoder predicts language from vision/actions or actions from vision/language. Training swaps [V,A,L] and [V,L,A] sequences. The total objective weights action understanding by lambda."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, training, initialization, refinement and Eq. (5)",
+      "detail": "Endpoint-first targets and ground-truth-endpoint interpolation train C2F. Inference predicts endpoints, linearly interpolates from the ego origin, and refines points in parallel. Geometric and temporal waypoint streams are processed symmetrically."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.2, Training Details and inference continuation",
+      "detail": "AdamW uses cosine scheduling, learning rate 1e-4, weight decay 0.1, betas 0.9/0.999 and dropout 0.1. Training uses 30 epochs, 32 H20 GPUs, batch size 48 and LoRA rank 32/alpha 64. Commentary precedes 20 geometric and 10 temporal tokens per frame."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.1, Bench2Drive and validation settings",
+      "detail": "Driving data use PDM-lite in CARLA. Bench2Drive follows CARLA v2 protocol with 44 scenarios and five routes each, totaling 220 routes. Action Dreaming and DriveLM-hard validation use Town 13."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, LinkVLA, SimLingo, TCP-ctrl and AutoVLA rows",
+      "detail": "LinkVLA reports DS 91.01, SR 74.55%, efficiency 255.84, comfort 34.62 and multi-ability mean 73.40%; SimLingo reports 85.07, 67.27%, 259.23, 33.67 and 67.28%. Asterisks denote expert feature distillation; AutoVLA multi-ability values are absent."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2 and caption; p. 7, Section 4.3, Inference Latency",
+      "detail": "On H20, AR takes 361 ms with DS 90.66; C2F takes 48 ms with DS 91.01; SimLingo takes 34 ms with DS 85.07; Orion takes 65 ms with DS 77.74. Timing excludes chain-of-thought computation."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3, all four rows and six task columns",
+      "detail": "Mean success progresses 70.11%, 81.63%, 81.87%, 87.16%. Final Faster/Slower/Target Speed/Lane Change/Object/Stop values are 96.48/65.57/74.73/97.42/91.41/97.34%. Tokenization-only Stop is 99.88%; C2F without alignment reduces Slower to 55.86%."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix B.1, simulator and success definitions; p. 6, Section 4.1 category list",
+      "detail": "Action Dreaming is offline and nonreactive, using bicycle-model/PID trajectories. Speed tasks use slope thresholds, lane changes compare endpoints, Stop requires minimum predicted speed below 0.1 m/s, and Objects can request collision. The main list says six classes but omits Stop; Appendix B.1 supplies all six."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, DriveLM-hard; p. 8, Table 4, rows 1 and 4",
+      "detail": "Validation samples ten examples per answer type, with 330 VQA and 190 commentary types. Final VQA SPICE/BLEU/ROUGE-L is 73.0/74.7/77.0 versus 66.7/68.9/71.5; commentary is 57.4/65.7/70.8 versus 49.2/60.3/64.3."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix B.2–B.3",
+      "detail": "Adopted VQA training has 28M QA pairs over 1M Town 12 frames, heuristic labels and up to twenty GPT-4 paraphrases per QA. Commentary templates derive route actions, speed actions and IDM-based reasons from simulator state."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 5, rows 1–4; p. 7, Section 4.4, Ablation Experiment",
+      "detail": "DS/SR progresses 85.07/67.27%, 89.57/73.18%, 89.85/72.27%, 91.01/74.55%. Only SR is labeled percent in the table; this report follows the table despite percent signs attached to DS in the prose."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 6; p. 12, Appendix A.3 and Table S2; p. 7, Effect of Soft-labeling",
+      "detail": "Without/with soft labels, DS/SR is 90.85/72.73% and 91.01/74.55%. Increasing sigma from 1.2 to 3.0 yields 89.73/69.55%. The on/off prose cites Table S2, but its values match Table 6; actual Table S2 varies sigma."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 7 and Navigation Modalities continuation",
+      "detail": "GPS target points yield DS 91.01/SR 74.55%; navigation commands yield DS 91.25/SR 73.18%. Neither modality wins both metrics."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix A.1–A.2, Figure S1, Eq. (S1), Table S1",
+      "detail": "Figure S1 contrasts uniform/log grids and waypoint distributions in token-index space. Changing k from 5 to 10 changes compression and token count from 5,656 to 7,245; DS/SR changes 91.01/74.55% to 89.85/70.45%."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 4; pp. 13–14, Appendix C and Figure S2",
+      "detail": "Selected CARLA sequences illustrate intersections, lights, parking exits and obstacle avoidance with generated language and plotted trajectories. They are illustrative cases rather than failure-frequency estimates."
+    }
+  ]
+}
