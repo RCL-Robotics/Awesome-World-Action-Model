@@ -3,7 +3,7 @@
   "paperId": "2608.01880",
   "reportStatus": "full-text-reviewed",
   "resourceType": "paper",
-  "generatedAt": "2026-09-07T15:25:25.550Z",
+  "generatedAt": "2026-09-08T08:53:52.585Z",
   "sources": [
     {
       "id": "primary",
@@ -33,23 +33,32 @@
       "Author Contributions",
       "Acknowledgments",
       "References",
-      "Supplied captions for Figures 1–6"
+      "Figures 1–6 and Table 1, including original graphics, labels and captions"
     ],
     "omissions": [
-      "Figure images were not visually inspected. Numerical curve and bar values from figure extraction are not used.",
-      "No appendix appears in the supplied 11-page paper. Separate supplemental material availability has not been fully verified.",
-      "The inspected version is arXiv:2608.01880v2, dated 11 August 2026. The title-page author, Motubrain Team, agrees with the catalog's inverted rendering, Team, Motubrain.",
+      "The reviewed artifact is arXiv:2608.01880v2, dated 11 August 2026. Its exact title matches the catalog; Motubrain Team matches the catalog rendering Team, Motubrain. No earlier revision was supplied, so differences from v1 cannot be established. [E1]",
+      "The title page credits Motubrain Team. Author Contributions separately names Mengchen Cai, Jiangfeng Liu, and Yinze Rong; these names are not substituted for the title-page author. Institutional affiliations are not explicitly assigned to these contributors. [E1, E18]",
       "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
-      "Separate supplemental material availability has not been fully verified."
+      "The extraction limitation was addressed by visually inspecting all 11 PDF pages, all six figures and Table 1, plus every final crop.",
+      "Separate supplemental material availability has not been fully verified.",
+      "No appendix appears in the supplied 11-page PDF. The complete supplied body and references were read.",
+      "Linked project and GitHub contents were not supplied or inspected. Code availability, installation and experimental reproduction were not verified; no experiments were run."
     ],
     "identityVerified": true,
-    "figuresReviewed": [],
+    "figuresReviewed": [
+      "PDF p. 3, Figure 1: chunk timing and delay regions",
+      "PDF p. 5, Figure 2: denoising intervention points",
+      "PDF p. 7, Figure 3: mean overlap errors",
+      "PDF p. 8, Figure 4: maximum overlap errors",
+      "PDF p. 9, Figure 5: all three tasks and metrics",
+      "PDF p. 10, Figure 6: sudden-obstacle schematic"
+    ],
     "tablesReviewed": [
       "PDF p. 1, Table 1: method families, mechanisms, evaluated methods, and retraining requirements"
     ],
     "appendix": "not-present"
   },
-  "synopsis": "This empirical study compares six ways to deploy action-chunk policies while inference overlaps robot execution. Its central finding is a precision–smoothness trade-off: direct action blending suppresses disagreement but can impair insertion, whereas learned prefix conditioning preserves stronger task performance across the tested settings. Temporal alignment remains essential. Evidence combines offline chunk consistency with physical robot milestone scores; it does not establish a new world-model architecture. [E2, E8, E10, E11, E12]",
+  "synopsis": "This study compares six deployment strategies for a high-latency action-chunk policy on a physical bimanual robot. Learned prefix conditioning gives the strongest overall task-performance balance, while denoising-time action blending minimizes jerk but can impair insertion. Correct observation-to-command alignment remains fundamental. Offline chunk agreement and online milestone scores provide complementary evidence; neither establishes a new world-model architecture. [E2, E7, E8, E10, E11, E12]",
   "readingTimeMinutes": 9,
   "problem": {
     "text": "Expensive chunk prediction creates pauses and stale plans under synchronous execution. Asynchronous prediction overlaps computation with motion, but predictions from successive observations can disagree at the transition. The deployment problem is to reconcile those predictions at the correct timestamps without sacrificing precision or responsiveness.",
@@ -118,7 +127,7 @@
       },
       {
         "name": "Blend predictions during denoising",
-        "detail": "Simple blends predicted actions with the outgoing chunk at each denoising step. The outgoing prediction receives full weight in the delay region and decreasing weight through the remaining overlap. This enforces agreement but can pull a precise placement away from the model's new prediction.",
+        "detail": "Simple blends predicted actions with the outgoing chunk at every denoising step. The outgoing prediction receives full weight in the delay region and decreasing weight through the remaining overlap. This encourages agreement but can pull a precise placement away from the new prediction.",
         "evidenceIds": [
           "E4",
           "E11"
@@ -133,21 +142,22 @@
       },
       {
         "name": "Condition on a learned clean prefix",
-        "detail": "Train supplies the aligned, committed delay-region actions as clean conditioning. The model learns to generate a continuation; the remaining overlap is unconstrained by the prefix mask. At deployment, the outgoing chunk supplies this prefix.",
+        "detail": "Train supplies the aligned, committed delay-region actions as clean conditioning. The model learns to generate a continuation; the remaining overlap is unconstrained by the prefix mask. At deployment, the outgoing chunk supplies this prefix. Figure 2 depicts the intervention within flow matching, without specifying the deployed backbone.",
         "evidenceIds": [
           "E3",
-          "E6"
+          "E6",
+          "E16"
         ]
       }
     ],
     "training": [
       {
-        "text": "Table 1 marks only train as requiring retraining. Prefix conditioning teaches continuation from clean committed actions; the paper does not supply a complete training objective, optimization schedule, or checkpoint specification.",
+        "text": "Only train requires retraining in Table 1. Clean prefix conditioning teaches continuation from existing commitments. The source discusses a method family without supplying an exact checkpoint, complete loss, optimizer schedule, dataset size, frozen-module list or unambiguous implementation variant.",
         "kind": "source",
         "evidenceIds": [
           "E2",
           "E6",
-          "E7"
+          "E19"
         ]
       }
     ],
@@ -172,19 +182,21 @@
     ],
     "equations": [
       {
-        "expression": "Overlap = H − s; delay region = d_est; remaining overlap = H − s − d_est.",
-        "explanation": "H is the prediction length, s the offset before triggering another prediction, and d_est the estimated end-to-end delay, all in frames. The setup uses H = 24, s = 4, and d_est = 8, giving 20 overlapping frames divided into 8 committed and 12 remaining frames.",
+        "expression": "H-s=d_{\\mathrm{est}}+(H-s-d_{\\mathrm{est}})",
+        "explanation": "H is chunk length, s the executed-frame offset before another inference call, and d_est the estimated pipeline delay, all in frames. This partitions overlap into committed delay and remaining regions. H=24, s=4 and d_est=8 yield 20 overlap frames: 8 committed and 12 remaining.",
         "evidenceIds": [
           "E3",
           "E7"
         ]
       },
       {
-        "expression": "â(t) = w(t)a_n(t) + [1 − w(t)]a_(n+1)(t).",
-        "explanation": "For temporally aligned actions, w weights the outgoing chunk. Simple uses w(t) = 1 for t ≤ d_est and decreases it to zero at t = H − s; the precise decay function is unspecified. Train instead uses a step mask: one in the delay region and zero afterward. These expressions are unnumbered in the source.",
+        "expression": "\\hat a(t)=w(t)a_n(t)+\\bigl(1-w(t)\\bigr)a_{n+1}(t)",
+        "explanation": "This unnumbered source equation blends temporally corresponding outgoing and incoming actions at overlap frame t. Simple uses w(t)=1 through d_est and decreases it to zero at H-s; the exact decay is unspecified. Train uses a step mask: one through d_est, zero beyond. Detailed frame indexing remains ambiguous.",
         "evidenceIds": [
           "E4",
-          "E6"
+          "E6",
+          "E14",
+          "E17"
         ]
       }
     ]
@@ -192,48 +204,53 @@
   "results": [
     {
       "task": "Offline consistency between consecutive predicted chunks",
-      "setting": "Recorded training demonstrations; paired observations separated by s frames; async, simple, infer, and train evaluated without hardware execution.",
-      "metric": "Overlap disagreement, discussed through delay-region and remaining-overlap errors and per-component mean/max absolute errors",
-      "value": "The authors report near-zero delay-region error for simple and train; no exact curve values are extracted.",
-      "comparison": "Infer retains larger delay-region errors; async is reported worst overall. Simple maintains lower remaining-overlap disagreement than train.",
-      "interpretation": "This supports differences in constraint enforcement. It measures agreement between predictions, not accuracy against demonstration actions, unseen-data generalization, or executed robot success.",
+      "setting": "Training-set demonstration replay; observations separated by s=4 frames; async, simple, infer and train; no robot execution.",
+      "metric": "Per-component mean and maximum absolute inter-chunk error in delay and remaining-overlap regions",
+      "value": "Simple and train show small delay-region errors; simple generally maintains lower remaining-overlap disagreement.",
+      "comparison": "Infer leaves appreciable delay-region error, particularly in arms, head and torso. Async has large early errors, but train exceeds it on some later curves.",
+      "interpretation": "These are prediction-consistency diagnostics, not ground-truth action accuracy or held-out generalization. The curves qualify the text’s blanket claim that async is worst in both regions.",
       "evidenceIds": [
+        "E7",
         "E8",
-        "E14"
+        "E14",
+        "E17"
       ]
     },
     {
       "task": "Pick Up Conveyor",
-      "setting": "Physical moving-object manipulation; five trials per method; milestone scores averaged across trials.",
-      "metric": "Completion score, maximum 100 points",
-      "value": "train: 96",
-      "comparison": "simple: 80; async+blend: 40; infer: 30; sync: 20; async: 20.",
-      "interpretation": "Train performs best under this dynamic task's scoring rubric. Scores award partial credit for picking and placing five objects and are not trial success percentages.",
+      "setting": "Physical moving-object task; five trials per method, averaged; five objects earn 10 points for picking and 10 for bin placement each.",
+      "metric": "Completion score /100; completion time (s); translational RMS jerk (m/s^3), in that order",
+      "value": "train: 96; 61.24; 3.014",
+      "comparison": "simple: 80; 63.68; 2.185. sync: 20; 73.78; 4.219. async: 20; 62.15; 8.427. async+blend: 40; 64.38; 3.286. infer: 30; 64.92; 3.865.",
+      "interpretation": "Train has the highest milestone score and lowest reported time here; simple has lower jerk. Scores are partial-credit points, not trial success percentages.",
       "evidenceIds": [
+        "E7",
         "E9",
         "E10"
       ]
     },
     {
       "task": "Block Into Slot",
-      "setting": "Physical precision placement; five trials per method; milestone score and completion time averaged across trials.",
-      "metric": "Completion score out of 100; completion time in seconds",
-      "value": "train: 70 points and 12.13 s",
-      "comparison": "sync: 72.5 points and 19.4 s. Scores for simple, async, and async+blend are 27.5, 40, and 37.5, respectively.",
-      "interpretation": "Train approaches sync's score with a shorter reported time. Simple's much lower score shows that stronger overlap agreement does not necessarily preserve contact precision. The experiment does not establish statistical equivalence between train and sync.",
+      "setting": "Physical precision placement; five trials per method, averaged; four 25-point milestones, with a 12.5-point failed-first-grasp penalty.",
+      "metric": "Completion score /100; completion time (s); translational RMS jerk (m/s^3), in that order",
+      "value": "train: 70; 12.13; 0.9444",
+      "comparison": "simple: 27.5; 14.7; 0.5674. sync: 72.5; 19.4; 1.522. async: 40; 16.7; 4.07. async+blend: 37.5; 15.21; 1.053. infer: 50; 15.18; 1.834.",
+      "interpretation": "Train approaches sync’s score with less time and jerk. Simple’s lowest jerk coincides with poor milestone completion; smoothing alone does not establish placement precision. Statistical equivalence is untested.",
       "evidenceIds": [
+        "E7",
         "E9",
         "E11"
       ]
     },
     {
       "task": "Food Into Microwave",
-      "setting": "Physical multistage manipulation; five trials per method; five milestones worth 20 points each.",
-      "metric": "Completion score out of 100; completion time in seconds",
-      "value": "train: 96 points and 68.9 s",
-      "comparison": "sync: 96 points and 85.18 s; simple: 80 points and 60.24 s. Async scores 44; async+blend scores 80.",
-      "interpretation": "Train matches sync's mean milestone score with a shorter reported time. Simple finishes faster but earns fewer points, so timing alone does not establish better task execution.",
+      "setting": "Physical multistage manipulation; five trials per method, averaged; switch, door opening, bowl grasp, placement and door closure each earn 20 points.",
+      "metric": "Completion score /100; completion time (s); translational RMS jerk (m/s^3), in that order",
+      "value": "train: 96; 68.9; 1.106",
+      "comparison": "simple: 80; 60.24; 0.8125. sync: 96; 85.18; 1.968. async: 44; 64.52; 3.864. async+blend: 80; 65.37; 1.248. infer: 80; 65.81; 1.727.",
+      "interpretation": "Train matches sync’s score with lower time and jerk. Simple finishes fastest but earns fewer points; timing needs to be interpreted jointly with achieved milestones.",
       "evidenceIds": [
+        "E7",
         "E9",
         "E12"
       ]
@@ -241,20 +258,21 @@
   ],
   "limitations": [
     {
-      "text": "All reconciliation methods assume the previous chunk remains useful. An abrupt obstacle can require deviation from that trajectory, making committed-prefix guidance harmful; smooth reactive replanning remains unresolved.",
+      "text": "A sudden obstacle can invalidate the prior trajectory and make prefix constraints harmful. Figure 6 illustrates this unresolved smoothness–reactivity conflict without reporting an obstacle benchmark.",
       "kind": "author-claim",
       "evidenceIds": [
         "E13"
       ]
     },
     {
-      "text": "Five trials per method–task combination and reported averages provide limited reliability evidence. The supplied text gives no uncertainty estimates or stopping/timeout rules for incomplete trials, complicating completion-time comparisons.",
+      "text": "Only five trials per method–task pair are averaged; uncertainty, stopping rules and treatment of incomplete trials are unspecified. Jerk differentiation, filtering and aggregation are also unspecified. Offline regional errors are defined as L2 distances, whereas the figures use component MAE and maximum absolute error without explaining their relationship.",
       "kind": "analysis",
       "evidenceIds": [
+        "E8",
         "E9",
-        "E10",
-        "E11",
-        "E12"
+        "E14",
+        "E17",
+        "E19"
       ]
     },
     {
@@ -267,28 +285,30 @@
       ]
     },
     {
-      "text": "The paper defines regional errors using L2 distance but describes plotted measurements as per-component MAE and maximum absolute error. Their aggregation relationship is not specified. Translational RMS jerk is named without a differentiation, filtering, or aggregation procedure.",
+      "text": "Figures 3–4 omit tick 3 and extend to 21 despite the stated 20-frame overlap and caption regions 1–8/9–20. Later curves also contradict a pointwise reading of the text’s claim that async is always worst. These discrepancies prevent exact frame-index reconstruction and universal rankings.",
       "kind": "analysis",
       "evidenceIds": [
+        "E7",
         "E8",
-        "E14"
+        "E14",
+        "E17"
       ]
     },
     {
-      "text": "The comparison does not isolate every mechanism: train changes training, and infer adds computation. No controlled delay sweep or latency distribution quantifies the alignment claim, so conclusions about guidance should remain platform-specific.",
+      "text": "The comparison changes training for train and inference compute for infer. No controlled delay sweep or latency distribution isolates alignment from reconciliation; conclusions about velocity guidance remain platform-specific.",
       "kind": "analysis",
       "evidenceIds": [
         "E5",
         "E6",
         "E7",
         "E10",
-        "E13"
+        "E19"
       ]
     }
   ],
   "reproduction": [
     {
-      "text": "Match the bimanual platform's 10 Hz command rate, H = 24, s = 4, and d_est = 8. Measure observation-to-dispatch latency and preserve timestamp alignment; the authors choose d_est as the median measured latency.",
+      "text": "Match the bimanual platform’s 10 Hz command rate, H=24, s=4 and median-latency estimate d_est=8. Record observation and command timestamps throughout the pipeline; alignment requires more than measuring model execution time.",
       "kind": "source",
       "evidenceIds": [
         "E3",
@@ -296,45 +316,40 @@
       ]
     },
     {
-      "text": "Reproduction additionally needs the deployed checkpoint, demonstration data, action representation, denoising schedule, guidance implementation, blending decay, prefix-training configuration, hardware specifications, and scoring termination rules. The supplied paper does not specify these sufficiently for an exact reconstruction.",
+      "text": "An exact reconstruction needs the checkpoint, demonstrations, observation/action encoding, training configuration, denoising steps, guidance strength, blending decay, compute hardware and evaluation termination rules. These are not specified sufficiently. Resolve the figure’s indexing discrepancy before mapping overlap errors to executed commands.",
       "kind": "analysis",
       "evidenceIds": [
         "E4",
         "E5",
         "E6",
-        "E7",
-        "E9"
+        "E14",
+        "E17",
+        "E19"
       ]
     },
     {
-      "text": "A minimal mechanism test would compare simple and train on the same paired observations, then on precision insertion while varying measured delay relative to d_est. Record overlap disagreement, executed discontinuities, milestone scores, and uncertainty separately.",
+      "text": "Proposed minimal checks: sweep measured delay around d_est under matched compute, and compare simple versus train on held-out chunk pairs plus insertion. Separate overlap agreement, executed jumps, jerk, milestone scores and uncertainty; do not treat low consistency error as successful control.",
       "kind": "analysis",
       "evidenceIds": [
         "E3",
         "E8",
+        "E9",
         "E11"
-      ]
-    },
-    {
-      "text": "The title page links a project page and GitHub repository. Their contents were not supplied or inspected; code availability, installation, and experimental reproduction have not been verified.",
-      "kind": "source",
-      "evidenceIds": [
-        "E15"
       ]
     }
   ],
   "taxonomy": {
     "assessment": "supports",
     "reasoning": {
-      "text": "The recorded classification fits an empirical deployment study that organizes existing mechanisms and supplies evaluation protocols. Its technical-resource placement is reasonable, although this is an experimental paper rather than a survey. Architecture, prediction paradigm, and quadrant are appropriately not applicable at the contribution level: the paper does not establish a new unified future/action architecture or inverse-dynamics mechanism. Prefix conditioning describes continuation of action chunks, and the introduction's broad WAM description is insufficient for a One Model judgment.",
+      "text": "The recorded evaluation/protocol and technical-resource placement fits an empirical deployment study, although it is an experimental paper rather than a survey. Architecture, prediction paradigm and quadrant are appropriately not applicable at the contribution level. Figure 2 explains action-generation interventions, not a verified unified future/action architecture. Clean action-prefix conditioning does not establish inverse dynamics or justify a One Model judgment.",
       "kind": "analysis",
       "evidenceIds": [
         "E2",
         "E4",
-        "E5",
         "E6",
         "E8",
-        "E9"
+        "E9",
+        "E16"
       ]
     },
     "recordedClassification": {
@@ -373,8 +388,8 @@
     {
       "id": "E3",
       "sourceId": "primary",
-      "location": "PDF pp. 2–4, Section 3, definitions and delay-region discussion",
-      "detail": "Defines H, s, true delay d, and estimated delay d_est; partitions overlap into committed delay and remaining regions; explains timestamp mismatch when true delay exceeds the estimate."
+      "location": "PDF pp. 2–4, Section 3 definitions and Figure 1",
+      "detail": "Defines H, s, true delay d and estimated delay d_est. Overlap is H-s, split into d_est delay frames and H-s-d_est remaining frames. Figure 1 shows timing, regional colors and conceptual weight/error curves. The text describes jumps when true delay exceeds the estimate."
     },
     {
       "id": "E4",
@@ -391,7 +406,7 @@
     {
       "id": "E6",
       "sourceId": "primary",
-      "location": "PDF pp. 4–5, Section 4, Prefix-Conditioned Methods",
+      "location": "PDF pp. 4–5, Section 4, Prefix-Conditioned Methods and Figure 2 caption",
       "detail": "Train learns continuation from clean delay-region actions, uses a step-shaped conditioning mask, and receives the prior committed prefix at deployment. The family requires retraining and is claimed to add no inference overhead."
     },
     {
@@ -415,38 +430,62 @@
     {
       "id": "E10",
       "sourceId": "primary",
-      "location": "PDF pp. 7–8, Section 5.3, Dynamic task: Pick Up Conveyor",
-      "detail": "Reports scores of train 96, simple 80, async+blend 40, infer 30, and sync/async 20 each. Attributes infer's limitation partly to additional inference overhead."
+      "location": "PDF pp. 7–8, Section 5.3 dynamic-task discussion; PDF p. 9, Figure 5, Pick Up Conveyor row, all columns",
+      "detail": "In method order train/simple/sync/async/async+blend/infer: scores 96/80/20/20/40/30; times 61.24/63.68/73.78/62.15/64.38/64.92 s; jerk 3.014/2.185/4.219/8.427/3.286/3.865 m/s^3. Discussion attributes infer limitations partly to added inference overhead."
     },
     {
       "id": "E11",
       "sourceId": "primary",
-      "location": "PDF p. 8, Section 5.3, Fine manipulation task: Block Into Slot",
-      "detail": "Reports train 70 points and 12.13 s versus sync 72.5 points and 19.4 s; simple scores 27.5, async 40, and async+blend 37.5. Associates aggressive interpolation with reduced placement precision."
+      "location": "PDF p. 8, Section 5.3 fine-manipulation discussion; PDF p. 9, Figure 5, Block Into Slot row, all columns",
+      "detail": "In order train/simple/sync/async/async+blend/infer: scores 70/27.5/72.5/40/37.5/50; times 12.13/14.7/19.4/16.7/15.21/15.18 s; jerk 0.9444/0.5674/1.522/4.07/1.053/1.834 m/s^3. Text associates simple’s low score with interpolation reducing precision."
     },
     {
       "id": "E12",
       "sourceId": "primary",
-      "location": "PDF p. 8, Section 5.3, Long-horizon task: Food Into Microwave",
-      "detail": "Reports train and sync scoring 96, with times 68.9 s and 85.18 s respectively. Simple scores 80 in 60.24 s; async scores 44 and async+blend 80."
+      "location": "PDF p. 8, Section 5.3 long-horizon discussion; PDF p. 9, Figure 5, Food Into Microwave row, all columns",
+      "detail": "In order train/simple/sync/async/async+blend/infer: scores 96/80/96/44/80/80; times 68.9/60.24/85.18/64.52/65.37/65.81 s; jerk 1.106/0.8125/1.968/3.864/1.248/1.727 m/s^3."
     },
     {
       "id": "E13",
       "sourceId": "primary",
-      "location": "PDF pp. 9–10, Section 6 and Figure 6 caption text",
-      "detail": "Concludes that alignment is foundational and prefix conditioning offers the best overall balance on this platform. Explains that unexpected obstacles can invalidate prior-chunk guidance."
+      "location": "PDF pp. 9–10, Section 6 and Figure 6 with caption",
+      "detail": "Concludes that alignment is foundational and train offers the best overall balance on this platform. Figure 6 schematically shows an unexpected obstacle requiring a new trajectory and making prior-prefix constraints harmful; smooth reactive handling remains open."
     },
     {
       "id": "E14",
       "sourceId": "primary",
-      "location": "PDF pp. 7–9, Figures 3–5 captions and extracted metric labels",
-      "detail": "Captions identify mean/max absolute overlap errors for robot components and online completion score, time, and translational RMS jerk. Only textual labels and captions were reviewed, not figure images."
+      "location": "PDF p. 7, Figure 3, all panels, axes, legends and caption; PDF p. 6, Section 5.2",
+      "detail": "MAE panels show gripper commands, arm/torso position in m and head angle in rad. Simple/train are low in the delay region; train grows faster later and can exceed async. Axis labels skip 3 and end at 21, whereas text/caption state a 20-frame overlap, delay steps 1–8 and remaining steps 9–20."
     },
     {
       "id": "E15",
       "sourceId": "primary",
       "location": "PDF p. 1, Project Page and GitHub lines",
       "detail": "Provides links to the Motubrain project page and shengshu-ai/Motubrain repository; linked contents are outside the supplied reading material."
+    },
+    {
+      "id": "E16",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 2, numbered pipeline, intervention connectors, weight cells and caption",
+      "detail": "Downward flow runs from noisy action through flow-matching velocity prediction and integration to refined and final actions. Connectors place train at input, infer at velocity, simple at refined action and async+blend at final action. Train displays weights 1,1,0,0; others display 1,1,0.5,0.1. Train’s conditioned-prefix cells retain noise dots although the caption and Section 4 describe clean conditioning; exact masking implementation is not given."
+    },
+    {
+      "id": "E17",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 4, all panels, axes, legends and caption; PDF p. 6, Section 5.2",
+      "detail": "Maximum absolute errors use the same components and units as Figure 3. Train’s later right-arm and head errors exceed async, qualifying the prose ranking. The axes again skip 3 and extend to 21. These curves are maxima, not confidence intervals."
+    },
+    {
+      "id": "E18",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Author Contributions and Acknowledgments",
+      "detail": "Mengchen Cai, Jiangfeng Liu and Yinze Rong contributed; Cai initiated the project and Liu led it. Jun Zhu is thanked for support. This block provides contributor roles, not a replacement title-page author list or an explicit institutional affiliation assignment."
+    },
+    {
+      "id": "E19",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–6, Sections 4–5.2; PDF pp. 7–9, Section 5.3 and Figure 5",
+      "detail": "Method/setup sections give qualitative interventions and chunk settings, without a complete backbone/checkpoint, data scale, optimizer/loss, hardware, guidance configuration or per-method latency breakdown. Evaluation gives means without uncertainty or trial-termination and jerk-computation details. No controlled delay sweep or separate single-factor ablation is reported."
     }
   ]
 }
