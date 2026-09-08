@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2605.28544",
+  "shortTitle": "DriveWAM",
+  "thesis": "DriveWAM predicts ego motion through a generated future in one video-action transformer, gaining benchmark accuracy while retaining dependence on semantic guidance and the quality of its imagined future.",
+  "standfirst": "A driving policy must connect what it sees now to how the scene could change and what the ego vehicle should do next. DriveWAM makes that connection inside a pretrained video diffusion transformer: the future video latent becomes a condition for action generation. A frozen VLM adds changing semantic intent, and separate video/action caches keep historical attention bounded. This reading follows those information paths before examining planning comparisons and component ablations. The experiments show useful trajectory-prediction gains, but their meaning depends on the curated test distribution, future-derived route labels, and the distinction between short-clip accuracy and long-rollout memory profiling.",
+  "evidenceIds": [
+    "ev-problem",
+    "ev-flow",
+    "ev-guidance",
+    "ev-memory",
+    "ev-physicalai",
+    "ev-route",
+    "ev-curation",
+    "ev-memory-results"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 4,
+      "asset": "report-assets/2605.28544/architecture.png",
+      "width": 1108,
+      "height": 554,
+      "sourceSha256": "2cac17398b8e3d82f4edc4b70bc7ab664cca31600c1d4e17a9dd51c49c205581",
+      "sourceUrl": "https://arxiv.org/pdf/2605.28544#page=4",
+      "crop": [
+        0.174,
+        0.09,
+        0.826,
+        0.342
+      ],
+      "alt": "The architecture routes encoded observations, ego actions, ego state, and VLM text into one video diffusion transformer, with separate video/action history and a memory-selection stage.",
+      "caption": "One predictive backbone connects observed history, semantic guidance, imagined video, and ego actions.",
+      "readingGuide": "Start with the real-observation block on the left: the VAE produces video tokens and the action encoder produces motion tokens. Their blue and green colors persist in the history cache above. Follow the gold path from the frozen VLM into the text encoder, then into the transformer alongside ego-state conditioning. Snowflakes mark frozen modules; flames mark trainable ones. The two central prediction streams share the transformer. Their displayed upward arrows do not specify the sampling order: Equation (3) and the rollout text establish that future video is generated first and conditions action generation. The right-hand real-observation block shows how subsequent evidence refreshes history.",
+      "takeaway": "The architectural support for a unified world-action model is the shared video/action transformer and the explicit future-latent input to action prediction. The VLM contributes semantic context, while ego motion is predicted through the video backbone. This is stronger classification evidence than a joint training loss alone.",
+      "caution": "The guidance arrow assumes a supplied route command. Appendix B derives that label from upcoming ground-truth yaw, qualifying the main text's causal-input description. The diagram also represents predicted motion, without documenting physical vehicle execution.",
+      "evidenceIds": [
+        "ev-architecture",
+        "ev-tokenization",
+        "ev-flow",
+        "ev-objective",
+        "ev-guidance",
+        "ev-route"
+      ]
+    },
+    {
+      "id": "attention-mask",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 6,
+      "asset": "report-assets/2605.28544/attention-mask.png",
+      "width": 1030,
+      "height": 766,
+      "sourceSha256": "2cac17398b8e3d82f4edc4b70bc7ab664cca31600c1d4e17a9dd51c49c205581",
+      "sourceUrl": "https://arxiv.org/pdf/2605.28544#page=6",
+      "crop": [
+        0.172,
+        0.091,
+        0.475,
+        0.265
+      ],
+      "alt": "A colored query-by-key attention matrix separates text guidance, ego state, video, and action tokens, including clean and noised versions across two future chunks.",
+      "caption": "Teacher forcing preserves the future-to-action dependency while localizing each chunk's text condition.",
+      "readingGuide": "Read rows as queries and columns as keys. Colored cells permit attention; white cells block it. The subscript tau identifies noised tokens. In the first predicted chunk, the noisy action row u_{1,tau} can read clean future video z_1, together with the initial observation z_0, guidance g_0, and ego state e_0. The noisy video row z_{1,tau} has no corresponding access to future action. Move downward to the second chunk: clean video/action history becomes available, and its yellow guidance cells move from g_0 to g_1. This visually matches the inverse-dynamics factorization and the text's localized guidance rule.",
+      "takeaway": "The mask permits efficient parallel training without treating every token as simultaneously available. It encodes two useful restrictions: future actions depend on future visual content, and each target chunk receives its own semantic intent. The frozen VLM's later guidance cannot enter an earlier chunk through these displayed text-attention cells.",
+      "caution": "This is a training mask. Clean future video is a teacher-forcing condition; inference uses a generated latent, with video denoising stopping at tau 0.6. The mask does not remove the future-derived route-label condition described in Appendix B.",
+      "evidenceIds": [
+        "ev-mask",
+        "ev-flow",
+        "ev-objective",
+        "ev-guidance",
+        "ev-implementation",
+        "ev-route"
+      ]
+    },
+    {
+      "id": "planning-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "asset": "report-assets/2605.28544/planning-results.png",
+      "width": 1662,
+      "height": 353,
+      "sourceSha256": "2cac17398b8e3d82f4edc4b70bc7ab664cca31600c1d4e17a9dd51c49c205581",
+      "sourceUrl": "https://arxiv.org/pdf/2605.28544#page=7",
+      "crop": [
+        0.174,
+        0.383,
+        0.826,
+        0.49
+      ],
+      "alt": "Three single-view driving models are compared on parameter count and three- and four-second displacement errors; DriveWAM has the lowest reported errors in all available columns.",
+      "caption": "DriveWAM improves trajectory prediction on the authors' curated 1,000-clip PhysicalAI test subset.",
+      "readingGuide": "Read the four error columns in two horizon pairs: average displacement error and final displacement error at three seconds, then the same metrics at four seconds. Lower values are better. Every row uses a single camera, and Section 4.3 states that each method outputs one trajectory. The asterisk matters: VaVAM's released checkpoint only supports three seconds, so its dashes are missing evaluations rather than failed four-second predictions. The parameter column also matters: DriveWAM lists a 5B video model plus an 8B semantic guide, whereas Alpamayo-1.5 lists 10B. Keep those system differences separate from the error comparison.",
+      "takeaway": "At four seconds, DriveWAM reports ADE/FDE of 0.83/2.47 m against Alpamayo-1.5's 1.44/4.18 m. At three seconds it reports 0.47/1.35 m, lower than both listed baselines. These are concrete improvements under the shared front-camera, single-trajectory evaluation protocol on this selected test subset.",
+      "caution": "The models have different pretraining histories and parameter counts. Appendix A enriches the test subset for rare/high-interest scenes, so this table does not estimate the full test distribution. It supplies no uncertainty intervals or physical-execution evidence.",
+      "evidenceIds": [
+        "ev-physicalai",
+        "ev-datasets",
+        "ev-curation",
+        "ev-qualitative"
+      ]
+    },
+    {
+      "id": "guidance-scaling",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 8,
+      "asset": "report-assets/2605.28544/guidance-scaling.png",
+      "width": 1662,
+      "height": 453,
+      "sourceSha256": "2cac17398b8e3d82f4edc4b70bc7ab664cca31600c1d4e17a9dd51c49c205581",
+      "sourceUrl": "https://arxiv.org/pdf/2605.28544#page=8",
+      "crop": [
+        0.174,
+        0.098,
+        0.826,
+        0.235
+      ],
+      "alt": "Six rows pair fixed global prompts and scene-evolving guidance at 4k, 20k, and 100k training clips, all using 50k iterations.",
+      "caption": "Changing semantic guidance helps at every tested data scale, with uneven gains across metrics.",
+      "readingGuide": "Compare adjacent rows before comparing different dataset sizes. Within each pair, the clip count and iteration count stay fixed; the cross uses a fixed global prompt and the checkmark uses scene-evolving guidance. Then follow only the checked rows down the table to see the scaling trend under the changing-guidance configuration. This two-pass reading separates a text-conditioning comparison from a data-volume comparison. At 20k clips, ADE changes only from 0.95 to 0.94, while FDE moves from 2.94 to 2.65, so the two metrics tell different parts of the story. Figure 5 plots these same trends.",
+      "takeaway": "Guided ADE/FDE improves from 1.01/2.95 m at 4k clips to 0.83/2.47 m at 100k. Guidance also improves both errors within each data-size pair. The evidence supports complementary semantic conditioning across these tested scales; it does not show that the gain has a fixed magnitude.",
+      "caution": "The ablation changes the semantic-conditioning package, without isolating scene description from route intent. All runs use 50k iterations, not equal numbers of dataset passes. Three scales and no seed intervals are insufficient to infer an asymptotic scaling law.",
+      "evidenceIds": [
+        "ev-guidance-ablation",
+        "ev-guidance",
+        "ev-route"
+      ]
+    },
+    {
+      "id": "video-adaptation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 8,
+      "asset": "report-assets/2605.28544/video-adaptation.png",
+      "width": 1098,
+      "height": 262,
+      "sourceSha256": "2cac17398b8e3d82f4edc4b70bc7ab664cca31600c1d4e17a9dd51c49c205581",
+      "sourceUrl": "https://arxiv.org/pdf/2605.28544#page=8",
+      "crop": [
+        0.178,
+        0.304,
+        0.465,
+        0.357
+      ],
+      "alt": "Three configurations toggle pretrained initialization and video supervision; retaining both gives the lowest four-second average and final displacement errors.",
+      "caption": "Video supervision remains useful after adapting the pretrained backbone to action prediction.",
+      "readingGuide": "The two left columns are interventions, and the two right columns measure trajectory error. The first row removes pretrained initialization but keeps video supervision. The second keeps initialization but removes video supervision. The last keeps both. The caption specifies a common setting of 100k clips and 50k iterations, and Section 4.4 places the comparison on PhysicalAI. Read the first-to-last comparison as evidence about initialization under joint supervision, then the second-to-last comparison as evidence about video supervision with pretrained initialization. There is no row removing both, so this is not a complete two-by-two factorial experiment.",
+      "takeaway": "The full setup reaches 0.83/2.47 m ADE/FDE, compared with 1.10/3.26 m from scratch and 1.23/3.79 m without video supervision. The latter result motivates preserving video prediction during adaptation, even though the downstream score evaluates the ego trajectory rather than video quality.",
+      "caution": "The authors interpret the action-only degradation as failure to preserve video priors. That explanation is plausible, but this table measures trajectory errors rather than representation preservation. It does not isolate whether generated future content is causally used at inference.",
+      "evidenceIds": [
+        "ev-adaptation",
+        "ev-objective",
+        "ev-flow"
+      ]
+    },
+    {
+      "id": "memory-strategies",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 5",
+      "page": 8,
+      "asset": "report-assets/2605.28544/memory-strategies.png",
+      "width": 1166,
+      "height": 414,
+      "sourceSha256": "2cac17398b8e3d82f4edc4b70bc7ab664cca31600c1d4e17a9dd51c49c205581",
+      "sourceUrl": "https://arxiv.org/pdf/2605.28544#page=8",
+      "crop": [
+        0.483,
+        0.263,
+        0.826,
+        0.357
+      ],
+      "alt": "Full, FIFO, and selective caches are compared on four-second trajectory errors and separately profiled long-rollout KV memory and attention computation.",
+      "caption": "Selective retention recovers much of full-cache accuracy within FIFO's memory budget.",
+      "readingGuide": "Begin with the protocol note above the columns: trajectory errors come from 20-second clips, whereas memory and GFLOPs come from a 300-second profile. Next compare FIFO and Selective. Their 0.25 GB cache sizes match, so the error difference tests retention policy at the reported equal-memory setting. Finally compare Selective with Full to see the remaining accuracy gap. Section 4.4 defines the profiling scope: KV memory sums all diffusion-transformer layers, while GFLOPs cover one causal self-attention layer per step. The attention cost is consequently neither total model computation nor a direct wall-clock latency measurement.",
+      "takeaway": "Selective caching achieves 0.89/2.52 m ADE/FDE versus FIFO's 1.40/3.47 m, while Full reaches 0.83/2.47 m. It cuts the profiled memory from 3.07 to 0.25 GB and attention cost from 17.37 to 1.44 GFLOPs. Selection improves the accuracy–memory tradeoff but costs more attention computation than FIFO's 1.05 GFLOPs.",
+      "caution": "The 300-second profile establishes bounded cache cost, not 300-second prediction accuracy. Main Table 2's 0.83/2.47 matches the Full row; the explicit Selective result here is 0.89/2.52. Do not combine full-cache accuracy and selective-cache cost into one measured operating point.",
+      "evidenceIds": [
+        "ev-memory",
+        "ev-memory-results",
+        "ev-physicalai",
+        "ev-implementation"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Make the predicted future an input to the action model",
+      "kind": "source",
+      "text": "DriveWAM begins with synchronized video and ego-motion history. Video passes through the pretrained VAE, while an MLP embeds normalized motion increments. The shared transformer learns video flow prediction in its inherited latent space and action flow prediction through an action decoder. Equation (3) supplies the crucial dependency: the action branch receives the next video latent as a condition. In teacher-forced training that latent is clean ground truth; at inference it comes from video generation. Both branches retain supervision in Equation (4), and all chunks are processed with a causal mask during training. Deployment-style rollout instead samples one future chunk and its actions sequentially, then updates history when a real observation arrives. The implementation uses only partial video denoising before action generation.",
+      "evidenceIds": [
+        "ev-tokenization",
+        "ev-flow",
+        "ev-objective",
+        "ev-mask",
+        "ev-implementation"
+      ]
+    },
+    {
+      "heading": "Separate current scene reasoning from the origin of route intent",
+      "kind": "analysis",
+      "text": "A plausible visual continuation does not uniquely specify the desired maneuver. The VLM supplies a short description and behavioral intent from the latest camera frame, recent ego trajectory, and supplied route direction. Localized cross-attention lets each future chunk receive updated guidance without reading text generated for later chunks. Figure 7 illustrates this distinction: a straight route can remain unchanged while guidance responds to pedestrians and traffic lights. However, Appendix B constructs route direction from upcoming ground-truth yaw because explicit annotations are unavailable. Reader analysis: the visual and motion inputs are causal, but the complete conditioning package includes future-derived coarse intent. This does not reveal a full future trajectory; it does mean that the guidance ablation cannot by itself establish the same gain with an independent navigation source.",
+      "evidenceIds": [
+        "ev-guidance",
+        "ev-mask",
+        "ev-route",
+        "ev-prompt",
+        "ev-guidance-ablation"
+      ]
+    },
+    {
+      "heading": "Read bounded memory as a retention tradeoff",
+      "kind": "analysis",
+      "text": "Once inference repeatedly consumes real observations, historical video tokens can greatly outnumber action tokens. DriveWAM therefore assigns separate budgets instead of letting both compete in one pool. Current-query attention supplies relevance, while similarity to other cached keys supplies redundancy. The score rewards useful evidence and penalizes repetition; low-scoring historical tokens leave when new KVs need space. Figure 3 illustrates the resulting retention patterns. Reader analysis: this is a computational selection rule, not a guarantee that every safety-critical object survives compression. Table 5 gives the appropriate empirical test: selective retention improves on FIFO at equal reported memory and approaches full-cache short-clip accuracy. Its separate long-rollout profile establishes reduced storage and attention cost; longer-horizon decision quality remains a distinct question.",
+      "evidenceIds": [
+        "ev-memory",
+        "ev-memory-results"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test whether actions depend on the generated future",
+      "text": "Reader-proposed check, not performed: freeze one DriveWAM checkpoint and evaluate identical held-out clips with identical history, ego state, guidance, and action-noise seeds. Compare the default generated future latent, the clean ground-truth future latent as an oracle control, and generated latents shuffled between clips with similar route direction and ego speed. Measure paired changes in action outputs and ADE/FDE. A shuffled future that leaves both nearly unchanged would challenge the claim that future content drives action prediction; a large oracle advantage would quantify the teacher-forcing gap. Keep the default video solver fixed so denoising compute does not confound the intervention.",
+      "evidenceIds": [
+        "ev-flow",
+        "ev-objective",
+        "ev-implementation",
+        "ev-adaptation",
+        "ev-physicalai"
+      ]
+    },
+    {
+      "title": "Separate scene-guidance gains from future-derived route labels",
+      "text": "Reader-proposed check, not performed: train matched route-only and scene-evolving-guidance variants with the same initialization, clips, iterations, and several seeds. Evaluate each using either the paper's yaw-derived route labels or an independently provided navigation command available before the target chunk. Regenerate guidance from the same current frame and recent trajectory under each command source. Compare paired ADE/FDE and report turn/intersection cases separately. If the guidance advantage disappears with independent commands, the published gain is contingent on route-label provenance; persistence would strengthen the semantic-guidance interpretation. Preserve test membership to separate this effect from curation changes.",
+      "evidenceIds": [
+        "ev-guidance",
+        "ev-route",
+        "ev-guidance-ablation",
+        "ev-curation",
+        "ev-implementation"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      14,
+      15,
+      16,
+      17
+    ],
+    "notes": "The title/author/version block on p. 1, problem and method text on pp. 2–5, attention mask and retention diagnostic on p. 6, all main tables on pp. 7–8, ablation interpretation and qualitative/scaling figures on p. 9, and Appendices A–D on pp. 14–17 were rendered and visually inspected. This includes the route-label derivation and prompt, curation details, training hardware/settings, and the H20/vLLM latency evidence. Figures 1–8 and Tables 1–6 were visually read. All six final crops were individually inspected after adjustment; narrow originals were rendered at higher DPI without upscaling. Required table-caption protocol notes were retained. The diagram arrows, trainable/frozen markers, and attention cells were checked against Equations (2)–(4) and Sections 3.1–3.3. The causal-guidance qualification from Appendix B is disclosed. Pages 10–13, containing the conclusion continuation and references, were read in the supplied text; they supply no additional numerical or implementation claims in this edition. Separate supplements were not verified."
+  },
+  "featuredResultTask": "PhysicalAI trajectory prediction on the curated test subset"
+}

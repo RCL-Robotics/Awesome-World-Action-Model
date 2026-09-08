@@ -1,0 +1,474 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2605.28544",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T16:23:52.643Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2605.28544",
+      "title": "DriveWAM: Video Generative Priors Enable Scalable World-Action Modeling for Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "2cac17398b8e3d82f4edc4b70bc7ab664cca31600c1d4e17a9dd51c49c205581",
+      "wordCount": 9035,
+      "accessedAt": "2026-09-07T14:01:21.397886+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract and title/author/version block (p. 1)",
+      "1 Introduction (pp. 1–2)",
+      "2 Related Work; 2.1 Vision-Language-Action Models in Autonomous Driving; 2.2 World-Action Models (pp. 2–3)",
+      "3 Method; 3.1 Autoregressive Video-Action Generation (pp. 3–5)",
+      "3.2 Scene-Evolving Driving Guidance (p. 5)",
+      "3.3 Selective KV Memory for Long-Horizon Rollout (pp. 5–7)",
+      "4 Experiments; 4.1 Datasets; 4.2 Implementation Details; 4.3 Main Results (pp. 7–8)",
+      "4.4 Ablation Study and 5 Conclusion (pp. 9–10)",
+      "References (pp. 10–13)",
+      "A Dataset Curation (p. 14; Figure 6 on p. 15)",
+      "B VLM Guidance Details (pp. 14–16)",
+      "C Efficiency Analysis (p. 16)",
+      "D Additional Qualitative Results (pp. 16–17)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction limitation above was addressed by inspecting original PDF pages and all final crops; all six supplied text chunks were read without truncation.",
+      "The supplied artifact is arXiv:2605.28544v1 [cs.CV], 27 May 2026. Its title and six authors match the catalog after name-order normalization. The catalog URL is unversioned; no other revision was supplied or compared.",
+      "Code, external project pages, and separate supplements were not inspected; experiments were not reproduced. References were read as part of this paper, without opening cited works."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 4): architecture",
+      "Figure 2 (p. 6): attention mask",
+      "Figure 3 (p. 6): selective video-token retention",
+      "Figure 4 (p. 9): qualitative predictions",
+      "Figure 5 (p. 9): data scaling",
+      "Figure 6 (p. 15): scene tagging",
+      "Figure 7 (p. 15): evolving guidance",
+      "Figure 8 (p. 17): additional qualitative predictions"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 7): NAVSIM v1",
+      "Table 2 (p. 7): PhysicalAI comparison",
+      "Table 3 (p. 8): guidance and data scaling",
+      "Table 4 (p. 8): initialization and video supervision",
+      "Table 5 (p. 8): KV memory",
+      "Table 6 (p. 16): inference efficiency"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "DriveWAM turns a pretrained video diffusion transformer into a driving policy: it predicts a future video latent, then generates ego motion conditioned on that future. A frozen VLM supplies changing semantic guidance, while selective video/action caches bound historical memory. The evidence supports benchmark trajectory prediction and a useful cache tradeoff, with route-label, data-curation, and deployment limits.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Driving needs temporal dynamics as well as scene semantics. The authors argue that video pretraining supplies motion priors that image-text-centric policies must otherwise learn downstream. Their challenge is to connect those priors to continuous ego actions, update intent as scenes change, and retain useful history without unbounded KV storage.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "ev-problem"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A shared transformer preserves video prediction during policy adaptation and implements future-conditioned inverse-dynamics action generation.",
+      "kind": "source",
+      "evidenceIds": [
+        "ev-flow",
+        "ev-objective"
+      ]
+    },
+    {
+      "text": "Chunk-specific VLM guidance is localized by an attention mask; inference-only memory selection separately protects video and action history.",
+      "kind": "source",
+      "evidenceIds": [
+        "ev-guidance",
+        "ev-mask",
+        "ev-memory"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Front-camera observations and historical ego actions",
+      "Current ego state: velocity, acceleration, and curvature examples",
+      "Upcoming route command and scene-evolving text guidance"
+    ],
+    "outputs": [
+      "Future video latents for a four-second chunk",
+      "Normalized ego-frame translation and yaw increments, decoded into an ego trajectory"
+    ],
+    "steps": [
+      {
+        "name": "Encode synchronized history",
+        "detail": "A pretrained VAE maps video chunks to latents z; an MLP action encoder maps normalized translation/yaw increments to tokens u. The inherited video input embedding maps latents into the shared transformer dimension. History H preserves chunk order; a separate MLP and cross-attention branch supply ego state e.",
+        "evidenceIds": [
+          "ev-tokenization",
+          "ev-flow"
+        ]
+      },
+      {
+        "name": "Predict a future, then infer motion",
+        "detail": "The same transformer predicts video flow velocity and, through an MLP decoder, action flow velocity. Action prediction conditions on clean future video during teacher-forced training and generated future latents at inference. Noisy-history augmentation addresses this mismatch. Joint prediction therefore has an explicit video-to-action dependency.",
+        "evidenceIds": [
+          "ev-flow",
+          "ev-objective"
+        ]
+      },
+      {
+        "name": "Refresh semantic intent",
+        "detail": "Frozen Qwen3-VL-8B receives the latest frame, previous-chunk trajectory visualization, and route command. It produces two qualitative sentences under 50 words. Guidance is cached before training and queried once per decision step at inference. Each target chunk attends only to its own guidance.",
+        "evidenceIds": [
+          "ev-guidance",
+          "ev-mask",
+          "ev-route",
+          "ev-prompt"
+        ]
+      },
+      {
+        "name": "Retain useful history",
+        "detail": "Separate modality pools score cached keys by current-query attention relevance minus key-similarity redundancy. Low-scoring historical tokens are evicted to make room for new KVs. This selection changes inference memory, without retraining or modifying the loss.",
+        "evidenceIds": [
+          "ev-memory"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Fine-tuning uses Wan2.2-TI2V-5B initialized from the checkpoint of cited work [19], the full diffusion transformer, and new action/ego modules. Figure 1 marks the VAE, text encoder, and VLM frozen. Action encoder/decoder MLPs have hidden dimension 3072.",
+        "kind": "source",
+        "evidenceIds": [
+          "ev-architecture",
+          "ev-implementation"
+        ]
+      },
+      {
+        "text": "Training uses 256×448 images, 48 NVIDIA H20 GPUs, AdamW with learning rate 0.00001, betas (0.9, 0.95), weight decay 0.1, per-device batch size 1, and action-loss weight 1. NAVSIM uses 100k iterations with learning-rate halving at 50k/70k/90k. PhysicalAI uses 50k iterations on random 12-second segments from 20-second clips; video is 1 Hz and actions 10 Hz.",
+        "kind": "source",
+        "evidenceIds": [
+          "ev-implementation"
+        ]
+      },
+      {
+        "text": "All chunks are processed in parallel with causal teacher forcing. NAVSIM supplies only one four-second prediction horizon per sample, so its evaluation does not exercise extended autoregressive memory.",
+        "kind": "source",
+        "evidenceIds": [
+          "ev-objective",
+          "ev-implementation"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Generate video first using three Euler steps from flow time 1 to 0.6, then actions using ten steps from 1 to 0. Thus the operational future latent is only partially denoised. Encode the next real observation into history when it arrives. Selective memory uses 448 video tokens, 160 action tokens, and lambda 0.07.",
+        "kind": "source",
+        "evidenceIds": [
+          "ev-objective",
+          "ev-implementation",
+          "ev-memory"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\hat v^a_{k+1,\\tau}=D_a\\!\\left(T_\\omega(u_{k+1,\\tau};\\tilde z_{k+1},H_k,e_k,g_k,\\tau)\\right)",
+        "explanation": "Equation (3): k indexes chunks; tau is flow time. T is the shared transformer with parameters omega, D_a the action decoder, u the encoded noisy action, H history, e ego state, and g guidance. The future latent tilde z is clean in training and generated at inference; hat v^a is predicted action flow velocity.",
+        "evidenceIds": [
+          "ev-flow",
+          "ev-objective"
+        ]
+      },
+      {
+        "expression": "\\mathcal L=\\mathbb E_{k,\\tau}\\!\\left[\\|\\hat v^z_{k+1,\\tau}-v^z_{k+1,\\tau}\\|_2^2+\\beta_a\\|\\hat v^a_{k+1,\\tau}-v^a_{k+1,\\tau}\\|_2^2\\right]",
+        "explanation": "Equation (4) fits video and action flow velocities together. Superscripts z and a denote video latent and action; hats denote predictions and unhatted v the targets. Beta_a balances action supervision against video supervision.",
+        "evidenceIds": [
+          "ev-objective"
+        ]
+      },
+      {
+        "expression": "s_j^m=\\lambda\\rho_j^m-(1-\\lambda)\\eta_j^m",
+        "explanation": "Equation (7): for cached token j in modality m (video or action), rho is mean attention mass from current queries and eta is mean cosine similarity to other cached keys. Lambda balances relevance and redundancy; low scores are evicted.",
+        "evidenceIds": [
+          "ev-memory"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "PhysicalAI trajectory prediction on the curated test subset",
+      "setting": "100k training clips; 1,000 curated test clips from the official test split; front camera and one output trajectory per method.",
+      "metric": "ADE / FDE (m), lower is better",
+      "value": "3 s: 0.47 / 1.35; 4 s: 0.83 / 2.47.",
+      "comparison": "Alpamayo-1.5: 0.80 / 2.31 at 3 s and 1.44 / 4.18 at 4 s. VaVAM: 2.31 / 4.32 at 3 s; its released checkpoint has no 4 s result.",
+      "interpretation": "Strong performance on this curated protocol; baseline pretraining data and model sizes differ. This is trajectory prediction from driving logs.",
+      "evidenceIds": [
+        "ev-physicalai",
+        "ev-datasets",
+        "ev-implementation",
+        "ev-curation"
+      ]
+    },
+    {
+      "task": "NAVSIM v1 planning",
+      "setting": "Standard benchmark with 103k trainval and 12k test samples; single front-view camera; four-second prediction.",
+      "metric": "PDMS, higher is better",
+      "value": "90.1.",
+      "comparison": "WorldDrive 89.0; Epona 86.2; DriveVLA-W0 88.4. The separately marked multi-anchor DriveVLA-W0 variant reports 90.2.",
+      "interpretation": "Competitive single-view planning, not the highest number in every table row; sensors and training variants differ.",
+      "evidenceIds": [
+        "ev-navsim",
+        "ev-datasets",
+        "ev-implementation"
+      ]
+    },
+    {
+      "task": "Scene-evolving guidance and data scaling",
+      "setting": "PhysicalAI; fixed 50k iterations at 4k, 20k, and 100k training clips.",
+      "metric": "ADE@4s / FDE@4s (m)",
+      "value": "With guidance: 1.01 / 2.95, 0.94 / 2.65, 0.83 / 2.47.",
+      "comparison": "Fixed global prompt: 1.21 / 3.65, 0.95 / 2.94, 0.92 / 2.75, respectively.",
+      "interpretation": "Both metrics improve with guidance at each scale. Three data sizes do not establish an asymptotic scaling law.",
+      "evidenceIds": [
+        "ev-guidance-ablation"
+      ]
+    },
+    {
+      "task": "Video-prior adaptation ablation",
+      "setting": "PhysicalAI; 100k clips and 50k iterations.",
+      "metric": "ADE@4s / FDE@4s (m)",
+      "value": "Pretrained initialization plus video supervision: 0.83 / 2.47.",
+      "comparison": "Scratch initialization with video supervision: 1.10 / 3.26. Pretrained initialization without video supervision: 1.23 / 3.79.",
+      "interpretation": "Supports preserving video supervision during adaptation; the table omits the scratch/action-only combination.",
+      "evidenceIds": [
+        "ev-adaptation"
+      ]
+    },
+    {
+      "task": "Selective KV memory tradeoff",
+      "setting": "Accuracy on 20-second PhysicalAI clips; memory/attention costs separately profiled at 300 seconds.",
+      "metric": "ADE@4s / FDE@4s (m); KV GB; attention GFLOPs",
+      "value": "Selective: 0.89 / 2.52; 0.25 GB; 1.44 GFLOPs.",
+      "comparison": "Full: 0.83 / 2.47; 3.07 GB; 17.37 GFLOPs. FIFO: 1.40 / 3.47; 0.25 GB; 1.05 GFLOPs.",
+      "interpretation": "Selective improves accuracy over equal-memory FIFO but costs more attention computation. GFLOPs cover one self-attention layer, and KV GB sum all DiT layers; neither measures complete-system cost.",
+      "evidenceIds": [
+        "ev-memory-results"
+      ]
+    },
+    {
+      "task": "Per-chunk inference efficiency",
+      "setting": "One NVIDIA H20; a four-second prediction chunk.",
+      "metric": "Stage latency (ms); ADE@4s / FDE@4s (m)",
+      "value": "Default: guidance 125, video 372, action 765. Five action steps: 374 ms for action, approximately 871 ms total, with 0.84 / 2.45.",
+      "comparison": "Ten steps give 0.83 / 2.47. Alpamayo-1.5 totals 900 ms with 1.44 / 4.18.",
+      "interpretation": "The five-step variant is a measured speed/accuracy option, not evidence of safety under execution delays.",
+      "evidenceIds": [
+        "ev-efficiency"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The visual input and motion history are causal, but Appendix B derives route labels from the upcoming chunk's ground-truth yaw: left above 15 degrees, right below −15 degrees, otherwise straight. This coarse future-derived intent qualifies the unconditional no-future-information claim; performance with independently supplied navigation remains untested.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-guidance",
+        "ev-route"
+      ]
+    },
+    {
+      "text": "VLM-based test curation enriches rare and high-interest scenes and includes 200 common-scene controls. Aggregate performance need not transfer to the full test distribution. Tables provide no seed variability or confidence intervals, and illustrative videos do not establish physical deployment or 300-second planning accuracy.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-curation",
+        "ev-physicalai",
+        "ev-guidance-ablation",
+        "ev-memory-results",
+        "ev-qualitative"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the specified pretrained initialization, camera/ego synchronization, normalization, guidance cache, and exact subset membership. Curation retains scores at least 2.0 plus half the lower-score clips; rare test tags occur below 1%, with up to 30 clips per tag. The paper gives example weights but omits a complete weighting table, selection seeds, and detailed quota/deduplication rules.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-tokenization",
+        "ev-implementation",
+        "ev-curation"
+      ]
+    },
+    {
+      "text": "Further gaps include the precise action-normalization statistics, noisy-history augmentation schedule, and software versions. Appendix C names default vLLM compilation without a version. Proposed checks should separate route-command provenance from semantic guidance and test action sensitivity to generated versus shuffled future latents.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-tokenization",
+        "ev-objective",
+        "ev-route",
+        "ev-memory-results",
+        "ev-efficiency",
+        "ev-flow"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Visual planning & IDM",
+        "Memory & long-horizon modeling"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q2 · One Model × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "7c005fdc3d5cb06513c469c4bafe70b9160936f8b6e2cdc57c80fc817e16d40d"
+    },
+    "reasoning": {
+      "text": "The shared T_omega performs video and action flow prediction, supporting One Model for the predictive core. Equation (3) conditions actions on the future latent, supporting IDM and Q2. A separate frozen semantic VLM does not become a separate action planner. Driving and memory tags are directly supported by the task and bounded modality caches.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-flow",
+        "ev-objective",
+        "ev-guidance",
+        "ev-memory"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "How much of the guidance gain remains when route commands come from an independent navigation source?",
+    "Does selective retention preserve rare-event accuracy over long rollouts, beyond the reported short-clip aggregate?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "ev-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block, arXiv margin and preprint label",
+      "detail": "The title matches the supplied observed title. Authors are Chen Shi, Jinrui Xu, Shaoshuai Shi, Kehua Sheng, Bo Zhang, and Li Jiang. Affiliations are The Chinese University of Hong Kong, Shenzhen and Voyager Research, Didi Chuxing. The artifact is arXiv:2605.28544v1 [cs.CV], 27 May 2026; Chen Shi and Jinrui Xu share equal contribution."
+    },
+    {
+      "id": "ev-problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Section 1 Introduction, motivation and contributions",
+      "detail": "The authors motivate video-derived temporal priors, semantic guidance, and bounded historical memory for driving, and identify future-first action generation in a shared transformer."
+    },
+    {
+      "id": "ev-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 1 and caption",
+      "detail": "Video and action tokens enter one Video Diffusion Transformer. The VLM and text encoder carry snowflake markers, as does the video VAE; the transformer and action/ego encoders carry flame markers. Real observations feed history, and VLM guidance feeds text conditioning."
+    },
+    {
+      "id": "ev-tokenization",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1, Tokenization and Equation (1)",
+      "detail": "Clips are divided into chunks. A VAE encodes video, while an MLP encodes normalized ego-frame translation and yaw increments. Video latents are projected to transformer dimension; ordered video/action pairs form history. Numerical normalization statistics are not specified here."
+    },
+    {
+      "id": "ev-flow",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, World-action flow and Equations (2)–(3); p. 5, opening paragraph",
+      "detail": "Video flow prediction uses history, ego state, and guidance. The same transformer predicts action velocity through an MLP decoder, additionally conditioned on future video. That latent is clean during training and generated at inference."
+    },
+    {
+      "id": "ev-objective",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.1, opening paragraph, Equation (4), and Full-clip training and autoregressive rollout",
+      "detail": "The joint loss fits video/action flow velocities with action weight beta_a. Training uses causal teacher forcing and noisy-history augmentation; inference generates video then actions and appends newly available real observations. The augmentation schedule is not provided."
+    },
+    {
+      "id": "ev-guidance",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Equation (5) and Temporally localized guidance injection",
+      "detail": "Frozen Qwen3-VL-8B uses the latest observation, recent motion, and a supplied route command. Guidance is precomputed for training and queried once per decision step at inference; a block-diagonal text mask restricts target chunks to their corresponding guidance."
+    },
+    {
+      "id": "ev-mask",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 2 and caption; p. 5, Sections 3.1–3.2",
+      "detail": "Colored cells allow attention and white cells mask it. The noisy action row u_{1,tau} can read clean future video z_1; noisy video z_{1,tau} cannot read future action. The next chunk uses g_1 rather than g_0, matching localized guidance and the stated conditional dependencies."
+    },
+    {
+      "id": "ev-memory",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.3, Figure 3 and Equations (6)–(7); p. 7, Equation (8)",
+      "detail": "Video and action caches have separate budgets. Relevance averages attention mass from current queries; redundancy averages cosine similarity among cached keys. The score subtracts weighted redundancy from relevance. Top-ranked historical tokens are retained while space is reserved for new KVs. This mechanism applies only at inference."
+    },
+    {
+      "id": "ev-datasets",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1 Datasets; p. 8, Section 4.2 dataset-specific sampling",
+      "detail": "NAVSIM uses 103k trainval and 12k test samples and reports NC, DAC, TTC, Comfort, Ego Progress, and PDMS. PhysicalAI uses the front camera and ego-motion labels, a curated 100k training subset, and a curated 1,000-clip test subset; trajectory horizons are three and four seconds."
+    },
+    {
+      "id": "ev-implementation",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4.2 Implementation Details",
+      "detail": "The source specifies Wan2.2-TI2V-5B initialization through cited work [19], full-transformer fine-tuning, 3072-dimensional action MLPs, resolution, 48 H20 GPUs, optimizer settings, dataset schedules, four-second chunks, 1 Hz video and 10 Hz PhysicalAI actions. Inference uses 3 video steps over tau 1 to 0.6 and 10 action steps over tau 1 to 0; cache capacities are 448/160 and lambda is 0.07."
+    },
+    {
+      "id": "ev-navsim",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, DriveWAM, WorldDrive, Epona, and DriveVLA-W0 rows and caption; p. 8, Section 4.3 NAVSIM",
+      "detail": "PDMS is 90.1 for DriveWAM, 89.0 for WorldDrive, 86.2 for Epona, and 88.4 for standard DriveVLA-W0. The dagger-marked multi-anchor DriveVLA-W0 row reports 90.2; the caption distinguishes sensors and training variants."
+    },
+    {
+      "id": "ev-physicalai",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2, all method rows and checkpoint footnote; p. 8, Section 4.3 PhysicalAI; p. 9, Figure 5 metric units",
+      "detail": "DriveWAM reports ADE/FDE 0.47/1.35 at three seconds and 0.83/2.47 at four seconds. Alpamayo-1.5 reports 0.80/2.31 and 1.44/4.18; VaVAM reports 2.31/4.32 only at three seconds. All use a front camera and one trajectory, but parameter counts and training histories differ. The paper labels displacement error axes in meters."
+    },
+    {
+      "id": "ev-guidance-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3, all six rows; p. 9, Section 4.4 Scene-evolving Driving Guidance, Data Scaling, and Figure 5",
+      "detail": "At fixed 50k iterations, guidance versus fixed prompt yields 1.01/2.95 versus 1.21/3.65 at 4k clips, 0.94/2.65 versus 0.95/2.94 at 20k, and 0.83/2.47 versus 0.92/2.75 at 100k. No uncertainty intervals appear."
+    },
+    {
+      "id": "ev-adaptation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4 and caption; p. 9, Section 4.4 Video Foundation Model Adaptation and Figure 5 metric units",
+      "detail": "With 100k clips and 50k iterations, pretrained plus video supervision achieves 0.83/2.47 ADE/FDE. Scratch plus video supervision gives 1.10/3.26; pretrained without video supervision gives 1.23/3.79. No scratch-without-video row or repeated-seed uncertainty is supplied."
+    },
+    {
+      "id": "ev-memory-results",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 5 and caption; p. 9, Section 4.4 Selective KV Memory",
+      "detail": "Full/FIFO/selective have ADE/FDE 0.83/2.47, 1.40/3.47, and 0.89/2.52 on 20-second clips. The separate 300-second profile reports KV GB 3.07/0.25/0.25 and attention GFLOPs 17.37/1.05/1.44. Memory sums DiT layers; FLOPs refer to one causal self-attention layer per step."
+    },
+    {
+      "id": "ev-curation",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A Dataset Curation; p. 15, Figure 6 and caption",
+      "detail": "Qwen3-VL-8B tags 20 sampled frames per clip using four prompt categories. Weighted tags determine interest scores. Training retains scores at least 2.0 and samples half the lower-score pool. Test curation combines rare tags below 1%, up to 30 clips per rare tag, grouped high-interest clips above the 75th percentile, and 200 common controls. Only example weights and approximate quotas are given."
+    },
+    {
+      "id": "ev-route",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–15, Appendix B pipeline and Route command paragraph; p. 15, Figure 7",
+      "detail": "The latest front-camera frame and previous four-second BEV ego trajectory accompany route guidance. Because explicit route labels are unavailable, the command is derived from ground-truth yaw change over the upcoming chunk: left above 15 degrees, right below −15 degrees, otherwise straight. It contains coarse direction rather than trajectory coordinates."
+    },
+    {
+      "id": "ev-prompt",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix B, Prompt template for VLM guidance",
+      "detail": "The supplied template requests two present-tense sentences, under 50 words total, describing current road context and qualitative upcoming behavior. It excludes numerical trajectory values and treats the route command as authoritative."
+    },
+    {
+      "id": "ev-efficiency",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix C Efficiency Analysis, all three stage paragraphs and Table 6",
+      "detail": "One H20 gives default DriveWAM stage latencies 125/372/765 ms for VLM/video/action, with ADE/FDE 0.83/2.47. Five action steps reduce the action stage to 374 ms and total to approximately 871 ms, with 0.84/2.45. Alpamayo totals 900 ms. Default vLLM compilation is named without a software version."
+    },
+    {
+      "id": "ev-qualitative",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 4 and caption; p. 17, Appendix D, Figure 8 and accompanying paragraphs",
+      "detail": "Selected examples juxtapose predicted ego trajectories and generated future frames on NAVSIM and PhysicalAI. The authors describe coherence and physical plausibility; these illustrations do not supply execution trials or quantitative long-horizon safety measurements."
+    }
+  ]
+}
