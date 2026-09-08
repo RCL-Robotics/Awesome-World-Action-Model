@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.03682",
+  "shortTitle": "PhyAI",
+  "thesis": "PhyAI shares an execution runtime across existing VLA and WAM policies, accelerating model inference while leaving control deadlines and end-to-end rollout gains dependent on the surrounding system.",
+  "standfirst": "A robot policy does more than call a transformer: it prepares observations, reuses conditions, iterates a solver and converts outputs into actions. PhyAI organizes those responsibilities so the same model path can serve onboard robots, shared accelerators and cloud rollouts. Read this paper through three boundaries: model semantics versus runtime services, batch throughput versus request wait, and inference speedup versus whole-system improvement. The figures explain why a small VLA action expert can dominate latency, while a WAM needs parallelism inside one request. The appendices add simulation checks, but the RL projections and internal differences in this v3 source require care.",
+  "evidenceIds": [
+    "e-purpose",
+    "e-architecture",
+    "e-batch-definition",
+    "e-phase-diagnostic",
+    "e-parallel",
+    "e-groot-success",
+    "e-rl-profile",
+    "e-rl-intro"
+  ],
+  "featuredResultTask": "Single-request Cosmos3-Nano-Policy-DROID inference",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 8,
+      "asset": "report-assets/2608.03682/architecture.png",
+      "width": 1196,
+      "height": 648,
+      "sourceSha256": "3e23c2ab7adce5f2f50a126ff4ab9c71e4f15fbe4e9f1ed56fe7e8690802a42b",
+      "sourceUrl": "https://arxiv.org/pdf/2608.03682#page=8",
+      "crop": [
+        0.132,
+        0.615,
+        0.855,
+        0.892
+      ],
+      "alt": "PhyAI hierarchy: scheduler points to stateful model runners containing stateless modeling modules; runners call shared Layers, which dispatch custom or library kernels to hardware. Pre/post-processing and offline quantization sit to the left.",
+      "caption": "Request state belongs to runners; execution primitives are shared beneath the model-specific computation.",
+      "readingGuide": "Start at the scheduler and follow its downward branches into the two example runners. The scheduler chooses placement and parallel policy; each runner owns the KV cache, CUDA Graph buckets and buffers shown inside its box. The smaller modeling boxes are explicitly stateless. Follow their arrows into Layers, where distributed and fused operators share a selector. Its rules choose either phyai-kernel or framework/library kernels before execution reaches hardware. The left-hand quantizer has a dashed offline connection, whereas preprocessing and post-processing are utility services. This is an ownership diagram: the arrows do not describe a learned perception-to-action network.",
+      "takeaway": "The useful abstraction is separation of policy semantics from execution choices. A model can keep its conditioning and solver procedure while the runtime changes kernel selection or placement. Stateful runner ownership also gives cached tensors and graph buffers a defined lifetime, which is essential for safely reusing work.",
+      "caution": "Shared runtime services do not imply shared model weights or one WAM architecture. The diagram specifies responsibilities, but does not by itself demonstrate numerical equivalence across kernels, dtypes or distributed configurations.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-optimizations"
+      ]
+    },
+    {
+      "id": "cosmos-parallel",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 10,
+      "asset": "report-assets/2608.03682/cosmos-parallel.png",
+      "width": 1231,
+      "height": 524,
+      "sourceSha256": "3e23c2ab7adce5f2f50a126ff4ab9c71e4f15fbe4e9f1ed56fe7e8690802a42b",
+      "sourceUrl": "https://arxiv.org/pdf/2608.03682#page=10",
+      "crop": [
+        0.13,
+        0.073,
+        0.874,
+        0.297
+      ],
+      "alt": "Eight GPU rows split into conditional TP0–TP3 and unconditional TP0–TP3 groups. Transformer outputs pass through CFG all-gather into guidance and UniPC, then optionally into eight VAE tiles and gather/stitch.",
+      "caption": "Cosmos3 parallelizes both guidance branches and transformer computation within each branch.",
+      "readingGuide": "Read a row from left to right through the repeated denoising region. GPUs zero through three form the conditional TP group; four through seven form the unconditional group. The CFG exchange connects matching TP ranks across these groups. Equation (10) then combines the two velocities using guidance scale gamma, and every rank advances its local video and action UniPC states. The bottom return arrow leads back to the next denoising timestep. Only after the final step does the optional right-hand region decode a row-major two-by-four set of VAE tiles and gather them for stitching.",
+      "takeaway": "Action-only output can stop before VAE decoding, but it still uses the jointly evolving video/action GEN sequence. The eight-H20 latency result uses two CFG branches and four TP shards per branch. This distinction explains why suppressing a video output is not equivalent to removing world-state computation from inference.",
+      "caution": "CFG degree two counts parallel branches; it is not the guidance scale, which is 3.0 in the separate batch sweep. This schematic and one latency pair do not establish a multi-GPU scaling curve.",
+      "evidenceIds": [
+        "e-parallel",
+        "e-latency",
+        "e-cosmos-batching"
+      ]
+    },
+    {
+      "id": "control-roofline",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 7,
+      "asset": "report-assets/2608.03682/control-roofline.png",
+      "width": 1027,
+      "height": 977,
+      "sourceSha256": "3e23c2ab7adce5f2f50a126ff4ab9c71e4f15fbe4e9f1ed56fe7e8690802a42b",
+      "sourceUrl": "https://arxiv.org/pdf/2608.03682#page=7",
+      "crop": [
+        0.187,
+        0.073,
+        0.808,
+        0.491
+      ],
+      "alt": "Control-rate plot with a sloping then flat ideal roof, a lower dashed sequential curve, four gray-to-blue LIBERO comparisons right of X equals one, and a separate AGX Orin star left of one; below are serial and overlapped action schedules.",
+      "caption": "Finishing before the next handoff creates timing margin under ideal overlap.",
+      "readingGuide": "Panel (a) divides environment time by inference time on the horizontal axis. Moving right means inference is faster relative to environment execution. The vertical axis divides environment time by the control period. The dashed sequential curve follows X divided by one plus X; the solid roof follows the smaller of X and one. The four suite comparisons labeled RTX PRO 6000 lie to the right of the breakpoint. Panel (b) supplies the timing interpretation: synchronous inference leaves an idle gap, while RTC computes chunk B during execution of chunk A and can finish before the nominal handoff.",
+      "takeaway": "The source's four RTX PRO 6000 suite comparisons are environment-bound in this inference-only analysis. Additional acceleration can increase deadline margin without raising the ideal overlap ceiling. The timing schematic describes a possible schedule; the measured points themselves use the sequential sum of inference and environment time.",
+      "caution": "The separate AGX Orin star is left of one, so the graph does not support a universal environment-bound π0.5 claim. Transport, queues and controller handoff are excluded, and the star's detailed protocol is not given here.",
+      "evidenceIds": [
+        "e-control",
+        "e-policy"
+      ]
+    },
+    {
+      "id": "latency-table",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 5",
+      "page": 11,
+      "asset": "report-assets/2608.03682/latency-table.png",
+      "width": 1272,
+      "height": 356,
+      "sourceSha256": "3e23c2ab7adce5f2f50a126ff4ab9c71e4f15fbe4e9f1ed56fe7e8690802a42b",
+      "sourceUrl": "https://arxiv.org/pdf/2608.03682#page=11",
+      "crop": [
+        0.115,
+        0.712,
+        0.884,
+        0.864
+      ],
+      "alt": "Eleven rows list model, device, official latency, PhyAI latency and speedup. The final Cosmos3 row is 2460 ms versus 1180 ms on eight H20 GPUs.",
+      "caption": "Each speedup compares PhyAI with the official implementation on the row's hardware.",
+      "readingGuide": "Read across a single model/device row before comparing rows. The third and fourth columns are action-chunk model-runner times in milliseconds; the last column divides official latency by PhyAI latency. For example, π0.5 on RTX 5090 changes from 52.076 to 28.613 ms, yielding the reported 1.82-fold speedup. The Cosmos3 row uses eight H20 GPUs and a different generation workload, so its absolute latency cannot rank WAM quality against the VLA rows. Section 5.1 defines the timing boundary, while Section 5.2 and Figure 1 provide the omitted specialized-runtime comparisons and precision caveats.",
+      "takeaway": "Every listed official-path comparison favors PhyAI, with speedups from 1.40-fold for GR00T on Thor to 4.65-fold for MiniCPM-Robot on H100. Cosmos3 improves from 2.46 to 1.18 seconds. The evidence supports broad acceleration over official implementations while preserving the model/device conditions attached to each result.",
+      "caution": "The table has no uncertainty column and does not establish fastest-in-class execution. Specialized runtimes sometimes beat PhyAI, some comparisons use FP8, and runner latency excludes observation capture, transport, queueing and controller handoff.",
+      "evidenceIds": [
+        "e-latency",
+        "e-settings"
+      ]
+    },
+    {
+      "id": "batch-diagnostic",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 5",
+      "page": 12,
+      "asset": "report-assets/2608.03682/batch-diagnostic.png",
+      "width": 1200,
+      "height": 688,
+      "sourceSha256": "3e23c2ab7adce5f2f50a126ff4ab9c71e4f15fbe4e9f1ed56fe7e8690802a42b",
+      "sourceUrl": "https://arxiv.org/pdf/2608.03682#page=12",
+      "crop": [
+        0.137,
+        0.55,
+        0.863,
+        0.844
+      ],
+      "alt": "π0.5 plots show throughput increasing with batch size on Hopper and plateauing on Thor; full-batch latency rises; stacked bars show the action expert's time share shrinking relative to vision and language.",
+      "caption": "Batching raises capacity while moving the bottleneck and increasing each request's synchronized wait.",
+      "readingGuide": "Read panels (a) and (b) together: both use batch size on the horizontal axis, but one measures completed chunks per second and the other measures the time until the entire batch finishes. The blue Hopper curve gains throughput while its batch latency rises. The purple Thor curve plateaus, with a marked high-variance region at batch four. Then inspect panel (c), using its legend to follow the dark action-expert share as vision and language take more of the profiled time. The adjacent text fixes BF16, three cameras, a 50-action chunk, ten Euler steps and CUDA Graphs.",
+      "takeaway": "On Hopper, batch 32 provides 100.02 samples/s while every synchronized request waits 319.94 ms. The accompanying phase analysis reports that the expert's share falls from 57.2% at batch one to 13.5% at batch 32. Capacity gains therefore change which phase is most worth optimizing; they do not make every robot response faster.",
+      "caution": "This is a batch/phase diagnostic, not an ablation isolating cache reuse, fusion and graph replay. Static batches exclude formation delay and networking; phase arithmetic-intensity explanations use modeled logical traffic rather than measured DRAM traffic.",
+      "evidenceIds": [
+        "e-pi-batching",
+        "e-phase-diagnostic",
+        "e-batch-definition",
+        "e-settings"
+      ]
+    },
+    {
+      "id": "matched-success",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 7",
+      "page": 22,
+      "asset": "report-assets/2608.03682/matched-success.png",
+      "width": 1356,
+      "height": 262,
+      "sourceSha256": "3e23c2ab7adce5f2f50a126ff4ab9c71e4f15fbe4e9f1ed56fe7e8690802a42b",
+      "sourceUrl": "https://arxiv.org/pdf/2608.03682#page=22",
+      "crop": [
+        0.295,
+        0.573,
+        0.705,
+        0.629
+      ],
+      "alt": "GR00T success table: NVIDIA Isaac-GR00T succeeds in 456 of 500 episodes, 91.2%; PhyAI succeeds in 459 of 500, 91.8%.",
+      "caption": "A matched LIBERO-10 comparison checks task behavior alongside runtime performance.",
+      "readingGuide": "Begin with the equal episode counts, then compare the success counts before reading percentages. Appendix A uses all ten LIBERO-10 tasks with fifty fixed initial states each, seeds 42 through 91, and the same checkpoint, task order and simulator settings for both runtimes. Inference runs on A40 at batch one, taking two camera views. The simulator executes the first eight returned actions and checks success after every step, up to a 720-step cap. These controls make this table a more direct behavior comparison than comparing unrelated latency rows or different appendix protocols.",
+      "takeaway": "PhyAI records 459 successes against the official implementation's 456, giving a difference of three episodes or 0.6 percentage points. The result supplies evidence of similar aggregate simulated task performance in this configuration. It complements the runtime table without establishing that faster kernels improve the learned policy.",
+      "caution": "No paired outcome breakdown, confidence interval or significance test is reported. The small aggregate difference cannot establish a robust quality gain, universal numerical equivalence, or physical-robot performance across other models and deployments.",
+      "evidenceIds": [
+        "e-groot-success",
+        "e-latency"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Follow one π0.5 request through cache reuse and graph replay",
+      "kind": "source",
+      "text": "The adapter first determines the observation preprocessing, conditioning and action-conversion rules. The runner then owns the tensors that survive across model calls. For the standard π0.5 path, the vision-language prefix is fixed throughout ten Euler steps while the action tokens evolve. Computing that prefix once avoids repeating invariant work; caching its attention metadata and precomputing timestep and modulation tables also avoids repeated setup. Once shapes, buffers and control flow are stable, CUDA Graph replay executes the captured loop. This reuse has a precise boundary: a new observation or condition invalidates the prefix before the next prediction. The source separately describes fused projections and activations beneath Layers. Its MiniCPM-Robot experiment adds two kernels to an existing graph path, so that local gain should not be attributed to graph replay alone.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-optimizations",
+        "e-kernel-ablation"
+      ]
+    },
+    {
+      "heading": "Turn a throughput number into a controller's actual wait",
+      "kind": "analysis",
+      "text": "Reader interpretation: the batch result becomes useful only after choosing what the application must optimize. A rollout pool can value the Hopper π0.5 capacity of 100.02 chunks per second at batch 32, but a synchronized client waits 319.94 milliseconds for that batch. Dividing the batch time by 32 gives an accounting cost, not a deadline guarantee. The control-time Roofline adds a second constraint: the next chunk must arrive while the current execution window remains open. Actual deployment must fit observation, transport, queueing and handoff into that window too. Appendix D makes this concrete with a maximum 20-millisecond batching wait and padding to a fixed graph shape. Longer executed horizons can create more time, but the paper warns that the actions then depend on older observations.",
+      "evidenceIds": [
+        "e-pi-batching",
+        "e-batch-definition",
+        "e-control",
+        "e-dp-demo"
+      ]
+    },
+    {
+      "heading": "Apply the RL speedup only to work on the critical path",
+      "kind": "analysis",
+      "text": "Reader interpretation: a fast predict function does not accelerate actor training or environment interaction automatically. Figure 9 profiles concurrent rollout ranks, so adding their predict durations would overcount serial work. The source instead uses the largest rank total, 152.4 seconds within a 955.8-second step, to characterize the available opportunity. It measures a 2.55-fold reduction in mean predict time and projects an 863.2-second step only under fixed non-predict work, preserved critical-path placement and zero integration overhead. The introduction's separate eight-A100 simulation gives another estimate under different settings; it is not corroboration of the four-A800 projection. Section 6.3 still identifies usable RLinf integration as future work. A convincing follow-up must time the complete backend replacement and inspect task outcomes as well as predict duration.",
+      "evidenceIds": [
+        "e-rl-profile",
+        "e-rl-intro"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate cache correctness from graph speed",
+      "text": "Reader-proposed, not run: use one π0.5 checkpoint with the Table 4 BF16 configuration, fixed observations and initial noise, and test batches 1, 8 and 32. Compare reference inference with cached-prefix execution, graph replay and their combination, holding solver steps and outputs fixed. Include unchanged-condition repeats and deliberately changed camera/state/instruction inputs. Measure action-tensor error, prefix recomputation and complete chunk latency after the prescribed warm-up. A speedup accompanied by stale-condition outputs would falsify correct cache invalidation; a gain only at small batches would support the launch-overhead explanation. Report the comparison tolerances explicitly.",
+      "evidenceIds": [
+        "e-optimizations",
+        "e-settings",
+        "e-pi-batching",
+        "e-phase-diagnostic"
+      ]
+    },
+    {
+      "title": "Replace the RL backend and test the Amdahl projection",
+      "text": "Reader-proposed, not run: repeat the four-A800 LIBERO-10 GRPO configuration from Table 6, including 32 environments, four denoising steps and identical actor-update settings, using reference and PhyAI backends. Keep evaluation, checkpoint writing and video capture disabled for the timing comparison as in the source. Trace complete steady-state steps, maximum-rank predict time, queueing, weight synchronization and actor training; separately compare trajectory outcomes under matched evaluation. Test whether a similar predict speedup produces the projected 9.7% step reduction. A smaller gain with added synchronization or off-critical-path calls would reject the idealized end-to-end estimate for that integration.",
+      "evidenceIds": [
+        "e-rl-profile",
+        "e-rl-intro"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      22,
+      23,
+      24,
+      25
+    ],
+    "notes": "Visually inspected the title/author/version page, every main-body page, all nine figures, all eleven tables and Appendices A–E. Figure 3 ownership arrows, Figure 4 guidance/loop arrows and optional-decode boundary, and Figure 2 axes and schedule were cross-checked against Sections 3–4 and Equations (6)–(10). All six final crops were viewed; the narrow Table 7 crop was rendered directly at higher DPI. References on pages 18–21 were read as text but were not visually inspected. No separate supplement, code, archived run or external source was inspected. The RL setup differences across pages 3, 15 and 16 and the broader appendix scope relative to Section 5.5 are preserved in the report."
+  },
+  "visualLimitations": {
+    "kind": "analysis",
+    "text": "The source provides batch/phase diagnostics and a textual two-kernel increment, but no dedicated figure or table decomposing the complete acceleration stack into controlled component ablations. Figure 5 therefore serves as the diagnostic visual. Appendix B supplies RoboTwin settings without numerical success, and Appendix D supplies serving topology without aggregate performance; neither is presented as a missing result invented for this edition.",
+    "evidenceIds": [
+      "e-kernel-ablation",
+      "e-pi-batching",
+      "e-phase-diagnostic",
+      "e-robotwin",
+      "e-dp-demo"
+    ]
+  }
+}
