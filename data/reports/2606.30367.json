@@ -1,0 +1,462 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.30367",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T13:23:53.126Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.30367",
+      "title": "FutureNav: Unified World-Action Modeling for Vision-and-Language Navigation",
+      "kind": "pdf",
+      "sha256": "008de466ef776348f9e78ecf939b03b56a66d8d59c38b32c62429623a1146b2b",
+      "wordCount": 8185,
+      "accessedAt": "2026-09-07T13:58:05.794661+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract and title metadata (p. 1)",
+      "1 Introduction (pp. 1–3)",
+      "2 Related Work, including 2.1–2.2 (p. 3)",
+      "3 Methodology, including 3.1–3.4 and Eqs. (1)–(11) (pp. 4–6)",
+      "4 Experiments, including 4.1–4.4 (pp. 6–10)",
+      "5 Conclusion (p. 10)",
+      "References [1]–[79] (pp. 10–14)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This extraction limitation was addressed by inspecting PDF pages 1–10 and all six final crops.",
+      "Separate supplemental material availability has not been fully verified.",
+      "No separate supplement was supplied. No appendix appears in the 14-page PDF.",
+      "Identity note: the exact title and all ten authors match. The PDF margin identifies arXiv:2606.30367v1 dated 29 June 2026; its title-block date is 30 June 2026. The catalog submission date is 29 June. No later revision was supplied or substituted.",
+      "Code, project pages and cited works were not opened; experiments were not reproduced. References on pp. 11–14 were read as text without page-image inspection."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 6)",
+      "Figure 4 (p. 8)",
+      "Figure 5 (p. 9)",
+      "Figure 6 (p. 9)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 7)",
+      "Table 2 (p. 8)",
+      "Table 3 (p. 8)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "FutureNav teaches a shared navigation VLM to predict actions and understand adjacent spatial transitions through three auxiliary tasks. Frozen VGGT features enrich its input and provide future-state targets. Default inference decodes actions without running the auxiliary heads. Simulated navigation and objective ablations provide quantitative evidence; physical transfer is illustrated qualitatively. Evidence: architecture, encoding, training-inference, main-results, objective-ablation and qualitative.",
+  "readingTimeMinutes": 12,
+  "problem": {
+    "text": "Continuous vision-and-language navigation must connect instructions and egocentric RGB history to low-level movements while retaining spatial progress. The authors argue that action imitation weakly supervises how actions change the environment. FutureNav adds spatial-state and transition supervision to the action-decoding representation.",
+    "kind": "source",
+    "evidenceIds": [
+      "problem",
+      "architecture"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A shared VLM combines language, visual tokens and frozen geometry-aware features through residual fusion, giving spatial information to the language backbone that predicts executable actions.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture",
+        "encoding"
+      ]
+    },
+    {
+      "text": "Forward dynamics, inverse dynamics and action-free future prediction supplement action-token training. Default inference does not imagine candidate futures or use inverse dynamics to select the next action.",
+      "kind": "source",
+      "evidenceIds": [
+        "forward",
+        "inverse",
+        "generation",
+        "training-inference"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Natural-language instruction x and egocentric RGB history O_t = {I_1, ..., I_t}",
+      "Auxiliary training also uses adjacent frames, executed-action labels and next-observation spatial targets"
+    ],
+    "outputs": [
+      "Default inference: assistant text encoding STOP, MOVE_FORWARD, TURN_LEFT or TURN_RIGHT",
+      "Training: inverse-action logits and two 2048-dimensional next-spatial-feature predictions"
+    ],
+    "steps": [
+      {
+        "name": "Encode and align spatial information",
+        "detail": "The frozen VLM vision tower and frozen VGGT process observations. VGGT uses the current frame with cached history. Spatial patches undergo grouping, RMS normalization and a two-layer merger; token-count mismatches are linearly interpolated before residual fusion. Figure 2 labels an eight-frame history window.",
+        "evidenceIds": [
+          "architecture",
+          "encoding"
+        ]
+      },
+      {
+        "name": "Learn the action interface",
+        "detail": "A chat-style sequence places fused embeddings at image placeholders alongside instruction tokens. A tied vocabulary head autoregressively decodes action text; masking system/user labels with -100 leaves assistant action tokens under the policy loss.",
+        "evidenceIds": [
+          "policy"
+        ]
+      },
+      {
+        "name": "Predict action-conditioned transitions",
+        "detail": "The forward MLP takes the last image-token hidden state and the last teacher-forced ground-truth action-token hidden state. Its target is the pooled next-frame VGGT spatial feature, rather than a rendered image.",
+        "evidenceIds": [
+          "forward"
+        ]
+      },
+      {
+        "name": "Recover the intervening action",
+        "detail": "Inverse dynamics combines pre-response context, mean-pooled previous/current image hidden states and their difference. Cross entropy supervises the action producing that transition. The source calls this the previous-action label but writes a_t; its indexing needs care.",
+        "evidenceIds": [
+          "inverse"
+        ]
+      },
+      {
+        "name": "Predict an action-free future",
+        "detail": "The generation MLP combines pre-response context with the mean-pooled current image hidden state and regresses the same next spatial target. Excluding the explicit action-token input distinguishes it from forward dynamics.",
+        "evidenceIds": [
+          "generation"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The language model, merger and heads are optimized while both encoders remain frozen. Qwen3-VL-4B and 8B are evaluated. Expert-only training uses approximately 2.43M samples: 631K R2R-CE and 1.80M RxR-CE. The full recipe adds ScaleVLN and DAgger rollouts; “0K” means zero external data, not zero navigation training.",
+        "kind": "source",
+        "evidenceIds": [
+          "training-inference",
+          "setup"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The policy processes the instruction and RGB history and decodes an action. Auxiliary heads are disabled in the main setting; spatial input encoding remains active. Physical deployment streams D435i RGB from a Go2 to an H20 GPU server and executes the returned action.",
+        "kind": "source",
+        "evidenceIds": [
+          "architecture",
+          "training-inference",
+          "deployment"
+        ]
+      },
+      {
+        "text": "Removing auxiliary heads explains the absence of their inference work, but no timing benchmark establishes total latency parity with a VLM lacking spatial encoding. Optional look-ahead is mentioned without an evaluated planning protocol.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "problem",
+          "training-inference"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "E_t^g=\\operatorname{Merger}_{\\theta}(G_t),\\qquad E_t^v=E_t^q+\\alpha E_t^g",
+        "explanation": "G_t contains VGGT spatial patches; E_t^g is their projected representation, E_t^q the VLM visual embedding, and E_t^v the fused embedding. The residual weight alpha is 0.2.",
+        "evidenceIds": [
+          "encoding",
+          "setup"
+        ]
+      },
+      {
+        "expression": "\\hat z_{t+1}=f_{\\theta}([h_t^{\\mathrm{obs}};h_t^{\\mathrm{act}}]),\\qquad \\mathcal L_{\\mathrm{forward}}=\\|\\hat z_{t+1}-z_{t+1}\\|_2^2",
+        "explanation": "The observation/action hidden states are concatenated into forward MLP f_theta. Its prediction and pooled next spatial target z_{t+1} have 2048 dimensions. The action state uses teacher forcing.",
+        "evidenceIds": [
+          "forward"
+        ]
+      },
+      {
+        "expression": "\\hat z_{t+1}^{\\mathrm{gen}}=r_{\\theta}([h_t^{\\mathrm{ctx}};\\bar h_t^v])",
+        "explanation": "Generation MLP r_theta takes pre-response context h_t^{ctx} and mean-pooled current image state. Squared error compares its output to the same next spatial target.",
+        "evidenceIds": [
+          "generation"
+        ]
+      },
+      {
+        "expression": "\\mathcal L=\\mathcal L_{\\mathrm{policy}}+\\lambda_f\\mathcal L_{\\mathrm{forward}}+\\lambda_i\\mathcal L_{\\mathrm{inverse}}+\\lambda_g\\mathcal L_{\\mathrm{gen}}",
+        "explanation": "Policy and inverse losses are cross entropy; forward and generation losses regress spatial targets. The policy coefficient is 1.0; each auxiliary weight is 0.1.",
+        "evidenceIds": [
+          "policy",
+          "inverse",
+          "training-inference",
+          "setup"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "R2R-CE navigation, full-data 4B",
+      "setting": "Habitat/Matterport3D val-unseen; 1,839 trajectories; single RGB; 10.457M external samples",
+      "metric": "SR / SPL (higher better); NE (lower better)",
+      "value": "65.4% SR; 61.3 SPL; 4.24 NE",
+      "comparison": "JanusVLN-7B: 60.5% SR, 56.8 SPL, 4.78 NE; 10.692M external samples.",
+      "interpretation": "SR improves 4.9 percentage points, equivalent to the reported 8.1% relative gain. Similar data volume does not establish identical recipes.",
+      "evidenceIds": [
+        "setup",
+        "main-results"
+      ]
+    },
+    {
+      "task": "RxR-CE navigation, full-data 8B",
+      "setting": "Val-unseen; 3,669 trajectories; single RGB; 10.435M external samples",
+      "metric": "SR / SPL / nDTW (higher better); NE (lower better)",
+      "value": "63.9% SR; 54.8 SPL; 69.1 nDTW; 4.26 NE",
+      "comparison": "JanusVLN-7B: 56.2% SR, 47.5 SPL, 62.1 nDTW, 6.06 NE.",
+      "interpretation": "SR improves 7.7 percentage points. The 8B model leads this split, while 4B leads R2R in the reported full-data comparison.",
+      "evidenceIds": [
+        "setup",
+        "main-results"
+      ]
+    },
+    {
+      "task": "Expert-only navigation, 4B",
+      "setting": "R2R-CE and RxR-CE val-unseen; dagger/0K regime",
+      "metric": "SR / SPL",
+      "value": "R2R: 55.1% / 50.1; RxR: 54.5% / 46.0",
+      "comparison": "JanusVLN dagger: R2R 52.8% / 49.2; RxR 51.4% / 44.3.",
+      "interpretation": "SR gains are 2.3 and 3.1 percentage points without external navigation data; backbone/pretraining differences remain.",
+      "evidenceIds": [
+        "setup",
+        "main-results"
+      ]
+    },
+    {
+      "task": "World-action objective ablation",
+      "setting": "R2R-CE val-unseen; 0K",
+      "metric": "SR / SPL",
+      "value": "All objectives: 55.1% / 50.1",
+      "comparison": "Policy only: 50.1% / 45.1; inverse: 50.8% / 45.8; forward: 53.0% / 48.3; generation: 51.6% / 46.9.",
+      "interpretation": "All auxiliaries add 5.0 points on both metrics; forward gives the largest single-objective gain. Pairwise combinations and seed uncertainty are absent.",
+      "evidenceIds": [
+        "objective-ablation"
+      ]
+    },
+    {
+      "task": "Latent-target ablation",
+      "setting": "R2R-CE val-unseen; no external data",
+      "metric": "SR / SPL",
+      "value": "Spatial latent: 55.1% / 50.1",
+      "comparison": "VAE: 51.0% / 46.4; VLM visual: 51.4% / 46.8; DINO: 51.8% / 47.1.",
+      "interpretation": "Spatial targets lead the reported alternatives; incomplete representation and normalization details limit causal attribution.",
+      "evidenceIds": [
+        "latent-ablation"
+      ]
+    },
+    {
+      "task": "Navigation accuracy during training",
+      "setting": "R2R-CE val-unseen; matched reported training schedule",
+      "metric": "SR / SPL versus schedule progress",
+      "value": "At about 42%: 42.3% / 37.8; at about 63%: SR 50.2%.",
+      "comparison": "Policy-only at about 42%: 33.2% / 27.9; final policy-only SR is 50.1%.",
+      "interpretation": "The plotted 1.58x compares schedule progress, not measured wall-clock acceleration. Axis/caption terminology conflicts.",
+      "evidenceIds": [
+        "training-progress",
+        "objective-ablation"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Results lack confidence intervals or repeated-seed variability. Ablations support useful auxiliary supervision but do not measure counterfactual dynamics accuracy or long-horizon rollout fidelity. The source provides no dedicated limitations section.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "objective-ablation",
+        "latent-ablation",
+        "reproduction-gaps"
+      ]
+    },
+    {
+      "text": "Real-world evidence comprises selected sequences labeled successful, without a trial denominator or aggregate success rate. Figure 6's bottom strip repeats the middle strip's vending-machine instruction, but its endpoint resembles a counter/cabinet and is not identifiable as a vending machine. Physical execution is documented; that strip's destination adherence remains unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "qualitative",
+        "deployment",
+        "figure-6-mismatch"
+      ]
+    },
+    {
+      "text": "Figure 2 labels prediction inputs as spatial features and its inverse pair as t,t+1; Eqs. (4), (7) and (9) use specific LLM hidden states and a previous/current inverse pair. Follow the equations for implementation and resolve action/frame indexing explicitly.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "forward",
+        "inverse",
+        "generation"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required components include Qwen3-VL, VGGT, Habitat/Matterport3D, expert trajectories and, for full-data comparisons, ScaleVLN/DAgger data. Reconstruct assistant-token masks, image-token grouping, target pooling and frozen modules before comparing Table 2 variants.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "policy",
+        "encoding",
+        "setup",
+        "objective-ablation"
+      ]
+    },
+    {
+      "text": "Missing optimizer, learning rate, batch size, absolute schedule, training hardware/time, software versions, exact spatial layer/cache settings and alternative-target normalization prevent exact recipe reconstruction. Motion magnitudes/durations are also unstated. The title page promises code/models without establishing release status.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "reproduction-gaps",
+        "latent-ablation",
+        "deployment",
+        "identity"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "One Model is supported architecturally: action decoding and auxiliary heads share a language backbone and fused tokens. Auxiliary inverse dynamics is not the default inference action-extraction mechanism, supporting Other mechanisms/Outside quadrants. Navigation and latent prediction are explicit; the combined latent-prediction/JEPA tag is supported on its latent-prediction side, without establishing a specific JEPA implementation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "encoding",
+        "forward",
+        "inverse",
+        "generation",
+        "training-inference"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Navigation",
+        "Latent prediction & JEPA"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "46a9b029c6978bedb1abf3c2174a400f50c0c2f097ebefef6944f82eb5053749"
+    }
+  },
+  "discussionQuestions": [
+    "Does forward supervision encode counterfactual action effects, or mainly improve representations along expert trajectories?",
+    "Would spatial targets retain their advantage with matched scaling, encoder capacity and repeated seeds?",
+    "How much robot latency comes from spatial encoding, communication and action execution?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block, date and arXiv margin stamp",
+      "detail": "The title and ten authors match the catalog. The artifact is stamped arXiv:2606.30367v1, 29 Jun 2026; its title block gives June 30, 2026. The abstract promises future code/model release."
+    },
+    {
+      "id": "problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract and Section 1",
+      "detail": "Continuous VLN motivates instruction grounding, history, spatial understanding and executable actions. The introduction describes default policy-only inference and optional auxiliary world-state/look-ahead use without an evaluation protocol for the latter."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and Sections 3.1–3.2",
+      "detail": "A shared VLM receives instructions and spatially augmented RGB tokens. Figure 2 marks action Train & Infer and the other branches Train Only; its history label states window size 8. Diagram inputs are schematic; implementation is detailed on pp. 5–6."
+    },
+    {
+      "id": "encoding",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Eqs. (1)–(2)",
+      "detail": "Frozen VGGT supplies intermediate-layer spatial patches of width 2048 using current image and cached history. Grouping, RMS normalization, a two-layer MLP and optional token-axis interpolation precede residual fusion."
+    },
+    {
+      "id": "policy",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Sections 3.1–3.3, Eq. (3)",
+      "detail": "The policy autoregressively generates four discrete action names as assistant text. System/user labels are masked with -100; cross entropy supervises assistant action tokens."
+    },
+    {
+      "id": "forward",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Eqs. (4)–(5)",
+      "detail": "The forward MLP concatenates the last image-token hidden state and last unmasked teacher-forced action-token hidden state, regressing a pooled next-observation spatial feature of width 2048."
+    },
+    {
+      "id": "inverse",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Eqs. (6)–(8); PDF p. 4, Figure 2 inverse branch",
+      "detail": "The inverse classifier uses pre-response context, mean-pooled previous/current image-token groups and their difference. The previous-action label is written a_t. Text frames are t-1,t, while the figure labels an adjacent pair t,t+1."
+    },
+    {
+      "id": "generation",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.3, Eqs. (9)–(10)",
+      "detail": "The generation MLP uses pre-response context and mean-pooled current image state, regressing the same next spatial target without the teacher-forced action-token input."
+    },
+    {
+      "id": "training-inference",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 3, Section 3.4, Eq. (11), and Section 4.1 Implementation Details",
+      "detail": "Language components, merger and heads are optimized; both encoders remain frozen. Default inference omits auxiliary heads. The source provides no measured latency/throughput comparison."
+    },
+    {
+      "id": "setup",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1 Dataset and Evaluation Metrics; Implementation Details",
+      "detail": "Habitat/Matterport3D validation-unseen evaluation uses 1,839 R2R-CE and 3,669 RxR-CE trajectories. Metrics are navigation error (NE), oracle success (OS), success rate (SR), success weighted by path length (SPL), and RxR normalized dynamic time warping (nDTW). Qwen3-VL-4B/8B use alpha=0.2 and auxiliary weights 0.1. Expert-only data are approximately 2.43M samples; full data add ScaleVLN/DAgger."
+    },
+    {
+      "id": "main-results",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, FutureNav-4B/8B, dagger variants and JanusVLN rows; caption and Section 4.2",
+      "detail": "Full-data 4B gives R2R SR/SPL 65.4/61.3 using 10457K external samples; 8B gives RxR 63.9/54.8 using 10435K. Dagger 4B gives R2R 55.1/50.1 and RxR 54.5/46.0. JanusVLN full-data SR/SPL are R2R 60.5/56.8 and RxR 56.2/47.5, with 10692K external samples. Delta rows are relative gains."
+    },
+    {
+      "id": "objective-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2 and Section 4.3 Effect of World-Action Objectives",
+      "detail": "R2R-CE 0K policy-only SR/SPL are 50.1/45.1; inverse gives 50.8/45.8, forward 53.0/48.3, generation 51.6/46.9, and all objectives 55.1/50.1. All-objective NE is 5.13 versus 6.00. Pairwise combinations and uncertainty estimates are absent."
+    },
+    {
+      "id": "latent-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3 and Section 4.3 Effect of Spatial Latent Representation",
+      "detail": "Without external data, SR/SPL are VAE 51.0/46.4, VLM visual 51.4/46.8, DINO semantic 51.8/47.1, spatial 55.1/50.1, and no latent modeling 50.1/45.1. Alternative encoder versions, target normalization and fully matched compute are unspecified."
+    },
+    {
+      "id": "training-progress",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 4 and Section 4.3 Training Efficiency; PDF p. 9 bottom and p. 10 opening continuation",
+      "detail": "The axis says Training Data (%), whereas caption/prose describe completed training steps. No color legend is supplied. Prose gives about 42% progress SR/SPL 42.3/37.8 versus 33.2/27.9; at about 63%, FutureNav SR is 50.2, matching final policy-only accuracy. The plot marks 1.58x."
+    },
+    {
+      "id": "qualitative",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figures 5–6 and captions; PDF p. 10, Section 4.4",
+      "detail": "Figure 5 contrasts selected simulation trajectories with JanusVLN. Figure 6 presents three physical sequences with source-provided success badges; its caption and Section 4.4 claim destination adherence and indoor/outdoor zero-shot transfer without real-world fine-tuning. The bottom strip's destination is visually unresolved. A trial denominator, aggregate real-world success rate and failure distribution are absent."
+    },
+    {
+      "id": "figure-6-mismatch",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 6, middle and bottom instruction strips and final frames; Figure 6 caption; PDF p. 10, Section 4.4 Real-world Qualitative Analysis",
+      "detail": "The middle and bottom strips print the same instruction ending at a vending machine. A vending machine is visible in the middle strip's final frame. The bottom endpoint resembles a counter/cabinet and is not identifiable as a vending machine, despite its success badge. The caption and prose claim arrival at specified destinations but do not explain this mismatch; the intended bottom-row destination cannot be established from the supplied source."
+    },
+    {
+      "id": "deployment",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1 Real-world Deployment",
+      "detail": "A Go2 with D435i camera streams egocentric RGB to an H20 GPU inference server; returned low-level actions are physically executed. Action duration, motion magnitudes and communication latency are unspecified."
+    },
+    {
+      "id": "reproduction-gaps",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–6, Sections 3.1–3.4 and 4.1; PDF pp. 7–10, Sections 4.2–4.4",
+      "detail": "Descriptions omit optimizer, learning rate, batch size, absolute training schedule, training hardware/time, software versions, precise VGGT layer/cache settings and random-seed uncertainty. The conclusion is followed by references, without a limitations section or appendix."
+    }
+  ]
+}
