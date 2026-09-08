@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2604.08719",
+  "shortTitle": "LMGenDrive",
+  "thesis": "LMGenDrive uses joint action and future-video training to improve a language-conditioned driving policy, then removes video generation from online control while retaining it for offline rollouts.",
+  "standfirst": "A driving policy must connect a command such as turning at the next intersection to what nearby vehicles and road geometry will do next. LMGenDrive asks whether learning to generate those futures can improve the policy's internal representation. Its LLM produces action-query features for waypoints and world-query features for a separate diffusion generator. The distinction between the two deployment modes matters: CARLA driving uses observed camera feedback without generating video, whereas offline synthesis consumes its own predictions. Read the diagrams as a training and information-flow design, then use the ablations to assess what the reported driving gains actually establish.",
+  "evidenceIds": [
+    "e02",
+    "e04",
+    "e05",
+    "e07",
+    "e09",
+    "e11"
+  ],
+  "featuredResultTask": "Closed-loop instruction-following driving on LangAuto",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/2604.08719/architecture.png",
+      "width": 1376,
+      "height": 570,
+      "sourceSha256": "cc02913ac3e9645d8f430f1d8199b3415e2770d697e9efcc0d7c2dde761a3b6f",
+      "sourceUrl": "https://arxiv.org/pdf/2604.08719#page=5",
+      "crop": [
+        0.095,
+        0.091,
+        0.905,
+        0.35
+      ],
+      "alt": "Architecture diagram showing navigation, camera, action, world-query and action-query inputs to an LLM, separate action and video outputs, and an optional feedback loop.",
+      "caption": "Shared LLM context feeds two outputs, with generated feedback reserved for the autoregressive mode.",
+      "readingGuide": "Begin at the lower left: the navigation instruction enters through a tokenizer, while camera views enter through the vision module. The inset expands that module into a vision encoder, Q-Former and adapter. Distinguish the current Action input from the learnable Action Query; they have different roles. Above the LLM, the orange branch supplies the world generator and the green branch predicts future action. Trace the dashed optional path from future video/action to the next input on the right. The caption identifies this as offline feedback; online operation instead receives new observations. Section 3.3 supplies the waypoint-to-PID step that the action icon compresses.",
+      "takeaway": "The design connects action prediction and future imagery through the LLM, but preserves separate output mechanisms. Its optional loop explains how the same trained system can generate extended offline sequences. For online driving, the stated policy discards diffusion generation, so the world-model contribution is learned before deployment.",
+      "caution": "The illustrated action icon does not mean direct pixel-to-actuator execution: the text specifies waypoint regression followed by PID controllers. The repeated right-hand portion is schematic and does not specify attention masks or all implementation details.",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "id": "world-generator",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 6,
+      "asset": "report-assets/2604.08719/world-generator.png",
+      "width": 1339,
+      "height": 851,
+      "sourceSha256": "cc02913ac3e9645d8f430f1d8199b3415e2770d697e9efcc0d7c2dde761a3b6f",
+      "sourceUrl": "https://arxiv.org/pdf/2604.08719#page=6",
+      "crop": [
+        0.24,
+        0.092,
+        0.765,
+        0.35
+      ],
+      "alt": "World-generator diagram fusing LLM world embeddings with CLIP image embeddings and injecting them into a multi-view denoising network with self, cross and temporal attention.",
+      "caption": "Current appearance and LLM context meet before per-view video denoising.",
+      "readingGuide": "Follow the two arrows into Multi-view World Fusion: the left input comes from the LLM and the right input comes from camera images through CLIP. The downward arrow carries the fused embedding to the white cross-attention block inside the denoising network. The legend distinguishes orange self-attention, white cross-attention and blue temporal attention. The lower curved arrow denotes repeated denoising, while the Views label indicates per-view video outputs. Read this together with Section 3.4: image conditioning supplies appearance and initial state, while world-query conditioning carries scene context. The source describes noise-to-video generation; the diagram alone is not a complete sampling algorithm.",
+      "takeaway": "The authors deliberately give the generator access to the last observed images as well as the LLM representation. This makes appearance information available without requiring the compressed LLM path to encode every visual detail. Their claim that this encourages dynamic representations is a design rationale, rather than a measured disentanglement result.",
+      "caution": "The snowflakes on the E/D blocks have no stage-specific freezing legend. Follow Section 3.5 for trainability: Stage 2 trains the generator; Stage 3 freezes its parameters while gradients propagate. Do not infer that the whole generator is always frozen.",
+      "evidenceIds": [
+        "e06",
+        "e07"
+      ]
+    },
+    {
+      "id": "closed-loop-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 7,
+      "asset": "report-assets/2604.08719/closed-loop-results.png",
+      "width": 1391,
+      "height": 323,
+      "sourceSha256": "cc02913ac3e9645d8f430f1d8199b3415e2770d697e9efcc0d7c2dde761a3b6f",
+      "sourceUrl": "https://arxiv.org/pdf/2604.08719#page=7",
+      "crop": [
+        0.092,
+        0.088,
+        0.91,
+        0.235
+      ],
+      "alt": "Four-method comparison across LangAuto, LangAuto-Short and LangAuto-Tiny, each with driving score, route completion and infraction score.",
+      "caption": "The strongest listed driving scores occur across all three LangAuto tracks.",
+      "readingGuide": "Read each track as its own three-column block. DS is the primary driving score, RC measures route completion, and IS penalizes infractions; all arrows point upward. Section 4.1 defines DS as RC multiplied by IS. Start with the Ours row and compare vertically within a single track, rather than treating route lengths as interchangeable settings. The caption retained above the table states three evaluation runs and notes that AD-H uses an additional OPT-350M model for low-level control. These evaluations run in CARLA 0.9.10.1 with visual observations and natural-language commands, using recent sensor history during testing.",
+      "takeaway": "On LangAuto, LMGenDrive reports DS 62.2±3.3 versus BEVDriver's 48.9, alongside RC 74.5±4.1 and IS 0.85±0.04. Its DS is also highest in the displayed Short and Tiny comparisons, at 77.1±4.1 and 84.1±3.6. The evidence concerns executed simulator control, not merely attractive generated video.",
+      "caution": "The paper does not define the ± statistic, and AD-H/BEVDriver entries lack comparable uncertainty. The table does not establish matched training data or compute across methods, statistical significance, physical-road transfer or a separate rare-event success rate.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "id": "module-ablations",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Tables 2 and 3",
+      "page": 7,
+      "asset": "report-assets/2604.08719/module-ablations.png",
+      "width": 1391,
+      "height": 328,
+      "sourceSha256": "cc02913ac3e9645d8f430f1d8199b3415e2770d697e9efcc0d7c2dde761a3b6f",
+      "sourceUrl": "https://arxiv.org/pdf/2604.08719#page=7",
+      "crop": [
+        0.092,
+        0.246,
+        0.91,
+        0.395
+      ],
+      "alt": "Adjacent planning and generation ablation tables: planning scores fall after component removals, while FID and FVD rise after removing view fusion or reducing world queries.",
+      "caption": "Planning and video metrics diagnose different parts of the coupled system.",
+      "readingGuide": "Keep the two tables separate when interpreting an intervention. Table 2 on the left reports driving metrics: the baseline has DS 62.2, and the no-world-generator row has DS 53.4. Section 4.3 specifies that this removal also deletes world queries; the no-action-query row instead substitutes autoregressive action prediction. Table 3 on the right reports lower-is-better video metrics, with a 64-world-query baseline. Its arrows from 64 to 32 or 16 denote reduced query counts. The two sets of metrics answer different questions: improved video distributions do not by themselves demonstrate improved vehicle control, and the left table does not isolate all factors changed by each removal.",
+      "takeaway": "All displayed removals degrade their respective baseline. Without multi-view fusion, FID/FVD worsen from 6.3/286 to 7.8/371. The planning table supports a contribution from the coupled generation branch during training, especially because the full model also omits diffusion generation during online planning. It does not prove that generating videos online would improve decisions.",
+      "caution": "The prose calls generator and Stage-3 removal the largest planning drops, but Table 2 places visual-pretraining removal second: 54.9 is below 55.6. Preserve the table values. Generator removal also removes queries, leaving the specific causal contribution unresolved.",
+      "evidenceIds": [
+        "e02",
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "id": "training-curriculum",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 9,
+      "asset": "report-assets/2604.08719/training-curriculum.png",
+      "width": 1317,
+      "height": 228,
+      "sourceSha256": "cc02913ac3e9645d8f430f1d8199b3415e2770d697e9efcc0d7c2dde761a3b6f",
+      "sourceUrl": "https://arxiv.org/pdf/2604.08719#page=9",
+      "crop": [
+        0.19,
+        0.115,
+        0.81,
+        0.198
+      ],
+      "alt": "Training-stage comparison on LangAuto-Tiny and LangAuto-Short, contrasting a 20k/10k two-stage allocation with 30k iterations of either stage alone.",
+      "caption": "Keeping both grounding and autoregressive training helps under the reported iteration budget.",
+      "readingGuide": "Start with the Setting column: the baseline allocates 20k iterations to Stage 2 and 10k to Stage 3, while each alternative assigns 30k to the remaining stage. The source table abbreviates these allocations as 2w, 1w and 3w; Section 4.3 provides the iteration counts. Compare DS vertically in the Tiny block, then repeat in the Short block. The adjacent RC and IS columns show that the differences concern both progress and infractions. To understand the intervention, return to Section 3.5: Stage 2 jointly trains planning and generation on single steps; Stage 3 reuses generated observations over multiple steps.",
+      "takeaway": "The combined schedule yields DS 84.1 on Tiny and 77.1 on Short, above either single-stage alternative. Removing Stage 3 gives 80.1/72.3; removing Stage 2 gives 78.0/67.9. These numbers favor the curriculum, and show that multi-step training alone does not replace initial single-step grounding.",
+      "caution": "Equal iteration counts do not guarantee equal compute or data exposure when sequence lengths and trainable components differ. Table 4 gives no uncertainty and does not restate how Stage 1 is handled. This is a different control from simply omitting Stage 3 in Table 2.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e11",
+        "e13"
+      ]
+    },
+    {
+      "id": "generation-horizon",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 5",
+      "page": 9,
+      "asset": "report-assets/2604.08719/generation-horizon.png",
+      "width": 1092,
+      "height": 181,
+      "sourceSha256": "cc02913ac3e9645d8f430f1d8199b3415e2770d697e9efcc0d7c2dde761a3b6f",
+      "sourceUrl": "https://arxiv.org/pdf/2604.08719#page=9",
+      "crop": [
+        0.105,
+        0.257,
+        0.472,
+        0.304
+      ],
+      "alt": "Video-generation horizon table from 8 to 128 frames, with monotonically increasing FID and FVD.",
+      "caption": "Autoregressive extension degrades both image and video distribution metrics.",
+      "readingGuide": "Read horizontally to increase the prediction horizon, while keeping the metric row fixed. The authors generate multi-view videos autoregressively and compare them with ground-truth videos on the same evaluation split. FID is used for visual realism and FVD for video quality and temporal consistency; lower is better in each row. Both rows worsen at every reported horizon, including the intermediate 16- and 24-frame settings. Section 4.4 attributes long-horizon problems to accumulating errors and describes distant-object drift, inconsistent agent motion and deviation from instructions. These columns describe offline video length, not the route lengths in the closed-loop driving benchmark.",
+      "takeaway": "FID/FVD increase from 6.3/286 at 8 frames to 15.1/981 at 128 frames. The model therefore supports autoregressive extension, but the reported scores do not establish stable long-horizon simulation. The accompanying qualitative failure descriptions make the degradation relevant to dynamics and instruction alignment, beyond a single aggregate image metric.",
+      "caution": "FID and FVD use different feature spaces and scales, so compare changes within each metric rather than equating their raw increments. The paper omits evaluation sample counts and exact split construction; this table measures neither action-video consistency nor driving safety directly.",
+      "evidenceIds": [
+        "e09",
+        "e12",
+        "e14"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Compress observations without losing the distinction between perception and planning",
+      "text": "The camera-only choice serves a specific purpose: future generated frames will not come with LiDAR, so the encoder uses BEV positional queries instead of LiDAR-derived inputs. ResNet and transformer processing produce a spatial representation plus waypoint and traffic-light tokens. Pretraining gives these tokens driving-related supervision before the prediction heads are removed. A Q-Former then reduces roughly two thousand tokens per frame to eight queries, allowing recent observations to fit alongside a language instruction in the LLM. Separate action queries produce features for waypoint regression; world queries supply a different output interface for video conditioning. Figure 2 also shows a current-action input, which must not be confused with these learnable queries. The final driving command still comes from tracking the predicted waypoints with longitudinal and lateral PID controllers.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "heading": "Understand why a frozen generator can still teach the LLM",
+      "text": "Stage 2 jointly adapts the LLM and generator using waypoint, instruction-completion and diffusion losses. Stage 3 changes both the horizon and parameter update pattern: generated video becomes subsequent input, generator parameters are frozen, and the LLM remains trainable. The paper explicitly says gradients still propagate. Reader interpretation: freezing weights is therefore different from detaching the generator's output from the computation graph; the fixed generator can still transmit a learning signal to its conditioning representation. However, the source does not fully specify the gradient path through denoising, image reuse and the frozen vision encoder, so the exact implementation remains a reproduction question. This training mechanism also explains why the online agent can benefit from a branch that it later discards. Its claimed advantage is acquired representation quality, rather than online video-based trajectory search.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e06",
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "heading": "Separate three kinds of evidence before accepting the central claim",
+      "text": "First, Table 1 measures executed CARLA driving: the policy receives observations, issues controls and accumulates route-completion and infraction outcomes. Second, Tables 2 and 4 ask whether architecture and training choices matter for that policy, although the world-generator removal changes queries too and iteration matching does not match all computational factors. Third, Tables 3 and 5 assess generated videos rather than vehicle behavior. Reader interpretation: together these experiments support a useful training connection between understanding and generation, but they do not establish that realistic videos are accurate simulators for choosing actions. Figure 4 provides examples of instruction-associated futures, not a quantitative instruction-consistency test. The distinction becomes especially important at longer horizons, where the authors report drift and instruction deviation even though the model can keep generating additional frames.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e11",
+        "e12",
+        "e13",
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Isolate the learning signal from the presence of world queries",
+      "text": "Reader-proposed check, not performed: start from the same pretrained vision encoder and retain the same LLM, action/world queries and generator in every arm. Compare normal video-loss gradients into the LLM with an arm that stops only that loss's gradient at the LLM conditioning interface; keep planning losses active. Match data, stage schedule, generated-feedback policy and iteration budget, and report compute and multiple seeds. Evaluate both agents online with the generator disabled, using identical LangAuto routes and DS/RC/IS reporting. A repeatable advantage for the connected-gradient arm would support the proposed generative teaching signal beyond query capacity; no advantage would weaken that explanation of Table 2. Specify the gradient implementation before interpreting the result.",
+      "evidenceIds": [
+        "e02",
+        "e05",
+        "e07",
+        "e08",
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "title": "Locate the source of long-horizon video drift",
+      "text": "Reader-proposed check, not performed: on a fixed held-out set of instruction-aligned clips, compare normal autoregressive generation with an oracle-reset condition that replaces generated camera inputs with ground-truth views at each eight-frame boundary. Use the same checkpoint, prompts, random seeds, horizons and predicted-action feedback in both arms. Record FID/FVD at the paper's 8–128-frame horizons and separately annotate instruction deviations and agent-motion discontinuities. A substantially reduced horizon penalty after resets would implicate visual-feedback error accumulation; persistent degradation would point toward action feedback, conditioning or within-segment dynamics. Disclose the reset intervention as a diagnostic using privileged observations, and publish the exact clip split and metric implementation rather than presenting it as deployable driving performance.",
+      "evidenceIds": [
+        "e05",
+        "e08",
+        "e12",
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "notes": "Rendered and visually inspected the title/authors/affiliations/version on p. 1; motivation and deployment modes on p. 2; Figure 1 on p. 3; encoder and policy details on p. 4; Figure 2, PID control and world conditioning on p. 5; Figure 3, training losses, freeze schedule, timing and hardware on p. 6; Tables 1–3 and evaluation/implementation details on p. 7; Figure 4, ablation definitions and horizon protocol on p. 8; and Tables 4–5, failure descriptions and conclusion on p. 9. Every final crop was actually viewed, with corrected framing for both architecture figures and Table 4. Figure 2's optional feedback and Figure 3's conditioning arrows/attention legend were checked against the captions and method; the freeze-symbol interpretation is explicitly bounded in the generator caution. All retained method, training, numerical, evaluation and proposed-check premises are covered by these pages. The complete supplied text, including references on pp. 9–12, was read in five chunks. Reference-only pages 10–12 were not visually inspected; separate supplements and code were not inspected, and no experiments were run."
+  }
+}
