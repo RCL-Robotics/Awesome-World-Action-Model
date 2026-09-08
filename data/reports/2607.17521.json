@@ -1,0 +1,443 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.17521",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T10:58:11.670Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2607.17521",
+      "title": "GeoWorldAD: Geometry World Action Model for Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "7bceb7b2414049137fb3bcec5344fd011b47db89e91d9c5f452475d1f37056c1",
+      "wordCount": 9011,
+      "accessedAt": "2026-09-07T13:55:24.417495+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "identityVerified": true,
+    "sectionsRead": [
+      "Title, authors, affiliations, version stamp, and abstract (p. 1)",
+      "Sections 1–2.1: introduction and related work (pp. 1–4)",
+      "Sections 3.1–3.3: geometry backbone, world model, and action model (pp. 4–6)",
+      "Sections 4.1–4.3.3: datasets, metrics, training, results, and ablations (pp. 6–9)",
+      "Sections 5–6: limitations and conclusion (pp. 9–10)",
+      "References (pp. 10–15)",
+      "Appendix A.1: reconstruction objectives (p. 16)",
+      "Appendix A.2: collision metrics (p. 17)",
+      "Appendix A.3.1–A.3.2: aggregation and geometry evaluation (pp. 17–19)",
+      "Appendix A.4.1–A.4.2: reconstruction and future-depth visualizations (pp. 20–22)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The complete 22-page supplied PDF text was read through all six chunks. Text extraction does not reconstruct figure images; the retained PDF was separately rendered and visually inspected for every figure and table.",
+      "Separate supplemental material availability has not been fully verified; no separate supplement was supplied.",
+      "This report reads the supplied arXiv:2607.17521v2 PDF, stamped 23 Jul 2026. Its title and all twelve authors match the catalog. No earlier version or revision history was supplied, so differences from v1 cannot be assessed.",
+      "Code was not supplied or inspected, and experiments were not reproduced. References were read as part of this paper, not independently verified."
+    ],
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 17)",
+      "Figures 4–5 (p. 20)",
+      "Figures 6–7 (p. 21)",
+      "Figures 8–9 (p. 22)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 7)",
+      "Tables 2–3 (p. 8)",
+      "Tables 4–5 (p. 9)",
+      "Tables 6–7 (p. 18)",
+      "Table 8 (p. 19)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "GeoWorldAD plans driving trajectories from video using ego-aligned present geometry and learned future geometry tokens. Its planner progressively refines proposals across geometry scales, then incorporates anticipated scene evolution. The most persuasive reported benefit is greater ego progress over the present-only GeoAD baseline. Evaluation concerns NAVSIM simulation; reconstruction quality and qualitative future depth provide supporting evidence, with important gaps in causal isolation and deployment detail.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A planner needs spatial constraints without becoming unnecessarily conservative around moving traffic. The authors argue that fixed-frame geometry can misalign with ego-centric trajectories, while appearance-based future prediction supplies indirect geometric guidance. Their proposed solution makes present and anticipated geometry the representations used for planning.",
+    "kind": "source",
+    "evidenceIds": [
+      "problem",
+      "backbone"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "EgoStreamVGGT adapts streaming reconstruction to moving ego-camera coordinates; a Q-Former-style module forecasts latent geometry; a separate action module refines trajectories using both representations.",
+      "kind": "source",
+      "evidenceIds": [
+        "backbone",
+        "world",
+        "action"
+      ]
+    },
+    {
+      "text": "The appendix supports progressive multi-scale aggregation: four layers and four iterations yield 89.3 PDMS, versus 87.6 for 24 layers/one iteration and 88.2 for one layer/four iterations. The final design does not maximize ego progress.",
+      "kind": "source",
+      "evidenceIds": [
+        "aggregation"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Four consecutive camera frames",
+      "Ego velocity, steering state, and high-level driving command"
+    ],
+    "outputs": [
+      "64 scored trajectory proposals, each with eight (x, y, heading) waypoints over four seconds",
+      "Training-time camera parameters, point maps, present depth, and future depth"
+    ],
+    "steps": [
+      {
+        "name": "Align geometry with planning",
+        "detail": "DINOv2 feeds a 24-block StreamVGGT decoder with frame and global attention. Geometry tokens from layers 4, 11, 17, and 23 provide multiple scales. Point maps use each timestep's ego-camera frame, and camera poses describe adjacent-frame motion rather than motion relative to the first frame.",
+        "evidenceIds": [
+          "backbone"
+        ]
+      },
+      {
+        "name": "Anticipate geometry",
+        "detail": "Four future chunks spanning two seconds contain 64 tokens each and learned temporal embeddings. At each selected scale, queries cross-attend to present geometry plus ego embeddings, then attend causally to themselves and earlier future chunks. Present tokens query these future latents to produce features decoded as future depth.",
+        "evidenceIds": [
+          "world"
+        ]
+      },
+      {
+        "name": "Refine trajectory proposals",
+        "detail": "Trajectory queries have 64 proposals, eight waypoints, and embedding dimension 1024. Four present-geometry aggregation stages precede one future-token stage. A shared MLP decodes positions and tanh-bounded headings. Each stage receives best-proposal supervision; the final features also produce learned proposal scores.",
+        "evidenceIds": [
+          "action"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage 1 initializes from StreamVGGT and trains geometry for 23K steps on OpenScene, nuScenes, ParallelDomain, and RealDriveSim in a 10:10:1:1 ratio. Stage 2 separately trains future geometry on OpenScene for 47K steps and the present-only GeoAD planner on NAVSIM navtrain for 32K steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "training"
+        ]
+      },
+      {
+        "text": "Stage 3 merges the branches, zero-initializes the future block's output projection to preserve GeoAD's initial behavior, and trains for 64K additional navtrain steps. AdamW uses batch 64 across 32 NVIDIA H20 GPUs, cosine scheduling, and learning rates 1e-4 in Stages 1–2 and 1e-5 in Stage 3.",
+        "kind": "source",
+        "evidenceIds": [
+          "training"
+        ]
+      },
+      {
+        "text": "Reconstruction uses Huber camera loss and confidence-weighted depth/point-map errors with gradient matching. Future-depth supervision does not update the shared DPT head; this is a loss-specific restriction, not evidence that the head is frozen to reconstruction training.",
+        "kind": "source",
+        "evidenceIds": [
+          "reconstruction",
+          "world"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Observed geometry feeds both the world module and planner; future latents remain active for final trajectory refinement. Reconstruction and future-depth decoders can be omitted. Thus decoded future images are auxiliary training outputs, while anticipated latent geometry is an inference input.",
+        "kind": "source",
+        "evidenceIds": [
+          "action",
+          "world"
+        ]
+      },
+      {
+        "text": "The source describes scored proposals but does not explicitly specify the final selection rule, low-level controller, or replanning cadence. Simulator rollout evaluates planning; physical vehicle execution is not established here.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "action",
+          "evaluation"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "Q_{\\mathrm{fut}}=\\operatorname{CausalSelfAttn}\\!\\left(\\operatorname{CrossAttn}\\!\\left(Q_{\\mathrm{fut}},[G_t^{\\ell};E_{\\mathrm{ego}}]\\right)\\right)",
+        "explanation": "Equation (3): future queries Q_fut read geometry G at time t and layer ell, concatenated with ego embeddings E_ego. The causal mask permits each future chunk to read itself and preceding chunks; it is not an action-conditioned rollout over candidate trajectories.",
+        "evidenceIds": [
+          "world"
+        ]
+      },
+      {
+        "expression": "L_{\\mathrm{traj}}^{(j)}=\\min_{r\\in\\{1,\\ldots,R\\}}\\left\\|P_r^{(j)}-\\hat P_{\\mathrm{gt}}\\right\\|_1,\\qquad L_{\\mathrm{traj}}=\\sum_{j=1}^{N_{\\mathrm{ref}}}\\lambda_j L_{\\mathrm{traj}}^{(j)}",
+        "explanation": "Equations (6)–(7): P is proposal r at refinement stage j, the hatted trajectory is ground truth, R=64, and N_ref=5. Weights lambda_j exponentially down-weight earlier stages. The minimum rewards the closest proposal rather than forcing all proposals to coincide.",
+        "evidenceIds": [
+          "action"
+        ]
+      },
+      {
+        "expression": "S_{\\mathrm{gt}}=\\mathrm{NC}\\,\\mathrm{DAC}\\,\\frac{5\\mathrm{EP}+5\\mathrm{TTC}+2\\mathrm{Comf}}{12},\\qquad L=L_{\\mathrm{traj}}+L_{\\mathrm{score}}+L_{\\mathrm{recon}}+L_{\\mathrm{wm}}",
+        "explanation": "Equations (8)–(9): the simulator score multiplies no-at-fault collision and drivable-area compliance by weighted ego progress, time-to-collision, and comfort. Score learning uses binary cross-entropy. Total training also includes trajectory, reconstruction, and future-geometry losses. This score formula is not the full v2 EPDMS definition.",
+        "evidenceIds": [
+          "action",
+          "evaluation"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "NAVSIM v2 closed-loop planning",
+      "setting": "navtest split; reactive traffic and extended scoring as described in Section 4.1.",
+      "metric": "EPDMS ↑; NC ↑; TTC ↑; EP ↑",
+      "value": "90.4 EPDMS; 99.0 NC; 98.6 TTC; 89.1 EP.",
+      "comparison": "DVGT-2: 89.6 EPDMS; EponaV2: 88.9.",
+      "interpretation": "Highest EPDMS among listed methods, by 0.8 and 1.5 score points respectively. Different architectures and supervision prevent causal attribution from this leaderboard alone.",
+      "evidenceIds": [
+        "v2",
+        "evaluation"
+      ]
+    },
+    {
+      "task": "NAVSIM v1 closed-loop planning",
+      "setting": "navtest split; four-second non-reactive simulation at 10 Hz.",
+      "metric": "PDMS ↑",
+      "value": "91.0.",
+      "comparison": "DVGT-2: 90.3; EponaV2: 90.4; iPad: 91.7.",
+      "interpretation": "Leads the listed world-model and geometry baselines, but not every table entry. Input modalities and auxiliary supervision vary across methods.",
+      "evidenceIds": [
+        "v1",
+        "evaluation"
+      ]
+    },
+    {
+      "task": "Future-geometry ablation",
+      "setting": "GeoAD versus GeoWorldAD; separate NAVSIM v1 and v2 evaluations in Table 3.",
+      "metric": "EP ↑; PDMS/EPDMS ↑; NC ↑",
+      "value": "v1: EP 82.6→85.9, PDMS 89.3→91.0. v2: EP 86.3→89.1, EPDMS 87.6→90.4. NC 98.9→99.0 in both.",
+      "comparison": "GeoAD uses present geometry only.",
+      "interpretation": "Progress gains exceed the small safety-score changes. The training schedule adds Stage 3 updates; an equally continued GeoAD control is not documented.",
+      "evidenceIds": [
+        "future-ablation",
+        "training"
+      ]
+    },
+    {
+      "task": "Geometry representation and supervision ablation",
+      "setting": "NAVSIM v1 navtest; all variants exclude future tokens.",
+      "metric": "PDMS ↑",
+      "value": "84.2 scratch; 84.8 StreamVGGT plus reconstruction; 87.3 EgoStreamVGGT without auxiliary reconstruction; 89.3 with reconstruction.",
+      "comparison": "Compare the last two rows for the reconstruction-supervision effect within EgoStreamVGGT.",
+      "interpretation": "Supports the combined design, but coordinate choice and backbone adaptation are not fully separated. Comfort stays 99.9 across the final two rows.",
+      "evidenceIds": [
+        "geometry-ablation",
+        "training"
+      ]
+    },
+    {
+      "task": "Video-depth reconstruction",
+      "setting": "OpenScene, nuScenes, KITTI; Tables 5 and 7 repeat results, referring to the StreamVGGT evaluation protocol without full split details.",
+      "metric": "Abs Rel ↓",
+      "value": "EgoStreamVGGT: 0.141, 0.117, 0.077 respectively.",
+      "comparison": "StreamVGGT: 0.236, 0.265, 0.173.",
+      "interpretation": "All reported datasets improve. These values do not quantify future-depth forecasting, for which only qualitative examples are supplied.",
+      "evidenceIds": [
+        "depth",
+        "future-visuals"
+      ]
+    },
+    {
+      "task": "Camera-pose reconstruction",
+      "setting": "nuScenes and OpenScene; Table 8 omits units and detailed evaluation settings.",
+      "metric": "ATE ↓; RPE trans ↓; RPE rot ↓",
+      "value": "EgoStreamVGGT: nuScenes 5.78/0.63/1.31; OpenScene 4.07/0.39/0.92.",
+      "comparison": "StreamVGGT: nuScenes 14.79/1.77/0.47; OpenScene 8.66/1.00/1.53.",
+      "interpretation": "Trajectory and translation errors improve in both datasets, but nuScenes rotation error worsens. A blanket claim of uniformly better pose accuracy would be incorrect.",
+      "evidenceIds": [
+        "pose"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The planner uses fixed-length clips. KV caching for continuous planning remains future work; a streaming reconstruction backbone does not establish streaming or real-time planning.",
+      "kind": "source",
+      "evidenceIds": [
+        "limitations"
+      ]
+    },
+    {
+      "text": "Future geometry covers two seconds while trajectories cover four. Selected depth and reconstruction images cannot establish long-horizon accuracy, calibrated uncertainty, or physical driving safety. Reported tables provide no seed variance or confidence intervals.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "world",
+        "training",
+        "v1",
+        "v2",
+        "future-ablation",
+        "reconstruction-visuals",
+        "future-visuals"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the StreamVGGT initialization, four geometry datasets, NAVSIM splits and simulator targets, and the staged schedule. Exact image resolution, geometry-label preprocessing, numerical refinement weights, confidence regularization coefficient, and software versions are not specified in the supplied method/training appendix.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "backbone",
+        "training",
+        "action",
+        "reconstruction"
+      ]
+    },
+    {
+      "text": "Proposed checks should compare future tokens against equally trained controls and separate ego-coordinate alignment from finetuning. Measure progress and safety together, retain per-scenario outcomes, and report variation across seeds rather than treating small score changes as established significance.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "future-ablation",
+        "geometry-ablation",
+        "training"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "The WAM interpretation and a modular world-model-to-planner architecture are supported by distinct geometry, future-query, and action components. However, the recorded IDM label is not established by the objectives: the planner learns expert trajectories and proposal scores, rather than an explicitly defined inverse-dynamics mapping between states. Joint training does not prove a single shared model architecture, and future-conditioned planning alone does not prove IDM. Preserve the catalog snapshot pending editorial review.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "backbone",
+        "world",
+        "action"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "3D multiview modeling",
+        "Autonomous driving",
+        "Visual planning & IDM"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "c3aa1955a8c20b7b62c971431cedadd1360fceb60582360c3553f62249396ebc"
+    }
+  },
+  "discussionQuestions": [
+    "Would progress gains survive an equally continued GeoAD baseline?",
+    "Which future horizons and scene types drive the benefit?",
+    "Does ego-coordinate alignment help independently of driving-domain finetuning?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block, affiliations, and arXiv margin stamp",
+      "detail": "The title is GeoWorldAD: Geometry World Action Model for Autonomous Driving. The twelve authors and three affiliations match the catalog after name-order normalization. The PDF stamp identifies arXiv:2607.17521v2 [cs.RO], 23 Jul 2026; no earlier revision is supplied."
+    },
+    {
+      "id": "problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract and Section 1; Figure 1 on p. 2",
+      "detail": "The paper motivates ego-aligned geometry for spatial constraints and future geometry for less conservative planning. Figure 1 contrasts modular, geometry-action, and video-world-action pipelines with the proposed geometry-based pipeline."
+    },
+    {
+      "id": "backbone",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Figure 2, Section 3.1, Eqs. (1)–(2)",
+      "detail": "DINOv2 patch features enter a 24-block StreamVGGT decoder. Layers 4, 11, 17, and 23 supply geometry tokens. EgoStreamVGGT changes point maps to each timestep's ego-camera frame and camera poses to adjacent-frame transformations."
+    },
+    {
+      "id": "world",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Eqs. (3)–(5); Figure 2 on p. 4",
+      "detail": "Four future chunks over two seconds each contain 64 latent tokens. At four geometry scales, future queries cross-attend to present geometry and ego embeddings, then use causal self-attention over current and earlier future chunks. A shared DPT head decodes future geometry for depth supervision, whose loss does not update that head."
+    },
+    {
+      "id": "action",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.3, Eqs. (6)–(9); Figure 2 on p. 4",
+      "detail": "The planner uses 64 proposals, eight waypoints, and embedding dimension 1024. Four present-geometry stages precede one latent-future stage. A shared MLP predicts position and heading, minimum-over-proposals L1 losses supervise each stage, and an MLP scoring head learns simulator-derived scores with binary cross-entropy. Auxiliary geometry decoders are unnecessary for planning inference."
+    },
+    {
+      "id": "reconstruction",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix A.1, Eqs. (10)–(13)",
+      "detail": "Reconstruction combines Huber camera-parameter loss with confidence-weighted depth and point-map errors and gradient matching. Negative log-confidence terms discourage trivial low confidence. The appendix reiterates ego-camera point maps and adjacent-frame camera transformations."
+    },
+    {
+      "id": "training",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.2, Stages 1–3 and final paragraph",
+      "detail": "Geometry pretraining uses 23K steps and OpenScene:nuScenes:ParallelDomain:RealDriveSim sampling of 10:10:1:1. Stage 2 trains future depth on OpenScene for 47K steps and GeoAD on NAVSIM navtrain for 32K steps. Stage 3 zero-initializes the future block's output projection and trains the combined model for 64K further steps. AdamW uses global batch 64 on 32 NVIDIA H20 GPUs, cosine learning-rate scheduling, 1e-4 in Stages 1–2 and 1e-5 in Stage 3."
+    },
+    {
+      "id": "evaluation",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1 and Eq. (8); PDF p. 17, Appendix A.2",
+      "detail": "NAVSIM planning uses simulator metrics. The described v1 protocol is four-second non-reactive simulation at 10 Hz with PDMS; v2 adds reactive traffic and extended criteria with EPDMS. NC concerns at-fault collisions; TTC concerns collision risk margins. Tables report scores, not TTC in seconds."
+    },
+    {
+      "id": "v1",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, GeoWorldAD, DVGT-2, EponaV2, and iPad rows",
+      "detail": "On NAVSIM v1 navtest, GeoWorldAD has NC 99.0, DAC 97.8, TTC 95.8, comfort 99.9, EP 85.9, and PDMS 91.0. DVGT-2 and EponaV2 score 90.3 and 90.4 PDMS; iPad scores 91.7 with map and box supervision. The caption restricts the best-score claim to competing world-model and geometry methods."
+    },
+    {
+      "id": "v2",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2, GeoWorldAD, DVGT-2, and EponaV2 rows; Section 4.3.1",
+      "detail": "On NAVSIM v2 navtest, GeoWorldAD reports EPDMS 90.4, NC 99.0, TTC 98.6, and EP 89.1; DVGT-2 reports EPDMS 89.6 and EponaV2 88.9. GeoWorldAD does not lead every component metric."
+    },
+    {
+      "id": "future-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3 and Section 4.3.2",
+      "detail": "GeoAD versus GeoWorldAD gives v1 EP 82.6 versus 85.9 and PDMS 89.3 versus 91.0; v2 EP 86.3 versus 89.1 and EPDMS 87.6 versus 90.4. NC changes from 98.9 to 99.0 in both versions; TTC changes from 95.7 to 95.8 in v1 and 98.3 to 98.6 in v2."
+    },
+    {
+      "id": "geometry-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 4 and Section 4.3.3",
+      "detail": "Present-geometry-only NAVSIM v1 navtest variants score 84.2 PDMS from scratch, 84.8 with StreamVGGT and reconstruction supervision, 87.3 with EgoStreamVGGT without auxiliary reconstruction, and 89.3 with EgoStreamVGGT plus reconstruction. Comfort remains 99.9 across the final two rows despite prose claiming gains across all metrics."
+    },
+    {
+      "id": "depth",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 5; PDF p. 18, Table 7 and Appendix A.3.2",
+      "detail": "Tables 5 and 7 repeat the same video-depth results. StreamVGGT to EgoStreamVGGT Abs Rel changes are 0.236 to 0.141 on OpenScene, 0.265 to 0.117 on nuScenes, and 0.173 to 0.077 on KITTI. Threshold accuracy increases on all three datasets. These are reconstruction results, not horizon-wise future-depth prediction errors."
+    },
+    {
+      "id": "aggregation",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Figure 3 and Appendix A.3.1; PDF p. 18, Table 6 and continuation of A.3.1",
+      "detail": "The 24-layer/one-iteration, one-layer/four-iteration, and four-layer/four-iteration designs score 87.6, 88.2, and 89.3 PDMS respectively. The last design leads NC and TTC, but the one-layer/four-iteration variant has higher EP, 82.9 versus 82.6. The table does not restate the evaluation split."
+    },
+    {
+      "id": "pose",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Table 8; PDF pp. 18–19, Appendix A.3.2",
+      "detail": "On nuScenes, StreamVGGT to EgoStreamVGGT changes ATE 14.79 to 5.78, RPE trans 1.77 to 0.63, and RPE rot 0.47 to 1.31. OpenScene values change 8.66 to 4.07, 1.00 to 0.39, and 1.53 to 0.92. The table does not provide units or detailed split/alignment settings."
+    },
+    {
+      "id": "limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5",
+      "detail": "The authors state that trajectory planning operates on fixed-length clips despite the reconstruction backbone supporting continuous streams; KV-cached streaming planning is future work."
+    },
+    {
+      "id": "reconstruction-visuals",
+      "sourceId": "primary",
+      "location": "PDF pp. 20–21, Appendix A.4.1, Figures 4–7",
+      "detail": "Four qualitative comparisons show input video sequences and StreamVGGT, EgoStreamVGGT, and GT reconstruction/pose views. They provide selected visual examples without per-example numerical errors."
+    },
+    {
+      "id": "future-visuals",
+      "sourceId": "primary",
+      "location": "PDF p. 22, Appendix A.4.2, Figures 8–9",
+      "detail": "Each example juxtaposes input video, future RGB reference images, predicted depth, and GT depth for t+1 through t+4. No numerical depth scale, horizon-wise error table, or uncertainty visualization is supplied with these examples."
+    }
+  ]
+}

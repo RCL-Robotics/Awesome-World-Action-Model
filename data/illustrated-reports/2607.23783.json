@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.23783",
+  "shortTitle": "N₀-TWAM",
+  "thesis": "N₀-TWAM predicts scene and contact before acting, then adds current-touch feedback; its average manipulation gains come with sensor-dependent representations and task-specific deployment choices.",
+  "standfirst": "A gripper can look correctly positioned while feeling the wrong contact. N₀-TWAM gives a video world-action model a tactile future to predict and a separate tactile present to read. Follow the architecture and attention mask first: they explain how three experts share information while action waits for a forecast. The contact-event diagram then shows how touch also advances a sub-task queue. Finally, compare simulation success, physical execution and pathway ablations. These results support the combined system, while task-level reversals, absolute-pose exceptions and small physical trial counts constrain how broadly its advantage should be interpreted.",
+  "evidenceIds": [
+    "e-problem",
+    "e-cascade",
+    "e-mask",
+    "e-observed",
+    "e-scheduler",
+    "e-univtac",
+    "e-real",
+    "e-ablation",
+    "e-pose"
+  ],
+  "featuredResultTask": "Real-robot contact-rich manipulation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2607.23783/architecture.png",
+      "width": 1308,
+      "height": 574,
+      "sourceSha256": "32d2c59f7f17b4e1274e80bc7fd13fb4e7ae849d77b7148dd478b22766c12a6c",
+      "sourceUrl": "https://arxiv.org/pdf/2607.23783#page=4",
+      "crop": [
+        0.115,
+        0.09,
+        0.885,
+        0.351
+      ],
+      "alt": "Green video, blue tactile and cream action experts share an attention bar; a separate observed-tactile encoder feeds cross-attention near execution.",
+      "caption": "Future touch and current touch reach action through different pathways.",
+      "readingGuide": "Read upward from the raw video and tactile inputs into their encoded tokens, then across the shared self-attention bar. Green and blue experts generate the future scene and contact; the action stream consumes the committed pair before producing commands. On the right, observed tactile takes a shorter route through an encoder and cross-attention near the action output. That route carries current evidence rather than a denoising target. The bar represents communication at each transformer layer, not completion of the entire inference procedure. Section 2.3 still requires iterative future prediction followed by iterative action denoising. On real robots the observed branch reads a force-space representation.",
+      "takeaway": "The architectural claim is more specific than simply adding another sensor input: touch is both a generated intermediate forecast and an observed action condition. Private expert weights separate modality capacity, while shared attention integrates the backbone. The model can therefore consume predicted contact without requiring a separate standalone tactile predictor.",
+      "caution": "The drawing explicitly routes its text arrow only into video; its caption also specifies language cross-attention into action and excludes tactile. Follow that caption for routing. The main simulation observed branch uses a scratch-trained latent encoder, not the real-robot force encoder.",
+      "evidenceIds": [
+        "e-cascade",
+        "e-observed",
+        "e-streaming"
+      ]
+    },
+    {
+      "id": "causal-mask",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 5,
+      "asset": "report-assets/2607.23783/causal-mask.png",
+      "width": 1241,
+      "height": 977,
+      "sourceSha256": "32d2c59f7f17b4e1274e80bc7fd13fb4e7ae849d77b7148dd478b22766c12a6c",
+      "sourceUrl": "https://arxiv.org/pdf/2607.23783#page=5",
+      "crop": [
+        0.525,
+        0.448,
+        0.89,
+        0.67
+      ],
+      "alt": "Query-by-key attention matrix for two chunks, with video, tactile and action colors, solid noisy entries, hatched clean entries and pale masked cells.",
+      "caption": "The mask makes future vision and touch available before action.",
+      "readingGuide": "Rows are queries and columns are the keys they may read. Within each chunk, locate the noisy video and tactile rows: their solid green and blue cells allow mutual co-generation. The noisy action row instead reaches the hatched clean video and tactile columns of its chunk, alongside its own noisy action block. Moving into the second chunk adds access to clean history from the first. The empty upper-right region blocks future chunks. Each displayed video/tactile block collapses two latent frames, so this is a schematic of the temporal ordering rather than a complete token-resolution mask. These access rules agree with the three mask rules in Section 2.1.",
+      "takeaway": "This one-way dependence explains why inference can cache video/tactile keys and values after prediction. Subsequent action-denoising steps do not change those forecasts through current-action feedback, and only the lightweight action expert must repeat. The mask implements an IDM-style action dependency inside shared transformer attention.",
+      "caution": "Clean history during training is ground truth, with occasional light visual/tactile re-noising; at inference, generated entries can be imperfect until observations replace them. The schematic establishes permitted information flow, not forecast accuracy or a measured latency improvement.",
+      "evidenceIds": [
+        "e-mask",
+        "e-cascade",
+        "e-streaming"
+      ]
+    },
+    {
+      "id": "tactile-scheduler",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 5",
+      "page": 9,
+      "asset": "report-assets/2607.23783/tactile-scheduler.png",
+      "width": 1302,
+      "height": 310,
+      "sourceSha256": "32d2c59f7f17b4e1274e80bc7fd13fb4e7ae849d77b7148dd478b22766c12a6c",
+      "sourceUrl": "https://arxiv.org/pdf/2607.23783#page=9",
+      "crop": [
+        0.119,
+        0.341,
+        0.885,
+        0.482
+      ],
+      "alt": "Gripper aperture and tactile magnitude traces distinguish successful and failed grasps; a sub-task queue loops through the model, execution and tactile feedback.",
+      "caption": "Contact events provide training boundaries and an execution clock.",
+      "readingGuide": "Start with the paired traces on the left. A gripper-aperture dip can occur in both successful and failed grasps, whereas tactile magnitude rises when contact actually loads the fingers. The colored intervals become clips with local instructions instead of one unchanging episode instruction. On the right, the queue supplies the active prompt to N₀-TWAM, which executes before feedback advances the queue. The feedback box summarizes a more specific rule in the accompanying prose: predicted contact initiates an advance, but an observed onset or release must confirm it before the prompt switch is committed. The next instruction then re-seeds streaming context.",
+      "takeaway": "Touch has a third role beyond prediction and immediate action conditioning: it marks stage transitions. This is particularly relevant when a limited observation window cannot disambiguate which part of a long task is underway. The diagram explains the intended coordination of demonstration segmentation and inference-time prompt scheduling.",
+      "caution": "The traces are explanatory rather than a calibrated detector specification: event thresholds and confirmation timing are not given. The paper does not separately ablate this scheduler, and a local contact event alone does not establish successful completion of an entire task.",
+      "evidenceIds": [
+        "e-scheduler",
+        "e-ablation",
+        "e-real"
+      ]
+    },
+    {
+      "id": "univtac-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 12,
+      "asset": "report-assets/2607.23783/univtac-results.png",
+      "width": 1308,
+      "height": 552,
+      "sourceSha256": "32d2c59f7f17b4e1274e80bc7fd13fb4e7ae849d77b7148dd478b22766c12a6c",
+      "sourceUrl": "https://arxiv.org/pdf/2607.23783#page=12",
+      "crop": [
+        0.115,
+        0.126,
+        0.885,
+        0.377
+      ],
+      "alt": "Eight-task UniVTAC success table grouped into VLA and world-action methods; N₀-TWAM has 84.5 average and InternVLA-A1 67.1.",
+      "caption": "The strongest simulation average is accompanied by task-level exceptions.",
+      "readingGuide": "Read the task columns before the final average. Rows are grouped by model family, and boldface marks the highest reported success in each column, including ties. The bottom row is N₀-TWAM; its average is compared against all listed methods, not only the world-action group. The evaluation uses 100 randomized trials per task and an equal-task macro average. These are the main clean-tactile simulation conditions, where the observed tactile branch is trained from scratch. Keep Table 5 alongside this table: the authors adopt absolute end-effector poses for Lift Can, Lift Bottle and Put Bottle in Shelf, despite the default delta-action description.",
+      "takeaway": "N₀-TWAM reaches 84.5% average success against the strongest listed baseline, InternVLA-A1 at 67.1%, a 17.4-percentage-point difference. The advantage is not universal: Lift Bottle is 58% for N₀-TWAM versus 100% for π0.5. The average establishes broad gains within this benchmark rather than dominance on every contact task.",
+      "caution": "Baseline rows differ in pre-training and tactile access, so this table alone cannot attribute the margin to tactile foresight. Task-specific pose choices also matter. The within-model pathway ablations provide a more focused comparison, though they still change the training information.",
+      "evidenceIds": [
+        "e-univtac",
+        "e-protocol",
+        "e-observed",
+        "e-realism",
+        "e-pose",
+        "e-ablation"
+      ]
+    },
+    {
+      "id": "real-robot-results",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 7",
+      "page": 14,
+      "asset": "report-assets/2607.23783/real-robot-results.png",
+      "width": 1249,
+      "height": 370,
+      "sourceSha256": "32d2c59f7f17b4e1274e80bc7fd13fb4e7ae849d77b7148dd478b22766c12a6c",
+      "sourceUrl": "https://arxiv.org/pdf/2607.23783#page=14",
+      "crop": [
+        0.135,
+        0.341,
+        0.87,
+        0.509
+      ],
+      "alt": "Grouped success bars for eight real tasks compare π0.5, LingBot-VA, FastWAM and N₀-TWAM; N₀-TWAM is blue.",
+      "caption": "Physical execution improves on average, while long tasks remain difficult.",
+      "readingGuide": "Use the legend to compare the blue N₀-TWAM bar with the three baselines within each task. The suite spans four single-arm Flexiv tasks and four dual-arm PiPER tasks, using InTac S1 tactile sensors. Each percentage comes from 20 randomized trials, with success judged against a fixed task criterion by the operator. Thus one additional successful trial changes a task score by five percentage points. The caption reports the macro average across these eight groups. Read the low bars as carefully as the largest gaps: Making Lemon Tea, Cup Stacking and Bag Packing qualify the overall story of contact-sensitive improvement.",
+      "takeaway": "The reported macro success is 46.3%, compared with 30.0% for π0.5, 21.9% for LingBot-VA and 14.4% for FastWAM. N₀-TWAM reaches 70% on Bottle Standing and Socket Plugging, but only 15% on Making Lemon Tea. π0.5 remains ahead on Cup Stacking and Bag Packing.",
+      "caution": "These are executed robot trials, but only 20 per task. The authors note a binomial standard error of up to approximately 11%; small per-task gaps are consequently uncertain. No scheduler-only real-robot ablation separates contact prediction from stage-transition logic.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-real",
+        "e-scheduler",
+        "e-ablation"
+      ]
+    },
+    {
+      "id": "tactile-ablations",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 9",
+      "page": 17,
+      "asset": "report-assets/2607.23783/tactile-ablations.png",
+      "width": 1264,
+      "height": 410,
+      "sourceSha256": "32d2c59f7f17b4e1274e80bc7fd13fb4e7ae849d77b7148dd478b22766c12a6c",
+      "sourceUrl": "https://arxiv.org/pdf/2607.23783#page=17",
+      "crop": [
+        0.205,
+        0.119,
+        0.8,
+        0.268
+      ],
+      "alt": "Three bar groups show UniVTAC, NeoSim and their mean for full N₀-TWAM, reduced-data pre-training and removal of predicted or observed tactile information.",
+      "caption": "The two tactile roles contribute differently across simulation suites.",
+      "readingGuide": "Compare variants within each benchmark before reading the rightmost average, which is the mean of the two suite averages rather than a pooled twenty-task score. Orange appears only for UniVTAC because the reduced-data checkpoint was not evaluated on NeoSim. Purple denotes the predicted-tactile information ablation: targets are zeroed before noising while token layout, mask and diffusion loss are retained. Pink removes the observed-conditioning branch. The tactile variants share their starting checkpoint and downstream training setup; the orange variant instead changes pre-training data. Appendix A provides the per-task rows needed to assess whether these average losses are uniform.",
+      "takeaway": "UniVTAC drops from 84.5% to 71.8% without informative predicted tactile and to 70.5% without observed conditioning; the reduced-data variant reaches 65.4%. NeoSim falls from 49.4% to 41.1% and 29.6%, respectively. These comparisons support contributions from both pathways, with a larger observed-path effect on NeoSim.",
+      "caution": "Average gains do not imply every task benefits: Appendix A reports Cup Handover increasing from 14% to 65% without predicted tactile. Zeroing the prediction target also changes learning, so this comparison does not isolate the inference-time value of an otherwise identically trained forecast.",
+      "evidenceIds": [
+        "e-ablation"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Learn a tactile future before adding the tactile present",
+      "kind": "source",
+      "text": "A tactile sensor produces a gel image, so the model can encode it with the same frozen video VAE used for the scene. Future touch is represented as a change from its initial latent, concentrating the target on contact onset, deformation and release. Pre-training predicts that residual alongside video and action, while the observed-touch branch stays disabled. This ordering is intended to make foresight useful before a current-contact shortcut becomes available. Post-training then opens the observed branch. On real robots its force estimator stays frozen while the NeoForce encoder adapts under action loss, and a zero-initialized cross-attention output initially leaves the pretrained policy unchanged. The main simulation experiments use a different, scratch-trained latent encoder at that same port, so their results should not automatically be credited to pretrained force-space features.",
+      "evidenceIds": [
+        "e-touch",
+        "e-flow",
+        "e-observed",
+        "e-pretrain",
+        "e-posttrain"
+      ]
+    },
+    {
+      "heading": "Follow one chunk through prediction, execution and confirmation",
+      "kind": "source",
+      "text": "At a chunk boundary, history contains the scene, contact and actions already committed. The model first denoises a future scene/contact pair, then caches its attention keys and values. Because the mask blocks current-action feedback into those prediction streams, action denoising can reuse the cached pair while repeating only the slim action expert. The robot executes the decoded chunk while the next is predicted; arriving camera and tactile readings replace predicted history. Current-touch conditioning can refresh between these chunk predictions. For a multi-stage task, another clock sits above this loop: predicted contact prepares a prompt advance and observed contact confirms it. These three time scales are described as deployment mechanisms; the paper does not provide measured rates. It also specifies different training and evaluation action horizons without fully explaining their reconciliation.",
+      "evidenceIds": [
+        "e-mask",
+        "e-streaming",
+        "e-scheduler",
+        "e-posttrain",
+        "e-protocol"
+      ]
+    },
+    {
+      "heading": "Separate useful contact prediction from a useful training target",
+      "kind": "analysis",
+      "text": "Reader interpretation: the pathway ablations are stronger mechanism evidence than the headline comparison against vision-only policies, because they retain much of the same model and adaptation setup. Even so, zeroing the tactile prediction target changes the learning problem as well as the information eventually presented to action. A lower success rate could reflect lost training regularization, worse joint scene features, less useful future contact at inference, or a combination. The paper's qualitative forecast examples cannot distinguish those explanations. Keep action parameterization fixed when testing them: the absolute-pose analysis shows that this configuration alone can substantially change precision-task performance. The physical results also leave room for a separate scheduler contribution. A discriminating reproduction should therefore test forecast use and event timing with controlled interventions rather than treating the aggregate benchmark margin as their individual effect.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-qualitative",
+        "e-pose",
+        "e-real",
+        "e-scheduler"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does the trained action expert use the generated tactile future?",
+      "text": "Reader-proposed check, not performed: on UniVTAC Lift Bottle and Put Bottle in Shelf, evaluate the same full checkpoint with its normal tactile forecast versus a temporally shuffled generated tactile forecast supplied to action. Hold video forecasts, observed touch, history, token layout, absolute-pose settings and action horizon fixed; perturb only the predicted-tactile conditioning passed to the action loop. Use paired initial states and noise seeds, at least the paper's 100 trials per task, and uncertainty intervals. Compare this inference intervention with the paper's target-zeroing training ablation. A reliable loss under both interventions supports direct forecast use; a loss only after altered training weakens that explanation. Report distribution-shift effects of shuffling rather than treating the intervention as perfectly selective.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-mask",
+        "e-streaming",
+        "e-pose",
+        "e-protocol"
+      ]
+    },
+    {
+      "title": "Does forecast-assisted scheduling beat observed events alone?",
+      "text": "Reader-proposed check, not performed: keep the same post-trained policy, sub-task clips, instruction queue and action decoding on Making Lemon Tea and Hanoi Tower. Compare fixed-duration switching, observed-contact-only switching and predicted-trigger plus observed-confirmation switching. Predefine detector thresholds and confirmation windows on separate development trials, then freeze them. Include matched normal trials and controlled empty grasps or delayed releases. Measure full-task success, premature switches, repeated stages and transition delay, with repeated randomized trials and uncertainty intervals. The prediction-assisted scheduler should reduce delay without increasing unconfirmed transitions; otherwise its extra forecast trigger has not demonstrated value beyond observed tactile events.",
+      "evidenceIds": [
+        "e-scheduler",
+        "e-protocol",
+        "e-real"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      20,
+      27,
+      28
+    ],
+    "notes": "The title/author/version page, all twelve figures and all ten tables were visually inspected. The six final crops were each viewed; the narrow attention-mask crop was rendered at 400 DPI and adjusted to retain the complete Query label. Figure 2 routing was cross-checked against its caption, Figure 3 against the mask rules and Eq. (1), and Figure 5 against the predicted-trigger/observed-confirmation prose. Declared pages include training hardware and settings, evaluation protocols, absolute-pose exceptions, generalization, tactile-rendering comparisons, all empirical appendices and every supporting method page used here. All nine text chunks, including references, were read; reference-only pages and p. 19 were not visually inspected. No separate supplements, code or external resources were inspected, and no proposed check was run."
+  }
+}
