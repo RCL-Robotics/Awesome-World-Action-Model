@@ -1,0 +1,468 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.08113",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T19:13:51.855Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2603.08113",
+      "title": "SAMoE-VLA: A Scene Adaptive Mixture-of-Experts Vision-Language-Action Model for Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "30b9a978b5dc7eb3b389b8889fd23e7c3215e2f39ad4903d7abcd7958bff8348",
+      "wordCount": 18260,
+      "accessedAt": "2026-09-07T14:05:28.633436+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; Sections 1–2: Introduction and Related Work",
+      "Sections 3.1–3.4: Architecture, CMCA, scene-adaptive MoE, training",
+      "Sections 4.1–4.3 and 5: Experiments, ablations, conclusion",
+      "Bibliography",
+      "Appendices A–D: Flow matching, world modeling, MoE comparisons, training details",
+      "Appendix E.1–E.5: Representation, temporal stability, convergence and gradient analysis",
+      "Appendix F and Algorithms 1–5",
+      "Appendices G–I: Challenging subsets, qualitative cases, computational analysis",
+      "Appendix J: Notation Tables 6–8"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "All 11 supplied text chunks were read, covering PDF pages 1–64. Visual inspection is recorded separately in the illustrated edition; not every textual page was rendered.",
+      "Identity notes: PDF p. 1 identifies arXiv:2603.08113v1 [cs.CV], 9 March 2026. The exact title and all seven authors match the supplied catalog. No different revision or edition was supplied or compared. Supplementary pagination restarts at 1 on PDF p. 21; all report page references use PDF page numbers.",
+      "Code and external references were not inspected; experiments were not reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (PDF p. 2)",
+      "Figure 2 (PDF p. 6)",
+      "Figures 3–4 (PDF p. 12)",
+      "Figures 5–6 (PDF p. 14)",
+      "Figures 7–8 (PDF p. 15)",
+      "Figure 9 (PDF p. 27)",
+      "Figures 10–17 (PDF pp. 54–57)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (PDF p. 11)",
+      "Table 2 (PDF p. 12)",
+      "Table 3 (PDF p. 13)",
+      "Table 4 (PDF p. 29)",
+      "Table 5 (PDF p. 52)",
+      "Tables 6–8 (PDF pp. 62–64; text only)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "SAMoE-VLA conditions a flow-matching driving planner on world-language features and uses BEV scene context to merge expert parameters. Its strongest evidence is improved trajectory accuracy and LangAuto simulator driving scores; world rendering is pretraining-only, and several implementation and result descriptions conflict internally.",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "Driving decisions depend on the whole traffic scene, whereas conventional MoE routes individual tokens. The authors argue that this mismatch harms coherent planning and propose scene-conditioned specialization while retaining language and spatial context.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e01",
+      "e02",
+      "e14"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A Deformable Scene Encoder (DSE) converts BEV geometry into soft routing weights; each planning MoE layer merges expert parameters into one FFN without manually labeled driving skills.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "Conditional Cross-Modal Causal Attention (CMCA) joins two functional experts while restricting action-token visibility. World prediction supplies pretraining supervision; flow matching supplies trajectory supervision.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e07"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Multi-view camera images encoded into BEV; language instructions",
+      "Ego-history, CAN bus and low-level control features; noisy trajectory tokens and flow time",
+      "Training targets: future trajectories, scene language and LiDAR point clouds"
+    ],
+    "outputs": [
+      "Planned two-dimensional trajectory: six future action positions for nuScenes",
+      "World-language pretraining: scene-language outputs and rendered future point clouds"
+    ],
+    "steps": [
+      {
+        "name": "Encode the scene",
+        "detail": "OpenCLIP-ConvNext, CPFPN and single-frame BEVFormer produce 200 × 200 BEV features with 256 channels. Projected BEV and instruction tokens enter the world-language expert; state and action-time embeddings enter the planning expert.",
+        "evidenceIds": [
+          "e02",
+          "e08",
+          "e09"
+        ]
+      },
+      {
+        "name": "Build future-aware context",
+        "detail": "Pooled BEV features plus learned frame prompts become world tokens. LLM-conditioned future BEV features are lifted to voxel volumes and rendered with an SDF-based LiDAR model during pretraining. Depth, Chamfer, rendering and language losses supervise this branch.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "name": "Constrain information flow",
+        "detail": "Every action token can attend to all conditioning tokens and action positions up to itself. Conditioning tokens cannot attend to actions and remain static through action refinement. This attention mask does not imply sequential execution of vehicle controls.",
+        "evidenceIds": [
+          "e03",
+          "e09"
+        ]
+      },
+      {
+        "name": "Merge scene-specific experts",
+        "detail": "A near-field distance map and BEV features predict deformable offsets. Learned queries attend to encoded spatial features, producing reusable H_BEV. Each MoE layer has its own mean-pool/linear/softmax router, then merges three FFN matrices across experts. The resulting FFN processes planning hidden states.",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Pretraining proceeds through BEV-to-point-cloud learning, BEV-text alignment on NuInteract, refinement with OmniDrive-nuScenes descriptions, and joint language/future-geometry learning. Planning is frozen during this stage. The final stage first trains a dense planner, then initializes MoE sub-experts from its weights.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "text": "The paper reports eight NVIDIA A800 GPUs, InternVL2-2B planning initialization, MoE insertion every fourth transformer layer, and final learning rate 10^{-4}. Appendix B freezes the world-language expert during final training; Algorithm 5 updates the planner.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e08",
+          "e10"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Initialize the trajectory from Gaussian noise, hold scene/language/state conditioning fixed, and apply ten reverse-time Euler steps. Each velocity prediction covers the full trajectory horizon. The output is a trajectory; the supplied algorithm does not specify the trajectory-to-actuator controller.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08",
+          "e09"
+        ]
+      },
+      {
+        "text": "Figure 1 labels rendering as pretraining-only. The reported deployment path uses future-aware representations, without an explicit rendered-future search or inverse-dynamics stage. LangAuto measures closed-loop behavior in CARLA; this is separate from logged nuScenes trajectory prediction.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e02",
+          "e09",
+          "e12"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\pi=\\operatorname{softmax}\\!\\left(\\operatorname{Linear}(\\operatorname{MeanPool}(H_{\\mathrm{BEV}}))\\right),\\qquad \\widetilde W_i=\\sum_{e=1}^{E}\\pi_e W_i^{(e)},\\quad i\\in\\{1,2,3\\}.",
+        "explanation": "H_BEV is the DSE scene representation; E is the expert count; pi_e weights expert e; W_i^(e) are its three FFN matrices. The linear router is layer-specific. Parameter fusion precedes the nonlinear FFN.",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "expression": "x_t=t\\epsilon+(1-t)a,\\qquad u_t=\\epsilon-a,\\qquad \\mathcal L_{\\mathrm{FM}}=\\frac{1}{K}\\sum_{k=1}^{K}\\left\\|v_\\theta(x_t,t,\\mathcal C)_k-u_{t,k}\\right\\|_2^2.",
+        "explanation": "Appendix A defines a as the ground-truth trajectory, epsilon as Gaussian noise, t as interpolation time, K as trajectory length, C as conditioning, and v_theta as predicted velocity. Reverse integration uses negative time increments. Algorithm 5 prints the opposite target sign; the discrepancy remains unresolved.",
+        "evidenceIds": [
+          "e09",
+          "e10"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "nuScenes open-loop trajectory planning",
+      "setting": "Table 1; reported nuScenes protocol, 1/2/3-second horizons; exact evaluated split is not identified in this table.",
+      "metric": "L2 error (m) and collision rate (%), lower is better",
+      "value": "L2: 0.24/0.27/0.35; average 0.29. Collision: 0.01/0.18/0.60%; average 0.26%.",
+      "comparison": "PreWorld: 0.31 m average L2; Drive-WM: 0.26% average collision.",
+      "interpretation": "Lowest listed average L2, but average collision ties Drive-WM and several methods have better 1-second error. The prose's horizon-relative improvement percentages do not consistently match the table.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "LangAuto closed-loop driving",
+      "setting": "CARLA-based LangAuto, Short and Tiny settings; Table 2.",
+      "metric": "Driving Score (DS), Route Completion (RC, %), Infraction Score (IS); higher is better",
+      "value": "Full: 51.4/63.5/0.81; Short: 69.5/80.9/0.86; Tiny: 79.5/86.4/0.92 (DS/RC/IS).",
+      "comparison": "BEVDriver full: 48.9/59.7/0.82; SAMoE-VLA reports 3.6B total parameters versus BEVDriver's 7B label.",
+      "interpretation": "Best listed DS and RC across all three settings. Full-setting IS is not best. The caption defines IS as Infraction Score; p. 10 calls it Instruction Score.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Scene routing and MoE ablations",
+      "setting": "nuScenes; Tables 3–4.",
+      "metric": "Average L2 (m) / collision (%)",
+      "value": "SAMoE: 0.29/0.26; prefix routing: 0.31/0.37; without DCN: 0.31/0.33; without near-field map: 0.30/0.29.",
+      "comparison": "Dense without MoE: 0.32/0.25; sparse MoE: 0.30/0.36; SoftMoE: 0.46/0.57.",
+      "interpretation": "Scene routing improves accuracy over these alternatives, but does not improve collision over the dense baseline. The prose's 38.4% sparse collision increase is inconsistent with Table 4's dense comparator.",
+      "evidenceIds": [
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "task": "Attention and world-pretraining ablation",
+      "setting": "Figure 8 and accompanying text; all variants omit SA-MoE.",
+      "metric": "Average L2 error (m)",
+      "value": "Baseline 0.32; full attention 0.35; fully dense 0.35; without world modeling 0.33.",
+      "comparison": "Comparisons use the non-MoE baseline, not the 0.29 m final model.",
+      "interpretation": "Supports modest benefits of the mask, functional specialization and world pretraining in this setup; does not establish inference-time world rollout planning.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "Single-GPU module efficiency",
+      "setting": "Appendix I; FP16 module benchmark, approximately 276M-parameter MoE blocks.",
+      "metric": "Average inference latency",
+      "value": "SA-MoE 43.89 ms; DSE separately 2.883 ms.",
+      "comparison": "Sparse MoE 46.17 ms; reported block speedup 1.05×.",
+      "interpretation": "Module timing is not complete driving-stack latency. The benchmark GPU model and full timing configuration are unspecified; Orin appears as deployment discussion, not an identified measured platform.",
+      "evidenceIds": [
+        "e18"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Appendix A uses a Beta time distribution and noise-minus-action target; Algorithm 5 uses uniform time and action-minus-noise. Section 4.1 clamps Beta samples, whereas Appendix A rescales them. Its broad full-parameter fine-tuning wording also requires reconciliation with the frozen world expert.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "text": "Appendix I.5 writes an output-weighted expert sum, conflicting with the parameter merging in Section 3.3 and Appendix C. Appendix E itself acknowledges that nonlinear parameter fusion generally differs from output mixing.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e19"
+      ]
+    },
+    {
+      "text": "Challenging subsets contain only 38, 27 and 42 cases. Appendix G calls their trajectories closed-loop without specifying a nuScenes rollout environment. Figure 5's intersection baseline success is 51.09%, whereas p. 13 says 67.91%; those success comparisons remain ambiguous.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e15",
+        "e16"
+      ]
+    },
+    {
+      "text": "The theoretical guarantees need scrutiny: Eq. (53) replaces the squared norm of an integrated Jacobian action with an integral of squared norms; Eq. (118) reverses the general triangle inequality. The local-router assumption excludes global context. These arguments do not establish universal failure of token MoE.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "text": "The main result tables provide no repeated-seed uncertainty. Simulator and logged-data results do not establish physical-road safety, and selected qualitative overlays are not a deployment trial.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e12",
+        "e20"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the stated pretrained modules, nuScenes, NuInteract and OmniDrive-nuScenes annotations, and LMDrive/LangAuto for simulator evaluation. The PDF says code will be released soon; release availability is unverified. Optimizer details, training duration, exact main evaluation split, controller and simulator configuration require clarification.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e01",
+        "e07",
+        "e08",
+        "e09",
+        "e12"
+      ]
+    },
+    {
+      "text": "Reader-proposed checks: first reconcile velocity-target sign and time sampling against the reverse Euler solver; then hold expert capacity and training data fixed while comparing true scene routing with shuffled scene routing and a constant mixture. These are proposed tests, not reproduced results.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e09",
+        "e10",
+        "e14"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "Separate world-language and planning parameter streams support the recorded dual-system aspect. However, the planner learns a conditional trajectory velocity field, not an explicit inverse mapping from current and predicted future states to actions. Rendering is pretraining-only, and geometry/language supervision does not establish JEPA. Thus the recorded Q4 × IDM categorization is not supported as a whole; the snapshot is preserved unchanged.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e06",
+        "e07",
+        "e09"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Latent prediction & JEPA",
+        "Visual planning & IDM"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "4a7d193548acc6e4b3f50cea62a86343c1a0b2da3a2140b851622c6f2de46b4c"
+    }
+  },
+  "discussionQuestions": [
+    "Does correct scene routing outperform an equally sized constant or shuffled expert mixture?",
+    "How much of the world-pretraining benefit survives matched training compute and data?",
+    "Which flow-target convention and controller actually produced the reported simulator scores?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, arXiv margin and abstract",
+      "detail": "Exact catalog title and seven authors are present; arXiv:2603.08113v1 [cs.CV], 9 March 2026. Six affiliations are listed. The abstract motivates scene-level routing and says code will be released soon."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 1 and caption; PDF p. 5, Section 3.1",
+      "detail": "Two functional experts consume world/language/BEV versus state/action tokens and share CMCA. Figure 1 marks scene description/rendering as pretraining-only and trajectory generation as final-stage-only."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.2, Eqs. (1)–(2)",
+      "detail": "The binary mask permits all conditioning keys and action keys j ≤ i; conditioning cannot attend to action tokens. Masking precedes softmax over attention scores."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 2 and caption; PDF pp. 7–8, Section 3.3, Eqs. (3)–(8)",
+      "detail": "Near-field map and BEV features predict offsets; deformable features become keys/values for learned routing queries. H_BEV is computed once, with distinct linear routing heads per layer."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Eqs. (9)–(11); PDF p. 28, Appendix C.3–C.4",
+      "detail": "Planning attention output plus residual enters one FFN formed by softmax-weighted sums of three expert weight matrices. Appendix C distinguishes parameter fusion from activation mixing."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 23–26, Appendix B.1–B.6, Eqs. (13)–(37)",
+      "detail": "LLM-conditioned world prompts generate future BEV representations, which are lifted into voxels and rendered through SDF-based LiDAR rays. Losses cover depth, Chamfer geometry, rendering and optional language supervision."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 3.4; PDF p. 23, Appendix B overview; PDF p. 29, Appendix D.1",
+      "detail": "Pretraining freezes planning and progresses through perception, text alignment and joint understanding/generation. NuInteract masking yields approximately 200K pairs; OmniDrive-nuScenes provides language annotations. Final training uses dense initialization followed by copied MoE experts; Appendix B says the world-language expert is frozen."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 4.1",
+      "detail": "OpenCLIP-ConvNext/CPFPN and BEVFormer supply 200 × 200 × 256 single-frame BEV features. Training uses eight NVIDIA A800 GPUs; planning initializes from InternVL2-2B. MoE replaces every fourth FFN; final learning rate is 1e-4 and inference uses ten ODE steps."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF pp. 21–23, Appendix A.1–A.4, Eq. (12), Algorithms 1–2",
+      "detail": "Six two-dimensional nuScenes actions are interpolated as t epsilon + (1−t)a, with target epsilon−a. Conditioning includes BEV, language, world and ego context. Gaussian initialization and negative Euler increments yield a trajectory, without a specified actuator controller."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 4.1; PDF p. 21, Appendix A.2; PDF p. 51, Algorithm 5, lines 7 and 20–22",
+      "detail": "Section 4.1 clamps Beta samples, Appendix A rescales Beta samples, and Algorithm 5 instead samples uniformly. Algorithm 5's velocity target is action−noise, opposite Appendix A; its update is explicitly to the planning expert."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 1, all rows/columns; PDF p. 10, Section 4.2",
+      "detail": "SAMoE-VLA reports 0.24/0.27/0.35 m L2 and 0.01/0.18/0.60% collision, averages 0.29 m and 0.26%. PreWorld averages 0.31 m; Drive-WM also averages 0.26% collision. Table 1 lacks uncertainty and explicit split details; prose comparisons are not all consistent with its entries."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.1; PDF p. 10, Section 4.2; PDF p. 12, Table 2 and caption",
+      "detail": "LangAuto is CARLA-based closed-loop evaluation. Table 2 reports SAMoE DS/RC/IS of 51.4/63.5/0.81, 69.5/80.9/0.86 and 79.5/86.4/0.92. Full BEVDriver scores are 48.9/59.7/0.82. IS is Infraction Score in the caption but Instruction Score in p. 10 prose."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Section 4.3 router discussion; PDF p. 13, Table 3",
+      "detail": "Prefix routing uses the first planning token. Average L2/collision are 0.31/0.37 for prefix, 0.31/0.33 without DCN, 0.30/0.29 without M_near, and 0.29/0.26 for the proposed router."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 29, Table 4; PDF p. 30, Appendix D.2; PDF p. 11, Section 4.3",
+      "detail": "Dense, sparse, BEV-biased sparse, SoftMoE, BEV-biased SoftMoE and SAMoE average L2/collision pairs are respectively 0.32/0.25, 0.30/0.36, 0.57/0.69, 0.46/0.57, 0.33/0.34 and 0.29/0.26. D.2 describes the BEV-biased baselines. The prose's 38.4% increase does not match its dense table comparator."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Section 4.3; PDF p. 14, Figures 5–6; PDF p. 15, Figure 8",
+      "detail": "CMCA/world ablations exclude SA-MoE; Figure 8 L2 bars are 0.35, 0.35, 0.33 and 0.32 for full attention, fully dense, without world modeling and baseline. Figure 5 prints intersection success 77.41 versus 51.09, while p. 13 gives baseline 67.91."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF pp. 52–53, Appendix G.1–G.3 and Table 5",
+      "detail": "Thresholds are average agent count >40, yaw rate >0.05 rad/s and minimum inter-agent distance <8 m. Selected counts are 38/27/42 from a stated 34,149-sample split. Success requires L2 <0.4 m and zero collisions. G.3 uses closed-loop wording without identifying a nuScenes simulation environment."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF pp. 32–34, Appendix E.1, Eqs. (49)–(59); PDF p. 36, local-routing assumption; PDF p. 42, Eq. (118)",
+      "detail": "The proof assumes upper Lipschitz continuity and a Jacobian lower bound. Eq. (53) equates a squared integrated output difference to an integrated quadratic form. Eq. (118) lower-bounds a norm of an integral by the integral of norms. Local token routing is assumed to have no global or long-range context."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF pp. 55–61, Appendix I.1–I.5, especially pp. 56–58",
+      "detail": "Single-GPU FP16 block timings are 46.17 ms sparse versus 43.89 ms SA-MoE, approximately 276M parameters. DSE is separately 23.07M parameters and 2.883 ms. The text notes higher transient SA-MoE CUDA peak memory. The measured GPU model and complete timing protocol are unspecified; Orin is discussed illustratively."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Eqs. (10)–(11); PDF p. 28, Appendix C.3–C.4; PDF p. 34, Eq. (58); PDF p. 61, Appendix I.5 unnumbered expert-mixture equation",
+      "detail": "The main method and Appendix C specify parameter merging. Appendix E defines its nonlinear residual relative to output mixing, while I.5 instead writes an output-weighted expert sum."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF pp. 54–57, Figures 10–17 and captions",
+      "detail": "Selected multi-camera/BEV trajectory overlays illustrate intersections, turns and lane changes; Figures 16–17 compare MoE with non-MoE predictions. These are qualitative examples, not a physical deployment evaluation."
+    }
+  ]
+}

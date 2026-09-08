@@ -1,0 +1,285 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.19312",
+  "shortTitle": "LeWorldModel",
+  "thesis": "LeWM trades pixel reconstruction and elaborate anti-collapse losses for Gaussian-regularized latent prediction, enabling compact planning with task-dependent control and representation limits.",
+  "standfirst": "Imagine learning to push an object from recorded images and actions without being told a reward function. LeWM learns which latent state should follow an action, while a Gaussian regularizer prevents the encoder from making every image look identical. At deployment, a separate optimizer searches for action sequences whose predicted endpoint resembles an encoded goal image. The resulting system performs strongly on Push-T and plans quickly, but its advantages vary across environments. This reading follows the training and planning diagrams, then separates executed simulated control, supervised physical probes, and mechanism ablations. The reviewed source is the June 3, 2026 arXiv v3 PDF.",
+  "evidenceIds": [
+    "identity",
+    "training-objective",
+    "planning-objective",
+    "control-results",
+    "efficiency",
+    "probes-pusht"
+  ],
+  "featuredResultTask": "Push-T goal-conditioned control",
+  "visuals": [
+    {
+      "id": "training-pipeline",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 1,
+      "width": 1088,
+      "height": 396,
+      "crop": [
+        0.18,
+        0.566,
+        0.82,
+        0.746
+      ],
+      "alt": "Two frames pass through an encoder. The current embedding and action feed a predictor; next-embedding MSE and two SIGReg branches train the model. An inset illustrates random projections and Gaussian distribution matching.",
+      "caption": "Predict the next embedding while preventing the encoder from collapsing.",
+      "readingGuide": "Start at the two frame images on the left. The shared encoder maps the current observation to z_t and the next observation to z_{t+1}; action a_t enters the predictor alongside the current representation. The predicted next embedding is compared with the encoded next frame using MSE. Both encoder branches remain trainable, as confirmed by Equation (3) and Algorithm 3. Follow the red SIGReg branches to the inset: latent samples are projected along random directions, then their one-dimensional distributions are encouraged toward a Gaussian target. These branches regularize encoded representations, while the prediction branch learns action-conditioned temporal structure.",
+      "takeaway": "The two losses address different failure modes. Prediction error encourages a representation that can forecast transitions, while SIGReg penalizes the constant-embedding shortcut. This permits joint learning from pixels without a frozen pretrained encoder. The regularizer acts during training; it is not a reward or an action-selection module.",
+      "caution": "The inset is a conceptual distribution diagram. Appendix A's joint-distribution argument is asymptotic over projections; the finite training procedure does not guarantee that every control-relevant variable is preserved.",
+      "evidenceIds": [
+        "architecture",
+        "training-objective",
+        "sigreg-theory",
+        "implementation"
+      ],
+      "asset": "report-assets/2603.19312/training-pipeline.png",
+      "sourceSha256": "553a01501ac74ec56721cfdb936d3825ac941734133a1fd761f614c01b6887e9",
+      "sourceUrl": "https://arxiv.org/pdf/2603.19312#page=1"
+    },
+    {
+      "id": "latent-planning",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 4,
+      "width": 1088,
+      "height": 251,
+      "crop": [
+        0.18,
+        0.094,
+        0.82,
+        0.208
+      ],
+      "alt": "An initial-image encoder feeds a chain of action-conditioned predictors. The final predicted embedding and a separately encoded goal feed a cost; a solver returns updates to the candidate actions.",
+      "caption": "The world model predicts consequences; CEM searches for actions that approach the goal.",
+      "readingGuide": "Read the upper path from the initial image toward the terminal predicted embedding. The repeated predictor boxes reuse the learned dynamics model to evaluate a candidate action sequence; they are not separate policies. On the right, the goal image is encoded into the same representation space. The cost compares that goal embedding with the final predicted embedding. Follow the dotted path downward and back to the actions: it depicts solver updates to the candidate sequence, with model weights held fixed. CEM implements this loop by sampling plans, retaining the lowest-cost elites, and updating its sampling distribution.",
+      "takeaway": "LeWM remains in use at inference because every candidate plan is evaluated through latent rollouts. Appendix D specifies a five-block horizon spanning 25 environment steps. The implemented controller executes that entire optimized sequence before obtaining feedback and replanning, so its demonstrated feedback cadence is coarser than one-step MPC.",
+      "caution": "Section 3.2 describes the general first-K-actions MPC scheme, while Appendix D specifies full-horizon execution. The figure shows optimization, not the environment-feedback loop. Its caption also mispoints to Figure 2 for training; the training schematic is Figure 1.",
+      "evidenceIds": [
+        "planning-objective",
+        "cem",
+        "implementation",
+        "architecture"
+      ],
+      "asset": "report-assets/2603.19312/latent-planning.png",
+      "sourceSha256": "553a01501ac74ec56721cfdb936d3825ac941734133a1fd761f614c01b6887e9",
+      "sourceUrl": "https://arxiv.org/pdf/2603.19312#page=4"
+    },
+    {
+      "id": "control-results",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 6",
+      "page": 7,
+      "width": 1392,
+      "height": 335,
+      "crop": [
+        0.17,
+        0.09,
+        0.825,
+        0.212
+      ],
+      "alt": "Four success-rate bar charts compare LeWM and baselines on Two-Room, Reacher, Push-T, and OGBench-Cube. LeWM bars read 87, 86, 96, and 74 percent respectively.",
+      "caption": "Strong Push-T and Reacher results coexist with task-dependent weaknesses.",
+      "readingGuide": "Compare methods within each panel before comparing environments. Red bars denote LeWM; the explicitly labeled DINO-WM+prop bars add proprioceptive information, whereas ordinary DINO-WM is evaluated without it under the main-text protocol. The vertical axis is success rate, with higher values better. Reacher includes fewer baselines, so absent bars are unreported comparisons. Appendix F.1 samples the start and reachable goal from the same offline trajectory, placing the goal 25 steps ahead and allowing 50 executed steps. These bars therefore measure a particular goal-conditioned control protocol, not arbitrary-goal transfer or the fixed-FLOP experiment shown separately in Figure 3.",
+      "takeaway": "On Push-T, LeWM reaches 96% against PLDM's 78% and pixels-only DINO-WM's 74%, an 18-point improvement over PLDM. The pattern reverses elsewhere: DINO-WM reaches 86% on Cube against LeWM's 74%, and 100% on Two-Room against 87%. The evidence supports competitive performance rather than uniform dominance.",
+      "caution": "The figure does not define its error bars. Table 5 labels a 92% Push-T result simply DINO-WM, although this figure assigns 92% to DINO-WM+prop and 74% to pixels-only DINO-WM. That appendix modality ambiguity remains unresolved.",
+      "evidenceIds": [
+        "control-results",
+        "control-protocol",
+        "seed-variance",
+        "efficiency",
+        "datasets"
+      ],
+      "asset": "report-assets/2603.19312/control-results.png",
+      "sourceSha256": "553a01501ac74ec56721cfdb936d3825ac941734133a1fd761f614c01b6887e9",
+      "sourceUrl": "https://arxiv.org/pdf/2603.19312#page=7"
+    },
+    {
+      "id": "physical-probes",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 8,
+      "width": 1100,
+      "height": 455,
+      "crop": [
+        0.238,
+        0.5255,
+        0.756,
+        0.691
+      ],
+      "alt": "A Push-T probing table groups agent location, block location, and block angle. Each property compares DINO-WM, PLDM, and LeWM using linear and MLP probes with MSE and Pearson correlation.",
+      "caption": "Recoverable physical state is informative, but probe quality is not equivalent to planning quality.",
+      "readingGuide": "Choose a physical property first, then compare the three model rows under a single probe family. The Linear columns test direct linear accessibility; the MLP columns permit nonlinear decoding of information that may be entangled in the embedding. MSE measures prediction error and decreases with better performance, whereas Pearson r measures correlation and increases. Keep the two metrics separate: a high correlation need not imply equally small numerical errors. Finally, compare the linear and MLP columns for the same property to see whether a more flexible readout can recover information that a linear probe misses.",
+      "takeaway": "For block angle, LeWM's linear MSE is 0.187 with r=0.902, improving on PLDM's 0.446 and 0.745 while trailing DINO-WM's 0.050 and 0.979. LeWM's MLP block-angle r rises to 0.990. The table supports accessible physical information, with performance depending on the variable and readout.",
+      "caution": "Probe training/test splits, target normalization, and the meaning of the reported ± terms are not specified. A probe uses physical-variable supervision for diagnosis; these numbers neither add privileged state to LeWM's default training nor prove causal physical understanding.",
+      "evidenceIds": [
+        "probes-pusht",
+        "probes-other",
+        "architecture",
+        "training-objective"
+      ],
+      "asset": "report-assets/2603.19312/physical-probes.png",
+      "sourceSha256": "553a01501ac74ec56721cfdb936d3825ac941734133a1fd761f614c01b6887e9",
+      "sourceUrl": "https://arxiv.org/pdf/2603.19312#page=8"
+    },
+    {
+      "id": "sigreg-ablations",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 15",
+      "page": 24,
+      "width": 1354,
+      "height": 327,
+      "crop": [
+        0.18,
+        0.087,
+        0.817,
+        0.206
+      ],
+      "alt": "Three Push-T line plots vary embedding dimension, SIGReg projection count, and integration knots. Small embeddings and four knots perform worse; success stays high over the tested projection counts.",
+      "caption": "The strongest robustness evidence concerns projection count, not every design choice.",
+      "readingGuide": "Read these as three separate interventions. The left panel changes embedding dimension and includes both PLDM and LeWM; its x-axis samples 8, 24, 96, 192, and 384 dimensions. The middle changes SIGReg's number of random projections from 64 to 1,024. The right changes quadrature resolution through the number of integration knots. All panels report Push-T success, but their vertical ranges differ, so visually similar line slopes are not directly comparable. The shaded region appears in the knots panel only. The default architecture and training loss are held in the background of these targeted ablations.",
+      "takeaway": "LeWM maintains high success across the tested projection counts, supporting the decision to leave that SIGReg setting fixed. Representation dimension is less forgiving: very small embeddings lose substantial control performance. Integration resolution also matters at the lowest setting, with four knots visibly worse than the stronger settings to its right.",
+      "caution": "The prose gives an embedding threshold 'around 184', although 184 is not plotted. The figure supports a broad saturation trend, not an exact threshold. Its knots curve also warrants a narrower robustness claim than complete insensitivity.",
+      "evidenceIds": [
+        "sigreg-ablations",
+        "training-objective",
+        "implementation"
+      ],
+      "asset": "report-assets/2603.19312/sigreg-ablations.png",
+      "sourceSha256": "553a01501ac74ec56721cfdb936d3825ac941734133a1fd761f614c01b6887e9",
+      "sourceUrl": "https://arxiv.org/pdf/2603.19312#page=24"
+    },
+    {
+      "id": "reconstruction-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 7",
+      "page": 25,
+      "width": 1058,
+      "height": 256,
+      "crop": [
+        0.343,
+        0.401,
+        0.654,
+        0.459
+      ],
+      "alt": "Two Push-T success-rate rows compare LeWM without decoder loss, 96.0 plus or minus 2.83, and with decoder loss, 86.0 plus or minus 7.54.",
+      "caption": "Adding reconstruction loss reduces reported Push-T planning success in this comparison.",
+      "readingGuide": "The intervention is whether a decoder loss contributes to world-model training. Read the first row as the standard LeWM objective, combining next-embedding prediction and SIGReg. The second row adds reconstruction supervision. This distinction matters because the paper also uses a separate visualization decoder to display latent rollouts; those diagnostic pictures do not mean the default model was trained to reconstruct images. The single reported metric here is Push-T success rate, with higher better. Preserve the printed ± values when recording the result, and avoid assigning them a confidence-interval or standard-deviation interpretation that the table does not state.",
+      "takeaway": "Success falls from 96.0 ± 2.83 without decoder loss to 86.0 ± 7.54 with it, a ten-percentage-point difference in the reported means. This favors reconstruction-free training in the tested configuration. The authors suggest that reconstructing additional visual detail may distract the representation from information useful for planning.",
+      "caution": "The comparison does not fully specify reconstruction weight or match additional decoder compute. It therefore cannot establish that reconstruction is generally harmful, or identify irrelevant visual detail as the unique cause of the lower success rate.",
+      "evidenceIds": [
+        "reconstruction-ablation",
+        "decoder",
+        "training-objective"
+      ],
+      "asset": "report-assets/2603.19312/reconstruction-ablation.png",
+      "sourceSha256": "553a01501ac74ec56721cfdb936d3825ac941734133a1fd761f614c01b6887e9",
+      "sourceUrl": "https://arxiv.org/pdf/2603.19312#page=25"
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Why predicting the next frame's embedding needs two objectives",
+      "kind": "source",
+      "text": "The encoder supplies both the predictor's input and its training target. That makes the representation adaptable to the environment, but also creates an escape route: constant embeddings make next-state prediction trivial. LeWM counters this with SIGReg, applied to embeddings at each time step across a batch. Random unit-direction projections turn high-dimensional distribution matching into tractable univariate normality tests. Equation (3) combines this term with prediction error, and gradients pass through the entire model. The projection MLP after the encoder's [CLS] token matters because the final ViT LayerNorm would constrain the distribution being regularized. The stated defaults are 1,024 projections and λ=0.1. Calling λ the one effective loss hyperparameter expresses the observed insensitivity to projection count; it does not remove the need to choose predictor size, dropout, or a planner.",
+      "evidenceIds": [
+        "architecture",
+        "training-objective",
+        "sigreg-theory",
+        "implementation",
+        "other-ablations"
+      ]
+    },
+    {
+      "heading": "How a learned forward model becomes a controller",
+      "kind": "source",
+      "text": "A forward prediction model answers what follows an action; it does not by itself decide which action should occur. LeWM supplies that missing decision through trajectory optimization. Encode the current observation and goal, sample action sequences, roll each sequence forward in latent space, and score its endpoint using squared distance to the goal embedding. CEM retains 30 elites from 300 samples and updates the sampling distribution. Model parameters stay fixed throughout this search. Appendix D specifies five model steps, each grouping five environment actions, and executes the whole resulting plan before replanning. This separates the paper's general MPC description from its actual reported cadence. It also explains why decoder quality and control success are different measurements: candidate actions are ranked in latent space, and the visualization decoder is unnecessary for this decision.",
+      "evidenceIds": [
+        "planning-objective",
+        "cem",
+        "implementation",
+        "decoder"
+      ]
+    },
+    {
+      "heading": "What the control and physics evidence can establish together",
+      "kind": "analysis",
+      "text": "A useful interpretation is to treat control, probing, and surprise as complementary tests with different failure modes. Figure 6 evaluates whether planned actions reach a goal under the stated budget. Table 1 asks whether a supervised readout can recover physical variables from embeddings. Figure 8 asks whether sudden perturbations produce prediction error. None logically implies the other. Two-Room is especially revealing: LeWM retains position information in the probes while trailing PLDM in planning, leaving dynamics or search as plausible bottlenecks. Decoded rollouts and Cube probes also show that broad spatial structure can survive while rotational detail remains weak. My reading is that these experiments support useful task-specific latent dynamics and selective perturbation sensitivity, while leaving long-horizon transfer and general physical reasoning unestablished.",
+      "evidenceIds": [
+        "control-results",
+        "control-protocol",
+        "probes-pusht",
+        "probes-other",
+        "surprise",
+        "decoder",
+        "limitations"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate collapse prevention from useful dynamics",
+      "text": "Reader-proposed experiment, not performed: train the same Push-T encoder and predictor on the same trajectory split with the published prediction-plus-SIGReg objective versus prediction loss alone. Use identical initialization seeds, optimizer settings, update budgets, and CEM evaluation; document the optimizer because the PDF does not specify it. Evaluate at least three seeds on the same 50 reachable start/goal pairs, reserving entire trajectories from training. Track embedding variance/effective rank, held-out next-embedding error, and control success. Low prediction error accompanied by collapsed embeddings and failed control in the prediction-only condition would support the anti-collapse mechanism. If SIGReg preserves diversity without improving control, it would separate distribution matching from learning useful dynamics.",
+      "evidenceIds": [
+        "training-objective",
+        "sigreg-theory",
+        "implementation",
+        "datasets",
+        "seed-variance",
+        "control-protocol"
+      ]
+    },
+    {
+      "title": "Test whether feedback cadence explains planning failures",
+      "text": "Reader-proposed experiment, not performed: freeze a trained Two-Room model and keep the five-block planning horizon and terminal cost fixed. Compare executing one action block before replanning with the reported five-block execution cadence, using paired initial states/goals and the same 50-step environment budget. First keep per-call CEM settings identical; then repeat with a matched total number of candidate rollout evaluations to separate better feedback from extra search compute. Record success and predicted-versus-observed endpoint error after execution. If more frequent feedback improves success under matched compute without changing probe accuracy, that would implicate rollout error or delayed correction rather than missing position information. Report a null result if the improvement disappears after compute matching.",
+      "evidenceIds": [
+        "implementation",
+        "planning-objective",
+        "control-protocol",
+        "probes-other",
+        "control-results"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28
+    ],
+    "notes": "All seven supplied text chunks were read individually, covering all 28 PDF pages, including references and Appendices A–I. All 19 figures and all 10 tables were visually inspected on the declared pages. The pass also inspected the title/version/affiliations, equations, CEM and training algorithms, baseline coefficients, dataset descriptions, evaluation protocols, and reproduction-relevant implementation details. Figure 1 arrows and regularization branches were cross-checked against Eqs. (1)–(3) and Algorithm 3; Figure 4 was checked against Eqs. (4)–(5) and Appendix D. Six original crops were inspected individually, with two table boundaries corrected and re-inspected to remove caption fragments. References-only pages 10–12 were read as text but not rendered. Separate supplements and linked code remain unverified; no experiments were run."
+  }
+}

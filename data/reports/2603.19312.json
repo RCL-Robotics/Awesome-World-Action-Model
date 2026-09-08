@@ -1,0 +1,527 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.19312",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T19:02:37.115Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2603.19312",
+      "title": "LeWorldModel: Stable End-to-End Joint-Embedding Predictive Architecture from Pixels",
+      "kind": "pdf",
+      "sha256": "553a01501ac74ec56721cfdb936d3825ac941734133a1fd761f614c01b6887e9",
+      "wordCount": 11904,
+      "accessedAt": "2026-09-07T14:05:12.833655+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract and title block (p. 1)",
+      "1 Introduction (p. 2)",
+      "2 Related Work (pp. 3–4)",
+      "3 Method: LeWorldModel; 3.1 Learning the Latent World Model; 3.2 Latent Planning (pp. 4–6)",
+      "4 Latent Planning Performance; 4.1–4.3 (pp. 6–7)",
+      "5 Quantifying Physical Understanding; 5.1–5.2 (pp. 7–9)",
+      "6 Conclusion, including Limitations & Future Work (p. 9)",
+      "References (pp. 10–13)",
+      "Appendix A SIGReg and B Cross-Entropy Method (pp. 13–14)",
+      "Appendix C Baselines, C.1–C.4 (pp. 14–17)",
+      "Appendix D Implementation details and E Environment & Dataset (pp. 17–18)",
+      "Appendix F Evaluation Details, F.1–F.3 (pp. 19–22)",
+      "Appendix G Ablations (pp. 22–26)",
+      "Appendix H Temporal Latent Path Straightening (pp. 26–27)",
+      "Appendix I Training Curves (pp. 26–28)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The text-extraction image omission was addressed by inspecting the retained PDF: all 19 figures and all 10 tables were visually reviewed. Separate supplements remain unverified.",
+      "Identity/version note: the title and ordered five-author list match the catalog. The inspected artifact is arXiv:2603.19312v3 [cs.LG], dated 3 June 2026. The catalog submittedDate is 2026-03-13; that is not the observed revision date. Earlier revisions and their changes were not supplied or compared.",
+      "Code and linked resources were not inspected; no experiments were reproduced. No external sources were acquired."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8",
+      "Figure 9",
+      "Figure 10",
+      "Figure 11",
+      "Figure 12",
+      "Figure 13",
+      "Figure 14",
+      "Figure 15",
+      "Figure 16",
+      "Figure 17",
+      "Figure 18",
+      "Figure 19"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7",
+      "Table 8",
+      "Table 9",
+      "Table 10"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "LeWorldModel (LeWM) learns a compact, action-conditioned latent world model directly from offline image–action trajectories. Next-embedding prediction supplies dynamics supervision; SIGReg discourages representation collapse by matching random latent projections to a Gaussian target. A separate CEM solver chooses actions by predicting their consequences and matching a goal embedding. Strong Push-T performance and fast planning coexist with weaker results on Two-Room and OGBench-Cube than selected baselines. Physical probes and perturbation tests diagnose representations, rather than establish general physical reasoning.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "A prediction-only JEPA can minimize its loss by mapping every image to the same embedding. The paper asks whether reward-free, reconstruction-free learning from pixels can avoid this collapse without frozen pretrained encoders, stop-gradient targets, or a complicated collection of weighted auxiliary losses.",
+    "kind": "source",
+    "evidenceIds": [
+      "motivation",
+      "training-objective"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "LeWM jointly trains an approximately 5M-parameter encoder and 10M-parameter predictor using prediction error plus SIGReg. The main simplification concerns loss balancing; architecture, dropout, and planning choices still matter.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "training-objective",
+        "other-ablations"
+      ]
+    },
+    {
+      "text": "The authors report competitive simulated control, faster planning than DINO-WM, and latent physical structure. Their stability evidence combines training curves, seed variation, and targeted design ablations.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "control-results",
+        "efficiency",
+        "probes-pusht",
+        "seed-variance",
+        "training-curves"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Offline raw-pixel observations and corresponding continuous actions; no training rewards or task specifications.",
+      "At planning time, current observation/history and a goal image."
+    ],
+    "outputs": [
+      "Predicted next-frame embeddings and autoregressive latent rollouts.",
+      "Action sequences selected by CEM for execution in the evaluation environment."
+    ],
+    "steps": [
+      {
+        "name": "Encode each frame",
+        "detail": "A ViT-Tiny with patch size 14, 12 layers, 3 attention heads, and hidden dimension 192 produces a [CLS] representation. A one-layer MLP with Batch Normalization projects it beyond the final LayerNorm constraints.",
+        "evidenceIds": [
+          "architecture"
+        ]
+      },
+      {
+        "name": "Predict action-conditioned dynamics",
+        "detail": "A six-layer transformer with 16 heads and 0.1 dropout uses zero-initialized AdaLN action conditioning, temporal causal masking, and an output projector. History is three frames for Push-T/Cube and one for Two-Room; Reacher history is not specified.",
+        "evidenceIds": [
+          "architecture",
+          "implementation"
+        ]
+      },
+      {
+        "name": "Prevent a trivial latent solution",
+        "detail": "Teacher-forced next-embedding MSE updates both predictor and encoder, including the target embedding. Step-wise SIGReg matches random one-dimensional projections to a standard Gaussian using the Epps–Pulley statistic. No pretrained component, EMA, or stop-gradient is used.",
+        "evidenceIds": [
+          "training-objective",
+          "sigreg-theory",
+          "implementation"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Defaults are 1,024 SIGReg projections and regularization weight 0.1. Batches contain 128 four-frame subtrajectories at 224×224 resolution; frame skip five groups five consecutive actions into each action block.",
+        "kind": "source",
+        "evidenceIds": [
+          "training-objective",
+          "implementation"
+        ]
+      },
+      {
+        "text": "Each world model trains for ten epochs. Push-T supplies 20,000 expert episodes averaging 196 steps; Two-Room supplies 10,000 heuristic episodes averaging 92. Cube and Reacher each supply 10,000 200-step episodes, collected with a benchmark heuristic and SAC policy respectively.",
+        "kind": "source",
+        "evidenceIds": [
+          "datasets"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Freeze the learned model, encode the goal, and rank candidate action sequences by terminal latent squared distance. CEM samples 300 candidates and retains 30 elites per iteration. Appendix D specifies up to 30 iterations for Push-T and ten elsewhere, refining Appendix B's blanket 30-iteration description.",
+        "kind": "source",
+        "evidenceIds": [
+          "planning-objective",
+          "cem",
+          "implementation"
+        ]
+      },
+      {
+        "text": "The horizon is five action blocks, or 25 environment steps. Although Section 3.2 describes executing the first K actions before feedback, Appendix D explicitly executes the entire optimized horizon before replanning. A visualization decoder is diagnostic only and is absent from the planning objective.",
+        "kind": "source",
+        "evidenceIds": [
+          "planning-objective",
+          "implementation",
+          "decoder"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "z_t=\\operatorname{enc}_{\\theta}(o_t),\\qquad \\hat z_{t+1}=\\operatorname{pred}_{\\phi}(z_t,a_t),\\qquad \\mathcal L_{\\mathrm{pred}}=\\|\\hat z_{t+1}-z_{t+1}\\|_2^2",
+        "explanation": "Observation o_t and action a_t determine an encoded state z_t and predicted next embedding. θ and φ parameterize encoder and predictor. This is the paper's compact one-step notation; implementation conditions on an observation history.",
+        "evidenceIds": [
+          "architecture",
+          "training-objective"
+        ]
+      },
+      {
+        "expression": "\\mathcal L_{\\mathrm{LeWM}}=\\mathcal L_{\\mathrm{pred}}+\\lambda\\operatorname{SIGReg}(Z),\\qquad \\operatorname{SIGReg}(Z)=\\frac{1}{M}\\sum_{m=1}^{M}T(Zu^{(m)})",
+        "explanation": "Z collects latent embeddings, λ weights regularization, M counts random unit directions u^(m), and T is the univariate Epps–Pulley normality statistic. The full-distribution argument is asymptotic over projections, not a finite-sample guarantee of useful dynamics.",
+        "evidenceIds": [
+          "training-objective",
+          "sigreg-theory"
+        ]
+      },
+      {
+        "expression": "C(\\hat z_H)=\\|\\hat z_H-z_g\\|_2^2,\\qquad z_g=\\operatorname{enc}_{\\theta}(o_g),\\qquad a_{1:H}^{*}=\\arg\\min_{a_{1:H}} C(\\hat z_H)",
+        "explanation": "H is the planning horizon, o_g the goal image, z_g its embedding, and C the terminal cost. The action sequence is optimized by CEM; the predictor does not directly output a policy.",
+        "evidenceIds": [
+          "planning-objective"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Push-T goal-conditioned control",
+      "setting": "Figure 6; offline-trajectory start/goal pairs, goal 25 steps later, execution budget 50. Table 5 separately uses three training seeds and the same 50 evaluation trajectories.",
+      "metric": "Success rate (%)",
+      "value": "96 in Figure 6; 96.0 ± 2.83 in Table 5.",
+      "comparison": "Figure 6: PLDM 78; DINO-WM pixels-only 74; DINO-WM+proprioception 92.",
+      "interpretation": "An 18-percentage-point gain over PLDM. Table 5 labels a 92.0 ± 1.63 baseline simply DINO-WM, leaving its modality ambiguous; its caption calls dispersion variance, so ± is retained without relabeling it SD or CI.",
+      "evidenceIds": [
+        "control-results",
+        "control-protocol",
+        "seed-variance"
+      ]
+    },
+    {
+      "task": "Control beyond Push-T",
+      "setting": "Figure 6; each environment uses goals 25 trajectory steps ahead and a 50-step execution budget.",
+      "metric": "Success rate (%)",
+      "value": "Two-Room 87; Reacher 86; OGBench-Cube 74.",
+      "comparison": "PLDM: 97, 78, 65 respectively. DINO-WM: 100, 79, 86 respectively.",
+      "interpretation": "LeWM improves on these baselines in Reacher but does not dominate across tasks. These are simulated control evaluations.",
+      "evidenceIds": [
+        "control-results",
+        "control-protocol",
+        "datasets"
+      ]
+    },
+    {
+      "task": "Planning efficiency",
+      "setting": "Figure 3: timing averaged over 50 runs; separate fixed-FLOP control comparisons.",
+      "metric": "Planning seconds; success rate (%)",
+      "value": "0.98 seconds; fixed-FLOP Push-T 90 and Cube 74.",
+      "comparison": "DINO-WM: 47 seconds; fixed-FLOP Push-T 13 and Cube 48.",
+      "interpretation": "About 48× faster in the reported setup. Fixed-FLOP results must not be mixed with Figure 6, and the PDF does not specify timing hardware or the full FLOP-matching recipe.",
+      "evidenceIds": [
+        "efficiency",
+        "implementation"
+      ]
+    },
+    {
+      "task": "Push-T physical-state probing",
+      "setting": "Table 1; linear and MLP probes of learned embeddings. Probe split and target normalization are not specified.",
+      "metric": "MSE (lower); Pearson r (higher)",
+      "value": "Linear block-angle MSE 0.187 ± 0.359, r=0.902; MLP MSE 0.021 ± 0.139, r=0.990.",
+      "comparison": "PLDM linear: 0.446 ± 0.625, r=0.745; DINO-WM linear: 0.050 ± 0.101, r=0.979.",
+      "interpretation": "LeWM improves on PLDM but trails DINO-WM for this property. Reported ± terms lack a defined statistical interpretation.",
+      "evidenceIds": [
+        "probes-pusht",
+        "probes-other"
+      ]
+    },
+    {
+      "task": "Adding reconstruction supervision",
+      "setting": "Table 7; Push-T planning with versus without decoder loss.",
+      "metric": "Success rate (%)",
+      "value": "Without decoder loss: 96.0 ± 2.83.",
+      "comparison": "With decoder loss: 86.0 ± 7.54.",
+      "interpretation": "A ten-point reduction in the reported means supports omitting reconstruction in this setup; loss weighting and compute controls are insufficiently described for a universal conclusion.",
+      "evidenceIds": [
+        "reconstruction-ablation"
+      ]
+    },
+    {
+      "task": "Violation-of-expectation detection",
+      "setting": "Figure 8 and Appendix F.3; Two-Room, Push-T, and Cube trajectories with teleportation, color change, or no perturbation.",
+      "metric": "Prediction-error surprise; paired t-test",
+      "value": "The authors report teleportation-related increases with p<0.01 in all three environments.",
+      "comparison": "Color-change increases are described as weaker and nonsignificant.",
+      "interpretation": "Evidence concerns sensitivity to these synthetic perturbations. Test sample counts, exact p-values, and a matched perceptual-change control are not provided.",
+      "evidenceIds": [
+        "surprise"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify short planning horizons, sufficient offline coverage, difficulty fitting a high-dimensional Gaussian in low-diversity environments, and dependence on action labels. Inverse dynamics is future work, not the current action-extraction mechanism.",
+      "kind": "source",
+      "evidenceIds": [
+        "limitations"
+      ]
+    },
+    {
+      "text": "Two-Room probes recover position well despite weaker planning, so its control deficit cannot simply be equated with absent position information. Cube rotational and velocity probes also expose uneven representation quality.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "probes-other",
+        "control-results"
+      ]
+    },
+    {
+      "text": "Push-T ablations support a projection-count plateau, but few integration knots and very small embeddings perform worse. Figure 16 is nonmonotonic in λ; a generic logarithmic bisection guarantee for tuning success is not established.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "sigreg-ablations",
+        "regularizer-weight"
+      ]
+    },
+    {
+      "text": "Smooth loss curves and three seeds provide bounded stability evidence. PLDM's selected coefficients disable its IDM and temporal-covariance losses, so fluctuations in those plotted components cannot alone establish competing optimization gradients.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "training-curves",
+        "baselines",
+        "seed-variance"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction needs the documented offline datasets, frame/action grouping, trainable encoder/projectors, step-wise SIGReg, and exact CEM execution cadence. The PDF does not give the training optimizer, learning-rate schedule, GPU model, complete probe configuration, or an explicit train/test trajectory split.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "implementation",
+        "datasets",
+        "control-protocol",
+        "probes-other"
+      ]
+    },
+    {
+      "text": "Proposed checks: compare SIGReg against prediction-only training while measuring both embedding collapse and control; separately vary the number of executed action blocks at fixed model and planning horizon to test sensitivity to feedback cadence.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "training-objective",
+        "planning-objective",
+        "implementation"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Classical world models & model-based RL",
+        "Visual encoders & representations"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "da78afc8abfe44f7813c0cc48302d2f26bf5099b4652e0d624f52d983fdb490a"
+    },
+    "reasoning": {
+      "text": "The foundational world-model/visual-representation classification is supported. Encoder and dynamics predictor learn together, but actions condition future prediction and are selected by an external optimizer. This does not establish joint future/action generation or inverse-dynamics control, so the recorded Not applicable WAM architecture/paradigm/quadrant labels are appropriate.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "planning-objective",
+        "limitations"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does Gaussian regularization improve planning because it prevents collapse, shapes the goal metric, or both?",
+    "Would the Two-Room gap persist with more frequent feedback while keeping training and planning compute controlled?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, author affiliations, equal-contribution footnote, and arXiv margin stamp",
+      "detail": "The observed title matches the supplied primary title. Authors in order are Lucas Maes, Quentin Le Lidec, Damien Scieur, Yann LeCun, and Randall Balestriero; the first two contributed equally. Affiliations are Mila & Université de Montréal, New York University, Samsung SAIL, and Brown University. Stamp: arXiv:2603.19312v3 [cs.LG], 3 Jun 2026."
+    },
+    {
+      "id": "motivation",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 1, representation-collapse discussion; p. 1, Abstract and Figure 1",
+      "detail": "Prediction alone admits constant embeddings. The authors motivate joint pixel-based JEPA training without frozen pretrained encoders, EMA, stop-gradient, reward supervision, or image reconstruction."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.1, Model Architecture; p. 1, Figure 1",
+      "detail": "ViT-Tiny encoder: roughly 5M parameters, patch 14, 12 layers, 3 heads, hidden dimension 192; [CLS] plus one-layer MLP/BatchNorm projection. Predictor: roughly 10M parameters, 6 layers, 16 heads, 10% dropout, zero-initialized AdaLN action conditioning, causal history masking, and a matching output-projector design."
+    },
+    {
+      "id": "training-objective",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.1, Eqs. (1)–(3); p. 17, Algorithm 3",
+      "detail": "Teacher-forced next-embedding squared error plus λSIGReg trains all components with gradients through targets. Defaults are M=1024 projections and λ=0.1. Algorithm 3 applies regularization step-wise. The displayed pseudocode contains incomplete call syntax and is not a complete executable specification."
+    },
+    {
+      "id": "sigreg-theory",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix A, Eq. (6), EP integral, and Cramer–Wold statement",
+      "detail": "Random unit directions reduce distribution matching to univariate Epps–Pulley characteristic-function discrepancies. Appendix A states Gaussian joint-distribution matching in an asymptotic projection limit and approximates the integral with quadrature."
+    },
+    {
+      "id": "planning-objective",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 4; pp. 5–6, Section 3.2, rollout equation and Eqs. (4)–(5)",
+      "detail": "Initial and goal observations are encoded; action-conditioned latent rollouts are scored by terminal squared goal distance. World-model parameters stay fixed while actions are optimized. Section 3.2 describes executing the first K planned actions and then replanning."
+    },
+    {
+      "id": "cem",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Appendix B and Algorithm 2",
+      "detail": "CEM samples Gaussian candidate plans, selects lowest-cost elites, and updates distribution mean and variance. Appendix B gives 300 samples, 30 iterations, and 30 elites, and notes nonconvexity and high-dimensional search limitations."
+    },
+    {
+      "id": "implementation",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Appendix D, preprocessing, Predictor Architecture, and Planning solver",
+      "detail": "Batch 128, four 224×224 frames, frame skip five and action blocks of five. History is three for Push-T/Cube and one for Two-Room; Reacher history is omitted. CEM uses 300 samples, 30 elites, initial variance one, at most 30 iterations for Push-T and ten elsewhere. All five optimized blocks, spanning 25 environment steps, are executed before replanning. Training optimizer, learning rate, hardware model, and library versions are not specified here."
+    },
+    {
+      "id": "datasets",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix E, entries a–d",
+      "detail": "Two-Room: 10,000 noisy-heuristic episodes, average length 92. Push-T: 20,000 expert episodes, average length 196. Single-cube OGBench: 10,000 heuristic episodes of 200 steps. Reacher: 10,000 SAC episodes of 200 steps. Each world model trains for ten epochs; these are continuous-control benchmark environments."
+    },
+    {
+      "id": "control-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Appendix F.1; p. 6, Section 4.1 Baselines",
+      "detail": "Start states and goals are sampled from the same offline trajectory, with goals 25 steps later and 50 executed-step budgets for all four environments. No explicit train/test trajectory partition or numerical success tolerance is supplied in F.1. DINO-WM excludes proprioception unless explicitly labeled otherwise."
+    },
+    {
+      "id": "control-results",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 6, four labeled environment panels and caption",
+      "detail": "LeWM/PLDM/DINO-WM success rates are Two-Room 87/97/100, Reacher 86/78/79, Push-T 96/78/74, Cube 74/65/86. Push-T DINO-WM+prop is 92. Cube GCBC is 84. Figure 6 does not define its error-bar statistic."
+    },
+    {
+      "id": "efficiency",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 3 and caption; p. 7, Section 4.2 continuation",
+      "detail": "Timing averaged over 50 runs is 0.98 s for LeWM versus 47 s for DINO-WM. Fixed-FLOP success is 90 versus 13 on Push-T and 74 versus 48 on Cube. The text describes 48× speedup; the caption cites roughly 200× fewer tokens. Timing hardware and the numerical FLOP budget are not supplied."
+    },
+    {
+      "id": "probes-pusht",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5.1 and Table 1, Agent Location, Block Location, and Block Angle rows",
+      "detail": "Table 1 reports linear/MLP MSE and Pearson r. Block-angle linear LeWM/PLDM/DINO-WM MSE: 0.187±0.359/0.446±0.625/0.050±0.101, with r 0.902/0.745/0.979. LeWM MLP block-angle MSE is 0.021±0.139, r 0.990; MLP block-location MSE is 0.001±0.006, r 0.999. The ± convention is not defined."
+    },
+    {
+      "id": "probes-other",
+      "sourceId": "primary",
+      "location": "PDF pp. 20–21, Appendix F.2, Tables 3–4 and probing description",
+      "detail": "Linear and nonlinear probes measure physical-variable MSE and Pearson correlation. Two-Room LeWM and PLDM linear position MSE both equal 0.008 with r 0.996. Table 4 shows weaknesses in LeWM joint velocity and rotational recovery relative to DINO-WM. Probe architecture details, split, target normalization, and uncertainty definitions are not provided."
+    },
+    {
+      "id": "decoder",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 7 and Decoding Latent Space; p. 18, Appendix D, Decoder (Visualization Only); pp. 19–20, Figures 9–10",
+      "detail": "A separate diagnostic transformer decoder maps the 192-dimensional [CLS] embedding to images. Reconstruction does not train the default world model. Decoded open-loop rollouts retain broad scene layout while fine end-effector orientation degrades."
+    },
+    {
+      "id": "surprise",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 8 and Section 5.2; pp. 21–22, Appendix F.3 and Figure 11; p. 23, Figures 12 and 14",
+      "detail": "Surprise is prediction error under no perturbation, abrupt object-color change, or teleportation. Figure 8 reports paired-test p<0.01 for physical perturbations in all three environments and weaker nonsignificant color effects. Appendix F.3 specifies perturbation policies and which objects change, but not test sample counts or exact p-values."
+    },
+    {
+      "id": "sigreg-ablations",
+      "sourceId": "primary",
+      "location": "PDF p. 24, Figure 15 and Appendix G, Embedding dimensions / Number of projections paragraphs",
+      "detail": "Push-T plots vary embedding dimension 8/24/96/192/384, projections 64/256/512/1024, and integration knots 4/8/12/17/32. Performance is strong across projection counts, but low embedding dimensions and four knots fare worse. The text's threshold 'around 184' is not one of the plotted dimensions."
+    },
+    {
+      "id": "seed-variance",
+      "sourceId": "primary",
+      "location": "PDF p. 24, Table 5, caption and all rows",
+      "detail": "Three training seeds evaluated on the same 50 Push-T trajectories yield DINO-WM 92.0±1.63, PLDM 78.0±5.0, LeWM 96.0±2.83. Caption says mean and corresponding variance. The table does not mark DINO-WM's proprioception setting, unlike Figure 6."
+    },
+    {
+      "id": "reconstruction-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Table 7 and Appendix G, Decoder paragraph",
+      "detail": "Push-T success without decoder loss is 96.0±2.83, with decoder loss 86.0±7.54. The authors suggest reconstruction may favor unnecessary visual details; reconstruction weighting, added compute controls, and a table-specific uncertainty definition are not supplied."
+    },
+    {
+      "id": "other-ablations",
+      "sourceId": "primary",
+      "location": "PDF p. 24, Table 6; p. 25, Table 8; p. 26, Table 9",
+      "detail": "Predictor size, encoder backbone, and dropout affect Push-T control. Table 9 reports dropout 0.0/0.1/0.2/0.5 success 78±6.54/96.0±2.83/85.33±5.74/66.67±4.11. Thus one effective SIGReg coefficient does not mean all architecture and regularization settings are immaterial."
+    },
+    {
+      "id": "solver-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 26, Table 10",
+      "detail": "Push-T LeWM success: CEM 96.0±2.83, SGD 26±4.32, RMSProp 67.33±2.49, Adam 84±7.12. PLDM reaches 78.0±5.0 with CEM and 80±3.27 with Adam. Solver optimization budgets and step-size settings are not detailed in the table."
+    },
+    {
+      "id": "regularizer-weight",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Figure 16 and caption; p. 24, Weight of SIGReg regularization paragraph",
+      "detail": "The sampled λ-success curve peaks near 0.09 and drops at 0.5; the plotted default λ=0.1 is approximately 80%, despite a caption claiming above 80% throughout [0.01,0.2]. The authors propose bisection but do not supply assumptions guaranteeing optimization of this nonmonotonic success curve."
+    },
+    {
+      "id": "training-curves",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.3 Training Curves; pp. 26–28, Appendix I and Figures 18–19",
+      "detail": "LeWM prediction and SIGReg losses fall and plateau. PLDM shows component-dependent fluctuations, including IDM, covariance over time, and temporal smoothness. These plots describe observed optimization trajectories, not a proof of training convergence."
+    },
+    {
+      "id": "straightening",
+      "sourceId": "primary",
+      "location": "PDF pp. 26–27, Appendix H, Eq. (9), and Figure 17",
+      "detail": "Temporal straightness averages cosine similarities of successive latent velocities. LeWM's paths become straighter without an explicit straightening term; the proposed explanation in terms of unconstrained temporal structure is a hypothesis."
+    },
+    {
+      "id": "limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 6, Limitations & Future Work",
+      "detail": "The authors identify short horizons, offline-data coverage requirements, low-diversity difficulty for the Gaussian prior, and dependence on labeled actions. Large-scale video pretraining and inverse dynamics are proposed future directions."
+    },
+    {
+      "id": "baselines",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–17, Appendix C, especially Eq. (8), hyperparameter search paragraph, and Table 2",
+      "detail": "DINO-WM freezes DINOv2 features. PLDM has prediction plus six weighted regularizers in the stated formulation; after a 256-configuration Push-T search, Table 2 lists α=18, β=12, γ=0.2, ζ=0.7, ν=0, μ=0. The latter two disable temporal-covariance and IDM contributions. GC-RL and GCBC use DINOv2 patch representations."
+    }
+  ]
+}

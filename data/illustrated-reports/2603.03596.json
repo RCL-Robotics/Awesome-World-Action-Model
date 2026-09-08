@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.03596",
+  "shortTitle": "MEM",
+  "thesis": "MEM combines compressed semantic history with dense recent video so a robot can remember task progress and adapt its manipulation, at the cost of summary supervision and an incompletely specified training recipe.",
+  "standfirst": "Consider a robot preparing a recipe: it must remember that the butter is already on the counter, yet also remember how its last grasp slipped. MEM gives these memories different forms. A high-level policy carries a language summary between decisions and chooses the next subtask; a low-level policy receives recent camera and robot-state history to produce actions. The supplied v2 paper evaluates this design on physical robots, including long kitchen tasks and recovery from failed manipulations. This reading follows the information flow, separates task progress from success rate, and uses the ablations to examine which memory and training choices the evidence actually supports.",
+  "evidenceIds": [
+    "e-identity",
+    "e-factorization",
+    "e-language",
+    "e-training",
+    "e-long-ablation",
+    "e-adaptation"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2603.03596/architecture.png",
+      "width": 1411,
+      "height": 405,
+      "sourceSha256": "213bbe173026561d1ca4b9aaa626e51991bcfb49d343516ed7fd6658709e5475",
+      "sourceUrl": "https://arxiv.org/pdf/2603.03596#page=4",
+      "crop": [
+        0.09,
+        0.065,
+        0.92,
+        0.249
+      ],
+      "alt": "Two policy diagrams joined by a subtask instruction: the left updates text memory, while the right encodes video history and produces continuous actions through an action expert.",
+      "caption": "A semantic memory loop supplies subtasks to a policy with short-term visual history.",
+      "readingGuide": "Read the left panel from the goal, camera observations and previous memory at the bottom to the two text outputs at the top. The dashed loop returns the updated summary to the next high-level decision; a separate dashed connection delivers the predicted subtask to the low-level policy on the right. There, stacked camera frames enter the video memory encoder, and noise enters the action expert before continuous actions emerge. These arrows describe an inference interface, not a training-gradient path. Section III-D separately says action-expert gradients do not flow into the VLM backbone.",
+      "takeaway": "MEM divides remembered information by its use: semantic history supports subtask selection, while recent visual context supports continuous control. The external LLM described in III-B generates training labels for summaries; the learned high-level policy is responsible for subsequent summary updates. The diagram does not show a future-world simulator.",
+      "caution": "The high-level diagram and III-A use current observations, but III-B’s policy notation includes a recent observation window. That input discrepancy is unresolved in the supplied paper. The drawing alone also does not establish whether the two policies share weights.",
+      "evidenceIds": [
+        "e-factorization",
+        "e-language",
+        "e-training"
+      ]
+    },
+    {
+      "id": "video-encoder",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 4,
+      "asset": "report-assets/2603.03596/video-encoder.png",
+      "width": 1051,
+      "height": 683,
+      "sourceSha256": "213bbe173026561d1ca4b9aaa626e51991bcfb49d343516ed7fd6658709e5475",
+      "sourceUrl": "https://arxiv.org/pdf/2603.03596#page=4",
+      "crop": [
+        0.508,
+        0.319,
+        0.92,
+        0.526
+      ],
+      "alt": "Patch grids are arranged across input, intermediate and final layers and across current, one-second-old and two-second-old frames; white arrows connect spatial patches and black arrows point from a current patch toward its earlier counterparts.",
+      "caption": "Temporal attention compresses visual history before it reaches the language backbone.",
+      "readingGuide": "Follow the time axis from the older frames toward the current frame, then follow the layer axis from the input grids to the final representation. White arrows within a frame denote bidirectional spatial attention. The black arrows from the current patch toward earlier matching patches should be read as attention to history, consistent with the causal mask specified in III-C, rather than propagation of future information into the past. Every fourth ViT layer adds this temporal operation. The final representation retains current-timestep patch tokens, so the downstream backbone need not consume a separate token grid for every historical image.",
+      "takeaway": "The encoder moves history compression into visual feature extraction while reusing image-encoder parameters. Separately, Figure 3 on this same inspected page reports a video-encoder curve below the 300 ms reference line through 16 frames for four cameras on one H100. That timing supports the architectural motivation in one measured configuration.",
+      "caution": "Appendix C Eq. (3) nests an inner expression containing both spatial and temporal sets and does not write an explicit causal mask. This is not a transparent specification of III-C’s additive same-patch operation; a faithful implementation requires resolving that algebra rather than silently repairing it.",
+      "evidenceIds": [
+        "e-encoder",
+        "e-attention-appendix",
+        "e-latency"
+      ]
+    },
+    {
+      "id": "long-horizon-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 6",
+      "page": 6,
+      "asset": "report-assets/2603.03596/long-horizon-ablation.png",
+      "width": 1030,
+      "height": 489,
+      "sourceSha256": "213bbe173026561d1ca4b9aaa626e51991bcfb49d343516ed7fd6658709e5475",
+      "sourceUrl": "https://arxiv.org/pdf/2603.03596#page=6",
+      "crop": [
+        0.083,
+        0.391,
+        0.487,
+        0.539
+      ],
+      "alt": "Grouped progress bars compare five memory variants for recipe setup, kitchen cleaning and the source’s aggregate; full MEM has the highest bar in both tasks.",
+      "caption": "The two memory channels and learned text compression each matter in long kitchen tasks.",
+      "readingGuide": "Start with the legend: yellow is full MEM, green retains only video, pale gray retains only text, blue concatenates naive text history with video, and brown removes memory. Compare variants within each task before looking at the shaded aggregate. The vertical axis measures task progress, with error bars described as standard errors in IV-A. Recipe setup awards credit for requested items correctly retrieved and placed; kitchen cleaning awards credit per completed subtask. The recipe evaluation uses five training recipes in unseen kitchens with unseen objects. Thus these columns combine semantic bookkeeping with the physical ability to finish the requested operations.",
+      "takeaway": "Full MEM has a clear visual advantage in both task groups, while neither memory channel alone reproduces it. The naive text-plus-video variant also falls short. The authors connect that last gap to repeated failed subtasks at inference creating histories unlike mostly efficient demonstrations, and propose compressed summaries as the remedy.",
+      "caution": "The paper supplies no exact table for these bars. Task progress is not the fraction of entirely successful episodes, and the aggregate’s weighting is not specified. The compression comparison supports usefulness but does not separately control summary length, semantic selection and repeated-instruction robustness.",
+      "evidenceIds": [
+        "e-long-protocol",
+        "e-long-ablation",
+        "e-language"
+      ]
+    },
+    {
+      "id": "adaptation",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 7",
+      "page": 7,
+      "asset": "report-assets/2603.03596/adaptation.png",
+      "width": 1054,
+      "height": 716,
+      "sourceSha256": "213bbe173026561d1ca4b9aaa626e51991bcfb49d343516ed7fd6658709e5475",
+      "sourceUrl": "https://arxiv.org/pdf/2603.03596#page=7",
+      "crop": [
+        0.077,
+        0.068,
+        0.49,
+        0.285
+      ],
+      "alt": "Failure and recovery photos for chopstick grasping and fridge opening appear beside green memoryless and yellow memory-enabled success-rate bars, annotated +11% and +62%.",
+      "caption": "Remembering a failed manipulation helps a correction-trained policy change its next attempt.",
+      "readingGuide": "Read each row as a task-specific test, not as an additional stage of one procedure. The upper row tests chopstick pickup after training at higher table settings and evaluation at the lowest setting; success includes depositing the chopstick in a bin. The lower row tests a fridge whose hinge direction lacks obvious visual cues, with success restricted to opening in at most four grasps. Both policy variants receive correction data, but MEM can condition on the failed attempt retained in recent history. The images illustrate strategy changes; the adjacent bars provide the success-rate comparison under these definitions.",
+      "takeaway": "The plot labels gaps of +11% for chopsticks and +62% for opening the fridge. Because the arrows span differences on a percentage success-rate axis, the corresponding interpretation is 11 and 62 percentage points, respectively. These results support correction-conditioned adaptation at execution time rather than demonstrating deployment-time weight updates.",
+      "caution": "Exact bar endpoints are not tabulated. The paper states ten rollouts per policy and task or recipe generally, but does not detail how these particular percentage labels were aggregated. The snapshots do not establish that every successful rollout recovered through the same strategy.",
+      "evidenceIds": [
+        "e-adaptation",
+        "e-adaptation-protocol",
+        "e-long-protocol"
+      ]
+    },
+    {
+      "id": "memory-benchmarks",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 8",
+      "page": 8,
+      "asset": "report-assets/2603.03596/memory-benchmarks.png",
+      "width": 1416,
+      "height": 458,
+      "sourceSha256": "213bbe173026561d1ca4b9aaa626e51991bcfb49d343516ed7fd6658709e5475",
+      "sourceUrl": "https://arxiv.org/pdf/2603.03596#page=8",
+      "crop": [
+        0.08,
+        0.075,
+        0.913,
+        0.283
+      ],
+      "alt": "Six grouped progress plots and task photographs compare no memory, pooled visual memory, proprioceptive memory and MEM, followed by an aggregate plot.",
+      "caption": "Short-term visual memory supports several kinds of hidden-state reasoning.",
+      "readingGuide": "Use the photos and task labels to connect each bar group to what must be remembered. Mug swapping tracks which cups have already visited the machine; finding an object requires recalling the correct drawer; groceries require recognizing when the bag is empty. Coffee tests counting, grilled cheese includes timing, and window cleaning tracks covered regions. Yellow denotes MEM, gray pooled history, green proprioceptive history and brown no memory. Crucially, this experiment removes MEM’s long-term language summary and implements alternatives on the same π0.6 backbone. It therefore evaluates observation-memory representations rather than the entire two-level system shown in Figure 2.",
+      "takeaway": "MEM has the highest displayed mean in every task group. The alternatives’ weaknesses vary with the information required: robot-state history cannot directly retain a human’s drawer choice, while aggressive visual pooling can discard distinctions among past object states. The breadth of the pattern is more informative than an invented exact aggregate score.",
+      "caution": "Task progress combines different scoring rules, including binary completion and partial credit. These are six targeted robot tasks, not a universal memory benchmark. Backbone alignment does not by itself establish identical training histories or compute; Figure 9 addresses memory pre-training separately.",
+      "evidenceIds": [
+        "e-baselines",
+        "e-memory-results",
+        "e-task-rubrics",
+        "e-pretraining"
+      ]
+    },
+    {
+      "id": "pretraining-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 9",
+      "page": 8,
+      "asset": "report-assets/2603.03596/pretraining-ablation.png",
+      "width": 1041,
+      "height": 376,
+      "sourceSha256": "213bbe173026561d1ca4b9aaa626e51991bcfb49d343516ed7fd6658709e5475",
+      "sourceUrl": "https://arxiv.org/pdf/2603.03596#page=8",
+      "crop": [
+        0.079,
+        0.37,
+        0.487,
+        0.484
+      ],
+      "alt": "Paired green and yellow progress bars compare adding memory only during post-training against including memory during pre-training, for six tasks and an aggregate.",
+      "caption": "Learning to use history during pre-training improves later memory-dependent control.",
+      "readingGuide": "Compare the green and yellow bar within each task: green adds the video encoder during target-task post-training, while yellow includes memory in the earlier training stage. The green model is not trained from scratch; the text says it starts from a π0.6 checkpoint already trained on the same diverse robot data. This distinction makes the question whether the policy learned to use history early, rather than whether it had any pre-training at all. Read the six task pairs before the shaded average, and retain the standard-error bars when judging how strongly any individual task separates the variants.",
+      "takeaway": "Memory pre-training raises all six displayed means, with especially visible separations for grocery unpacking and window cleaning. This supports treating temporal feature learning as part of broad pre-training instead of relying solely on a small task-specific phase. It does not identify a numerical threshold of pre-training data sufficient to obtain the effect.",
+      "caution": "The ablation does not independently vary robot data, non-robot video, optimization budget and memory horizon. It therefore cannot assign the gain to internet video alone or prove that data diversity causes robustness against causal confusion. No exact bar-value table is supplied.",
+      "evidenceIds": [
+        "e-pretraining",
+        "e-data-runtime",
+        "e-task-rubrics",
+        "e-long-protocol"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "A summary is a task-state update, not a transcript",
+      "text": "The high-level policy needs a compact account of what still matters for the remaining task. In training, an off-the-shelf LLM receives subtask annotations and success/failure indicators and generates successive summaries. The annotations supervise the robot policy; the paper does not require that external LLM to rewrite every deployment-time memory. During execution, the policy predicts both an updated summary and a next subtask, then feeds its summary into the next decision. Compression can merge equivalent details, such as several objects placed in one cabinet, and avoid endlessly appending repeated unsuccessful instructions. Section IV-A argues that this reduces mismatch between efficient demonstrations and retry-heavy rollouts. This is selective retention, not a guarantee that every failed event should always be deleted: the goal remains preserving information needed for future execution.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-factorization",
+        "e-language",
+        "e-long-ablation"
+      ]
+    },
+    {
+      "heading": "Compress history where visual features are formed",
+      "text": "The low-level branch still needs details that a short sentence may discard: where an object was before occlusion and what the previous grasp looked like. MEM processes a recent image sequence inside a modified ViT. Spatial attention exchanges information within each frame, while every fourth layer adds causal attention over matching spatial positions across time. Only current-timestep patch representations continue into the VLA backbone, concentrating historical information before the expensive language processing. The encoder reuses existing learned projections and adds a fixed temporal embedding with zero value at the current timestep. Historical robot states are projected into tokens separately. This explains the claimed constant visual-token count at the backbone input; it does not mean the video encoder itself has zero extra computation as history grows.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-encoder",
+        "e-attention-appendix",
+        "e-training",
+        "e-latency"
+      ]
+    },
+    {
+      "heading": "Separate remembering task progress from adapting a grasp",
+      "text": "The experiments answer different questions, so their metrics should stay separate. Figure 6 measures partial progress through kitchen tasks and compares long-term semantic and short-term visual memory. Figure 7 instead asks whether a correction-trained policy can finish a manipulation under a changed table height or a limited fridge-opening grasp budget. Figures 8 and 9 remove long-term language memory to probe visual-history representations and when those representations are learned. My interpretation is that this sequence gives stronger evidence for complementary memory functions than any one aggregate bar could. It still leaves causal alternatives: summary compression changes both length and content, and memory pre-training changes the temporal learning experience. Similar average dexterity in Figure 10 establishes compatibility on tested tasks, rather than a general proof that adding history cannot hurt.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-long-protocol",
+        "e-long-ablation",
+        "e-adaptation",
+        "e-adaptation-protocol",
+        "e-baselines",
+        "e-memory-results",
+        "e-pretraining",
+        "e-dexterity"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate semantic compression from a shorter prompt",
+      "text": "Reader-proposed check, not performed: on the recipe and kitchen tasks, compare learned summaries, concatenated subtask history truncated to the same token budget, and a deduplicated subtask log. Keep the video branch, checkpoint, prompts and evaluation scenes fixed. Introduce a controlled number of repeated failed subtasks before recovery, then score omitted/repeated completed steps and the original task-progress metric. Record summary length and latency as well. A growing advantage for learned summaries at matched length would support semantic retention beyond a prompt-size benefit; equal performance after deduplication would weaken the claim that learned summarization is necessary to handle repeated-instruction shift.",
+      "evidenceIds": [
+        "e-language",
+        "e-long-ablation",
+        "e-long-protocol"
+      ]
+    },
+    {
+      "title": "Verify the temporal mask before testing memory gains",
+      "text": "Reader-proposed check, not performed: first obtain clarification of Appendix C Eq. (3) and the exact temporal/spatial composition. At initialization, compare a single-image encoder output with the modified encoder using the paper’s zero-current-time embedding, holding image weights and preprocessing fixed. Then perturb later frames in a sequence and test that representations of earlier timesteps do not change under the claimed causal mask. Finally, on the hidden-drawer task, compare correct history against history shuffled across episodes while keeping the current observation and policy weights fixed. Initialization mismatch, future leakage, or unchanged performance after removing relevant history would each falsify a different part of the claimed mechanism.",
+      "evidenceIds": [
+        "e-attention-appendix",
+        "e-encoder",
+        "e-training",
+        "e-task-rubrics",
+        "e-memory-results"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      13,
+      14,
+      15
+    ],
+    "notes": "Inspected the title, all ten original figures, method/training pages, result plots, task rubrics and Appendix C equations. All six final crops were separately viewed at their saved dimensions. Figure 4’s arrows point from current queries toward earlier patch positions, consistent with its causal caption; the unresolved mismatch is Appendix C’s algebra. III-A and III-B differ in high-level observation conditioning. Reference-only pages 10–12 were read in the complete text but were not visually inspected. No quantitative table is present."
+  },
+  "featuredResultTask": "Open fridge with an ambiguous hinge direction",
+  "visualLimitations": {
+    "kind": "source",
+    "text": "The supplied paper reports its quantitative experiments as plots (Figures 3 and 6–10) and contains no numerical results table. This edition therefore uses original result plots and ablation plots in place of a table. Exact unlabeled bar values and unreported uncertainty values are not reconstructed.",
+    "evidenceIds": [
+      "e-visual-scope"
+    ]
+  }
+}

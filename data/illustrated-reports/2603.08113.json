@@ -1,0 +1,284 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.08113",
+  "shortTitle": "SAMoE-VLA",
+  "thesis": "SAMoE-VLA uses scene-conditioned parameter fusion to improve a world-informed driving planner, with accuracy gains that require separate scrutiny of collision behavior and implementation consistency.",
+  "standfirst": "A driving planner must combine instructions, surrounding geometry and ego motion into one coherent trajectory. SAMoE-VLA makes the traffic scene determine how its planning experts are mixed. A world-language branch supplies representations learned with future-geometry supervision, and a flow-matching branch turns noisy trajectory tokens into planned positions. The useful distinction is between learning from future worlds and explicitly simulating them during deployment: the architecture marks rendering as pretraining-only. This reading follows the scene signal into the expert weights, separates logged-data accuracy from simulator driving, and uses the ablation tables to assess which claims survive the paper's internal inconsistencies.",
+  "evidenceIds": [
+    "e02",
+    "e04",
+    "e05",
+    "e07",
+    "e09",
+    "e11",
+    "e12",
+    "e14"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "alt": "Two functional experts share conditional attention: camera BEV, language and soft world prompts feed the world-language branch; ego state and noisy actions feed planning. Rendering is marked pretraining-only.",
+      "caption": "World supervision trains context; the planning branch converts noise into a trajectory.",
+      "readingGuide": "Read the inputs across the top before following the repeated transformer block downward. Camera features feed both the projected BEV tokens and DSE. Language and soft world prompts join the pink world-language stream, while ego history and noisy action tokens enter the blue planning stream. The horizontal CMCA bar connects their representations, but the actual visibility rule comes from Eq. (1): actions see conditioning and earlier action positions, while conditioning cannot read actions. At the bottom, the paper explicitly separates scene description and rendering during pretraining from trajectory generation in the final stage. The diagram's “Ruler Integration” label is a typo; Appendix A.3 specifies Euler integration.",
+      "takeaway": "The architecture combines future-world supervision with a dedicated trajectory generator. Its two functional streams are meaningful architectural evidence for the dual-system part of the catalog entry. The rendering branch's stage label is essential: future point-cloud generation should not be described as an inference-time search over candidate driving futures.",
+      "caution": "Figure 1 does not define an actuator controller or an inverse-dynamics decoder. The flow equations in Appendix A explain trajectory generation; Algorithm 5 disagrees about the velocity target's sign.",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e07",
+        "e09",
+        "e10"
+      ],
+      "page": 2,
+      "asset": "report-assets/2603.08113/architecture.png",
+      "width": 1458,
+      "height": 1140,
+      "sourceSha256": "30b9a978b5dc7eb3b389b8889fd23e7c3215e2f39ad4903d7abcd7958bff8348",
+      "sourceUrl": "https://arxiv.org/pdf/2603.08113#page=2",
+      "crop": [
+        0.287,
+        0.143,
+        0.716,
+        0.402
+      ]
+    },
+    {
+      "id": "scene-fusion",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "alt": "A near-field map and BEV generate deformable offsets and spatial features. Learned queries produce H_BEV, which controls layer-specific soft fusion of FFN expert weights.",
+      "caption": "One scene summary controls parameter fusion throughout the planning stack.",
+      "readingGuide": "Start on the right: the BEV and near-field distance prior feed the offset predictor, and deformable sampling produces scene features. Those features supply keys and values to the central cross-attention block; learned queries supply its queries. Follow H_BEV upward through mean pooling and a linear head to the colored expert weights. The arrows into the merged FFN mean parameter fusion, as established by Eq. (10), rather than averaging completed expert trajectories. On the left, CMCA output plus its residual becomes the planning hidden state that enters this FFN. The caption clarifies the repetition markers: DSE runs once, while routing heads differ across MoE layers.",
+      "takeaway": "The scene signal chooses a shared FFN parameter mixture for the planning tokens in each layer. This changes both the routing granularity and where mixing happens. Reusing H_BEV amortizes scene encoding, while separate layer heads preserve depth-dependent expert preferences.",
+      "caution": "Appendix I.5 instead writes a weighted sum of expert outputs. That formula conflicts with the main parameter-merging definition; Appendix E acknowledges these operations differ for nonlinear experts. This reading follows Eqs. (10)–(11).",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e19"
+      ],
+      "page": 6,
+      "asset": "report-assets/2603.08113/scene-fusion.png",
+      "width": 1459,
+      "height": 693,
+      "sourceSha256": "30b9a978b5dc7eb3b389b8889fd23e7c3215e2f39ad4903d7abcd7958bff8348",
+      "sourceUrl": "https://arxiv.org/pdf/2603.08113#page=6",
+      "crop": [
+        0.217,
+        0.143,
+        0.789,
+        0.353
+      ]
+    },
+    {
+      "id": "nuscenes-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "alt": "nuScenes planning table with 1-, 2- and 3-second L2 errors in meters and collision percentages for traditional, world-model and VLA methods.",
+      "caption": "The strongest average trajectory accuracy comes with horizon-specific tradeoffs.",
+      "readingGuide": "The table has two metric groups, each split into three horizons and an average. Lower is better throughout; L2 uses meters, while collision values are already percentages. Read the final SAMoE-VLA row against both the traditional/world-model block and the VLA/VLM block. Its 0.29 m average L2 is the lowest listed, but its 0.24 m one-second error is worse than several competitors. Then move to collision: the 0.26% average equals Drive-WM's displayed value. The 3.6B label is explicitly a total parameter count for SAMoE-VLA. Dashes in the OpenEMMA and EMMA collision columns mean missing results, not zero collisions.",
+      "takeaway": "SAMoE-VLA reports L2 errors of 0.24, 0.27 and 0.35 m at one, two and three seconds. Its best listed average supports improved logged-data planning accuracy. The table also shows that this advantage is not uniform across horizons and does not yield a uniquely best average collision rate.",
+      "caution": "This is open-loop evaluation. The exact main split and uncertainty are unspecified here, and the relative horizon-improvement percentages in the adjacent prose do not consistently follow the displayed comparisons.",
+      "evidenceIds": [
+        "e11"
+      ],
+      "page": 11,
+      "asset": "report-assets/2603.08113/nuscenes-results.png",
+      "width": 1298,
+      "height": 825,
+      "sourceSha256": "30b9a978b5dc7eb3b389b8889fd23e7c3215e2f39ad4903d7abcd7958bff8348",
+      "sourceUrl": "https://arxiv.org/pdf/2603.08113#page=11",
+      "crop": [
+        0.248,
+        0.2,
+        0.757,
+        0.45
+      ]
+    },
+    {
+      "id": "langauto-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "alt": "LangAuto, LangAuto-Short and LangAuto-Tiny simulator results, each showing Driving Score, Route Completion and Infraction Score for five methods.",
+      "caption": "Closed-loop driving scores improve, while infraction performance varies by setting.",
+      "readingGuide": "Treat the three column groups as separate evaluations, not interchangeable samples. Within each group, DS is Driving Score, RC is route completion in percent, and the caption defines IS as Infraction Score; larger values are better. Compare the final row with BEVDriver in full LangAuto: DS rises from 48.9 to 51.4 and RC from 59.7 to 63.5, while IS decreases from 0.82 to 0.81. Next inspect the Short and Tiny groups, where SAMoE-VLA again leads the listed DS and RC columns. Its 3.6B total parameter label is smaller than the 7B labels on several comparison methods.",
+      "takeaway": "This table supplies executed closed-loop evidence in the CARLA-based benchmark. SAMoE-VLA leads the listed driving-score and completion columns across all three settings, reaching 79.5 DS and 86.4% RC on Tiny. These results complement the open-loop table, but they measure a different evaluation regime.",
+      "caution": "Page 10 calls IS “Instruction Score,” conflicting with the table caption's “Infraction Score.” The edition follows the caption and does not infer a separate instruction-grounding metric. No physical-road deployment is established.",
+      "evidenceIds": [
+        "e12"
+      ],
+      "page": 12,
+      "asset": "report-assets/2603.08113/langauto-results.png",
+      "width": 1584,
+      "height": 532,
+      "sourceSha256": "30b9a978b5dc7eb3b389b8889fd23e7c3215e2f39ad4903d7abcd7958bff8348",
+      "sourceUrl": "https://arxiv.org/pdf/2603.08113#page=12",
+      "crop": [
+        0.267,
+        0.255,
+        0.733,
+        0.376
+      ]
+    },
+    {
+      "id": "router-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "alt": "Router ablation comparing prefix routing, removal of deformable convolution, removal of the near-field distance map and the complete scene-adaptive router.",
+      "caption": "BEV routing, deformable sampling and the near-field prior each contribute to the reported averages.",
+      "readingGuide": "Each row removes or replaces part of the scene router while retaining the planning task. Prefix Routing bases the merge on the first planning token instead of the DSE scene summary. The next two rows remove deformable convolution or the near-field map. Compare the average columns first: the complete model reports 0.29 m L2 and 0.26% collision, versus 0.31/0.37 for prefix routing and 0.31/0.33 without DCN. Removing only the distance prior gives 0.30/0.29. Then inspect individual horizons: the complete model is not best in every cell, and the strongest separation is often at the three-second horizon.",
+      "takeaway": "Within these reported controls, using scene geometry to form the routing signal is associated with better average accuracy and collision performance. The near-field prior contributes a smaller observed change than replacing DSE with prefix routing. The table motivates controlled tests of which scene information the router actually uses.",
+      "caution": "These single reported values include no uncertainty. Removing a component also changes its available computation or representation, so the table does not by itself isolate a universal causal explanation for each gain.",
+      "evidenceIds": [
+        "e13"
+      ],
+      "page": 13,
+      "asset": "report-assets/2603.08113/router-ablation.png",
+      "width": 1540,
+      "height": 510,
+      "sourceSha256": "30b9a978b5dc7eb3b389b8889fd23e7c3215e2f39ad4903d7abcd7958bff8348",
+      "sourceUrl": "https://arxiv.org/pdf/2603.08113#page=13",
+      "crop": [
+        0.274,
+        0.164,
+        0.727,
+        0.28
+      ]
+    },
+    {
+      "id": "moe-comparison",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "alt": "Six MoE designs compared on nuScenes, including dense, sparse and soft token routing with or without BEV bias, and scene-conditioned parameter merging.",
+      "caption": "Better L2 accuracy does not mean better collision performance than every baseline.",
+      "readingGuide": "Use the top row as the dense reference, then compare each token-routing family with and without BEV bias. Sparse routing changes average L2/collision from the dense 0.32 m/0.25% to 0.30 m/0.36%; adding BEV bias yields 0.57 m/0.69%. SoftMoE changes from 0.46 m/0.57% without bias to 0.33 m/0.34% with bias. Finally, the scene-merged model reaches 0.29 m/0.26%. Appendix D.2 explains that BEV bias modifies token or slot routing logits; it does not convert these baselines into parameter-merging SAMoE. The table therefore compares more than the mere presence of scene features.",
+      "takeaway": "The reported SAMoE configuration achieves the best average L2 in this comparison and avoids the large collision increases of the tested token-MoE variants. However, its 0.26% collision rate is slightly higher than the dense model's 0.25%. The evidence supports a particular accuracy–collision tradeoff, not blanket safety dominance.",
+      "caution": "The prose's 38.4% sparse collision increase does not match the displayed dense comparator. The theoretical local-information assumption also cannot establish failure of all token routers, especially ones receiving global context.",
+      "evidenceIds": [
+        "e14",
+        "e17"
+      ],
+      "page": 29,
+      "asset": "report-assets/2603.08113/moe-comparison.png",
+      "width": 1420,
+      "height": 498,
+      "sourceSha256": "30b9a978b5dc7eb3b389b8889fd23e7c3215e2f39ad4903d7abcd7958bff8348",
+      "sourceUrl": "https://arxiv.org/pdf/2603.08113#page=29",
+      "crop": [
+        0.222,
+        0.172,
+        0.779,
+        0.323
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Follow the world supervision into the planner",
+      "text": "Begin with the world-language expert's training task. Multi-view images become BEV features; pooled features plus learned frame prompts form world tokens. The language model supplies future-aware representations that are expanded into future BEV features, lifted to voxels and supervised through rendered LiDAR geometry and language. Planning remains frozen during this pretraining stage. The final stage changes what is optimized: a trajectory planner is first trained densely, then its weights initialize the scene-adaptive experts. Appendix B says the world-language expert is frozen at this stage. My interpretation is that the planner benefits from a representation shaped by future-scene prediction. That is a different evidential claim from selecting actions by simulating candidate futures. Figure 1 supports the former and marks the renderer as pretraining-only.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e06",
+        "e07",
+        "e10"
+      ]
+    },
+    {
+      "heading": "Understand why the mixture is inside the FFN",
+      "text": "The DSE does not assign a driving-skill label such as turning or overtaking. It uses BEV features and a distance prior to predict deformable sampling offsets, then summarizes those features with learned queries. Each MoE layer converts this common scene representation into its own softmax weights. Those weights combine the three matrices of each expert before the planning hidden states pass through the resulting nonlinear FFN. Thus all planning tokens in a sample share that layer's parameter mixture. Averaging expert outputs would generally compute a different function, which Appendix E explicitly recognizes. This distinction matters for reproduction because Appendix I later switches to an output-mixture formula. The main equations and Appendix C consistently identify parameter merging as the implemented design being proposed.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e19"
+      ]
+    },
+    {
+      "heading": "Separate action order from flow-integration time",
+      "text": "Two different orderings coexist in the planner. CMCA limits an action position to earlier action positions and globally visible conditioning tokens; this is the trajectory-token visibility rule. Flow matching then refines the whole noisy trajectory over an artificial interpolation time. Appendix A defines the noisy point between a demonstrated trajectory and Gaussian noise, trains a velocity field toward noise as time increases, and integrates backward from noise with negative Euler increments at inference. The model predicts velocities for all six nuScenes trajectory positions at each evaluation. It does not execute one physical control at each ODE step. Algorithm 5 reverses the printed velocity target and changes the time distribution, so checking sign consistency is a prerequisite to a faithful implementation rather than a cosmetic notation fix.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e08",
+        "e09",
+        "e10"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Resolve the target sign before training",
+      "text": "Reader-proposed check, not executed: use a fixed demonstrated trajectory and sampled Gaussian endpoint to construct Appendix A's interpolation. Substitute its exact constant target velocity into Algorithm 2's negative-step Euler solver and verify that integration returns the demonstrated endpoint. Repeat with Algorithm 5's opposite target as a control; retaining the same solver should fail the endpoint check. Then compare the documented clamped-Beta, rescaled-Beta and uniform time samplers in an otherwise matched small training run, logging endpoint error and flow loss separately. This distinguishes a sign error from a sampling choice before evaluating driving scores.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "title": "Test whether scene correspondence causes the routing gain",
+      "text": "Reader-proposed check, not executed: keep the pretrained context, expert count, initialization, mask, training budget and evaluation cases fixed. Compare learned DSE routing with a constant learned mixture and a version whose scene summaries are shuffled among samples before the per-layer router. Add an output-mixture control using the same experts to distinguish routing information from fusion location. Report per-horizon L2 and collision, paired scene-level uncertainty and router-weight variation. Correct scene correspondence should outperform shuffled or constant routing if the claimed adaptation is essential; equal performance would weaken that interpretation even if all MoE variants beat the dense planner.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e13",
+        "e14",
+        "e19"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      32,
+      33,
+      34,
+      36,
+      42,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61
+    ],
+    "notes": "Visually inspected the title and author page, Figures 1–17, Tables 1–5, and the declared method, training, flow, proof and deployment pages supporting retained claims. All six final original crops were individually inspected; Table 1 was recropped to retain its metric headers. Diagram arrows, stage labels and fusion location were checked against the caption, equations and algorithms. All 64 pages were read through the 11 supplied text chunks; bibliography pages, remaining theory pages and notation Tables 6–8 were not part of the image pass. Separate supplemental availability is not fully verified. Code and experiments were not inspected or run."
+  },
+  "featuredResultTask": "LangAuto closed-loop driving"
+}

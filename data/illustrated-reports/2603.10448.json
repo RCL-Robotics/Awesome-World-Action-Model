@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.10448",
+  "shortTitle": "DiT4DiT",
+  "thesis": "Video-generation features can condition effective robot actions after one backbone pass, but the resulting dual-transformer policy trades deployment speed for task performance.",
+  "standfirst": "DiT4DiT asks a practical question: which part of a video generator is useful for controlling a robot? Its answer is an internal representation, accessed before a full future video is reconstructed. A video transformer supplies features to a separate action transformer, and action supervision helps shape the shared training process. The paper supports this design with simulation benchmarks, physical Unitree G1 trials and feature-extraction ablations. Read the figures in that order: first establish what the proxy comparison tests, then follow the two-model mechanism, and finally distinguish measured task success from the authors’ broader claims about physical understanding. Several timestep and implementation details remain unresolved.",
+  "evidenceIds": [
+    "e02",
+    "e03",
+    "e04",
+    "e07",
+    "e08",
+    "e11",
+    "e12",
+    "e13",
+    "e15",
+    "e16"
+  ],
+  "featuredResultTask": "RoboCasa-GR1 24-task manipulation",
+  "visuals": [
+    {
+      "id": "scaling-proxy",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 2,
+      "asset": "report-assets/2603.10448/scaling-proxy.png",
+      "width": 1364,
+      "height": 432,
+      "sourceSha256": "64f21b940ff2ee1bccf4e1e7910dc22c207c0cb87ba4e6e16456610c5606b9cd",
+      "sourceUrl": "https://arxiv.org/pdf/2603.10448#page=2",
+      "crop": [
+        0.175,
+        0.1,
+        0.817,
+        0.257
+      ],
+      "alt": "Three proxy-training schematics and two success-rate plots compare grounding, FLARE-style feature alignment and video generation; orange video curves exceed the green and blue curves.",
+      "caption": "Video generation is the strongest proxy in this controlled downstream-policy study.",
+      "readingGuide": "Start with the three proxy objectives: object detection, future-feature alignment and video denoising. In the FLARE-style branch, the snowflake marks the frozen future-frame VLM; the paper removes the original query-diffusion process. Then read the right-hand plots separately: one varies training period, the other training-data quantity. Orange denotes video generation, green FLARE-style and blue grounding. Section 3 explains that each proxy backbone is trained first and frozen while its action expert is fitted. These curves therefore test a staged proxy comparison across 24 RoboCasa tasks; they are not learning curves for the final jointly optimized DiT4DiT policy.",
+      "takeaway": "The figure labels convergence advantages up to 7× and data-efficiency advantages above 10×, with video generation highest over the displayed budgets. These are relative curve comparisons. Their relevance is that dynamics-oriented pretraining produces more useful downstream features in this setting, before the paper introduces joint video/action optimization.",
+      "caution": "FLARE-style arrows point toward the VLM boxes, whereas Section 3 describes queries attending to VLM features and aligning to future embeddings. Treat the drawing as schematic, not an exact attention/gradient graph. Backbone pretraining and absolute compute are not controlled by parameter count alone.",
+      "evidenceIds": [
+        "e03"
+      ]
+    },
+    {
+      "id": "dual-dit",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2, upper architecture panel",
+      "page": 4,
+      "asset": "report-assets/2603.10448/dual-dit.png",
+      "width": 1260,
+      "height": 668,
+      "sourceSha256": "64f21b940ff2ee1bccf4e1e7910dc22c207c0cb87ba4e6e16456610c5606b9cd",
+      "sourceUrl": "https://arxiv.org/pdf/2603.10448#page=4",
+      "crop": [
+        0.202,
+        0.085,
+        0.795,
+        0.328
+      ],
+      "alt": "An observation enters a VAE encoder and video transformer with instruction tokens; a second transformer receives state and action tokens. Separate lower outputs show decoded future frames and action trajectories.",
+      "caption": "Two distinct transformers connect video dynamics to continuous control.",
+      "readingGuide": "Follow the observation through the VAE encoder into the first diffusion transformer, together with language tokens. The lower-left decoder illustrates the optional route from predicted latents to future images. The right transformer receives robot state and action tokens and produces a trajectory. The crucial connection between the two transformers is stated in the caption and Section 4.2: internal video features condition action cross-attention. This cropped architecture panel does not draw that connection explicitly, so the two boxes alone are an incomplete wiring specification. Layer 18 provides the default extracted representation; the future-image decoder is not on the required action-inference path.",
+      "takeaway": "The architecture supports a dual-system reading: a video model and a separate action model retain distinct roles even when trained together. Robot control uses generative hidden features, so the policy can access the video backbone without paying for the illustrated full future-frame reconstruction pathway.",
+      "caution": "The action arrow is a schematic output, not a measured robot rollout. Figure 10 contains generated videos, while Figures 4–5 document physical tasks and success. Neither the architecture drawing nor qualitative future images establish accurate physical dynamics by themselves.",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e08",
+        "e13",
+        "e15",
+        "e17",
+        "e21"
+      ]
+    },
+    {
+      "id": "tri-timestep",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 6,
+      "asset": "report-assets/2603.10448/tri-timestep.png",
+      "width": 1300,
+      "height": 314,
+      "sourceSha256": "64f21b940ff2ee1bccf4e1e7910dc22c207c0cb87ba4e6e16456610c5606b9cd",
+      "sourceUrl": "https://arxiv.org/pdf/2603.10448#page=6",
+      "crop": [
+        0.197,
+        0.103,
+        0.809,
+        0.217
+      ],
+      "alt": "A purple uniform video-time curve, orange action-time sampling curve and green feature-time marker sit above a strip labeled noisy h¹ on the left and clean h⁰ on the right.",
+      "caption": "Three timestep roles separate video learning, feature access and action learning.",
+      "readingGuide": "Read the purple line as uniform video training times, the orange curve as the action-time sampling distribution, and the green marker as the feature-extraction operating point described by the caption. Section 4.3 defines action time as one minus a Beta sample. The lower strip illustrates hidden representations moving from noisy h¹ toward clean h⁰. Use Equation (1), not the horizontal arrow alone, for the numerical convention: noise is at time one and clean data at zero. This is a conceptual diagram of separate roles, not a calibrated density plot or a prescription for the exact numerical feature timestep.",
+      "takeaway": "Decoupling these roles lets video learning cover its full noise range while action learning uses a different time distribution. In the prose, fixed feature time is intended to stabilize conditioning. That intended design explains why the action decoder need not share the video sampler’s current iteration.",
+      "caution": "The rightward timestep axis is ambiguous beside a strip running from h¹ to h⁰. More substantively, Algorithm 1 line 11 samples feature time from a grid, conflicting with this figure’s fixed-time caption and Sections 4.3–4.4. No implemented choice or numerical fixed time can be established here.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e08",
+        "e17"
+      ]
+    },
+    {
+      "id": "robocasa-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 11,
+      "asset": "report-assets/2603.10448/robocasa-results.png",
+      "width": 1265,
+      "height": 863,
+      "sourceSha256": "64f21b940ff2ee1bccf4e1e7910dc22c207c0cb87ba4e6e16456610c5606b9cd",
+      "sourceUrl": "https://arxiv.org/pdf/2603.10448#page=11",
+      "crop": [
+        0.202,
+        0.101,
+        0.797,
+        0.415
+      ],
+      "alt": "Twenty-four RoboCasa-GR1 task rows compare GR00T-N1.5, GR00T-N1.6, Qwen3DiT and DiT4DiT; the final averages are 41.8, 40.8, 36.2 and 50.8.",
+      "caption": "DiT4DiT leads the average RoboCasa-GR1 success rate, with task-specific exceptions.",
+      "readingGuide": "Read each row across as a success-rate comparison for one task, then use the final row for the mean across all 24 tasks. Bold marks the best reported value, including ties; yellow shading highlights DiT4DiT rather than statistical significance. Evaluation uses 50 rollouts per task and a 720-step maximum episode horizon. The caption defines ‘from scratch’ as no action data beyond this benchmark; pretrained foundation backbones remain. It also states that GR00T models are fine-tuned for the same number of steps as the two custom policies. This equalizes downstream step count but not the provenance or amount of prior training.",
+      "takeaway": "The mean is 50.8%, versus 36.2% for Qwen3DiT and 41.8%/40.8% for the GR00T variants. The 14.6-point gain over the direct baseline is substantial within this protocol. Yet FromPlacematToTieredshelf scores 18.0% versus Qwen3DiT’s 30.0%, illustrating why the overall gain should not be described as universal task superiority.",
+      "caution": "No confidence intervals or seed variation accompany the table. Qwen3DiT matches the action architecture and roughly matches parameter count, but changes the foundation backbone. The comparison supports system-level effectiveness without isolating video supervision as the sole cause.",
+      "evidenceIds": [
+        "e04",
+        "e09",
+        "e10",
+        "e12",
+        "e16",
+        "e18"
+      ]
+    },
+    {
+      "id": "g1-results",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 5",
+      "page": 12,
+      "asset": "report-assets/2603.10448/g1-results.png",
+      "width": 1256,
+      "height": 449,
+      "sourceSha256": "64f21b940ff2ee1bccf4e1e7910dc22c207c0cb87ba4e6e16456610c5606b9cd",
+      "sourceUrl": "https://arxiv.org/pdf/2603.10448#page=12",
+      "crop": [
+        0.207,
+        0.103,
+        0.798,
+        0.266
+      ],
+      "alt": "Grouped physical-task success bars show orange DiT4DiT, green GR00T-N1.5 and blue Qwen3DiT for seven G1 tasks, with numerical labels above every bar.",
+      "caption": "Physical G1 trials show gains beyond generated-video plausibility.",
+      "readingGuide": "Use the legend before comparing each task group: orange is DiT4DiT, green GR00T-N1.5 and blue Qwen3DiT. These are executed physical-robot success rates on the seven tasks illustrated in Figure 4. Each task has 200 collected demonstrations and 20 evaluation rollouts. DiT4DiT and Qwen3DiT share a simulation-pretraining and physical-fine-tuning pipeline, while GR00T begins with its larger official pretrained model. Compare precision tasks such as Arrange Flower and Stack Cup separately from Drawer Interaction and Box Packing, which require multiple subgoals. The bars provide success outcomes; they do not directly measure the fidelity of the model’s internal predicted dynamics.",
+      "takeaway": "Arrange Flower reaches 75% versus 25% for GR00T, and Stack Cup reaches 60% versus 25%. DiT4DiT also reports 90% on Drawer Interaction and 50% on Box Packing. These results demonstrate successful physical action execution in the tested setup, complementing the simulation tables and the qualitative video-generation examples.",
+      "caution": "Twenty trials per task give limited precision, and the chart provides no uncertainty bars. These are the standard physical tasks, not the separate zero-shot shifts in Figure 7. The single ego camera also leaves the policy exposed to occlusions.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e13",
+        "e14",
+        "e18",
+        "e20"
+      ]
+    },
+    {
+      "id": "ablations",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 8",
+      "page": 14,
+      "asset": "report-assets/2603.10448/ablations.png",
+      "width": 1383,
+      "height": 352,
+      "sourceSha256": "64f21b940ff2ee1bccf4e1e7910dc22c207c0cb87ba4e6e16456610c5606b9cd",
+      "sourceUrl": "https://arxiv.org/pdf/2603.10448#page=14",
+      "crop": [
+        0.174,
+        0.102,
+        0.825,
+        0.23
+      ],
+      "alt": "Panel a plots success versus video layer with a peak at layer 18; panel b declines from one to 32 denoising steps; panel c compares phase-colored t-SNE features with silhouette scores 0.09 and 0.17.",
+      "caption": "Useful action features appear before full video reconstruction.",
+      "readingGuide": "Read panels (a) and (b) as separate interventions on feature extraction, evaluated on five selected RoboCasa tasks rather than the full suite. In (a), layer 18 is best; the ‘all’ star represents averaging hidden features across layers. In (b), the x-axis counts video denoising passes used for action conditioning, not action-DiT integration steps. In (c), blue, orange and red identify early, middle and late execution phases, and the two panels compare decoupled with joint training. The displayed silhouette scores summarize separation in the feature analysis; they are not manipulation success rates and should not be compared numerically with panels (a) or (b).",
+      "takeaway": "The layer and step sweeps favor a middle-to-deep representation available after one video pass. Extra reconstruction steps reduce reported control success. Joint training also raises the displayed silhouette score from 0.09 to 0.17, consistent with clearer temporal organization, though it does not by itself prove improved causal reasoning.",
+      "caution": "The explanation that later denoising over-specializes to pixels is a hypothesis. No matched-distribution control or uncertainty bands isolate it here. t-SNE organization is a diagnostic, and a five-task sweep does not establish that layer 18 is optimal for every embodiment or task.",
+      "evidenceIds": [
+        "e15",
+        "e17"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Separate the proxy experiment from the final policy",
+      "text": "Begin with Figure 1’s experimental question: can a backbone learn useful control features before an action decoder is trained? Section 3 answers using staged training. A proxy objective first adapts each backbone; that backbone is then frozen while the action expert is fitted. Video generation wins this comparison against object grounding and a modified FLARE-style alignment objective. DiT4DiT subsequently changes the optimization regime: both its video and action transformers receive updates in a joint framework. Reader interpretation: the proxy experiment motivates a video foundation, but it does not independently establish the benefit of joint optimization. The two questions need different controls. The final model also remains architecturally dual-system, because the action transformer reads features from a distinct video transformer rather than sharing one token-processing backbone.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e06",
+        "e07"
+      ]
+    },
+    {
+      "heading": "Follow both losses while keeping the three times distinct",
+      "text": "During training, encode the observation and demonstrated future video with the frozen VAE. Interpolate the future latent with Gaussian noise at the sampled video time, then train the video transformer to predict noise minus the clean latent. Separately, obtain internal video features for action conditioning. The action transformer receives the robot state and a noisy demonstrated action, and predicts its own noise-minus-action velocity. Algorithm 1 combines the masked action error with the weighted video error and updates both transformers; the text encoder remains frozen. Video time, feature time and action time therefore have different jobs. The paper’s fixed-feature-time explanation is understandable as a way to stabilize conditioning, but its training algorithm samples that time instead. Reproduction must expose this choice explicitly rather than silently choosing one description.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e17"
+      ]
+    },
+    {
+      "heading": "Trace the action path through to executed control",
+      "text": "At deployment, current observations and the instruction condition a video-transformer forward pass with fresh future noise. The policy extracts internal features once, then keeps them as context while its action transformer denoises a trajectory; Table 4 specifies four action sampling steps and a horizon of 16. The full video sampling loop and image decoder form a separate capability. Reader interpretation: the useful ‘future’ here is a learned generative representation, not a rendered plan that must be followed frame by frame. Figure 8’s one-pass result fits that distinction. Physical task success comes from separate robot trials. Table 3 reports 6 Hz on an A100, while the appendix describes an RTX 4090 deployment workstation; neither account specifies the executed action-chunk length before feedback and replanning.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e13",
+        "e15",
+        "e16",
+        "e17",
+        "e19"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Resolve fixed versus sampled feature time",
+      "text": "Reader-proposed, not run: on the five Figure 8 tasks, compare training with fixed τf=1 against uniform sampling from {0, 0.25, 0.5, 0.75, 1}; this value and grid are proposed controls, not recovered paper settings. Keep initialization, data, layer 18, optimizer, action-time sampling and four action inference steps identical. Evaluate both policies with one feature pass at τf=1 using paired episode seeds and paired future-noise seeds. Repeat training with multiple seeds and report per-task success with intervals, plus feature/action variance when only future noise changes. A consistent gap would make the prose/algorithm discrepancy consequential; negligible variance and equivalent success would weaken the claim that fixing feature time is essential to stable control.",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e08",
+        "e15",
+        "e17"
+      ]
+    },
+    {
+      "title": "Isolate action supervision reaching the video backbone",
+      "text": "Reader-proposed, not run: compare normal joint training with an otherwise identical variant that stops gradients only between the extracted video features and the action loss. Continue the same video-loss updates in both arms, retaining the same data, initialization, feature-time rule, layer 18, action head and training budget. Use CanToDrawerClose, FromCuttingboardToBasket, FromPlacematToBowl, FromPlateToCardboardbox and FromTrayToPot, with matched rollout seeds. Measure executed task success as the primary outcome and temporal-feature silhouette as a secondary diagnostic. If joint gradients improve silhouette without a reproducible success gain, the representation plot would not establish the claimed control benefit. Improvement in both would support action-shaped video features more directly than a t-SNE comparison alone.",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e15",
+        "e17"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      19,
+      20,
+      21,
+      22
+    ],
+    "notes": "Visually inspected the title/byline/version on page 1; all Figures 1–10 and Tables 1–5; method equations and Algorithms 1–2; benchmark setup, generalization and efficiency pages; Appendix A configurations, dataset counts, hardware and limitations. All six final original PDF crops were viewed at their native generated dimensions, with axes, legends, headers and all table rows retained. Table 2’s caption-defined meaning of ‘from scratch’ and training-step comparison are explained in its reading guide. Figure 2 omits an explicit inter-transformer feature arrow; its caption and Section 4.2 supply the connection. Figure 3’s timestep ambiguity and Algorithm 1 conflict remain explicit. Page 22 is a qualitative generated-video montage, not an omitted text page or executed-success metric. Reference-only pages 16–18 were read as text; separate supplements, code and linked resources were not inspected."
+  }
+}
