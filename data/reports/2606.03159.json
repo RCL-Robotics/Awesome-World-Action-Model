@@ -1,0 +1,505 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.03159",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T11:04:40.399Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.03159",
+      "title": "NVIDIA OmniDreams: Real-Time Generative World Model for Closed-Loop Autonomous Vehicle Simulation",
+      "kind": "pdf",
+      "sha256": "8cd616c033a02efadb62a0564d22981c0dd8ab123db5d207a951a2927d264afa",
+      "wordCount": 18180,
+      "accessedAt": "2026-09-07T13:55:42.502633+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract and contents (pp. 1–3)",
+      "1. Introduction (pp. 4–5)",
+      "2. Data, all subsections (pp. 5–7)",
+      "3. Model Architecture (pp. 8–9)",
+      "4. Training, all subsections and equations (pp. 10–13)",
+      "5. Training-free Model Inference Optimization (pp. 13–15)",
+      "6. Closed-Loop Simulation Integration (pp. 15–17)",
+      "7. World-Action Model post-training (pp. 17–18)",
+      "8. Diffusion Fixer (pp. 18–19)",
+      "9. Experiments and Results, all subsections (pp. 19–26)",
+      "10. Related Work (pp. 26–28)",
+      "11. Conclusion (p. 29)",
+      "A. Contributors and Acknowledgments (p. 30)",
+      "References (pp. 31–35)",
+      "B. Glossary (pp. 36–39)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity/edition note: the exact catalog title and identifier match the supplied v2 PDF. Its arXiv margin is dated 23 July 2026, matching the catalog submittedDate; the report dateline is 27 July 2026. No earlier edition was supplied, so further revision differences are not established.",
+      "Authorship note: the title-page byline is NVIDIA. The catalog combines that corporate byline with the research contributors in Appendix A.1; those names agree. No individual affiliation mapping is provided.",
+      "All 11 supplied text chunks were read. The extraction does not reconstruct figure images; this limitation was addressed by inspecting the original PDF pages and all fifteen figures and six tables.",
+      "Separate supplemental material availability has not been fully verified; none was supplied.",
+      "Code, linked model weights and external resources were not inspected. No experiments were reproduced. Visual inspection covers static PDF panels, not linked videos."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8",
+      "Figure 9",
+      "Figure 10",
+      "Figure 11",
+      "Figure 12",
+      "Figure 13",
+      "Figure 14",
+      "Figure 15"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "OmniDreams adapts Cosmos into a causal, action-conditioned camera simulator with few-step diffusion and reusable visual history. Its strongest systems result is four-camera rendering at 105 effective FPS per camera on sixteen GB300 GPUs. A separately post-trained trajectory policy also improves simulated collision rates. These findings establish rendering and policy capabilities under distinct protocols, with compute, decoder quality and chunk-level feedback tradeoffs.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "Driving evaluation needs observations that respond to the policy's actions, including conditions absent from a captured scene. OmniDreams supplies AlpaSim's visual environment; policy, traffic and physics services retain responsibility for trajectories and state updates.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem",
+      "e-serving"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Structured conditioning, causal video generation, multi-view attention, Self Forcing distillation and stateful serving make a generative renderer usable in closed-loop simulation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-controls",
+        "e-model",
+        "e-multiview",
+        "e-distill",
+        "e-serving"
+      ]
+    },
+    {
+      "text": "Separate post-training paths support trajectory prediction, reconstruction-artifact correction and unusual-object propagation. The latter two supply qualitative evidence rather than calibrated safety tests.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-wam",
+        "e-fixer",
+        "e-edits"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Simulator: calibrated first-frame RGB, text, camera-aligned scenario renders encoding trajectories, and cached history.",
+      "Policy variant: video observations, telescope-camera features and ego-motion history."
+    ],
+    "outputs": [
+      "Simulator: RGB chunks, single-view or four synchronized views.",
+      "Policy variant: a 6.4-second ego trajectory with 64 waypoints, executed through the simulator/controller."
+    ],
+    "steps": [
+      {
+        "name": "Render actions into conditioning",
+        "detail": "Maps and actor cuboids are projected using camera calibration. Ego motion changes the requested viewpoint. Text controls appearance; a small MLP converts structured control into tokens concatenated with visual tokens.",
+        "evidenceIds": [
+          "e-controls"
+        ]
+      },
+      {
+        "name": "Predict observations causally",
+        "detail": "First-frame latents initialize a Cosmos-derived DiT; attention keys and values persist across chunks. SV emits eight RGB frames from two latent frames; MV emits sixteen from four per camera. Temporal attention stays within a camera; cross-view attention exchanges simultaneous information.",
+        "evidenceIds": [
+          "e-model",
+          "e-multiview"
+        ]
+      },
+      {
+        "name": "Keep simulation time consistent",
+        "detail": "AlpaSim commits ego and traffic trajectories for each chunk before requesting frames. Session identifiers select caches. Returned frames enter the timeline at their capture times. Rendering throughput therefore does not imply mid-chunk policy feedback.",
+        "evidenceIds": [
+          "e-serving"
+        ]
+      },
+      {
+        "name": "Repurpose the backbone as a policy",
+        "detail": "The WAM initializes before map-control tuning. A token embeds 1.6 seconds of ego history and attends to current/past video tokens, excluding other history tokens. Its output conditions a 12-layer U-Net-shaped trajectory MLP; DINOv2-initialized and telescope features add visual conditioning.",
+        "evidenceIds": [
+          "e-wam"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "RDS supplies 16,600 hours and RDS-HQ-1M 4,944 hours. The latter has 1,142,285 clips; 5,000 held-out clips are scenario-balanced rather than sampled proportionally. Filtering removes unreliable sensors/annotations, visual artifacts and repetition; exact thresholds are not supplied.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-data"
+        ]
+      },
+      {
+        "text": "AV/multi-view adaptation precedes causal Diffusion Forcing on RDS, then map-controlled training on RDS-HQ-1M. Self Forcing uses generated history, detached historical KV embeddings, a frozen real score network and learned fake score network. Two-step distillation uses [1000,450]; a 58k-video subset and subsequent longer-teacher training target rollout artifacts.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-causal",
+          "e-distill",
+          "e-multiview"
+        ]
+      },
+      {
+        "text": "WAM training sums video and trajectory flow losses with independent noise times. The diffusion-fixer variant learns degraded-render-to-clean-image correction from paired targets.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-wam",
+          "e-fixer"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Rendering uses two denoising steps, bounded static caches, CUDA graph replay and LightTAE decoding. Local windows are six latent frames for SV and eight for MV; initial-image attention sinks supplement recent history. MV uses pixel-shuffle conditioning encoding.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-runtime",
+          "e-speed"
+        ]
+      },
+      {
+        "text": "WAM inference processes four slightly noised video latent frames and one history token in one DiT pass. Only the trajectory MLP performs four sampling steps. It does not generate future video or search imagined rollouts.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-wam"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "x_t=(1-t)x+t\\epsilon,\\qquad v_t=\\epsilon-x,\\qquad L=\\mathbb{E}_{x,t}\\!\\left[\\lVert u_\\theta(x_t,t)-v_t\\rVert^2\\right]",
+        "explanation": "The rectified-flow objective: x is clean latent video, epsilon is standard Gaussian noise, t is flow time, x_t is the interpolation, u_theta predicts velocity and v_t is its target. Auxiliary conditioning c can enter u_theta. Diffusion Forcing extends this to independent frame times and causal attention.",
+        "evidenceIds": [
+          "e-flow",
+          "e-causal"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{DMD}}(\\theta)=\\mathbb{E}\\!\\left[\\frac{1}{2}\\left\\lVert\\hat{x}-\\operatorname{sg}\\!\\left[\\hat{x}-\\left(f_\\psi(\\hat{x}_t,t)-f_\\varphi(\\hat{x}_t,t)\\right)\\right]\\right\\rVert^2\\right]",
+        "explanation": "Equation (2): hat{x} is a generated rollout; f_varphi is the frozen real score network, f_psi the learned fake score network, and sg stops gradients. Their difference supplies the distribution-matching update; historical KV embeddings are also detached.",
+        "evidenceIds": [
+          "e-distill"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Real-time camera generation",
+      "setting": "704×1280; two-step model; NVIDIA GB300; per-chunk timings.",
+      "metric": "Latency and effective FPS",
+      "value": "SV: 118 ms / 68 FPS on one GPU. Four-view MV: 151 ms / 105 FPS per camera on sixteen GPUs.",
+      "comparison": "MV on one GPU: 1,289 ms / 12 FPS.",
+      "interpretation": "Measured renderer throughput; totals exclude asynchronous cache updates and do not establish complete policy-loop latency.",
+      "evidenceIds": [
+        "e-speed",
+        "e-serving"
+      ]
+    },
+    {
+      "task": "Training-stage simulation quality",
+      "setting": "SV; 1,000 clips from the 5,000-clip RDS-HQ-1M holdout; Table 4.",
+      "metric": "FVD ↓; Temporal Sampson ↓; LET-AP ↑; lane F1 ↑",
+      "value": "Self Forcing: 24.8; 1.90; 0.400; 0.828.",
+      "comparison": "Bidirectional: 26.8; 1.83; 0.378; 0.823. Diffusion Forcing: 31.7; 1.87; 0.221; 0.775.",
+      "interpretation": "Most columns improve; Temporal Sampson worsens. Data and optimization also change, so this does not isolate the loss.",
+      "evidenceIds": [
+        "e-quality",
+        "e-distill"
+      ]
+    },
+    {
+      "task": "Fast-decoder quality tradeoff",
+      "setting": "Distilled SV; Section 9.1 held-out evaluation; Table 5.",
+      "metric": "FVD ↓; LET-AP ↑; lane F1 ↑",
+      "value": "LightTAE: 45.4; 0.376; 0.813.",
+      "comparison": "Original VAE: 24.8; 0.400; 0.828.",
+      "interpretation": "The fast deployment should not inherit original-decoder quality scores. Table 5 omits paired decoder latencies.",
+      "evidenceIds": [
+        "e-decoder",
+        "e-quality"
+      ]
+    },
+    {
+      "task": "Long-rollout teacher ablation",
+      "setting": "Twenty-second front-wide rollouts, four five-second windows against a common real-video reference; Table 6.",
+      "metric": "Final-window / mean segmented FVD ↓",
+      "value": "Progressive long-context teacher: 268.4 / 179.4.",
+      "comparison": "Short-context teacher: 409.2 / 240.0.",
+      "interpretation": "Drift remains: progressive-teacher FVD starts at 95.5. Table 6 does not specify sample count or uncertainty.",
+      "evidenceIds": [
+        "e-long"
+      ]
+    },
+    {
+      "task": "WAM policy collision comparison",
+      "setting": "574 Physical AI Autonomous Vehicles NuRec scenes excluding WAM training scenes; 20-second closed-loop rollouts; 10 Hz replanning.",
+      "metric": "Collision rate ↓",
+      "value": "4.2% with roughly 2B parameters.",
+      "comparison": "Alpamayo 1.5: 6.9%, roughly 10B parameters.",
+      "interpretation": "A 2.7-percentage-point simulated reduction. This preliminary comparison does not isolate pretraining from architecture, data or camera inputs; Section 7.2 supplies no uncertainty.",
+      "evidenceIds": [
+        "e-wam",
+        "e-wam-eval"
+      ]
+    },
+    {
+      "task": "Policy ranking across sensor simulators",
+      "setting": "501 compatible NuRec scenes; 20 seconds; 533 ms replanning; incidents count within 4 m of the recorded trajectory; mean over three trials.",
+      "metric": "All Incidents (Collision + Offroad) ↓",
+      "value": "OmniDreams: WAM 10.9%; Alpamayo 1.5 18.1%; two-camera 24.5%; one-camera 51.3%.",
+      "comparison": "NuRec: 4.7%; 10.1%; 20.9%; 51.9%, respectively.",
+      "interpretation": "Ordering agrees while absolute rates shift. This differs from the 574-scene/10 Hz protocol and is not real-world safety validation.",
+      "evidenceIds": [
+        "e-eval-protocol",
+        "e-incidents"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Figure 4 places cross-view attention before text cross-attention; its caption and Section 4.1 say after. Section 9.1 says LightVAE decoder, whereas Table 5 and Section 5.1 specify LightTAE. These discrepancies remain unresolved.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-multiview",
+        "e-decoder"
+      ]
+    },
+    {
+      "text": "Chunk commitments constrain reaction frequency; the authors acknowledge higher compute than reconstruction-based simulation. FVD and detector outputs measure visual/statistical fidelity, not physical correctness. Trajectory-gated ranking agreement does not validate hazards outside that regime.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-serving",
+        "e-cost",
+        "e-quality",
+        "e-eval-protocol",
+        "e-incidents"
+      ]
+    },
+    {
+      "text": "Figure 14 supports better visual extrapolation along fixed off-log trajectories, not their safety. Scenario edits, unusual objects and diffusion-fixer examples lack quantitative control or safety tests.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-deviation",
+        "e-edits",
+        "e-fixer"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs exact checkpoints, curated data manifests, calibrated maps/tracks, teachers, decoder and AlpaSim configuration. The PDF lacks a complete optimizer/batch/step schedule, training hardware budget, package versions and WAM training-set specification. Its log-normal versus logit-normal time descriptions also need clarification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-data",
+        "e-controls",
+        "e-causal",
+        "e-distill",
+        "e-runtime",
+        "e-wam"
+      ]
+    },
+    {
+      "text": "Proposed checks: equalize additional optimization when comparing teacher context lengths; separately compare both sensor backends using fixed scenes and paired incident-rate differences as well as ranking.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-long",
+        "e-eval-protocol",
+        "e-incidents"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The foundational neural-simulator/video-backbone classification fits the main system. Its renderer couples to separate policy and physics services, supporting the catalog's not-applicable quadrant for that contribution. Section 7 adds a WAM: shared causal visual features feed a separate trajectory flow head, with joint training and trajectory-only inference. Joint losses alone do not establish a unified future-video/action predictor at deployment.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-problem",
+        "e-model",
+        "e-serving",
+        "e-wam"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Neural world simulators",
+        "Video generation backbones"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "09982a6ec673d51215b6e68983e22705f470332c100cf1df040be95017d3b3cf"
+    }
+  },
+  "discussionQuestions": [
+    "Would policy rankings persist without the 4 m incident gate?",
+    "How much of the longer-teacher gain survives equalizing extra distillation compute?",
+    "Does decoder acceleration change policy decisions more than aggregate FVD suggests?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, byline, dateline and arXiv margin; p. 30, Appendix A.1",
+      "detail": "The exact title matches. The byline is NVIDIA; A.1 lists the catalog's research contributors. The margin identifies arXiv:2606.03159v2, 23 July 2026; the report dateline is 2026-7-27."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 1 and Figure 1",
+      "detail": "The policy supplies actions, AlpaSim updates abstract state, and OmniDreams returns camera observations. Reconstruction-based scenes are constrained by captured content."
+    },
+    {
+      "id": "e-data",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–7, Sections 2.1–2.5 and Table 1",
+      "detail": "RDS supplies 16,600 hours; RDS-HQ-1M supplies 4,944 hours and 1,142,285 clips. A scenario-balanced 5,000-clip holdout includes 300 clips with 60-second versions. Curation filters unreliable data, annotations, artifacts and repetition."
+    },
+    {
+      "id": "e-controls",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 2.2 and Figure 2; p. 9, Section 3.1",
+      "detail": "Calibrated maps and actor cuboids are rendered into camera-aligned conditioning videos. Ego actions change these renders. Text supplies appearance conditions; a lightweight MLP produces control tokens."
+    },
+    {
+      "id": "e-model",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Sections 3–3.2 and Figure 3",
+      "detail": "A Cosmos-Predict 2.5-derived causal transformer uses first-frame RGB, text, world-scenario control and cached history. SV generates eight RGB frames per step; MV generates sixteen per camera across four views."
+    },
+    {
+      "id": "e-multiview",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–11, Section 3.2, Figure 4 diagram and caption, Section 4.1",
+      "detail": "Temporal attention is per view; cross-view attention connects simultaneous views. View embeddings modulate AdaLN. Figure 4 draws cross-view attention before text cross-attention; its caption and p. 11 place it after text cross-attention, before the MLP."
+    },
+    {
+      "id": "e-flow",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 4.1, Preamble",
+      "detail": "Rectified flow interpolates clean video latents and Gaussian noise, predicting noise minus clean latents with squared error. Auxiliary conditioning includes text, initial images and control."
+    },
+    {
+      "id": "e-causal",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Section 4.2, Causal Masking and Equation (1)",
+      "detail": "Diffusion Forcing uses causal attention and independently sampled frame noise levels. RDS training precedes controlled RDS-HQ-1M training. Section 4.2 calls its time distribution log-normal; Section 4.1 calls the bounded scalar distribution logit-normal."
+    },
+    {
+      "id": "e-distill",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, Section 4.3 and Equation (2)",
+      "detail": "Self Forcing uses generated history, two denoising steps at [1000,450], detached historical KV embeddings and DMD with frozen real and learned fake score networks. Continued distillation uses a longer bidirectional teacher; its data subset has 58k videos."
+    },
+    {
+      "id": "e-runtime",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Section 5.1; p. 21, Section 9.2",
+      "detail": "Inference uses static caches, CUDA graphs, six/eight latent-frame local windows for SV/MV, LightTAE decoding and pixel-shuffle conditioning encoding for MV. Section 9.2 identifies first-RGB-frame tokens as attention sinks."
+    },
+    {
+      "id": "e-speed",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Tables 2–3 and Sections 5.2–5.3",
+      "detail": "At 704×1280 with two denoising steps, SV takes 118 ms for eight frames on one GB300. Four-view MV takes 1,289/330/209/151 ms on 1/4/8/16 GB300 GPUs, reporting 12/48/74/105 effective FPS per camera. Totals exclude side-thread cache updates."
+    },
+    {
+      "id": "e-serving",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–17, Figure 6 and Sections 6.1–6.4.2",
+      "detail": "A stateful gRPC service retains session caches. AlpaSim uses pre-fetch: trajectories are committed at chunk boundaries and interpolated for rendering; frames enter the timeline in order. Mid-chunk trajectory changes invalidate a chunk."
+    },
+    {
+      "id": "e-wam",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Section 7 and Section 7.1",
+      "detail": "The policy starts from the SV causal checkpoint before map-control tuning. DINOv2-initialized features, telescope-camera features and ego-history tokens condition a trajectory flow MLP. Video and trajectory losses train jointly; inference runs the DiT once and the trajectory MLP takes four flow steps."
+    },
+    {
+      "id": "e-wam-eval",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Section 7.2",
+      "detail": "On 574 NuRec dataset scenes excluding WAM training scenes, 20-second rollouts at 10 Hz yield collision 4.2% for roughly 2B WAM versus 6.9% for roughly 10B Alpamayo 1.5. Front/lateral/rear values are 0.9/0.4/3.0% versus 1.0/0.6/5.3%."
+    },
+    {
+      "id": "e-fixer",
+      "sourceId": "primary",
+      "location": "PDF pp. 18–19, Section 8 and Figure 7",
+      "detail": "A separate variant learns from degraded-render/clean-target pairs, starting its correction flow from the degraded rendering. Figure 7 supplies qualitative correction examples."
+    },
+    {
+      "id": "e-quality",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Section 9.1 and Table 4, all rows",
+      "detail": "On 1,000 clips sampled from the 5,000-clip RDS-HQ-1M holdout, bidirectional/causal/distilled FVD is 26.8/31.7/24.8 and Temporal Sampson is 1.83/1.87/1.90. Distilled LET-AP is 0.400 and lane F1 is 0.828."
+    },
+    {
+      "id": "e-decoder",
+      "sourceId": "primary",
+      "location": "PDF p. 21, Table 5; p. 20, Section 9.1; p. 13, lightweight encoders and decoders",
+      "detail": "Original-VAE versus LightTAE-decoder FVD is 24.8 versus 45.4; LET-AP is 0.400 versus 0.376; lane F1 is 0.828 versus 0.813. Section 9.1 says LightVAE decoder, but Table 5 and Section 5.1 identify LightTAE."
+    },
+    {
+      "id": "e-long",
+      "sourceId": "primary",
+      "location": "PDF pp. 21–22, Section 9.2, Figure 9 and Table 6",
+      "detail": "Twenty-second rollouts are divided into five-second windows against a common real front-wide reference. Progressive-teacher final-window FVD is 268.4 versus 409.2; mean is 179.4 versus 240.0; final-minus-first delta is 172.9 versus 299.9."
+    },
+    {
+      "id": "e-edits",
+      "sourceId": "primary",
+      "location": "PDF pp. 22–24, Sections 9.3.1–9.3.2, Figures 10–11",
+      "detail": "Prompts, seed images and scenario maps support edits. A separate dynamic-cuboid-dropout variant propagates unusual inserted objects without explicit cuboid trajectories; static cuboids are retained. Evidence is qualitative."
+    },
+    {
+      "id": "e-eval-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 23–24, Section 9.4.1, Policies compared and Evaluation set and metrics",
+      "detail": "Orchestration, traffic, physics and initial state are held fixed. The comparison uses 501 compatible NuRec scenes excluding WAM training scenes, runs 20 seconds and replans every 533 ms. Incidents count only within 4 m of the recorded trajectory."
+    },
+    {
+      "id": "e-incidents",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Figure 13, All Incidents panel and Results and implications",
+      "detail": "Mean over three trials: WAM, Alpamayo 1.5, two-camera and one-camera variants have incident rates 4.7/10.1/20.9/51.9% in NuRec and 10.9/18.1/24.5/51.3% in OmniDreams. Ranking agrees; absolute rates differ. Front and offroad panels have broken axes."
+    },
+    {
+      "id": "e-deviation",
+      "sourceId": "primary",
+      "location": "PDF pp. 25–26, Visual Realism and Figure 14",
+      "detail": "Closed-loop trajectories are frozen and replayed through both renderers. FVD is grouped by mean deviation. The 4+ m bin labels NuRec 207 and OmniDreams 125; its gap is labeled 82.2."
+    },
+    {
+      "id": "e-cost",
+      "sourceId": "primary",
+      "location": "PDF p. 26, Controllability and Compute",
+      "detail": "The authors explicitly state that generative simulation requires substantially more compute than reconstruction-based simulation."
+    }
+  ]
+}

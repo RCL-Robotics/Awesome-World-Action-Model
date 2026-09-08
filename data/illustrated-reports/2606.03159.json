@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.03159",
+  "shortTitle": "OmniDreams",
+  "thesis": "OmniDreams turns a video backbone into a responsive camera simulator, trading substantial compute and chunk-level feedback for controllable visual generation.",
+  "standfirst": "A driving simulator must show the policy what its latest actions would make the cameras see. OmniDreams addresses that rendering problem with a causal video generator conditioned on structured scene state, text and visual history. AlpaSim still manages trajectories, traffic and physics. The paper also asks whether the learned backbone can become a driving policy, and reports a separate trajectory-prediction variant. Read the evidence in three layers: the architecture and training needed for streaming generation, the cost and quality of the fast implementation, and the extent to which simulator measurements preserve useful conclusions about policies. The tables expose several qualifications to the paper's broader claims.",
+  "evidenceIds": [
+    "e-problem",
+    "e-model",
+    "e-serving",
+    "e-speed",
+    "e-wam",
+    "e-quality",
+    "e-incidents"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 10,
+      "asset": "report-assets/2606.03159/architecture.png",
+      "width": 1260,
+      "height": 797,
+      "sourceSha256": "8cd616c033a02efadb62a0564d22981c0dd8ab123db5d207a951a2927d264afa",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03159#page=10",
+      "crop": [
+        0.125,
+        0.096,
+        0.887,
+        0.437
+      ],
+      "alt": "Four camera-specific DiT streams with view/time conditioning, causal self-attention, a shared cross-view connection, text cross-attention and per-view denoised outputs.",
+      "caption": "Camera streams share scene information while retaining causal visual histories.",
+      "readingGuide": "Follow the four colored streams downward from noisy video and conditioning to denoised tokens. View and time embeddings feed the shift, scale and gate modulation paths. The triangular causal-mask marker points to self-attention: visual context is restricted to the current and earlier frames. The red horizontal connection identifies exchange between camera views at a common time; the green text connection supplies appearance conditioning. Section 3.2 explains why these operations are factorized instead of applying full attention across every view and time. Read the layer order cautiously: the drawing places cross-view attention above text cross-attention, whereas the caption and Section 4.1 explicitly place it after text cross-attention.",
+      "takeaway": "The architecture supplies two complementary constraints: causal attention carries each camera's temporal context, and cross-view attention couples simultaneous observations. This makes four-view generation a coordinated prediction problem. The diagram depicts the sensor generator; the driving-policy extension uses a different, additional trajectory head described in Section 7.",
+      "caution": "The caption and p. 11 agree on a layer order that conflicts with the drawing. The crop is unchanged; the actual implemented order cannot be resolved from this PDF. The causal mask does not imply continuous mid-chunk action feedback.",
+      "evidenceIds": [
+        "e-model",
+        "e-multiview",
+        "e-wam",
+        "e-serving"
+      ]
+    },
+    {
+      "id": "multiview-throughput",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 14,
+      "asset": "report-assets/2606.03159/multiview-throughput.png",
+      "width": 1389,
+      "height": 358,
+      "sourceSha256": "8cd616c033a02efadb62a0564d22981c0dd8ab123db5d207a951a2927d264afa",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03159#page=14",
+      "crop": [
+        0.22,
+        0.278,
+        0.78,
+        0.38
+      ],
+      "alt": "Four-view generation timings on one, four, eight and sixteen GB300 GPUs, split into DiT, RGB decoder, asynchronous cache update, total and effective FPS.",
+      "caption": "The reported 105 FPS per camera requires sixteen GB300 GPUs.",
+      "readingGuide": "Read columns as GPU counts and rows as stages of one four-camera generation request. Every request produces sixteen RGB frames per camera, corresponding to four latent frames, at 704 by 1280 resolution with two denoising steps. The caption specifies that effective FPS is expressed per camera. Do not add the KV-cache row to Total: the authors exclude it because cache maintenance runs on a side thread outside the critical path. At sixteen GPUs, the listed total combines 121 ms of DiT work and 30 ms of decoding. The conditioning encoder uses pixel shuffle and is described as having negligible latency.",
+      "takeaway": "The measured four-view total falls from 1,289 ms on one GB300 to 151 ms on sixteen, with reported throughput increasing from 12 to 105 effective FPS per camera. The model crosses the paper's 30 FPS real-time threshold in the four-GPU configuration, which reports 48 FPS.",
+      "caution": "These are renderer timings, not measurements of policy inference, network transport, traffic and physics combined. Nor does 105 FPS permit 105 policy corrections each second: the evaluated multi-view loop commits trajectories for 533 ms chunks.",
+      "evidenceIds": [
+        "e-speed",
+        "e-runtime",
+        "e-serving",
+        "e-eval-protocol"
+      ]
+    },
+    {
+      "id": "training-stages",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 20,
+      "asset": "report-assets/2606.03159/training-stages.png",
+      "width": 1315,
+      "height": 197,
+      "sourceSha256": "8cd616c033a02efadb62a0564d22981c0dd8ab123db5d207a951a2927d264afa",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03159#page=20",
+      "crop": [
+        0.103,
+        0.7,
+        0.898,
+        0.784
+      ],
+      "alt": "Three training stages compared on video quality, BEVFormer vehicle detection and LATR lane metrics; Self Forcing leads most columns while bidirectional training has the lowest Temporal Sampson score.",
+      "caption": "Self Forcing recovers most quality measures after conversion to causal generation.",
+      "readingGuide": "Start with the row transition: an AV-adapted bidirectional generator becomes a causal Diffusion Forcing model, then a few-step Self Forcing student. Section 9.1 evaluates single-view outputs on 1,000 clips sampled from the scenario-balanced 5,000-clip RDS-HQ-1M holdout. The column groups measure different properties. FVD compares video distributions with real footage; Temporal Sampson measures cross-frame geometric consistency. BEVFormer supplies the vehicle-detection scores, while LATR supplies lane metrics on synthesized images. Follow each arrow separately. The bold 24.8 in the distilled row is best FVD, but the bold 1.83 in the bidirectional row is best Temporal Sampson.",
+      "takeaway": "FVD deteriorates from 26.8 to 31.7 after causal conversion, then improves to 24.8 after Self Forcing. Distilled LET-AP reaches 0.400 and lane F1 reaches 0.828. Temporal Sampson instead rises to 1.90, so the prose's broad claim of strongest fidelity needs this explicit exception.",
+      "caution": "The rows change training stage, optimization and data selection together; the result does not isolate Self Forcing's loss alone. Detector performance on synthetic images and distribution-level FVD also cannot certify the simulator's physical accuracy.",
+      "evidenceIds": [
+        "e-data",
+        "e-quality",
+        "e-distill"
+      ]
+    },
+    {
+      "id": "decoder-tradeoff",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 5",
+      "page": 21,
+      "asset": "report-assets/2606.03159/decoder-tradeoff.png",
+      "width": 1315,
+      "height": 163,
+      "sourceSha256": "8cd616c033a02efadb62a0564d22981c0dd8ab123db5d207a951a2927d264afa",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03159#page=21",
+      "crop": [
+        0.103,
+        0.099,
+        0.898,
+        0.169
+      ],
+      "alt": "Original-VAE and LightTAE decoder rows for the distilled model; the original decoder scores better on every listed video, vehicle-detection and lane metric.",
+      "caption": "Decoder acceleration carries a measurable quality cost.",
+      "readingGuide": "Compare the two rows within each metric rather than comparing this table's LightTAE row to an unrelated model. The distilled backbone is presented with its original VAE and with a LightTAE decoder, under the Section 9.1 quality evaluation. The first two columns reward lower values; detection and most lane columns reward higher values. Table 5 labels the fast decoder LightTAE, consistent with the inference description in Section 5.1. Section 9.1's preceding sentence instead calls it LightVAE, an unresolved naming inconsistency. The distinction matters when associating quality measurements with the fast rendering system, because Table 4's best FVD belongs to the original decoder configuration.",
+      "takeaway": "FVD increases from 24.8 to 45.4 with LightTAE. The changes also reach driving-relevant perception proxies: LET-AP falls from 0.400 to 0.376 and lane F1 from 0.828 to 0.813. The table therefore supports a quality-versus-speed tradeoff, although it does not measure downstream policy degradation.",
+      "caution": "Table 5 contains no paired decoder latency measurements, so it cannot quantify the speed gained per unit of quality lost. Preserve the LightTAE table label and disclose the conflicting LightVAE wording instead of silently harmonizing them.",
+      "evidenceIds": [
+        "e-quality",
+        "e-decoder",
+        "e-runtime"
+      ]
+    },
+    {
+      "id": "long-context-teacher",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 6",
+      "page": 22,
+      "asset": "report-assets/2606.03159/long-context-teacher.png",
+      "width": 1381,
+      "height": 161,
+      "sourceSha256": "8cd616c033a02efadb62a0564d22981c0dd8ab123db5d207a951a2927d264afa",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03159#page=22",
+      "crop": [
+        0.166,
+        0.174,
+        0.834,
+        0.229
+      ],
+      "alt": "Segmented FVD over four five-second windows for short-context and progressive long-context teachers, plus mean and final-minus-first delta.",
+      "caption": "A longer teacher reduces the growth of rollout error without eliminating it.",
+      "readingGuide": "Read left to right as time advances through a twenty-second generated video. Each five-second segment is compared with the same real front-wide video reference distribution, so the rising numbers expose degradation over the rollout. Compare rows within a window to assess the progressive teacher. The final column, delta, is defined in the caption as final-window FVD minus first-window FVD; it is not an uncertainty estimate. Figure 9 on the preceding page supplies matching qualitative examples with visible shifting artifacts after short-teacher distillation. Section 4.3 explains the intervention as continued distillation using a longer-context bidirectional teacher after the short-context stage.",
+      "takeaway": "The progressive teacher lowers final-window FVD from 409.2 to 268.4 and mean FVD from 240.0 to 179.4. Its final-minus-first gap falls from 299.9 to 172.9. Nevertheless, its first and last windows still differ substantially, at 95.5 and 268.4; improved stability is a narrower conclusion than drift-free generation.",
+      "caution": "The table does not specify its evaluation sample count, confidence intervals or equalized extra training compute. These twenty-second measurements do not quantify the paper's broader claim of maintaining decent quality for minutes.",
+      "evidenceIds": [
+        "e-long",
+        "e-distill"
+      ]
+    },
+    {
+      "id": "closed-loop-incidents",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 13",
+      "page": 25,
+      "asset": "report-assets/2606.03159/closed-loop-incidents.png",
+      "width": 1608,
+      "height": 547,
+      "sourceSha256": "8cd616c033a02efadb62a0564d22981c0dd8ab123db5d207a951a2927d264afa",
+      "sourceUrl": "https://arxiv.org/pdf/2606.03159#page=25",
+      "crop": [
+        0.11,
+        0.101,
+        0.888,
+        0.288
+      ],
+      "alt": "Five grouped bar panels compare NuRec in orange with OmniDreams in green across WAM and three Alpamayo camera configurations; the headline policy ordering is preserved while rates differ.",
+      "caption": "Policy ranking transfers across renderers more closely than absolute incident rates.",
+      "readingGuide": "Use the legend first: orange denotes NuRec and green denotes OmniDreams. Each pair evaluates the same policy, in the order WAM, full Alpamayo 1.5, two-camera Alpamayo and one-camera Alpamayo. The left panel summarizes all incidents; the remaining panels separate front, lateral and rear collisions from offroad events. Their scales differ, and the front-collision and offroad panels contain broken axes, so bar heights cannot be compared across panels. The figure reports means over three trials. The supporting protocol uses 501 compatible scenes, twenty-second rollouts and 533 ms replanning, counting incidents only while the ego stays within four meters of the recorded trajectory.",
+      "takeaway": "Both renderers order the policies from WAM through four-, two- and one-camera Alpamayo. Absolute rates differ: WAM rises from 4.7% all incidents in NuRec to 10.9% in OmniDreams, and full Alpamayo rises from 10.1% to 18.1%. The figure supports ranking agreement in this setup, rather than numerical interchangeability.",
+      "caution": "The plot provides no error bars despite averaging trials. The trajectory gate and compatible-scene subset restrict the inference. This figure is distinct from the 574-scene, 10 Hz collision comparison and supplies no direct real-road safety validation.",
+      "evidenceIds": [
+        "e-eval-protocol",
+        "e-incidents",
+        "e-wam-eval"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Follow an action through the simulator before interpreting its video",
+      "text": "The controlling input is a trajectory translated into camera-aligned world-scenario renders. Static map lines and actor cuboids constrain the scene, while text and the first RGB image constrain appearance. AlpaSim chooses the ego and traffic trajectories, interpolates them over the requested chunk and sends the corresponding conditions to the video service. OmniDreams then synthesizes observations using the recent visual cache and returns them to the policy loop. This separates the learned image-generation problem from the services that update abstract state. Reader interpretation: the model's causal attention makes streaming possible, but the operational feedback boundary is the chunk, not each rendered frame. A policy cannot revise a committed trajectory halfway through a generated chunk without invalidating its observations. That distinction is essential when interpreting the throughput table.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-controls",
+        "e-model",
+        "e-serving",
+        "e-speed"
+      ]
+    },
+    {
+      "heading": "Distinguish causal training, exposure-bias correction and deployment speed",
+      "text": "Converting the bidirectional Cosmos model to causal attention changes which context it can use. Diffusion Forcing trains with independent frame noise levels, but the resulting student still encounters its own imperfect history during deployment. Self Forcing addresses that mismatch by training on generated rollouts; the DMD objective uses frozen real and learned fake score networks, while gradients through historical cached embeddings are stopped. Continued training with a longer bidirectional teacher targets artifacts that emerge when generation outlasts the shorter teacher's context. Table 6 supports reduced degradation across twenty seconds, although it also shows remaining drift. Deployment then makes another tradeoff: fast LightTAE decoding loses quality relative to the original VAE. Reader interpretation: the strongest quality number, the longest-horizon claim and the fastest throughput should not be combined into one unqualified configuration claim.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-causal",
+        "e-distill",
+        "e-long",
+        "e-runtime",
+        "e-decoder",
+        "e-speed"
+      ]
+    },
+    {
+      "heading": "Separate learning to render from learning to choose a trajectory",
+      "text": "The WAM experiment begins with a causal single-view checkpoint before map-control finetuning, then adds visual conditioning and an ego-history token. That token can read current and previous video tokens and feeds a separate flow-matching trajectory MLP. Training combines video and trajectory denoising losses, but policy inference runs the DiT once and samples only the trajectory head. The model therefore benefits from a video-trained representation without rendering candidate futures for planning. The 574-scene experiment reports lower collision at ten-hertz replanning; the 501-scene experiment instead compares policy ordering across two renderers at a slower chunk cadence. Reader interpretation: the former is evidence for a useful policy backbone, while the latter tests a simulator's evaluation behavior. Neither alone proves that joint video/action training causes the gain or that simulation ranks policies correctly on real roads.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-wam",
+        "e-wam-eval",
+        "e-eval-protocol",
+        "e-incidents"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does teacher context help beyond simply training longer?",
+      "text": "Reader-proposed experiment: branch the same short-teacher student into two continued-distillation runs, one retaining the short teacher and one using the longer teacher. Match the 58k-video mixture, update count, optimizer, two-step schedule, cache window, decoder and seeds; report training compute as well. Generate identical held-out twenty-second scenarios and measure all four segmented FVD windows against one fixed reference distribution. A persistent reduction in final-minus-first FVD under these controls would support the context explanation; a gain that vanishes with matched training would weaken it. Repeat across seeds and report variability.",
+      "evidenceIds": [
+        "e-distill",
+        "e-runtime",
+        "e-long"
+      ]
+    },
+    {
+      "title": "Does ranking agreement survive a test of incident calibration?",
+      "text": "Reader-proposed experiment: repeat the 501-scene, twenty-second comparison using the same policy checkpoints, 533 ms replanning, initial states, traffic/physics services and camera subsets for both renderers. Pair scenes and seeds, retain the original four-meter incident gate, and measure both policy ranking and per-policy incident-rate differences with paired uncertainty estimates. As a separately labeled sensitivity analysis, also count events without the gate and stratify by trajectory deviation. Stable ranking with large systematic rate shifts would support comparative selection but challenge absolute-risk calibration; changed rankings would narrow even the selection claim. Do not pool these results with the 574-scene protocol.",
+      "evidenceIds": [
+        "e-eval-protocol",
+        "e-incidents",
+        "e-deviation",
+        "e-wam-eval"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      30
+    ],
+    "notes": "The title and corporate byline on p. 1 and research contributors on p. 30 were visually verified. Figures 1–15 and Tables 1–6 were inspected on the original PDF pages, along with the method, training, inference and evaluation text supporting retained claims. All six final crops were separately opened and inspected. Figure 4's layer-order conflict and the Table 5/Section 9.1 decoder-name conflict are preserved. Static figure panels were reviewed; linked videos, code, external releases and separate supplements were not inspected. Contents, remaining related-work/conclusion pages, references and the glossary were read as supplied text but were not visually inspected; no additional numerical or implementation claims rely on those pages."
+  },
+  "featuredResultTask": "Real-time camera generation"
+}
