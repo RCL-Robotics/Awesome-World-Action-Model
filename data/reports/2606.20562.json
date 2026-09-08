@@ -1,0 +1,411 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.20562",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T14:17:16.537Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.20562",
+      "title": "MemoryWAM: Efficient World Action Modeling with Persistent Memory",
+      "kind": "pdf",
+      "sha256": "a2beffa47141bcc8d5593d0eb50be681ee286a75f543848cef86e7f56d310c8a",
+      "wordCount": 7534,
+      "accessedAt": "2026-09-07T13:58:50.828762+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and abstract (p. 1)",
+      "1 Introduction (p. 2)",
+      "2 Related Work (p. 3)",
+      "3 Method, including 3.1–3.3 (pp. 3–5)",
+      "4 Experiments, including 4.1–4.5 (pp. 6–9)",
+      "5 Conclusion and limitations (p. 9)",
+      "References (pp. 10–13)",
+      "A.1 Implementation Details (p. 14)",
+      "A.2 Real-World Experiment Details (pp. 14–15)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction-only figure omission above was addressed by inspecting the retained PDF's Figures 1–6 and Tables 1–3; reference-list pages were read as text, not rendered.",
+      "Identity verified against the title page: arXiv:2606.20562v1, 18 June 2026. The title and all eleven authors agree with the catalog; no different revision was supplied. The catalog affiliation string contains a stray '1mm'; metadata retains only the three institutions visible on the title page.",
+      "No code, project website, or separate supplement was inspected, and no experiments were reproduced. All five supplied text chunks were read, including the full appendix."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1): overview",
+      "Figure 2 (p. 4): architecture",
+      "Figure 3 (p. 5): attention mask",
+      "Figure 4 (p. 7): memory comparison",
+      "Figure 5 (p. 8): real-world tasks",
+      "Figure 6 (p. 14): hardware"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 8): RMBench",
+      "Table 2 (p. 8): real-world trials",
+      "Table 3 (p. 9): memory ablation"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "MemoryWAM compresses older visual history into per-frame gist tokens while retaining full initial and recent observations. A video/action mixture of transformers learns with both prediction targets, then executes action chunks without generating future video. Its strongest evidence concerns memory-dependent manipulation and the efficiency of its cache design.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "A robot may need an earlier cue after it disappears or becomes occluded. Recent-frame policies forget that cue; full-history attention preserves it with growing cost. MemoryWAM seeks persistent context with a smaller storage and retrieval burden.",
+    "kind": "source",
+    "evidenceIds": [
+      "E02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The hybrid cache assigns different fidelity to task-onset observations, recent interaction, and older history, with an attention mask that permits old visual KVs to be evicted while retaining their gist KVs.",
+      "kind": "source",
+      "evidenceIds": [
+        "E04"
+      ]
+    },
+    {
+      "text": "The paper studies efficiency, executed manipulation, and memory-component ablations, supporting a useful tradeoff rather than demonstrating lossless history compression.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E07",
+        "E09",
+        "E10",
+        "E11"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current and historical RGB observations; RMBench combines head and both wrist cameras.",
+      "Language instruction and proprioception; RMBench state vectors have 14 joint dimensions.",
+      "Accumulated hybrid KV cache; Swap T additionally uses action history."
+    ],
+    "outputs": [
+      "A 16-step chunk of robot actions; RMBench actions are 14-dimensional joint vectors.",
+      "Video predictions during training and updated visual/gist KV representations during deployment."
+    ],
+    "steps": [
+      {
+        "name": "Encode and couple modalities",
+        "detail": "A causal video VAE converts observations into latents for the pretrained Wan2.2-TI2V-5B video DiT. A separate approximately 1B action DiT yields an approximately 6B MoT system. Both experts have 30 blocks; action weights are initialized by interpolating pretrained video weights. Proprioception is appended to the action expert's text context.",
+        "evidenceIds": [
+          "E03",
+          "E05"
+        ]
+      },
+      {
+        "name": "Retain detail selectively",
+        "detail": "Keep full visual tokens for two initial anchor frames and four recent frames. The anchors are fixed task-onset observations, not outputs of a learned event detector. Add eight learnable gist tokens per frame; gist tokens attend to their frame and historical context. Their cached representations persist after older full-frame KVs are evicted.",
+        "evidenceIds": [
+          "E04",
+          "E05",
+          "E14"
+        ]
+      },
+      {
+        "name": "Align representation and visibility",
+        "detail": "RMBench's three views form a 384×320 mosaic producing 120 latent visual tokens per frame after patchification. Gist positions share the video's 3D RoPE coordinates with fixed spatial markers, and action queries use the same positional basis. The training mask exposes the hybrid history that inference will retain.",
+        "evidenceIds": [
+          "E05",
+          "E06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Both branches use continuous flow matching with 1000 training timesteps. Video/action logit-normal shifts are 5.0/1.0; their scheduler-reweighted MSE losses have equal weights. Interleaved clean/noisy sequences train under the hybrid mask. Every clean video conditioning latent is mixed with Gaussian noise using a uniformly sampled ratio in [0,1].",
+        "kind": "source",
+        "evidenceIds": [
+          "E06"
+        ]
+      },
+      {
+        "text": "AdamW uses learning rate 2×10^-4, weight decay 0.01, β=(0.9,0.95), eight GPUs, and batch size one per GPU. Training uses bfloat16, FSDP, blockwise activation checkpointing, and clipping at 1.0. Appendix exceptions matter: Swap T includes action history, and Observe and Pick Up adds RoboTwin pretraining. Other tasks omit those additions; the video backbone remains pretrained.",
+        "kind": "source",
+        "evidenceIds": [
+          "E05",
+          "E06",
+          "E13"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Process the current clean latent through the video DiT once, then iteratively denoise the action chunk against cached visual features: 50 steps in simulation, 10 in the real world. Video generation is disabled. Execute all 16 actions, sample new mosaics at sub-steps {3,7,11,15}, append them to the observation buffer, re-encode, and update memory before the next chunk.",
+        "kind": "source",
+        "evidenceIds": [
+          "E03",
+          "E14"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "C^v_{\\leq t}=C^v_{\\mathrm{short}}\\cup C^v_{\\mathrm{anchor}}\\cup C^v_{\\mathrm{gist}}",
+        "explanation": "Equation (4): the video-side cache at time t combines recent observations, task-onset anchors, and compressed historical gist representations.",
+        "evidenceIds": [
+          "E04"
+        ]
+      },
+      {
+        "expression": "a_{t:t+h-1}=\\Phi_a\\!\\left(x^a_\\tau,l;C^v_{\\leq t}\\right)",
+        "explanation": "Equation (3): action DiT Φ_a predicts a horizon-h action chunk from noisy action tokens x^a_τ at diffusion time τ, instruction l, and the video cache. This summarizes denoising, not a one-step actuator command.",
+        "evidenceIds": [
+          "E03",
+          "E14"
+        ]
+      },
+      {
+        "expression": "d=\\frac{L}{M}=15,\\qquad |C^v_{\\mathrm{gist}}|=O(NM)=O\\!\\left(\\frac{NL}{d}\\right)",
+        "explanation": "Equation (6): N is the number of frames, L=120 visual tokens per frame, M=8 gist tokens, and d their compression ratio. The factor concerns long-term cache tokens; anchors, recent frames, and model weights still consume memory. Growth remains linear in trajectory length.",
+        "evidenceIds": [
+          "E04",
+          "E05"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RMBench nine-task average",
+      "setting": "50 expert demonstrations per task; success over 100 rollouts per task, with task-specific appendix additions.",
+      "metric": "Average task success rate",
+      "value": "83.0%",
+      "comparison": "LingBot-VA 78.2%; π0.5 10.4%; FastWAM 5.9%.",
+      "interpretation": "The reported margin over LingBot-VA is 4.8 percentage points. MemoryWAM ties or leads each row, but Observe and Pick Up remains 27% and Battery Try 41%. The separate no-pretraining Observe and Pick Up comparison is only 5% versus 3%.",
+      "evidenceIds": [
+        "E08",
+        "E09",
+        "E13"
+      ]
+    },
+    {
+      "task": "Press Button memory-mechanism comparison",
+      "setting": "WAM memory variants on RMBench; accompanying efficiency curves measure a single layer and single pass.",
+      "metric": "Task success rate",
+      "value": "87%",
+      "comparison": "Full attention 87%, TTT 67%, RNN 78%.",
+      "interpretation": "Hybrid matches full-attention success with lower plotted latency and memory over long histories. These curves do not measure complete action-chunk latency.",
+      "evidenceIds": [
+        "E07"
+      ]
+    },
+    {
+      "task": "Shell Game",
+      "setting": "Physical ARX dual-arm setup; 50 demonstrations and 20 evaluation trials.",
+      "metric": "Successful trials",
+      "value": "18/20",
+      "comparison": "LingBot-VA 13/20; π0.5 5/20.",
+      "interpretation": "This measures executed cup selection after swaps. The authors attribute some baseline failures to slow observation updates; memory fidelity and deployment latency are not isolated.",
+      "evidenceIds": [
+        "E10",
+        "E15"
+      ]
+    },
+    {
+      "task": "Look and Press",
+      "setting": "Physical button-counting task; 100 demonstrations and 20 evaluation trials.",
+      "metric": "Successful trials",
+      "value": "15/20",
+      "comparison": "LingBot-VA 14/20; π0.5 0/20.",
+      "interpretation": "The advantage over the full-history baseline is one trial; the source supplies no uncertainty estimate.",
+      "evidenceIds": [
+        "E10",
+        "E15"
+      ]
+    },
+    {
+      "task": "Hybrid-memory component ablation",
+      "setting": "Cover Blocks and Press Button on RMBench; Table 3 reports task rates without separately restating the trial count.",
+      "metric": "Success rate: Cover Blocks / Press Button; two-task average",
+      "value": "98% / 87%; 92.5% average",
+      "comparison": "No anchors: 58%/90%; no gist: 75%/5%; no sliding window: 96%/69%; full attention: 96%/87%.",
+      "interpretation": "Gist removal has the largest average loss, but component effects depend on the task. Removing anchors improves Press Button by 3 percentage points. Hybrid's average gain over full attention is only 1 point.",
+      "evidenceIds": [
+        "E11"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify weak semantic understanding and reasoning inherited from video diffusion models.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "E12"
+      ]
+    },
+    {
+      "text": "Persistent gist storage still grows with episode length. The 15× token ratio is neither constant-memory inference nor a measured 15× reduction in total GPU memory.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E04",
+        "E07"
+      ]
+    },
+    {
+      "text": "The ablation prose overgeneralizes component benefits: anchors hurt the reported Press Button rate, and full attention ties hybrid there. Small gains have no reported seed variation or confidence intervals; two real-world tasks do not establish broad robotic generalization.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E10",
+        "E11"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires matching the pretrained backbone, camera mosaics, flow schedules, positional conventions, visibility mask, cache eviction, and task-specific training additions. The source gives no total training steps, training GPU model, software versions, or explicit frozen-module policy.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E05",
+        "E06",
+        "E13",
+        "E14"
+      ]
+    },
+    {
+      "text": "Physical deployment additionally requires the ARX/gripper and D455 setup, 256×352 inputs, and the reported demonstrations. One RTX 4090 runs 10-step action denoising; control is 10 Hz within chunks with approximately 0.3 seconds between chunks. Timing comparisons should preserve this feedback schedule.",
+      "kind": "source",
+      "evidenceIds": [
+        "E14",
+        "E15"
+      ]
+    },
+    {
+      "text": "Proposed checks should separate cache retention from information availability and end-to-end timing: repeat task-specific ablations with matched seeds, then test cache cost over increasing history length. Neither check was performed for this report.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E07",
+        "E11",
+        "E14"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "WAM, persistent memory, and efficient inference are supported. The architecture is specifically a coupled video/action MoT; two experts alone do not establish a hierarchical Dual-system, which the conclusion lists as future work. Prediction is joint video/action learning during training but action-only denoising from cached observations at inference, without generated-future inverse dynamics. 'Other mechanisms' and 'Outside quadrants' are plausible under an inference-based taxonomy, but the entire recorded classification is not unambiguously verified by this architecture.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E12",
+        "E14"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Memory & long-horizon modeling",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "e3ebbdc86d14b22d6a30ff90455af922b1e8f28d9677adb1216fb23cd4dc4ef0"
+    }
+  },
+  "discussionQuestions": [
+    "Would cue placement later in an episode reduce the benefit of fixed initial anchors?",
+    "Does hybrid memory still outperform full attention when observation timing and inference latency are matched?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "E01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block and arXiv margin",
+      "detail": "The title is MemoryWAM: Efficient World Action Modeling with Persistent Memory; the artifact is arXiv:2606.20562v1 [cs.RO], 18 June 2026. Eleven authors match the catalog, with Sizhe Yang and Juncheng Mu marked equal contributors. Affiliations are The Chinese University of Hong Kong, Tsinghua University, and Zhejiang University."
+    },
+    {
+      "id": "E02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Section 1 and Section 3.1, Eq. (1)",
+      "detail": "The problem is memory-dependent manipulation: a bounded recent-observation policy cannot access older task cues, while caching every past observation increases latency and GPU memory with trajectory length."
+    },
+    {
+      "id": "E03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2/caption, Section 3.2, Eqs. (2)–(3)",
+      "detail": "A causal video VAE feeds a video DiT coupled to a separate action DiT in a mixture-of-transformers architecture. Video prediction supplies training supervision; inference processes a clean observation latent once to update the video KV cache and denoises actions against cached representations."
+    },
+    {
+      "id": "E04",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.3, Figure 3/caption, Eqs. (4)–(7)",
+      "detail": "Hybrid memory combines recent and initial anchor-frame tokens with per-frame gist tokens. Old non-anchor, non-recent visual KVs are evicted; their gist KVs remain. Figure 3 has query rows and key columns: final-frame queries retain access to the anchor and the middle frame's gist but not its full visual tokens. With L=120 and M=8, d=L/M=15; long-term token storage is O(NM), not constant in N."
+    },
+    {
+      "id": "E05",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, Model architecture",
+      "detail": "The backbone is Wan2.2-TI2V-5B with T5 and a causal VAE; a 30-block, approximately 1B action expert is initialized by hidden-dimension interpolation from the video DiT, giving approximately 6B total parameters. RMBench uses a 384×320 three-camera mosaic, 120 visual tokens per latent frame, 14-dimensional state/action vectors, horizon 16, two initial frames, four recent frames, and eight gist tokens per frame. Proprioception enters the action expert's text context; gist/video/action positions share the specified 3D RoPE basis."
+    },
+    {
+      "id": "E06",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, Training setup",
+      "detail": "Both branches use continuous flow matching with 1000 training timesteps and logit-normal shifts of 5.0 for video and 1.0 for actions. Interleaved clean/noisy sequences use the hybrid visibility mask. All clean video conditioning latents are mixed with Gaussian noise at a uniformly sampled ratio in [0,1]. Equally weighted, scheduler-reweighted video/action MSE losses are optimized with AdamW at 2×10^-4 on eight GPUs, batch size one per GPU."
+    },
+    {
+      "id": "E07",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.2 and Figure 4(a–c)/caption",
+      "detail": "Efficiency curves measure one layer and one forward pass as sequence length varies. TTT/RNN modules augment sliding-window attention by additive outputs. Hybrid memory stays below their latency and memory curves through the reported 1600-frame range. Figure 4(c) reports Press Button success: full attention 87%, TTT 67%, RNN 78%, hybrid 87%."
+    },
+    {
+      "id": "E08",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.3, Simulation Experiments",
+      "detail": "RMBench has nine dual-arm, memory-dependent tasks. The stated protocol trains each method with 50 expert demonstrations per task and evaluates success over 100 rollouts. The compared models are π0.5, FastWAM, LingBot-VA, and MemoryWAM."
+    },
+    {
+      "id": "E09",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1, all task rows and Average row; adjoining Section 4.3 continuation",
+      "detail": "Average success is 83.0% for MemoryWAM, 78.2% for LingBot-VA, 5.9% for FastWAM, and 10.4% for π0.5. MemoryWAM's rows are 27%, 100%, 100%, 100%, 94%, 41%, 100%, 98%, and 87% in printed task order. LingBot-VA scores 13% on Observe and Pick Up, 79% on Cover Blocks, and 84% on Press Button. The reported average margin over LingBot-VA is 4.8 percentage points."
+    },
+    {
+      "id": "E10",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.4, Figure 5 and Table 2, both task rows",
+      "detail": "Shell Game requires identifying the cup over a cube after human swaps; Look and Press requires remembered button counts followed by a completion press. Table 2 reports MemoryWAM 18/20 and 15/20, LingBot-VA 13/20 and 14/20, and π0.5 5/20 and 0/20, respectively. The authors attribute some LingBot-VA Shell Game failures to missing swaps during slow inference."
+    },
+    {
+      "id": "E11",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 4.5 and Table 3, Cover Blocks/Press Button/Average rows",
+      "detail": "Removing anchor or recent full-frame tokens substitutes gist tokens; removing gist tokens removes long-term gist memory. Cover Blocks scores 58/75/96/96/98 percent for no anchors/no gist/no sliding window/full attention/hybrid; Press Button scores 90/5/69/87/87 percent. Averages are 74.0/40/82.5/91.5/92.5 percent. The prose's general degradation claim has a task-level exception: no anchors exceeds hybrid on Press Button."
+    },
+    {
+      "id": "E12",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5, Limitations and future work",
+      "detail": "The authors identify limited semantic understanding and reasoning inherited from video diffusion models, and suggest incorporating dual-system architectures or unified models as future directions."
+    },
+    {
+      "id": "E13",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A.1, Training setup",
+      "detail": "Training uses bfloat16, FSDP, activation checkpointing on every DiT block, and gradient clipping at 1.0. Swap T additionally uses action history; Observe and Pick Up uses RoboTwin pretraining. Other tasks omit these additions. The separate Observe and Pick Up comparison without pretraining gives MemoryWAM 5% and LingBot-VA 3%."
+    },
+    {
+      "id": "E14",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A.1, Inference protocol",
+      "detail": "Each transformer block caches the first two and four most recent clean frames, plus eight gist tokens from every past frame, which are never evicted. The policy executes all 16 predicted actions, samples mosaics at sub-step indices {3,7,11,15}, appends them to the observation buffer, re-encodes with the VAE, prefills memory, and denoises the next action chunk. Action denoising uses 50 steps in simulation and 10 in the real world; video generation is disabled."
+    },
+    {
+      "id": "E15",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–15, Appendix A.2, Hardware Setup and Imitation Learning Details; Figure 6",
+      "detail": "The platform has ARX dual arms with parallel grippers and a RealSense D455 RGB camera. Shell Game has 50 demonstrations; Look and Press has 100, with numbers from 1 to 5. Inputs are cropped/resized to 256×352, deployment uses one NVIDIA RTX 4090, and control runs at 10 Hz within chunks with approximately 0.3 seconds of inter-chunk latency."
+    }
+  ]
+}
