@@ -1,0 +1,523 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-10cfc9a9bb6b6f4993db",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T20:29:27.335Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2508.10104",
+      "title": "DINOv3",
+      "kind": "pdf",
+      "sha256": "c68dc50b1f73e1641a592f777984fc360759e84b7fe65ac4f6e1377927f20b2e",
+      "wordCount": 34553,
+      "accessedAt": "2026-09-07T14:07:26.357590+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "identityVerified": true,
+    "appendix": "reviewed",
+    "sectionsRead": [
+      "Title and abstract; Sections 1–2: introduction and related work",
+      "Sections 3.1–3.2: data preparation, architecture and self-supervised pretraining",
+      "Sections 4.1–4.3: dense-feature degradation, Gram anchoring and higher-resolution targets",
+      "Sections 5.1–5.3: resolution adaptation, distillation and text alignment",
+      "Sections 6.1.1–6.1.6: dense probing, correspondence, object discovery, tracking and video classification",
+      "Sections 6.2.1–6.2.2: global classification and retrieval",
+      "Sections 6.3.1–6.3.4: detection, segmentation, depth and VGGT systems",
+      "Sections 7.1–7.3: distilled ViTs, ConvNeXts and dino.txt",
+      "Sections 8.1–8.3: satellite pretraining and geospatial evaluations",
+      "Sections 9–10: environmental impact and conclusion",
+      "References, PDF pp. 38–52",
+      "Appendices A.1–A.2, B.1–B.5, C and D.1–D.13, including Table 28 on p. 67"
+    ],
+    "omissions": [
+      "Identity/version note: the inspected title page identifies DINOv3, arXiv:2508.10104v1 [cs.CV], 13 August 2025, with all 26 catalog authors. The catalog records a 2026 TMLR publication; that venue edition and any intervening revisions were not supplied or compared. This report describes the supplied v1 only.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "The preceding acquisition limitation was addressed for the retained claims by inspecting original PDF pages and all six final crops. Visual inspection was selective; the complete 67-page text, including references and appendices, was read in all 20 supplied chunks.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Code, linked datasets and configuration files were not inspected; no training, evaluation or reproduction experiments were run."
+    ],
+    "figuresReviewed": [
+      "Figure 5 (p. 10)",
+      "Figure 6 (p. 11)",
+      "Figure 7 (p. 12)",
+      "Figure 8 (p. 13)",
+      "Figures 9–10 (p. 14)",
+      "Figure 11 (p. 15)",
+      "Figure 12 (p. 16)",
+      "Figure 16 (p. 30)",
+      "Figure 19 (p. 36)",
+      "Figure 20 (p. 54)",
+      "Figure 22 (p. 62)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (pp. 8–9)",
+      "Table 3 (p. 19)",
+      "Table 6 (p. 23)",
+      "Tables 7–9 (p. 24)",
+      "Tables 10–12 (pp. 26–28)",
+      "Table 14 (p. 30)",
+      "Tables 16–17 (pp. 33–34)",
+      "Tables 19–20 (p. 36)",
+      "Tables 23–24 (p. 57)",
+      "Tables 25–26 (p. 58)"
+    ]
+  },
+  "synopsis": "DINOv3 scales self-supervised image encoding while repairing the dense features that deteriorate during long training. Its Gram anchoring loss transfers patch-similarity structure from an earlier teacher, followed by resolution adaptation and distillation. The resulting frozen features support strong dense probes and trained downstream systems. The contribution is reusable visual representation learning; action selection and predictive environment dynamics are outside the demonstrated system.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "A global image descriptor can improve while spatial patch representations become less useful. During extended ViT training, classification rises while VOC segmentation declines after roughly 200k iterations; patch-similarity maps become noisy despite register tokens controlling patch norms. DINOv3 asks how to scale data, model capacity and training duration without sacrificing local consistency. This matters whenever downstream systems need both object identity and spatial correspondence from the same encoder.",
+    "kind": "source",
+    "evidenceIds": [
+      "e05",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A curated web-image mixture and a custom ViT-7B make large-scale discriminative self-supervision practical, using constant optimization hyperparameters after warmup.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04"
+      ]
+    },
+    {
+      "text": "Gram anchoring constrains pairwise patch similarities while allowing individual feature vectors to evolve; higher-resolution teacher features further improve dense probing.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e07"
+      ]
+    },
+    {
+      "text": "Resolution adaptation and shared-teacher distillation yield a family of smaller encoders. Separate text alignment and satellite pretraining extend the recipe beyond the initial web-image model.",
+      "kind": "source",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e11",
+        "e18",
+        "e19"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Image crops for self-supervised pretraining; unmasked global views for the EMA teacher and partially masked global views plus local views for the student",
+      "At deployment, images supplied to a selected pretrained encoder; labels or paired captions are required when training the corresponding downstream heads or text-alignment extension"
+    ],
+    "outputs": [
+      "Global CLS descriptors and spatial patch features",
+      "Task predictions from additional probes or decoders; optional aligned image/text embeddings"
+    ],
+    "steps": [
+      {
+        "name": "Curate and sample",
+        "detail": "From approximately 17 billion Instagram images, DINOv2 embeddings and hierarchical clustering produce the 1,689-million-image background subset. Retrieval-curated images and public vision datasets complement it. ImageNet1k-only homogeneous batches occupy 10% of training; other iterations mix the remaining components.",
+        "evidenceIds": [
+          "e02"
+        ]
+      },
+      {
+        "name": "Learn global and local representations",
+        "detail": "The 6.7B-parameter backbone has 40 blocks, 4096-dimensional embeddings, 16-pixel patches, four registers and RoPE with coordinate-box jittering. Separate heads implement DINO class-token matching and iBOT masked-patch latent reconstruction. Sinkhorn–Knopp target normalization and distributed KoLeo regularization help stabilize the representation.",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      },
+      {
+        "name": "Anchor spatial relationships",
+        "detail": "After 1M initial iterations, introduce a separate Gram teacher initialized from an early checkpoint. Match its within-image patch-similarity matrix on global crops while continuing the other objectives. Refresh the Gram teacher from the main EMA teacher every 10k steps, for at most three updates. The higher-resolution variant forwards twice-resolution images through this teacher and bicubically downsamples its features to the student grid.",
+        "evidenceIds": [
+          "e06",
+          "e07",
+          "e04"
+        ]
+      },
+      {
+        "name": "Adapt resolution and distribute capacity",
+        "detail": "The flagship undergoes 10k additional mixed-resolution iterations with Gram anchoring. Smaller students instead learn from a fixed 7B teacher, without Gram anchoring, for 1M iterations followed by a 250k cosine cooldown and high-resolution adaptation. Multiple GPU groups share teacher outputs, then train their respective students separately.",
+        "evidenceIds": [
+          "e09",
+          "e10"
+        ]
+      },
+      {
+        "name": "Optional text alignment",
+        "detail": "Train a text encoder contrastively against captions while freezing the vision backbone. Two added visual transformer layers provide flexibility; concatenate mean-pooled patch embeddings with the CLS token for matching to text. This is an additional paired-data stage, separate from image-only backbone pretraining.",
+        "evidenceIds": [
+          "e11"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Initial training uses AdamW, 4096 images over 256 GPUs, two 256-pixel global crops and eight 112-pixel local crops. Appendix C specifies learning rate 0.0004, 100k-step warmup, weight decay 0.04 and teacher EMA factor 0.999. The student uses both crop types; the EMA teacher sees only global crops. Gram loss weight is 2.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "text": "The separate satellite model uses SAT-493M Maxar RGB imagery, adapted normalization and a shorter schedule. This demonstrates reuse of the training recipe with domain-specific data, rather than a single unchanged web checkpoint covering every experiment.",
+        "kind": "source",
+        "evidenceIds": [
+          "e19"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The encoder produces features in a forward pass. Classification uses CLS features; dense probes use normalized patch outputs, with trained batch normalization and a linear predictor. Gram anchoring is a training objective and requires no extra teacher at deployment. Detection and segmentation add trained decoders; VGGT explicitly fine-tunes its image backbone.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e12",
+          "e13",
+          "e14",
+          "e16",
+          "e17"
+        ]
+      },
+      {
+        "text": "Final-layer normalization suppresses feature-dimension outliers. Applying that same learned normalization to intermediate layers can hurt some tasks; Appendix A.2 recommends appropriate feature scaling for those layers.",
+        "kind": "source",
+        "evidenceIds": [
+          "e21"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{Pre}}=\\mathcal{L}_{\\mathrm{DINO}}+\\mathcal{L}_{\\mathrm{iBOT}}+0.1\\mathcal{L}_{\\mathrm{DKoleo}}",
+        "explanation": "Equation (1) combines image-level self-distillation, masked-patch latent reconstruction and the distributed KoLeo feature-spreading regularizer. These are representation-learning objectives.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{Gram}}=\\left\\|X_S X_S^{\\top}-X_G X_G^{\\top}\\right\\|_F^2",
+        "explanation": "In Equation (2), X_S and X_G are P-by-d matrices of L2-normalized student and Gram-teacher patch features; P is the patch count and d the feature dimension. Their products contain pairwise patch cosine similarities. The squared Frobenius norm penalizes differences between these spatial relationships.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{Ref}}=w_D\\mathcal{L}_{\\mathrm{DINO}}+\\mathcal{L}_{\\mathrm{iBOT}}+w_{DK}\\mathcal{L}_{\\mathrm{DKoleo}}+w_{\\mathrm{Gram}}\\mathcal{L}_{\\mathrm{Gram}}",
+        "explanation": "Equation (3) retains the original objectives with loss weights w_D, w_DK and w_Gram. Appendix C gives w_Gram=2 but does not enumerate all remaining refinement settings, referring readers to configuration files.",
+        "evidenceIds": [
+          "e06",
+          "e04",
+          "e23"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Dense linear probing",
+      "setting": "Frozen final-layer features with trained normalization and linear heads on ADE20k, Cityscapes, VOC, NYUv2 and KITTI. Segmentation inputs have 1,024 patch tokens; D.1–D.2 do not explicitly name evaluation splits.",
+      "metric": "Segmentation mIoU ↑; depth RMSE ↓",
+      "value": "55.9 / 81.1 / 86.6 mIoU; 0.309 / 2.346 RMSE.",
+      "comparison": "DINOv2: 49.5 / 75.6 / 83.1; 0.372 / 2.624. AM-RADIOv2.5: 53.0 / 78.4 / 85.4; 0.340 / 2.918.",
+      "interpretation": "Table 3 supports improved dense features under lightweight supervised probes, with no reported repeated-run uncertainty. Its Cityscapes values imply a 2.7-point gain over AM-RADIO; nearby prose says 2.5.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Gram teacher and resolution ablation",
+      "setting": "Figure 9(b), Section 4 refinement comparison; the panel does not state evaluation split names or repeated-run uncertainty.",
+      "metric": "ADE20k mIoU ↑; NYUv2 RMSE ↓; ImageNet linear accuracy ↑",
+      "value": "200k teacher at twice resolution: 55.7 / 0.281 / 88.0.",
+      "comparison": "Baseline: 50.3 / 0.307 / 88.2; same teacher at native resolution: 53.6 / 0.285 / 88.0.",
+      "interpretation": "Higher teacher resolution adds 2.1 mIoU beyond native-resolution anchoring. The dense gain accompanies a small classification reduction; the baseline-to-refinement comparison does not isolate every changed loss weight.",
+      "evidenceIds": [
+        "e07",
+        "e06"
+      ]
+    },
+    {
+      "task": "ImageNet classification and ObjectNet transfer",
+      "setting": "Linear CLS probe trained on ImageNet training data; ImageNet validation selects hyperparameters; transfer to ObjectNet; 1,024 patch tokens.",
+      "metric": "Top-1 accuracy",
+      "value": "ImageNet validation 88.4%; ObjectNet 79.0%.",
+      "comparison": "DINOv2: 87.3% / 66.4%; PEcore: 89.3% / 80.2%.",
+      "interpretation": "Substantial transfer gains over DINOv2 coexist with a remaining gap to PEcore. Separately tabulated supervised models use a different protocol.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "COCO object detection with a frozen backbone",
+      "setting": "Objects365-pretrained Plain-DETR adapter, then COCO training; COCO-VAL2017 evaluation. Simple inference uses a 2048-pixel short side; TTA combines scales and flips.",
+      "metric": "mAP at IoU thresholds 0.50:0.05:0.95",
+      "value": "65.6 simple; 66.1 TTA.",
+      "comparison": "PEspatial + DETA: 65.3 / 66.0; EVA-02 + Co-DETR: 65.4 / 65.9.",
+      "interpretation": "The strongest listed COCO result trains a 100M-parameter detector over a frozen 7B encoder. Different detectors and training recipes prevent attributing the entire margin to the backbone.",
+      "evidenceIds": [
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "task": "ADE20k semantic segmentation with a trained decoder",
+      "setting": "Frozen 7B encoder with modified ViT-Adapter and Mask2Former; COCO-Stuff and Hypersim pretraining, then ADE20k training; validation evaluation at base resolution 896.",
+      "metric": "mIoU",
+      "value": "62.6 single-scale; 63.0 TTA.",
+      "comparison": "ONE-PEACE: 62.0 / 63.0 with backbone fine-tuning.",
+      "interpretation": "Matches the listed TTA leader, but requires 927M trainable decoder/adapter parameters. This is a different protocol from the 55.9 linear-probe result.",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "task": "Open-Canopy canopy-height estimation",
+      "setting": "DPT heads trained and evaluated on Open-Canopy with frozen backbones; the source adapts the patch embedding for RGB plus infrared inputs.",
+      "metric": "MAE ↓",
+      "value": "DINOv3 satellite ViT-7B: 2.02.",
+      "comparison": "Tolan et al. backbone with retrained head: 2.42; DINOv3 web ViT-7B: 2.17.",
+      "interpretation": "Supports domain-specific pretraining for this metric task. Table 17 does not print an MAE unit; no unit or uncertainty is added here.",
+      "evidenceIds": [
+        "e19"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Self-supervision does not eliminate dataset bias: OCR-heavy tasks still expose weaknesses against PEcore, and the fairness evaluation retains substantial income and regional gaps. These are measured limits to the paper's broad versatility claim.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e22"
+      ]
+    },
+    {
+      "text": "Strong visual features and VGGT integration establish perception capabilities, not action-conditioned dynamics or robot execution. VGGT also changes input resolution, learning rate and layer aggregation, so it is not a pure backbone-only comparison.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e17"
+      ]
+    },
+    {
+      "text": "The reported tables largely omit repeated-run uncertainty. Full-system comparisons vary architecture and supervision, while Gram refinement changes an objective mixture; the cleanest resolution contrast is the same 200k teacher at native versus doubled resolution.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e14",
+        "e16"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Full pretraining requires the curated data mixture and distributed training infrastructure. Appendix C specifies fully sharded PyTorch training with bfloat16 and 8-bit matrix multiplications; Table 20 reports 61,440 H100-SXM5 GPU-hours for the 1M-step pretraining entry. This is not the compute budget for the entire research project.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e04",
+        "e20"
+      ]
+    },
+    {
+      "text": "The text leaves all non-ImageNet mixture ratios and some configuration settings unspecified. D.1–D.2 provide probe optimizer sweeps but omit explicit evaluation split names and training duration. Code references do not fill these gaps in the supplied evidence.",
+      "kind": "source",
+      "evidenceIds": [
+        "e23"
+      ]
+    },
+    {
+      "text": "Resolve the detection schedule discrepancy before an exact reproduction: Section 6.3.1 specifies one epoch at Objects365 resolution 2048; Appendix D.9 specifies four. Both then describe 12 COCO epochs. Neither version can be silently preferred.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "text": "A smaller proposed mechanism check should branch one degraded checkpoint into matched continuations with and without Gram loss, using identical data and probe tuning. Test dense recovery together with global accuracy, then compare native- and doubled-resolution teachers. This would test the mechanism without claiming to reproduce the full flagship.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e12"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded foundational-work / visual-encoder classification is supported. DINOv3 learns reusable image descriptors with self-distillation and masked-patch reconstruction. Its student, EMA teacher and Gram teacher are training roles, not a world-model/policy decomposition. There is no action output, inverse-dynamics policy or joint future/action predictor in the proposed encoder. The architecture, prediction-paradigm and quadrant fields are therefore appropriately not applicable to the WAM taxonomy.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e06",
+        "e17"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Visual encoders & representations"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "ada2b7d96a8151ccc504ac7d7bb44864b1a76a0a548ff9e0675b37dee8b1a2f0"
+    }
+  },
+  "discussionQuestions": [
+    "How much of late dense recovery survives when every non-Gram refinement setting is held fixed?",
+    "Can smaller distilled encoders retain the spatial relationships most useful for downstream control, when tested in an actual action-learning system?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block, affiliations and arXiv margin stamp",
+      "detail": "The observed title is DINOv3; 26 named authors and Meta AI Research, WRI and Inria appear. The artifact is arXiv:2508.10104v1, 13 August 2025."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 3.1 and Table 1",
+      "detail": "Data preparation starts from approximately 17 billion Instagram images; hierarchical DINOv2 clustering yields 1,689 million images, supplemented by retrieval and public datasets. ImageNet1k-only batches constitute 10%; Table 1 uses a 200k-step ablation."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 2; p. 10, Updated Model Architecture",
+      "detail": "ViT-7B has 6.7B parameters, 40 blocks, patch size 16, four registers, dimension 4096 and RoPE. Coordinate-box jittering scales the normalized position box with a factor in [0.5, 2]."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 3.2, Eq. (1), Optimization; pp. 57–58, Appendix C",
+      "detail": "DINO, iBOT and distributed KoLeo train the encoder; two global/eight local crops and an EMA teacher supply targets. Batch 4096 spans 256 GPUs. Appendix C specifies masking, optimizer settings, sharding, precision and Gram weight 2 with at most three teacher updates."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Figures 5–6 and Section 4.1",
+      "detail": "Global classification improves during extended training while dense segmentation declines after approximately 200k steps; patch similarities become noisy and less localized despite stable patch norms with registers."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Section 4.2, Eqs. (2)–(3) and Figure 7",
+      "detail": "Gram anchoring matches the pairwise dot products of normalized patch features from the student and an early teacher. It is applied on global crops after 1M iterations; periodic replacement uses the main EMA teacher. The refinement objective reweights DINO and KoLeo and adds Gram loss."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Section 4.3 and Figure 9(a–b)",
+      "detail": "Twice-resolution Gram-teacher features are bicubically downsampled. Figure 9(b) reports baseline 88.2/50.3/0.307, 200k native teacher 88.0/53.6/0.285, 200k doubled teacher 88.0/55.7/0.281, 100k doubled teacher 87.9/55.7/0.284, and 1M doubled teacher 88.1/54.9/0.290 in IN1k/ADE/NYU order."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Figure 8 and adjoining paragraph; p. 14, Figure 10 and caption",
+      "detail": "Refinement improves VOC and ADE20k shortly after it begins. Figure 10 compares cosine-similarity maps before and after high-resolution Gram refinement on 1024-by-1024 inputs; the refined maps are more localized."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Section 5.1 and Figure 11; p. 58, Appendix C, crop-resolution tuples",
+      "detail": "Flagship high-resolution adaptation lasts 10k iterations, samples global sizes 512/768 and multiple local sizes, and retains Gram anchoring. Appendix C specifies the paired crop probabilities and Gram-teacher resolutions."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Section 5.2 and Figure 12",
+      "detail": "Fixed-teacher distillation omits Gram loss, trains students for 1M iterations plus 250k cooldown, then adapts resolution. Figure 12 shares teacher inference across all GPUs, all-gathers samples and outputs, and trains students in separate groups before synchronization."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Section 5.3",
+      "detail": "Text alignment keeps the visual backbone frozen, adds two visual transformer layers, and trains a text encoder with contrastive caption matching using concatenated CLS and mean-pooled patch embeddings."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Table 3 and results text; p. 58, Appendix D.1; p. 59, Appendix D.2",
+      "detail": "Table 3 gives DINOv3 segmentation 55.9/81.1/86.6 and depth RMSE 0.309/2.346, alongside DINOv2 and AM-RADIO values. Segmentation uses 1,024 patch tokens. Probe protocols specify final layer norm, learned batch norm and AdamW sweeps. Cityscapes table subtraction gives 2.7 rather than the prose's 2.5 points."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF pp. 23–24, Section 6.2.1 and Table 7; pp. 62–63, Appendix D.7",
+      "detail": "ImageNet-trained CLS probes use validation-based hyperparameter selection and transfer to ObjectNet. Table 7 reports DINOv3 88.4/79.0, DINOv2 87.3/66.4 and PEcore 89.3/80.2 for ImageNet validation/ObjectNet; supervised reference rows have a different protocol."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF pp. 25–26, Section 6.3.1 and Table 10; pp. 63–64, Appendix D.9",
+      "detail": "COCO-VAL2017 detection uses a frozen 7B backbone and a 100M trainable Plain-DETR adapter, Objects365 then COCO training, intermediate layers and global/windowed features. DINOv3 scores 65.6 simple, 66.1 TTA and 66.4 COCO-O mAP. TTA uses flips, eight resolutions and SoftNMS; InternImage COCO-O results are absent."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 26, Section 6.3.1 Implementation; p. 64, Appendix D.9 Training, stages 2–3",
+      "detail": "The main text says one Objects365 epoch at resolution 2048; Appendix D.9 says four. Both specify a subsequent 12-epoch COCO stage."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF pp. 26–27, Section 6.3.2 and Table 11; p. 65, Appendix D.10",
+      "detail": "A modified ViT-Adapter without its injector and Mask2Former consume frozen features. COCO-Stuff/Hypersim/ADE20k training yields 62.6 simple and 63.0 TTA validation mIoU; 927M decoder parameters are trained. ONE-PEACE reports 62.0/63.0 with fine-tuning."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 28, Section 6.3.4 Implementation; p. 66, Appendix D.12",
+      "detail": "VGGT uses the distilled ViT-L and fine-tunes the image backbone. Relative to original VGGT, the reported setup changes image size to 592, learning rate to 0.0001 and aggregation to four intermediate layers."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 30, Figure 16(a) and Table 14",
+      "detail": "The family contains ConvNeXt and ViT students. Figure 16 lists ViT-L at 300M parameters and 721 GFLOPs at resolution 512, versus 6716M and 14515 GFLOPs for ViT-7B. Table 14 gives ViT-L DINOv3 ADE20k 54.9 versus DINOv2 48.8."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 33–34, Sections 8.1–8.2 and Table 17; p. 66, Appendix D.13",
+      "detail": "SAT-493M contains Maxar RGB imagery; satellite training changes normalization and duration. Open-Canopy uses an added infrared channel and a DPT decoder. Table 17 lists MAE 2.02 for satellite 7B, 2.17 for web 7B and 2.42 for the retrained Tolan baseline, without printing units."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 36, Table 20 and whole-project footprint paragraph",
+      "detail": "The 1M-step ViT-7B pretraining entry reports 61,440 H100-SXM5 GPU-hours. Energy/carbon figures are estimates under stated assumptions; the whole-project compute estimate is separately discussed."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 54, Appendix A.2",
+      "detail": "Channel-wise feature outliers can persist after register tokens resolve patch-norm outliers. Final layer norm suppresses them, but using its learned parameters on earlier layers can impair performance; batch normalization or PCA can help."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF p. 57, Appendices B.4–B.5 discussion; p. 58, Tables 25–26",
+      "detail": "DINOv3 improves OCR-heavy classification over DINOv2 but trails PEcore on most listed datasets. The fairness table shows remaining differences between income groups and geographic regions."
+    },
+    {
+      "id": "e23",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 3.1; p. 58, Appendix C and D.1; p. 59, Appendix D.2",
+      "detail": "The text fixes the ImageNet1k batch fraction but does not enumerate all other mixture ratios. Appendix C refers remaining hyperparameters to release configuration files; dense-probe descriptions give optimizer sweeps without explicit split names or training duration."
+    }
+  ]
+}
