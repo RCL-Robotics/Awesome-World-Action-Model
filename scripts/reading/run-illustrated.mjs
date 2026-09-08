@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { ROOT, classificationSnapshot, readJSON, writeJSON, validateReport, updateReadingIndex } from '../lib/reports.mjs';
 import { privateWorkDirectory } from '../lib/paths.mjs';
 import { validateIllustratedReport, validateIllustratedMetadata } from '../lib/illustrated-reports.mjs';
+import { visualReviewSchemaForContext } from '../lib/visual-review-schema.mjs';
 import { DEFAULT_PYTHON, DEFAULT_PDFTOPPM, assertWithin, exists, fileHash, optionalJSON, pngDimensions, publishBundle, publishedReceipt, safeFile, snapshotSource, validateBundle, validateVisualReview, verifyCompletion, verifySource, verifyStoredContext } from '../lib/illustrated-runner.mjs';
 
 const repository = fileURLToPath(ROOT);
@@ -221,7 +222,8 @@ async function independentReview(packet) {
   }
   await writeJSON(join(directory, 'review-context.json'), reviewContext);
   const reviewContextSha256 = await fileHash(join(directory, 'review-context.json'));
-  await copyFile(join(repository, 'schemas/illustrated-visual-review.schema.json'), join(directory, 'receipt.schema.json'));
+  const reviewSchema = visualReviewSchemaForContext(reviewContext, await readJSON(join(repository, 'schemas/illustrated-visual-review.schema.json')));
+  await writeJSON(join(directory, 'receipt.schema.json'), reviewSchema);
   const statusPath = join(runDir, context.paper.id, 'status.json');
   const status = await readJSON(statusPath);
   await writeJSON(statusPath, { ...status, phase: 'visual-review', visualReviewPath: directory });

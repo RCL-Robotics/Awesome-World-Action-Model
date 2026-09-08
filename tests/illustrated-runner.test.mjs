@@ -191,6 +191,8 @@ if (review) {
   await fs.writeFile(path.join(d, review.paperId + '.review-calls'), String(calls));
   await fs.writeFile(path.join(d, review.paperId + '.review-prompt-' + calls), prompt);
   await fs.writeFile(path.join(d, review.paperId + '.review-args-' + calls), JSON.stringify(process.argv));
+  const schemaPath = process.argv[process.argv.indexOf('--output-schema') + 1];
+  await fs.writeFile(path.join(d, review.paperId + '.review-schema-' + calls), await fs.readFile(schemaPath));
   await fs.writeFile('receipt.json', JSON.stringify({ schemaVersion: 1, paperId: review.paperId, sourceSha256: review.sourceSha256, approved: true, identityMatches: true, identityNotes: 'Synthetic fixture title page matches.', images: review.images.map(image => ({ imageId: image.imageId, sha256: image.sha256, legible: true, matchesDescription: true, claimsSupported: true, observedDetail: 'The synthetic diagram contains a rectangle and diagonal line.' })) }));
   console.log(JSON.stringify({ type: 'turn.completed' }));
   process.exit(0);
@@ -292,6 +294,17 @@ test('review policy reaches the independent reviewer with distinct page and crop
   assert.ok(prompt.includes(JSON.stringify(context)), 'The actual reviewer prompt must receive the versioned policy and image roles.');
   const args = JSON.parse(await readFile(join(f.control, 'fixture.review-args-1'), 'utf8'));
   assert.ok(args.includes('read-only'));
+  const suppliedSchema = JSON.parse(await readFile(join(f.control, 'fixture.review-schema-1'), 'utf8'));
+  assert.deepEqual(suppliedSchema.properties.paperId.enum, [context.paperId]);
+  assert.deepEqual(suppliedSchema.properties.sourceSha256.enum, [context.sourceSha256]);
+  assert.deepEqual(suppliedSchema.properties.images.items.properties.imageId.enum, context.images.map(image => image.imageId));
+  assert.deepEqual(suppliedSchema.properties.images.items.properties.sha256.enum, [...new Set(context.images.map(image => image.sha256))]);
+  // Only identity vocabulary is bound; negative scientific judgments stay expressible.
+  delete suppliedSchema.properties.paperId.enum;
+  delete suppliedSchema.properties.sourceSha256.enum;
+  delete suppliedSchema.properties.images.items.properties.imageId.enum;
+  delete suppliedSchema.properties.images.items.properties.sha256.enum;
+  assert.deepEqual(suppliedSchema, await readJSON(join(f.repo, 'schemas/illustrated-visual-review.schema.json')));
   const attachments = args.flatMap((value, index) => value === '--image' ? [args[index + 1]] : []);
   assert.equal(attachments.length, context.images.length);
   for (const [index, path] of attachments.entries()) assert.equal(await fileHash(path), context.images[index].sha256);
