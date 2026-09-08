@@ -1,0 +1,253 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.05468",
+  "shortTitle": "MECo-WAM",
+  "thesis": "MECo-WAM uses temporary geometric guidance and action-weighted relational supervision during training to improve manipulation while retaining the base video-action inference graph.",
+  "standfirst": "A manipulation policy can generate plausible visual futures yet still miss the alignment needed to place one cube on another. MECo-WAM addresses that gap by making geometry a training resource: a frozen visual geometry encoder supervises a third expert, while the deployed video/action experts briefly gain access to current-frame geometric context. That access disappears during training, and the entire geometry branch disappears at inference. The useful question is therefore whether geometric knowledge survives in the retained representations. Read the architecture and attention mask first, then the benchmark results, representation probe and component ablation. The evidence supports modest performance gains, with important uncertainty about their robustness and exact transfer pathway.",
+  "evidenceIds": [
+    "e-problem",
+    "e-architecture",
+    "e-attention",
+    "e-distillation",
+    "e-robotwin",
+    "e-depth",
+    "e-ablation"
+  ],
+  "featuredResultTask": "RoboTwin 2.0 manipulation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2607.05468/architecture.png",
+      "width": 1415,
+      "height": 583,
+      "sourceSha256": "9049c3213a97ff288a58e07c482484fd2703a5cf103ec918b14cca5b1c284461",
+      "sourceUrl": "https://arxiv.org/pdf/2607.05468#page=3",
+      "crop": [
+        0.085,
+        0.067,
+        0.917,
+        0.332
+      ],
+      "alt": "Training diagram with video, action and auxiliary 4D geometry experts; frozen VGGT supplies geometry, while the inference panel retains only video and action experts.",
+      "caption": "Geometry is an additional training pathway that is removed before action inference.",
+      "readingGuide": "Read the left panel from the input boxes upward. Current and future RGB frames supply the video stream; the action chunk supplies the action stream; frozen VGGT encodes frames for geometry supervision. The current anchors remain clean, while dashed noise boxes surround future slots. Predicted video, action and geometry outputs appear above their experts. Cross the vertical divider to see what deployment retains: observation, instruction and robot state condition an action chunk through video/action experts. The purple loss box is schematic. Equation (22) gives the weighted action-aware spatial and temporal losses; the drawing alone does not specify their coefficients.",
+      "takeaway": "The architecture supports an inference-efficiency claim because VGGT, the auxiliary expert and alignment modules are discarded. It also separates predicted training futures from the executable action output used at deployment. Figure 1 reports nearly identical action-chunk latency to Fast-WAM, consistent with this structural change being confined to training.",
+      "caution": "Figure 2 writes an unweighted geometry-loss sum, whereas Equation (22) includes separate coefficients. Their values are not given. This overview also leaves precise parameter sharing and gradient routing between experts unresolved.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-attention",
+        "e-objective",
+        "e-figure-loss",
+        "e-latency"
+      ]
+    },
+    {
+      "id": "attention-mask",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/2607.05468/attention-mask.png",
+      "width": 1187,
+      "height": 863,
+      "sourceSha256": "9049c3213a97ff288a58e07c482484fd2703a5cf103ec918b14cca5b1c284461",
+      "sourceUrl": "https://arxiv.org/pdf/2607.05468#page=4",
+      "crop": [
+        0.517,
+        0.065,
+        0.916,
+        0.289
+      ],
+      "alt": "Training and inference query-key visibility grids. Hatched training cells let future video/action queries read current geometry g_0; future geometry is otherwise isolated.",
+      "caption": "The temporary geometry connection reaches the current observation only.",
+      "readingGuide": "Rows are query slots and columns are keys, as the Q/K labels indicate. A white cell is masked; a colored cell permits attention. Follow the future action rows: they can read the clean visual anchor f_0 and action slots, but their columns for future video are white. Hatched cells appear only in the g_0 column for future video/action queries. They are temporary access to geometry encoded from the current frame, not access to future geometry. The right grid removes geometry and future-video slots. Equations (9–10) describe stochastic read activation, with the implementation reducing its probability from one to zero during the first half of training.",
+      "takeaway": "The mask and caption agree about the causal boundary: future visual or geometric targets do not become action-side context. Deployment retains current visual conditioning and action denoising. Removing the training read edges progressively gives the policy practice operating with the same geometry-free interface it will use at test time.",
+      "caution": "Visibility specifies forward information access, not the complete backward gradient graph. Future geometry remains confined to its branch; the paper does not fully document the parameter sharing and gradient paths that make its losses improve retained video/action features.",
+      "evidenceIds": [
+        "e-attention",
+        "e-implementation",
+        "e-distillation"
+      ]
+    },
+    {
+      "id": "depth-probe",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 4",
+      "page": 5,
+      "asset": "report-assets/2607.05468/depth-probe.png",
+      "width": 1175,
+      "height": 774,
+      "sourceSha256": "9049c3213a97ff288a58e07c482484fd2703a5cf103ec918b14cca5b1c284461",
+      "sourceUrl": "https://arxiv.org/pdf/2607.05468#page=5",
+      "crop": [
+        0.085,
+        0.067,
+        0.48,
+        0.268
+      ],
+      "alt": "Four columns of RGB and depth-probe examples: raw image, Fast-WAM, MECo-WAM and pseudo-ground-truth, with black boxes highlighting local differences.",
+      "caption": "A frozen-feature depth probe tests whether geometry remains decodable after co-training.",
+      "readingGuide": "Compare each example horizontally, beginning with the raw scene at left. The next two columns visualize depth readouts from Fast-WAM and MECo-WAM features; the final column is pseudo-ground-truth generated by VDA. Black rectangles identify local regions the authors emphasize, including boundaries around manipulated objects and nearby structures. The caption specifies a matched DPT-style head using tokens from the final four layers. The probing paragraph further states that the video-action backbones are frozen and auxiliary 4D tokens are excluded. That setup matters: a useful probe must read the representation that survives deployment, rather than obtain geometry directly from the discarded teacher or expert.",
+      "takeaway": "The authors interpret the sharper structures in the MECo-WAM column as evidence that geometry is retained in deployed features. The probe complements task success because it asks a representation question rather than merely repeating a manipulation score. It is qualitative evidence for accessible geometric information.",
+      "caution": "These colors have no numeric depth scale, and the reference is pseudo-ground-truth. No depth-error table, probe-training protocol or statistical uncertainty is supplied. Selected examples cannot establish metric depth accuracy or causally explain the control improvements.",
+      "evidenceIds": [
+        "e-depth"
+      ]
+    },
+    {
+      "id": "robotwin-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 6,
+      "asset": "report-assets/2607.05468/robotwin-results.png",
+      "width": 1181,
+      "height": 650,
+      "sourceSha256": "9049c3213a97ff288a58e07c482484fd2703a5cf103ec918b14cca5b1c284461",
+      "sourceUrl": "https://arxiv.org/pdf/2607.05468#page=6",
+      "crop": [
+        0.085,
+        0.368,
+        0.482,
+        0.537
+      ],
+      "alt": "RoboTwin 2.0 success-rate table with pretraining indicators and clean, randomized and average columns; MECo-WAM scores 93.26, 91.98 and 92.62 percent.",
+      "caption": "The aggregate RoboTwin gain is concentrated in the clean condition.",
+      "readingGuide": "Start with the final two rows, which compare Fast-WAM and MECo-WAM without embodied-policy pretraining. Read Clean and Rand. separately before the Average column: the mean can conceal an uneven benefit across conditions. The retained note explains that P.T. means embodied-policy pretraining, so a cross does not mean the method lacks a pretrained video backbone. The setup says randomization changes object poses, appearance, clutter, illumination and tabletop layouts. Other rows provide context, but their pretraining indicators differ. In particular, the LingBot-VA average is a useful reported benchmark comparison, not a controlled ablation of MECo-WAM's geometric objective.",
+      "takeaway": "MECo-WAM improves average success from 91.83% to 92.62%, a gain of 0.79 percentage points. Clean success increases by 1.38 points, whereas randomized success increases by 0.20. Its reported average also exceeds pretrained LingBot-VA's 92.20%, although the rows do not share the same pretraining history.",
+      "caution": "The PDF delegates simulation configuration to Fast-WAM and does not supply rollout counts, seeds or confidence intervals. The small randomized gain therefore cannot establish a reliable robustness improvement from this table alone.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-robotwin",
+        "e-implementation"
+      ]
+    },
+    {
+      "id": "real-world-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 7,
+      "asset": "report-assets/2607.05468/real-world-results.png",
+      "width": 1552,
+      "height": 426,
+      "sourceSha256": "9049c3213a97ff288a58e07c482484fd2703a5cf103ec918b14cca5b1c284461",
+      "sourceUrl": "https://arxiv.org/pdf/2607.05468#page=7",
+      "crop": [
+        0.085,
+        0.298,
+        0.915,
+        0.474
+      ],
+      "alt": "Two task sections compare pi_0, Fast-WAM and MECo-WAM using success, progress, correction counts and completion time, with selected trial columns and reported averages.",
+      "caption": "Real-robot gains differ between stacking and size sorting.",
+      "readingGuide": "Treat the two gray task bands as separate experiments. Within each, locate the Avg column under each metric: SR and PR are success and progress percentages, CR is correction count, and CT is completion time in seconds. Upward arrows favor higher rates; downward arrows favor fewer corrections and shorter time. The Test 1, Test 2 and Test n columns show selected trial entries, so do not recompute the published averages from just those displayed columns. Compare Fast-WAM and MECo-WAM within a task before comparing tasks. The surrounding setup identifies an ARX-R5 arm and says the camera configuration and execution budget are matched.",
+      "takeaway": "Stacking remains tied at 60.0% success and 75.0% progress, while corrections fall from 1.67 to 0.83 and time from 27.06 to 25.71 seconds. Sorting success rises from 60.0% to 70.0%, with progress 75.0% to 80.0% and time 38.49 to 31.96 seconds. The physical evidence is task-dependent.",
+      "caution": "The source does not define n, all averaging denominators, correction criteria or missing-value handling. A dash must not be read as zero. These two cube tasks provide a narrow basis for broader real-robot generalization.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-real"
+      ]
+    },
+    {
+      "id": "ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 7,
+      "asset": "report-assets/2607.05468/ablation.png",
+      "width": 1184,
+      "height": 578,
+      "sourceSha256": "9049c3213a97ff288a58e07c482484fd2703a5cf103ec918b14cca5b1c284461",
+      "sourceUrl": "https://arxiv.org/pdf/2607.05468#page=7",
+      "crop": [
+        0.517,
+        0.52,
+        0.915,
+        0.67
+      ],
+      "alt": "RoboTwin ablation rows add a 4D expert, decayed read access and geometry losses, then compare uniform weighting and the full model across video, action and success metrics.",
+      "caption": "An isolated geometry branch gives little benefit; interaction and weighting matter in the reported ablation.",
+      "readingGuide": "Read the rightmost success column first, then use the action and video columns as diagnostics rather than interchangeable outcomes. The isolated 4D expert barely changes success; the decayed-read row improves it more. Rows labeled with spatial and temporal losses examine geometric supervision, while Full w/o aware replaces action-aware weighting with uniform weights. The final row combines the proposed components. The video columns have different preferred directions: PSNR and SSIM rise, LPIPS falls. Crucially, preserve the action header exactly as MSE (×10). The surrounding prose repeats the displayed entries as MSE without explaining this scale, so the crop supports comparisons between entries but not an unqualified raw-error conversion.",
+      "takeaway": "Reported success progresses from 91.83% for Fast-WAM to 91.87% with an isolated expert and 92.14% with decayed reads. Uniform weighting reaches 92.38%, below the full model's 92.62%. The full row also reports PSNR 30.72 and the smallest printed action-error entry, 0.013, versus baseline 0.032.",
+      "caution": "The table lacks a complete factorial configuration matrix, uncertainty estimates and a clarified MSE scaling convention. Its ordering is consistent with the proposed mechanism, but does not isolate every interaction or prove that improved geometric representation causes the success gain.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-attention",
+        "e-distillation"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Separate future supervision from the information available to an action",
+      "text": "Begin with the deployed conditional policy: current observation, current robot state and instruction determine an action chunk. Future frames are available in demonstrations, but will not exist when the robot must choose its next action. MECo-WAM therefore assigns them training roles. The video expert denoises future visual targets, and the geometry expert learns selected future relations from frozen VGGT features. The attention mask prevents future action queries from reading future video or geometry. Their temporary extra context is g_0, which is computed from the current RGB frame. This distinction is what makes the auxiliary supervision compatible with action inference without future imagination. The action chunk is the policy output; future predictions are learning targets, not a separate planner whose trajectory the robot follows.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-architecture",
+        "e-attention",
+        "e-objective"
+      ]
+    },
+    {
+      "heading": "Teach relative structure and its change, then emphasize relevant regions",
+      "text": "The geometry objective does not simply copy each teacher feature vector. After projecting predicted geometry, MECo-WAM forms pairwise feature distances and normalizes the valid relation entries. Matching those relations avoids requiring the teacher and student to use the same absolute feature coordinates. A second loss compares normalized changes in relations between consecutive selected keyframes. Video tokens also receive relevance scores from their similarity to a pooled, temporally aligned action representation. Softmax scores mix with a uniform prior; pair weights combine the resulting token weights. Thus spatial and temporal errors contribute more strongly at regions associated with the action while some scene-wide supervision remains. These are relations in learned feature space, and the source does not establish a conversion from their values to physical distance.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-distillation"
+      ]
+    },
+    {
+      "heading": "Ask what survives when the auxiliary branch disappears",
+      "text": "Reader interpretation: the key hypothesis is about a durable representation change, so an extra geometry branch alone is an incomplete explanation. The reported isolated-expert variant barely improves task success, while temporary read access helps more. The frozen-backbone depth probe asks a complementary question: can a matched head decode geometry from the retained video/action features without auxiliary tokens? Its qualitative examples support that possibility, but do not close the causal argument. The mask confines future geometry to its branch, losses supervise predicted geometry, and action-aware weights involve video/action representations. Determining the exact transfer route therefore requires explicit parameter-sharing and gradient documentation. A useful reproduction should measure those routes alongside control outcomes, rather than treating either a sharper depth image or a small success gain as sufficient proof.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-attention",
+        "e-distillation",
+        "e-depth",
+        "e-ablation"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does decaying geometry access preserve gains after branch removal?",
+      "text": "Reader-proposed, not run: train matched variants with no current-geometry reads, constant read probability one, and the reported one-to-zero schedule. Keep the 4D expert, losses, initialization, optimizer budget and data identical. Evaluate every variant with VGGT, geometry expert and alignment modules removed, using identical RoboTwin seeds, rollouts and denoising steps. Report clean/randomized success with uncertainty, action error with explicit scaling, and synchronized action-chunk latency. Also verify that changing future geometry tokens cannot change action outputs under the stated training mask when current inputs are fixed. If decaying reads do not outperform absent reads after removal, or remain dependent on geometry at test time, the proposed transfer benefit is weakened.",
+      "evidenceIds": [
+        "e-attention",
+        "e-implementation",
+        "e-robotwin",
+        "e-ablation"
+      ]
+    },
+    {
+      "title": "Does action alignment help beyond generic geometric regularization?",
+      "text": "Reader-proposed, not run: compare learned relevance, uniform weights and relevance computed from temporally shuffled action representations. Keep action-training labels unchanged, preserve total geometry-loss weight, and match keyframes, read schedule, training budget and evaluation rollouts. Measure RoboTwin success, the same frozen-backbone DPT probe on a fixed held-out set with VDA pseudo-targets, and geometry-loss gradient norms in retained video/action parameters, with and without detaching relevance weights. Report teacher-relative probe error separately from control. If shuffled relevance matches correctly aligned relevance within uncertainty, the claimed importance of action alignment is weakened; if gradient changes occur only through the weighting path, that narrows the explanation of transfer.",
+      "evidenceIds": [
+        "e-attention",
+        "e-distillation",
+        "e-depth",
+        "e-ablation"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "notes": "All nine supplied PDF pages were rendered and visually inspected after all four text chunks were read. Page 1 establishes title/authors/affiliations/version and Figure 1 latency annotations; page 2 provides motivation and positioning; pages 3–5 establish architecture, mask, losses, training hardware and inference settings; pages 5–7 establish protocols, all four result tables and all representation/robot examples. Pages 8–9 contain references, not an appendix. Six final original crops were individually viewed: Figures 2–4 and Tables 2–4. Figure 2's simplified loss box was checked against Equation (22); Figure 3's row/column orientation, masked cells and current-geometry reads agree with its caption and equations. Table 4's MSE scaling remains unresolved and is disclosed. Table 2 retains its short note defining pretraining. No separate supplement, code or external configuration was inspected."
+  }
+}

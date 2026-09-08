@@ -1,0 +1,482 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.05133",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T12:13:03.467Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2607.05133",
+      "title": "UNIVERSE: Unified Video Action Models for Autonomous Driving with Flexible Mask-Modulated Modality Generation",
+      "kind": "pdf",
+      "sha256": "bc84493af7a2b719598f370d13d99a59e1d92e44bc6b27876be423305004ec5e",
+      "wordCount": 9099,
+      "accessedAt": "2026-09-07T13:56:52.144881+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work, including 2.1 and 2.2",
+      "3 Method, Sections 3.1–3.5",
+      "4 Experiments, Sections 4.1–4.6",
+      "5 Conclusion",
+      "References",
+      "A Supplementary Material",
+      "B Additional Architecture Details, B.1–B.2",
+      "C DPVO-based Verification of video-action Consistency",
+      "D Additional Comparison on nuScenes",
+      "E Additional Zero-Shot Visualization",
+      "F Limitations",
+      "G Licenses for Existing Assets",
+      "H Broader Impacts"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction-only figure gap was addressed by inspecting the retained PDF: all seven figures and eight tables were visually reviewed. All six supplied text chunks were read completely, including the embedded appendices.",
+      "Identity/edition scope: arXiv:2607.05133v1 [cs.CV], 6 July 2026. The title and all ten authors match the catalog. Xiaomi EV appears on the title page but is omitted from the catalog affiliation string. No other revision was supplied or compared.",
+      "Code, checkpoints, external cited works, and linked assets were not inspected; no experiments were reproduced. Separate supplements beyond the embedded appendix remain unverified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, p. 2",
+      "Figure 2, p. 4",
+      "Figures 3–4, p. 7",
+      "Figure 5, p. 16",
+      "Figures 6–7, p. 17"
+    ],
+    "tablesReviewed": [
+      "Table 1, p. 6",
+      "Tables 2–3, p. 8",
+      "Tables 4–6, p. 9",
+      "Table 7, p. 15",
+      "Table 8, p. 16"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "UNIVERSE trains future driving video and ego trajectories in one diffusion transformer while blocking attention between their future tokens. Video supervision updates the planner’s parameters, but trajectory-only deployment omits video generation. Reported benchmark gains support this design without establishing physical driving safety (e03, e04, e05, e10, e11).",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A planner can fit source-dataset driving habits without learning transferable dynamics. The paper asks whether dense future-video supervision transfers better when video and trajectory denoising share transformer parameters. It studies autonomous-driving prediction under cross-dataset and real-to-simulation shifts.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A single DiT shares attention and feed-forward blocks across video and trajectory objectives while retaining modality-specific projections and heads.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03"
+      ]
+    },
+    {
+      "text": "A visibility mask protects historical context and isolates future modalities, enabling three generation modes with the same weights.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "The authors attribute improved action generalization to shared parameters and video supervision; within-family ablations provide the main empirical support.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e07",
+        "e10",
+        "e11"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Four historical front-camera frames by default",
+      "Current ego velocity (vx, vy)",
+      "Optional text instruction; no historical trajectory input"
+    ],
+    "outputs": [
+      "Future ego positions (x, y) and yaw angles as a trajectory chunk",
+      "Optional future video latents/visual rollout; eight future frames during default training"
+    ],
+    "steps": [
+      {
+        "name": "Encode conditions",
+        "detail": "A frozen Wan2.2-TI2V-5B text encoder supplies instruction tokens through cross-attention. A 3D-causal VAE encodes historical images; an MLP embeds velocity. Equation (2) defines self-attention context as visual history plus velocity tokens.",
+        "evidenceIds": [
+          "e03",
+          "e09"
+        ]
+      },
+      {
+        "name": "Share the denoiser",
+        "detail": "Noisy future video and trajectory tokens receive modality-specific projections, modality embeddings, and temporal embeddings. Shared DiT blocks process both; separate heads predict their outputs. Actions encode future poses, not low-level steering/throttle commands.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Restrict future dependencies",
+        "detail": "Each future modality reads context and itself. Context cannot read future targets, blocking an indirect information bridge between modalities. Within-modality attention remains bidirectional because entire chunks are denoised.",
+        "evidenceIds": [
+          "e04"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Flow matching trains both modalities with Gaussian corruption and a common sampled flow time. Weighted video and trajectory losses update shared parameters. The no-video variant sets the video weight to zero; only the text encoder is explicitly called frozen.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "text": "NAVSIM training uses Wan2.2-TI2V-5B, four history/eight future frames at 832×480, NVIDIA H20 GPUs, distributed bf16, and AdamW (learning rate 10^-4, weight decay 0.01). It runs 20k steps at batch 80, then 10k at effective batch 640 via accumulation. A 1k-step warm-up starts at 10^-3 of the base rate, followed by a constant rate.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Default planning uses context and trajectory tokens with two flow sampling steps. Video-only and joint modes instantiate the requested future groups with unchanged weights. Joint mode still blocks future cross-modal attention; actions do not read imagined future videos.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e09"
+        ]
+      },
+      {
+        "text": "The inference controller selects token groups. The source does not specify a low-level vehicle controller, actuation interface, or feedback/replanning frequency; generated trajectories and videos must not be equated with physical execution.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e03",
+          "e05",
+          "e08"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "M=\\begin{pmatrix}1&0&0\\\\1&1&0\\\\1&0&1\\end{pmatrix}",
+        "explanation": "Equation (7), with rows/columns ordered C, V, A: context, future video, future trajectory. Rows are queries, columns keys/values; 1 permits attention, 0 blocks it. Text cross-attention is separate.",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      },
+      {
+        "expression": "Y_p^m=(1-p)\\epsilon^m+pY_0^m,\\qquad \\dot Y_p^m=Y_0^m-\\epsilon^m",
+        "explanation": "Equation (4): m is act or vid, Y_0^m is the clean target, epsilon^m is standard Gaussian noise, and p is uniform on (0,1). Despite the target’s subscript, interpolation approaches it as p approaches 1. The dot denotes target flow velocity.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "expression": "\\mathcal L=\\mathcal L_{\\mathrm{act}}+\\lambda_{\\mathrm{vid}}\\mathcal L_{\\mathrm{vid}},\\qquad \\mathcal L_m=\\mathbb E\\!\\left[\\left\\|\\hat v_\\theta^m-\\dot Y_p^m\\right\\|_2^2\\right]",
+        "explanation": "Equation (6): the model with parameters theta predicts modality-specific velocity v-hat. lambda_vid balances video supervision; its default is positive, but its numerical value is unspecified.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "NAVSIM v1 Navtest planning",
+      "setting": "Front-camera UNIVERSE with default two-step trajectory-only inference; the paper labels these closed-loop metrics.",
+      "metric": "PDMS, higher is better",
+      "value": "91.0",
+      "comparison": "Two-DiT 89.6; no video co-training 88.2; no mask 90.9; DriveLaW 89.1; DiffusionDrive 88.1.",
+      "interpretation": "The variant differences support shared parameters and video supervision. External methods differ in inputs; no uncertainty estimates accompany the table.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "Zero-shot transfer to nuScenes and Bench2Drive",
+      "setting": "NAVSIM-trained models without target fine-tuning. nuScenes has 150 validation scenes; Bench2Drive uses its stated validation split. Averages cover 1, 2, and 3 seconds.",
+      "metric": "Average L2 displacement (m); average collision rate (%)",
+      "value": "nuScenes: 0.83 m, 0.03%; Bench2Drive: 1.33 m, 1.19%.",
+      "comparison": "PWM: 3.99 m/0.36% and 2.80 m/3.76%; Two-DiT: 0.92 m/0.21% and 1.43 m/1.82%.",
+      "interpretation": "These are horizon-based planning measures; Table 2 does not supply route completion or intervention counts.",
+      "evidenceIds": [
+        "e08",
+        "e11"
+      ]
+    },
+    {
+      "task": "Future-video generation on nuScenes validation",
+      "setting": "Reported comparison of driving-video generators; baseline training/sampling settings are not fully documented as matched.",
+      "metric": "FID; FVD, lower is better",
+      "value": "6.7; 81.7",
+      "comparison": "Vista 6.9/89.4; Epona 7.5/82.8.",
+      "interpretation": "Best reported values among listed methods, measuring visual quality rather than executed control or causal correctness.",
+      "evidenceIds": [
+        "e12",
+        "e19"
+      ]
+    },
+    {
+      "task": "Video-action consistency",
+      "setting": "NAVSIM and nuScenes, four-second DPVO ego motion aligned to each reference by a 2D similarity transform.",
+      "metric": "Average aligned L2; Table 4 does not print a unit",
+      "value": "0.12 NAVSIM; 0.14 nuScenes; 0.13 average.",
+      "comparison": "GT reference 0.08 average; no mask 0.15; Two-DiT 0.19.",
+      "interpretation": "Scale, rotation, and translation are fitted, so agreement does not verify absolute motion scale. DPVO is evaluation-only.",
+      "evidenceIds": [
+        "e13",
+        "e19"
+      ]
+    },
+    {
+      "task": "Trajectory inference and memory",
+      "setting": "Default model versus no-mask coupled rollout and Two-DiT; timing configuration is incompletely specified.",
+      "metric": "Latency (ms); inference/training peak memory (GB)",
+      "value": "376 ms; 23.3/52.1 GB.",
+      "comparison": "No mask: 1623 ms, 26.3/54.4 GB; Two-DiT: 551 ms, 32.8/88.3 GB.",
+      "interpretation": "The approximately 4.3× ratio is 1623/376 against no-mask UNIVERSE, not a same-checkpoint mode comparison.",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e14"
+      ]
+    },
+    {
+      "task": "Future horizon and sampling ablations",
+      "setting": "NAVSIM sweeps; defaults are eight future frames and two sampling steps.",
+      "metric": "PDMS, higher is better",
+      "value": "Frames 4/8/12: 84.9/91.0/88.1. Steps 1/2/3: 13.7/91.0/91.0.",
+      "comparison": "Eight frames beat both tested alternatives; two steps match three at reported precision.",
+      "interpretation": "One-step sampling fails sharply here. These sweeps do not establish a universally optimal horizon or sampler.",
+      "evidenceIds": [
+        "e15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify missing side/rear cues with front-view input and costly video-backbone training. Multi-view input, lighter tokenizers, smaller backbones, and distillation remain future directions.",
+      "kind": "source",
+      "evidenceIds": [
+        "e18"
+      ]
+    },
+    {
+      "text": "Table 8 mixes target-trained/fine-tuned baselines with zero-shot UNIVERSE. Variant tables lack seed variation or confidence intervals. Two-DiT changes memory requirements alongside parameter sharing, leaving resource confounds.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e10",
+        "e11",
+        "e14",
+        "e17"
+      ]
+    },
+    {
+      "text": "Figure 2 groups text with other conditions under C, whereas Equation (2) and Section 3.2 exclude text from masked self-attention. This report follows the explicit formulation and preserves the schematic ambiguity.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e20"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required components include NAVSIM/OpenScene data, the Wan backbone, the specified optimizer schedule and mask, target validation data, and DPVO for the consistency diagnostic. Appendix G describes distinct data/model terms; external licenses were not independently checked.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e08",
+        "e09",
+        "e19"
+      ]
+    },
+    {
+      "text": "Missing details include numerical video-loss weight, concrete trajectory-token count/normalization, precise flow solver, GPU count/training duration, latency setup, VAE freezing policy, training sample count, and exact Bench2Drive validation selection. Exact replication requires these choices.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e08",
+        "e09",
+        "e14"
+      ]
+    },
+    {
+      "text": "Proposed checks: compare joint and trajectory-only outputs using identical action noise; repeat video co-training versus zero video weight across seeds with matched budgets. These test dependency consistency and transfer gains, respectively; neither was run.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e07",
+        "e10",
+        "e11"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "1143d57b7c2eefa8c843f9651e7b6e2d841aa8c376d7697392f9e3d471accc92"
+    },
+    "reasoning": {
+      "text": "One Model is supported by shared attention/feed-forward blocks with modality-specific heads. This is not inverse dynamics: actions cannot read future video. Both modalities are jointly predicted during training and optional joint rollout, while default deployment uses video through learned parameters. Other mechanisms/Outside quadrants therefore depends on whether the catalog classifies deployment or joint prediction; that convention is not established by the supplied labels. The snapshot is preserved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does video supervision improve difficult interactive cases after matching compute and reporting seed variation? (e07, e10, e11)",
+    "How much video-action agreement survives evaluation without fitting scale to each future reference? (e13)"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block and arXiv margin",
+      "detail": "The exact catalog title appears with ten authors in matching order, arXiv:2607.05133v1 [cs.CV], 6 July 2026. Affiliations are University of Twente, Xiaomi EV, University of Cambridge, and University of Bath."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract and Sections 1–2",
+      "detail": "The motivation is dense video supervision for transferable driving dynamics; shared denoising is contrasted with cascaded or separate video/action modules."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and Section 3.1, Equations (1)–(3)",
+      "detail": "Historical images, velocity, and optional instruction condition pose/video generation. Text uses a frozen encoder and cross-attention. Shared DiT blocks have modality-specific projections/heads; historical trajectories are excluded."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2; p. 14, Appendix B.1, Equation (7)",
+      "detail": "Query-to-key mask rows C,V,A are 100,110,101. Full intra-modality attention is retained; neither future modality reads the other directly or through context."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3; pp. 14–15, Appendix B.2 and Table 7",
+      "detail": "Requested future token groups determine inference mode with the same weights. Removing future video preserves trajectory attention dependencies."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.4, Equations (4)–(6)",
+      "detail": "Uniform flow time interpolates Gaussian noise toward clean targets. Weighted video and trajectory squared velocity errors train the shared DiT. A numerical default video weight is not given."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.5; p. 8, Section 4.5 opening",
+      "detail": "No-mask allows future mutual attention and requires coupled inference; no-video sets lambda_vid to zero; Two-DiT retains conditions/objectives with separate transformer parameters. Other schedules/protocols are stated to match."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, dataset paragraphs",
+      "detail": "NAVSIM v1 uses NC, DAC, TTC, comfort, progress and aggregate PDMS. Input is front-camera imagery without map/box/depth/occupancy/LiDAR supervision. nuScenes has 150 validation scenes. Targets are evaluated with horizon L2/collision metrics."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, Implementation Details",
+      "detail": "H20, AdamW, bf16, learning rate 10^-4, weight decay 0.01, 20k steps/batch 80 plus 10k/effective batch 640, 1k warm-up from 10^-3 base rate, Wan2.2-TI2V-5B, four history/eight future frames at 832×480, and default two-step trajectory-only inference are stated."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, PDMS column and UNIVERSE variant rows",
+      "detail": "PDMS is 91.0 full, 90.9 no mask, 88.2 no video co-training, 89.6 Two-DiT, 89.1 DriveLaW, 88.1 DiffusionDrive. Full-model NC/DAC/TTC/comfort/progress are 99.1/97.6/98.5/100/83.6."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2, both datasets, Avg. columns and variant rows",
+      "detail": "All rows are NAVSIM-trained without target fine-tuning. Full nuScenes averages are 0.83 m/0.03%, Bench2Drive 1.33 m/1.19%; no-mask collision averages 0.06%/1.79%, no-video 0.35%/1.57%, Two-DiT 0.21%/1.82%. PWM averages are 3.99 m/0.36% and 2.80 m/3.76%."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3 and Section 4.4",
+      "detail": "nuScenes FID/FVD are 6.7/81.7 for UNIVERSE, 6.9/89.4 for Vista, 7.5/82.8 for Epona. No uncertainty or fully matched video-generation protocol is supplied."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 4 and Section 4.5 consistency paragraph; p. 15, Appendix C, Equations (8)–(9)",
+      "detail": "DPVO reconstructs motion from real/generated video, aligned to ground-truth/predicted references by independently optimized scale, rotation, and translation. Four-second average L2 is 0.08 GT reference, 0.13 full, 0.15 no mask, 0.19 Two-DiT. The table does not label a unit."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 5 and Section 4.5 visibility/efficiency paragraphs",
+      "detail": "Full/no-mask/Two-DiT latency is 376/1623/551 ms, inference peak memory 23.3/26.3/32.8 GB, training peak 52.1/54.4/88.3 GB. No-mask retains future-video denoising."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 6 and Section 4.6",
+      "detail": "Future frames 4/8/12 give PDMS 84.9/91.0/88.1; sampling steps 1/2/3 give 13.7/91.0/91.0. Defaults are eight frames and two steps."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figures 3–4; p. 16, Figure 5; p. 17, Figures 6–7",
+      "detail": "Qualitative examples show video/trajectory alignment, bypass versus stop, following/lane-change/curved-road cases, and zero-shot nighttime/foggy scenes; these are not aggregate success statistics."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix D; p. 16, Table 8, caption and Fine-tune/Input columns",
+      "detail": "The extended nuScenes comparison includes target-trained/fine-tuned baselines and zero-shot UNIVERSE; the asterisk denotes front-camera-only inputs."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF pp. 16–17, Appendix F",
+      "detail": "The authors identify front-view coverage and video-backbone training cost as limitations, proposing multi-view input and smaller models/tokenizers."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Appendix G; p. 18, Appendix H",
+      "detail": "Asset-specific licenses are described; DPVO is evaluation-only. Literature baseline settings are retained as closely as possible. Broader impacts discuss transfer benefits and computational cost."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 condition grouping versus Equation (2); p. 5, Section 3.2 first paragraph",
+      "detail": "The schematic brackets text, image, and velocity conditions near C. The explicit formulation defines self-attention context from images/velocity and excludes cross-attention text tokens from the mask."
+    }
+  ]
+}
