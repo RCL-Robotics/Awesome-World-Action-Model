@@ -1,0 +1,423 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.08962",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T15:42:09.675Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.08962",
+      "title": "C^3ache: Accelerating World Action Models with Cross Inference Chunk Cache",
+      "kind": "pdf",
+      "sha256": "6268543c3fe00a68c642a53d89a734a4bfeebc6ffc642400927187f542897468",
+      "wordCount": 5810,
+      "accessedAt": "2026-09-07T14:00:18.125245+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract (p. 1)",
+      "1 Introduction (pp. 1–2)",
+      "2 Related Work: 2.1–2.3 (p. 3)",
+      "3 Method: 3.1 Preliminaries, 3.2 Key Observation, 3.3 C³ache (pp. 3–6)",
+      "4 Experiment: 4.1 Settings, 4.2 Main Results, 4.3 Ablation (pp. 6–8)",
+      "5 Limitation and 6 Conclusion (p. 8)",
+      "References (pp. 9–11)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Identity notes: The inspected artifact is arXiv:2606.08962v1, dated 8 June 2026. Its title is rendered C³ache, represented by the supplied observedTitle as C^3ache: Accelerating World Action Models with Cross Inference Chunk Cache. The catalog title starts C3^3ache, a formatting discrepancy; all four authors agree. The catalog submittedDate is 7 June 2026, one day before the PDF's displayed date. No other revision was supplied or compared.",
+      "Supplied acquisition omission: Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This reading additionally inspected every PDF page and all final crops.",
+      "Separate supplemental material availability has not been fully verified.",
+      "No appendix appears in the supplied 11-page PDF. Code, checkpoints and cited works were not inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 5)",
+      "Figure 3 (p. 6)",
+      "Figure 4 (p. 8)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 7)",
+      "Table 2 (p. 8)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "C³ache accelerates Fast-WAM by carrying a DiT residual cache across successive action chunks at matching denoising steps. It changes inference without retraining. LIBERO reaches 2.51× total inference speedup at 97.10% success, but the same aggressive configuration sharply reduces RoboTwin success; refresh and late-step computation are therefore central to the result.",
+  "readingTimeMinutes": 8,
+  "problem": {
+    "text": "Fast-WAM already removes test-time future-video synthesis, yet repeatedly denoises each action chunk. C³ache asks whether temporally adjacent control cycles repeat enough internal computation to reuse it across chunks. The target is action-inference latency, not a new learned dynamics model or video-quality objective.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem",
+      "e-backbone",
+      "e-flow"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Characterizes adjacent-chunk similarity of residuals, final-block outputs and predicted velocities at matched denoising steps across LIBERO.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-similarity"
+      ]
+    },
+    {
+      "text": "Reuses the aggregate DiT residual while retaining the current action embedding and output head. Compatibility with within-chunk caching is claimed, but no combined-method comparison is reported.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-problem",
+        "e-cache",
+        "e-reporting"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Fresh observation encoded as video-token context for each control cycle; noisy action-token embeddings and denoising time.",
+      "A separate cached residual for each selected denoising step, initialized by full computation."
+    ],
+    "outputs": [
+      "A generated action chunk with horizon 32; the control loop executes a prefix before taking another observation.",
+      "Updated per-step residual caches on refresh chunks."
+    ],
+    "steps": [
+      {
+        "name": "Encode and denoise",
+        "detail": "Fast-WAM encodes observations once per chunk. Embedded noisy actions enter an action expert whose DiT joint attention reads action and video tokens. The linear output head predicts flow velocity; iterative integration turns fresh Gaussian noise into actions.",
+        "evidenceIds": [
+          "e-backbone",
+          "e-flow",
+          "e-residual"
+        ]
+      },
+      {
+        "name": "Store the stack's additive contribution",
+        "detail": "A full pass computes all L blocks, then stores their aggregate output-minus-input residual. This is neither an action cache nor the video branch's KV cache: it approximates what the whole action-transformer stack adds.",
+        "evidenceIds": [
+          "e-residual",
+          "e-cache",
+          "e-timing"
+        ]
+      },
+      {
+        "name": "Reuse at the matching step",
+        "detail": "A cached pass skips all L blocks, adds the stored residual to the current action embedding, and applies the velocity head. Each selected step has its own residual; refreshing updates these entries together on a full chunk.",
+        "evidenceIds": [
+          "e-cache"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "C³ache adds no training, losses or weight updates. Its inherited flow expert learns clean-action-minus-noise velocity, and Fast-WAM retains video co-training. The supplied paper does not provide the backbone's full data mixture, optimizer, loss weighting or training schedule.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-problem",
+          "e-flow",
+          "e-backbone",
+          "e-reporting"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The first chunk is fully computed. For positive τ, refresh every τ chunks; τ=0 specially means no further refresh, not refresh every step. Main configurations reuse zero-indexed steps [0,6] or [0,7] out of ten; remaining tail steps stay fully computed.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-cache",
+          "e-compute"
+        ]
+      },
+      {
+        "text": "VAE encoding, video prefill, action embedding, velocity projection and scheduler updates remain in the measured inference pipeline. Predicted action generation and execution are separate: only part of a generated chunk is executed before observation feedback.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-timing",
+          "e-flow"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "x^{c}_{(k)}=x^{c}_{(k-1)}+(t_k-t_{k-1})v^{c}_{k},\\qquad v^{c}_{k}=v_{\\theta}\\!\\left(x^{c}_{(k-1)},t_{k-1},\\mathrm{ctx}^{c}\\right)",
+        "explanation": "Equation (2): c indexes chunks, k denoising steps, x the current action iterate, t the flow time, ctx the chunk context, and vθ the trained velocity predictor. The process starts from Gaussian noise and integrates toward actions.",
+        "evidenceIds": [
+          "e-flow"
+        ]
+      },
+      {
+        "expression": "R=h_L-h_0,\\qquad v^{c}_{k}=\\operatorname{Head}\\!\\left(h^{c,k}_0+R^{c}_{k}\\right)",
+        "explanation": "Equations (3)–(4): h_0 is the action-token embedding, h_L the output after L DiT blocks, R their aggregate residual, and Head the linear velocity projection.",
+        "evidenceIds": [
+          "e-residual"
+        ]
+      },
+      {
+        "expression": "h^{c',k'}_L=h^{c',k'}_0+\\widetilde R_{c,k}",
+        "explanation": "Equation (7) reconstructs the cached stack output using stored residual R̃ from an earlier full chunk c. The method and Figure 3 specify matching denoising steps, so k′=k for cross-chunk reuse; c′ denotes the later chunk. This is an approximation to fresh stack computation.",
+        "evidenceIds": [
+          "e-cache"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO: four-suite action success and inference speed",
+      "setting": "All four suites, 2,000 evaluation episodes; Fast-WAM; 10 denoising steps, horizon 32; cache [0,7], τ=0.",
+      "metric": "Average task success (%) and total wall-clock inference speedup",
+      "value": "97.10% success; 2.51× speedup.",
+      "comparison": "Uncached Fast-WAM: 96.90%, 1.00×; difference +0.20 percentage points.",
+      "interpretation": "This is the strongest reported speedup, not evidence of a statistically established accuracy improvement; no uncertainty is reported.",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-compute",
+        "e-timing",
+        "e-libero",
+        "e-reporting"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0: fastest reported configuration",
+      "setting": "50 tasks; 20 episodes per task in each clean/randomized setting; cache [0,6], τ=0.",
+      "metric": "Clean/randomized/average success (%) and total inference speedup",
+      "value": "91.00% / 89.70% / 90.35%; 1.84× speedup.",
+      "comparison": "Baseline 92.20% / 90.60% / 91.40%; average −1.05 percentage points.",
+      "interpretation": "The approximately 1.8× headline permits a measurable average success loss.",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-compute",
+        "e-timing",
+        "e-robotwin"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0: refreshed seven-step cache",
+      "setting": "Same RoboTwin protocol; cache [0,6], τ=4.",
+      "metric": "Average success (%) and total inference speedup",
+      "value": "91.85%; 1.56× speedup.",
+      "comparison": "Baseline 91.40%; +0.45 percentage points.",
+      "interpretation": "A more conservative speed–success operating point; small improvements lack uncertainty estimates.",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-robotwin",
+        "e-timing",
+        "e-reporting"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0: failure of aggressive eight-step caching",
+      "setting": "Same RoboTwin protocol; cache [0,7], τ=0.",
+      "metric": "Average success (%) and total inference speedup",
+      "value": "75.85%; 1.68× speedup.",
+      "comparison": "Baseline 91.40%; −15.55 percentage points. Refreshing every four chunks gives 88.90% at 1.55×.",
+      "interpretation": "The LIBERO-winning setting transfers poorly. Claims of negligible degradation must be restricted to particular configurations.",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-robotwin",
+        "e-libero"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Figure 4 shows severe degradation when caching extends into the final steps. RoboTwin falls at nine and ten cached steps; LIBERO collapses at ten across refresh settings. Exact nine-/ten-step values are not tabulated. Manual refresh tuning remains necessary.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-ablation",
+        "e-limitations"
+      ]
+    },
+    {
+      "text": "Observation conditioning is under-specified: Figure 3 calls h_0 'new obs', while Section 3.1 defines it as noisy-action embedding and places video conditioning inside skipped DiT attention. The source does not establish a separate fresh-observation path into h_0.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-conditioning-gap"
+      ]
+    },
+    {
+      "text": "The implementation paragraph says late-step mean and standard deviation both fall; Figure 2 and Section 3.2 instead show standard deviation increasing. Equation (1) contains stray punctuation; Eq. (8)'s modulo rule requires a separate τ=0 branch.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-consistency",
+        "e-flow",
+        "e-cache"
+      ]
+    },
+    {
+      "text": "Evidence covers one backbone and two manipulation benchmarks. No physical deployment, latency distribution, absolute latency, memory overhead, statistical intervals or controlled comparison of residual versus velocity caching is provided. Task-length associations do not isolate cache staleness causally.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-reporting",
+        "e-limitations"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Match Fast-WAM's Wan2.2-5B backbone, 1B action expert, hidden dimension 1024, ten steps and horizon 32. Reported hardware is one NVIDIA A100 80GB, a 64-core AMD CPU and 500 GB memory, using PyTorch.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-backbone",
+        "e-compute"
+      ]
+    },
+    {
+      "text": "A faithful reproduction still needs checkpoint identifiers, software versions, seed lists, executed prefix length and the cache-selection validation protocol. Time the entire inference pipeline and report inference-call counts, since aggregate episode timing may depend on trajectory length.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-flow",
+        "e-reporting",
+        "e-timing"
+      ]
+    },
+    {
+      "text": "Proposed checks: compare residual, final-output and velocity reuse under identical schedules; then test refresh intervals and tail-step recomputation with paired seeds and controlled observation changes. Measure action error, task success and full-pipeline timing.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-cache",
+        "e-conditioning-gap",
+        "e-ablation",
+        "e-limitations"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The efficiency classification is supported. Fast-WAM has distinct video and action branches linked through joint attention, supporting Dual-system rather than inferring one model from co-training alone. C³ache is an inference cache on direct action generation; it neither jointly predicts future video at inference nor derives actions through inverse dynamics. Other mechanisms and Outside quadrants therefore fit this acceleration method.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-backbone",
+        "e-residual",
+        "e-cache"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "61c102ee83b678a9ccc4cc80614a2defe49c3ddcdc3cc090aaa7fa65a6c1c4ba"
+    }
+  },
+  "discussionQuestions": [
+    "Does residual reuse outperform velocity reuse once cache schedule and noise are controlled?",
+    "Where does fresh visual information enter a cached step, given the h_0/attention ambiguity?",
+    "Can adaptive refreshing retain gains on long tasks without requiring task-specific tuning?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin",
+      "detail": "The title is C³ache: Accelerating World Action Models with Cross Inference Chunk Cache. Authors, in order, are Weisen Zhao, Lam Nguyen, Zhicong Lu and Yuzhang Shang. Zhao and Lu are affiliated with George Mason University; Nguyen and Shang with University of Central Florida. The margin identifies arXiv:2606.08962v1 [cs.LG], 8 Jun 2026."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract, Section 1 and Figure 1",
+      "detail": "The proposed training-free acceleration targets residual redundancy across inference chunks at matching denoising steps. Model weights and training are unchanged. Figure 1 illustrates full-stack residual storage and later reuse; the introduction claims compatibility with within-chunk caching."
+    },
+    {
+      "id": "e-backbone",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 2.1; p. 7, Section 4.1, Model and Datasets",
+      "detail": "Fast-WAM retains video co-training but skips future-frame synthesis at action inference. A video backbone encodes the observation once and a separate flow-matching action expert generates the action chunk. The experiments use a Wan2.2-5B backbone with a 1B action expert, hidden dimension 1024, and 6B total parameters."
+    },
+    {
+      "id": "e-flow",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, multi-chunk generation and Eqs. (1)–(2)",
+      "detail": "Each control cycle generates H actions, executes part of the chunk, and receives a fresh observation. The flow model starts from Gaussian noise and predicts the clean-action-minus-noise velocity along a straight interpolation path; Eq. (2) gives the discrete integration update. Equation (1) visibly contains an extraneous comma between t and the clean action term."
+    },
+    {
+      "id": "e-residual",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.1, DiT description and Eqs. (3)–(4)",
+      "detail": "Noisy actions are embedded as h_0; denoising time enters adaptive normalization. L DiT blocks use joint attention to action and fixed within-chunk video tokens. Their aggregate residual is R=h_L−h_0, and a linear head maps h_L=h_0+R to the flow velocity."
+    },
+    {
+      "id": "e-similarity",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 2, Section 3.2 and Eq. (5)",
+      "detail": "The analysis uses all four LIBERO suites, each with 10 tasks and 500 episodes: 2,000 episodes and 29,924 reported inference chunks, with 10 denoising steps. At matching steps it measures adjacent-chunk cosine similarity of h_L, R and velocity. Residual mean similarity falls toward the tail while its standard deviation rises; velocity has the highest mean similarity in the plot."
+    },
+    {
+      "id": "e-cache",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.3, Eqs. (6)–(8) and Figure 3",
+      "detail": "The method rejects directly reusing h_L or velocity because doing so freezes those tensors. Full computation stores h_L−h_0 for each step; cached computation adds the stored residual to the current h_0. For positive refresh interval τ, the first chunk and each multiple of τ refresh the cache. The prose separately defines τ=0 as never refreshing after initialization; the modulo expression in Eq. (8) cannot itself be evaluated at zero."
+    },
+    {
+      "id": "e-conditioning-gap",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, action-token and joint-attention description; p. 6, Figure 3/caption and Eq. (7) discussion",
+      "detail": "Section 3.1 defines h_0 as embedded noisy action tokens and places video conditioning in DiT joint attention. Figure 3 labels h_0 as new obs, and its caption and Eq. (7) discussion assert that h_0 carries the new observation despite bypassing all DiT blocks. The supplied formulation does not specify an additional observation-to-h_0 pathway."
+    },
+    {
+      "id": "e-evaluation",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2; pp. 6–7, Section 4.1, Model and Datasets",
+      "detail": "LIBERO evaluation covers four suites and 2,000 episodes. RoboTwin 2.0 evaluation covers 50 bimanual tasks with 20 differently seeded episodes per task per clean/randomized setting. Clean varies object placement; randomized additionally varies background, lighting, table height, camera distance and clutter."
+    },
+    {
+      "id": "e-compute",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1, model, Hardware and Implementation Detail paragraphs",
+      "detail": "Both benchmarks use 10 denoising steps and action horizon 32. Experiments use PyTorch on one NVIDIA A100 80GB GPU, a 64-core AMD CPU and 500 GB memory. Main cache ranges are [0,6] and [0,7], with refresh settings 0, 4 and 8; ablations extend to [0,8] and [0,9]."
+    },
+    {
+      "id": "e-timing",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1, Metrics",
+      "detail": "The speed metric is total wall-clock inference speedup across all episodes, including VAE encoding, video prefill for KV-cache construction, action token embedding, output projection and scheduler steps, not merely the skipped DiT stack. Success rate is the other reported metric."
+    },
+    {
+      "id": "e-libero",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, Fast-WAM and all [0,6]/[0,7] rows",
+      "detail": "Fast-WAM averages 96.90% success. For [0,7], refresh 0 yields 97.10% and 2.51× speedup: Spatial 97.60, Object 99.60, Goal 96.00, Long 95.20. Refresh 4 gives 96.70%/1.82×; refresh 8 gives 97.00%/2.13×. For [0,6], refresh 0/4/8 gives 97.45/96.55/96.75% and 2.10/1.69/1.86×, respectively."
+    },
+    {
+      "id": "e-robotwin",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2, Fast-WAM and all [0,6]/[0,7] rows",
+      "detail": "Baseline clean/random/average success is 92.20/90.60/91.40%. For [0,6], refresh 0 gives 91.00/89.70/90.35% at 1.84×; refresh 4 gives 92.60/91.10/91.85% at 1.56×; refresh 8 averages 90.40% at 1.71×. For [0,7], refresh 0/4/8 averages 75.85/88.90/85.25% at 1.68/1.55/1.72×, respectively."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 4 and Section 4.3; p. 7, Implementation Detail",
+      "detail": "Figure 4 varies the number of cached steps from 7 through 10 at refresh settings 0, 4 and 8. Extending caching to nine or ten steps substantially degrades RoboTwin. LIBERO degrades at nine with refresh 0 and at ten for all shown settings. The graph supplies curves, not a numerical table for the nine- and ten-step cases."
+    },
+    {
+      "id": "e-limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.2, task-length analysis; p. 8, Section 5",
+      "detail": "The authors associate greater loss under [0,7], refresh 0 on RoboTwin with longer episodes, using task-length groups rather than a controlled intervention. They identify manual tuning of refresh interval as a limitation and propose adapting it to task difficulty and scene change in future work."
+    },
+    {
+      "id": "e-consistency",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 2 and Section 3.2; p. 7, Section 4.1, Implementation Detail",
+      "detail": "Figure 2 and Section 3.2 show increasing late-step standard deviation of cross-chunk cosine similarity. The implementation paragraph instead says both mean and standard deviation drop past step 6; that statement conflicts with the inspected plot and earlier description."
+    },
+    {
+      "id": "e-reporting",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–8, Sections 4–5, Tables 1–2 and Figure 4",
+      "detail": "The supplied experiments compare cache settings with uncached Fast-WAM on LIBERO and RoboTwin 2.0. They report success percentages and aggregate inference speedup, without confidence intervals, absolute latency or cache-memory measurements. The experimental description does not specify checkpoint identifiers, training recipe, software versions, exact seed list, executed chunk prefix length, or a validation protocol for selecting cache settings."
+    }
+  ]
+}

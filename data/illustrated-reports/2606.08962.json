@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.08962",
+  "shortTitle": "C³ache",
+  "thesis": "C³ache reuses an action transformer's residual across control cycles, reducing inference cost when the cache remains useful but risking large success losses when it becomes stale or replaces late denoising steps.",
+  "standfirst": "A robot policy often predicts several actions, executes only part of them, observes the scene again, and repeats. Fast-WAM already avoids generating future video during that loop, but its action expert still runs a transformer repeatedly to denoise every new chunk. C³ache asks which internal computation can survive from one chunk to the next. Its answer is the aggregate residual added by the transformer stack, stored separately for each denoising step. The five visuals below connect that choice to measured similarity, contrasting benchmark results, and a sharp late-step failure boundary. The useful result is a configuration-dependent speed–success tradeoff; the supplied source also leaves the cached observation-conditioning path unclear.",
+  "evidenceIds": [
+    "e-flow",
+    "e-backbone",
+    "e-residual",
+    "e-cache",
+    "e-similarity",
+    "e-libero",
+    "e-robotwin",
+    "e-ablation",
+    "e-conditioning-gap"
+  ],
+  "featuredResultTask": "LIBERO: four-suite action success and inference speed",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 6,
+      "asset": "report-assets/2606.08962/architecture.png",
+      "width": 1378,
+      "height": 901,
+      "sourceSha256": "6268543c3fe00a68c642a53d89a734a4bfeebc6ffc642400927187f542897468",
+      "sourceUrl": "https://arxiv.org/pdf/2606.08962#page=6",
+      "crop": [
+        0.23,
+        0.11,
+        0.77,
+        0.383
+      ],
+      "alt": "A green full-computation path runs L DiT blocks and writes their residual to a cache. An orange cached path bypasses the blocks and adds the stored residual to h_0. A lower schedule aligns individual denoising steps between full and reused chunks.",
+      "caption": "One residual per denoising step, shared across successive action chunks.",
+      "readingGuide": "Follow the upper green path from h_0 through the L DiT blocks to h_L. The cache receives ΔR, defined in the caption and Equation (6) as h_L minus h_0. On the orange path, the bypass arrow and cache arrow meet at h_L=h_0+R̃; no DiT block is evaluated at that cached step. Below, horizontal arrows connect matching step positions across chunks. Green chunks initialize or refresh, and orange chunks reuse. The schematic draws all K steps, but the experiments select a prefix of zero-indexed steps and still compute the tail. For positive τ, the next full refresh occurs after τ chunks.",
+      "takeaway": "The saved work is the action transformer's aggregate residual computation. Current action embeddings, the output head and scheduler still run, while selected steps reuse a stored additive contribution. This explains how the method can reduce computation without directly replaying a previously generated action chunk.",
+      "caution": "The 'new obs' label is under-specified: Section 3.1 defines h_0 as noisy-action embeddings and locates video conditioning inside the skipped attention. Figure 3 and the Equation (7) prose assert fresh observation content in h_0 without specifying that pathway. Also, τ=0 is a separate no-refresh case.",
+      "evidenceIds": [
+        "e-residual",
+        "e-cache",
+        "e-conditioning-gap",
+        "e-compute",
+        "e-timing"
+      ]
+    },
+    {
+      "id": "residual-similarity",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/2606.08962/residual-similarity.png",
+      "width": 1556,
+      "height": 647,
+      "sourceSha256": "6268543c3fe00a68c642a53d89a734a4bfeebc6ffc642400927187f542897468",
+      "sourceUrl": "https://arxiv.org/pdf/2606.08962#page=5",
+      "crop": [
+        0.2,
+        0.09,
+        0.81,
+        0.286
+      ],
+      "alt": "Two line plots show mean and standard deviation of adjacent-chunk cosine similarity over denoising steps 0 through 9. Blue residual and orange final-block-output means decrease late, while their standard deviations rise. Green velocity predictions have higher mean similarity.",
+      "caption": "Similarity motivates reuse, while late-step variability warns against caching the full trajectory.",
+      "readingGuide": "Read the left and right panels together: they summarize the same adjacent-chunk comparisons at each matched denoising step. Blue circles represent residual R, orange squares final-block output h_L, and green triangles predicted velocity. The left panel reports average cosine similarity; the right reports its standard deviation across the reported chunk sample, not uncertainty on task success. Section 3.2 describes 2,000 LIBERO episodes and 29,924 inference chunks with ten denoising steps. The green curve is most similar on average, so residual selection is not justified by the largest cosine score. Its rationale instead depends on retaining a changing current input.",
+      "takeaway": "Residuals are correlated across neighboring chunks, and their similarity becomes less consistent toward the denoising tail. That pattern motivates testing reuse early while recomputing later steps. It supports a caching hypothesis, but does not by itself establish acceptable action error or closed-loop success.",
+      "caution": "Section 4.1 incorrectly says standard deviation drops past step 6; the plot and Section 3.2 show it rising. The aggregation also leaves first-chunk pair handling unspecified. Cosine similarity ignores magnitude and is not a guarantee of interchangeable predictions.",
+      "evidenceIds": [
+        "e-similarity",
+        "e-cache",
+        "e-consistency"
+      ]
+    },
+    {
+      "id": "libero-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 7,
+      "asset": "report-assets/2606.08962/libero-results.png",
+      "width": 1662,
+      "height": 529,
+      "sourceSha256": "6268543c3fe00a68c642a53d89a734a4bfeebc6ffc642400927187f542897468",
+      "sourceUrl": "https://arxiv.org/pdf/2606.08962#page=7",
+      "crop": [
+        0.174,
+        0.1405,
+        0.826,
+        0.301
+      ],
+      "alt": "LIBERO table compares uncached Fast-WAM with seven- and eight-step cache ranges at refresh settings 0, 4 and 8. Columns list four suite success rates, their average, change from baseline and inference speedup. The [0,7], refresh 0 row reports 97.10% and 2.51×.",
+      "caption": "LIBERO tolerates an eight-step cache with no refresh after initialization.",
+      "readingGuide": "Start at the Fast-WAM row, then compare each cache range against that shared baseline. The inclusive range [0,6] covers seven steps; [0,7] covers eight. Refresh 0 means that the first chunk populates the cache and later chunks do not refresh it. Read the four suite columns before the average, because an average near baseline need not preserve every suite. ΔSR is a difference in percentage points. The bold [0,7], refresh 0 row pairs 97.10% average success with 2.51× speedup. Evaluation covers 2,000 episodes across the four suites, and speedup includes the full inference pipeline.",
+      "takeaway": "At the fastest listed setting, average success is 97.10% versus 96.90% for uncached Fast-WAM, a +0.20-point difference at 2.51× speedup. The result demonstrates a favorable operating point on LIBERO. It does not show that eliminating refresh is universally appropriate across tasks or benchmarks.",
+      "caution": "No confidence intervals accompany these small success differences. The row includes Goal 96.00% and Long 95.20%, below their baseline 96.40% and 95.40%. Total inference speedup is not a demonstrated physical control frequency or a per-call latency distribution.",
+      "evidenceIds": [
+        "e-libero",
+        "e-evaluation",
+        "e-cache",
+        "e-compute",
+        "e-timing",
+        "e-reporting"
+      ]
+    },
+    {
+      "id": "robotwin-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 8,
+      "asset": "report-assets/2606.08962/robotwin-results.png",
+      "width": 1478,
+      "height": 529,
+      "sourceSha256": "6268543c3fe00a68c642a53d89a734a4bfeebc6ffc642400927187f542897468",
+      "sourceUrl": "https://arxiv.org/pdf/2606.08962#page=8",
+      "crop": [
+        0.21,
+        0.1405,
+        0.79,
+        0.301
+      ],
+      "alt": "RoboTwin results table reports clean, randomized and average success with speedup. Seven cached steps and refresh 0 achieve 90.35% average success at 1.84×. Eight steps without refresh fall to 75.85%; refreshing every four chunks recovers to 88.90%.",
+      "caption": "RoboTwin exposes the cost of extending the cache and delaying refresh.",
+      "readingGuide": "Read the clean and random columns as different evaluation conditions. Section 4.1 uses 50 tasks and 20 seeded episodes per task per setting. Clean randomizes object placement; random additionally changes visual and scene conditions. Within the seven-step [0,6] block, refresh 0 gives the largest speedup, whereas refresh 4 gives the highest average success. Then move to [0,7]: the configuration that worked well on LIBERO now suffers a large drop without refresh. Compare rows at the same cache range when isolating refresh effects, and compare equal refresh settings when studying the extra cached step. All speedups use uncached Fast-WAM as baseline.",
+      "takeaway": "Seven cached steps yield 90.35% success at 1.84× speedup without refresh, or 91.85% at 1.56× with refresh every four chunks, against a 91.40% baseline. Eight steps without refresh instead fall to 75.85%, a 15.55-point loss. The headline's negligible-degradation claim applies only to selected configurations.",
+      "caution": "These are benchmark averages without uncertainty estimates or a reported validation split for choosing cache settings. Section 4.2 links larger losses to longer tasks, but that grouping does not independently control difficulty, visual change or the number of inference calls.",
+      "evidenceIds": [
+        "e-robotwin",
+        "e-libero",
+        "e-evaluation",
+        "e-timing",
+        "e-limitations",
+        "e-reporting"
+      ]
+    },
+    {
+      "id": "cached-step-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 4",
+      "page": 8,
+      "asset": "report-assets/2606.08962/cached-step-ablation.png",
+      "width": 1518,
+      "height": 568,
+      "sourceSha256": "6268543c3fe00a68c642a53d89a734a4bfeebc6ffc642400927187f542897468",
+      "sourceUrl": "https://arxiv.org/pdf/2606.08962#page=8",
+      "crop": [
+        0.175,
+        0.31,
+        0.77,
+        0.482
+      ],
+      "alt": "Two plots compare success against seven, eight, nine and ten cached steps for refresh settings 0, 4 and 8. RoboTwin success declines strongly at nine and ten. LIBERO remains high longer but falls near zero when all ten steps are cached.",
+      "caption": "Recomputing the denoising tail is a central part of the successful configurations.",
+      "readingGuide": "The horizontal axis counts cached steps, not denoising iterations performed: the sampler still takes ten steps. Moving from seven to ten replaces progressively more fresh transformer evaluations with residual reuse on cached chunks. Red circles mean no refresh after initialization; orange squares and blue triangles refresh every four and eight chunks. Dashed lines mark uncached Fast-WAM success. Compare the two panels independently. RoboTwin degrades markedly when nine steps are cached, even with refresh. LIBERO is more tolerant at nine but deteriorates sharply at ten across all shown schedules. Section 4.3 states these trends; exact nine- and ten-step results are not tabulated.",
+      "takeaway": "The useful regime preserves freshly computed tail steps. More frequent chunk refresh helps in parts of the sweep, but does not make caching all ten steps reliable. Together with Figure 2, this supports sensitivity to denoising position as well as to how long a residual has been reused.",
+      "caution": "The graph does not isolate why tail steps matter: it also reduces the number of fresh evaluations. It provides no speedup curve for these ablations and no error bars. Exact values should not be inferred from marker positions as if they were tabulated measurements.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-similarity",
+        "e-compute",
+        "e-reporting"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "1. Locate the remaining repeated computation",
+      "text": "Fast-WAM supplies the starting point: video co-training informs its representations, but action inference does not synthesize a future video. A video branch encodes the current observation once, and the action branch integrates a learned flow from Gaussian noise toward an action chunk. In the supplied formulation, the velocity predictor is trained on the difference between clean actions and noise. At inference, each integration step embeds the current noisy action iterate, runs the action transformer, and projects its output to velocity. Only part of the resulting action chunk is executed before the next observation arrives. C³ache leaves that control loop and the learned weights intact. It targets the repeated transformer stack within the action expert, while observation encoding, the velocity head and scheduler remain in the pipeline.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-backbone",
+        "e-flow",
+        "e-residual",
+        "e-problem",
+        "e-timing"
+      ]
+    },
+    {
+      "heading": "2. Distinguish a cached correction from a frozen prediction",
+      "text": "The residual identity h_L=h_0+R separates the current action embedding from the contribution of the transformer stack. Directly caching h_L would hold the head's input fixed at a matched step; directly caching velocity would hold its output fixed. Reusing only R lets the current h_0 change, which is the source's reason for preferring it even though velocity has higher cosine similarity. A reader interpretation is that this preserves some flexibility while approximating the costly correction. It does not prove responsiveness to fresh visual input. Section 3.1 places observation tokens in joint attention, while Figure 3 labels h_0 as carrying the new observation even when that attention is skipped. This distinction makes a controlled observation-sensitivity check more informative than another similarity plot alone.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-residual",
+        "e-cache",
+        "e-similarity",
+        "e-conditioning-gap"
+      ]
+    },
+    {
+      "heading": "3. Read cache age and denoising position separately",
+      "text": "Two choices determine the approximation: which step-specific residuals are reused, and when those entries are refreshed across chunks. The equations index steps from one to K, while the experiments label ten steps from zero to nine; the inclusive range [0,7] therefore caches eight steps and leaves two freshly computed. For positive τ, a full chunk refreshes the cache every τ chunks. The special τ=0 case instead freezes the initialized entries; it cannot be implemented by evaluating modulo zero in Equation (8). LIBERO's strongest speed result uses that special case, but RoboTwin's corresponding setting loses 15.55 percentage points of average success. My interpretation is that cache age and step position need separate validation: a favorable average correlation does not identify a universally safe refresh schedule or reusable denoising tail.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-flow",
+        "e-cache",
+        "e-compute",
+        "e-libero",
+        "e-robotwin",
+        "e-ablation"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does residual reuse preserve useful responsiveness?",
+      "text": "Reader-proposed, not run: begin with one verified Fast-WAM checkpoint and a held-out set of matched observation/action-noise states. Compare full computation, residual reuse, final-output reuse and velocity reuse with identical ten-step schedules, cache ages and cached-step masks. First measure predicted-velocity and final-action differences from full computation on the same states; then compare closed-loop task success with paired seeds. Repeat selected states with a controlled observation change while holding the action iterate fixed, and check whether h_0 and cached-step output respond. The residual-choice rationale predicts better retained behavior than frozen outputs under some changes. Equal or worse behavior, or no identifiable visual-input pathway, would weaken that rationale without invalidating the reported speed measurements.",
+      "evidenceIds": [
+        "e-flow",
+        "e-residual",
+        "e-cache",
+        "e-conditioning-gap",
+        "e-similarity",
+        "e-compute"
+      ]
+    },
+    {
+      "title": "Separate stale caches from the value of fresh tail steps",
+      "text": "Reader-proposed, not run: on RoboTwin, repeat a factorial sweep of cache ranges [0,6], [0,7] and [0,8] with refresh settings 0, 4 and 8, plus an uncached baseline, using the same task/seed list. Stratify results by baseline episode length and record cache age, success, action error, inference-call count and full-pipeline time. Add a matched-compute control that moves an equal number of fresh evaluations from the tail to earlier denoising positions. If late variability is the key mechanism, preserving tail computation should outperform that control. If staleness drives long-task failures, refreshing should help most at greater cache ages within comparable tasks. Failure of either pattern would narrow the corresponding causal explanation. Report paired uncertainty rather than interpreting small mean differences alone.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-limitations",
+        "e-similarity",
+        "e-evaluation",
+        "e-compute",
+        "e-timing",
+        "e-reporting"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "notes": "Visually inspected the title/author/version page, all method and equation pages, Figures 1–4, Tables 1–2, experimental and hardware descriptions, limitations, and reference pages. All five final original crops were viewed, including the corrected table crops. Figure 3 arrows were cross-checked against Eqs. (6)–(8); the h_0 observation-conditioning ambiguity, special τ=0 handling and schematic-versus-experimental step selection are disclosed. Figure 2 was checked against Sections 3.2 and 4.1; their standard-deviation inconsistency is preserved. All pages supporting report, tutorial and proposed-check details are included. No appendix is present; separate supplemental availability remains unverified. Code, checkpoints and cited works were outside this reading, and no reproduction was run."
+  }
+}

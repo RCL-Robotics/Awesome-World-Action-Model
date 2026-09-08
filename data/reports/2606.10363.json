@@ -1,0 +1,517 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.10363",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T15:36:40.845Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.10363",
+      "title": "HiMem-WAM: Hierarchical Memory-Gated World Action Models for Robotic Manipulation",
+      "kind": "pdf",
+      "sha256": "6422558341cfed04571a74c7ee5bd001e013498d267de563d17b78eae0d5f86e",
+      "wordCount": 7787,
+      "accessedAt": "2026-09-07T20:36:41.923186+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; Sections 1–2: Introduction and Related Work (pp. 1–3)",
+      "Section 3: Method, training and inference (pp. 3–5)",
+      "Sections 4.1–4.4: simulation and real-world experiments (pp. 5–8)",
+      "Sections 5–6: Conclusion and Limitations (p. 8)",
+      "References (pp. 9–10)",
+      "Appendix A.1–A.7: signal separation, tokenization, skill discovery, unfolding, planner, memory, training and inference (pp. 11–15)",
+      "Appendix B.1–B.2: perturbations and task definitions; Figures 5–6 (pp. 16–18)",
+      "Appendix C: Baselines (pp. 18–19)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Pages with little extracted text require visual inspection: 17",
+      "The supplied PDF was read in full, including all five text chunks. Text extraction does not reconstruct figure images; all six figures and five tables were therefore inspected in the PDF, including low-text page 17.",
+      "Separate supplemental material availability has not been fully verified. The supplementary material embedded in this PDF was reviewed.",
+      "Code, external links and other papers were not inspected; experiments were not reproduced.",
+      "Identity: the exact title and all 15 authors match the catalog after name-order normalization. The PDF is arXiv:2606.10363v1, stamped 9 June 2026; the catalog supplied a submission date of 8 June 2026. The title page additionally lists INFIFORCE, omitted from the catalog affiliation string.",
+      "The supplied provenance identifies the previously selected HTML as the same v1 revision. That HTML was not supplied for independent comparison; this report describes only the verified PDF, without assuming byte or presentation equivalence."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1: three-stage framework and overview results, p. 2",
+      "Figure 2: WAM architecture comparison, p. 3",
+      "Figure 3: real-world success rates, perturbations and hardware, p. 6",
+      "Figure 4: ten real-world tasks, p. 8",
+      "Figure 5: RMBench rollouts and DPFlow visualizations, p. 17",
+      "Figure 6: LIBERO-PLUS perturbation examples, p. 18"
+    ],
+    "tablesReviewed": [
+      "Table 1: RMBench, p. 6",
+      "Table 2: LIBERO, p. 7",
+      "Table 3: zero-shot LIBERO-PLUS, p. 7",
+      "Table 4: action-representation ablation, p. 7",
+      "Table 5: training/inference signals, p. 11"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "HiMem-WAM trains motion latents from optical flow, groups them into skill latents, and uses learned skill transitions to supervise sparse external-memory writes. Its described deployed policy selects a skill, predicts a latent action chunk, and decodes robot controls using current observations and memory. Stage II ablations support improved manipulation robustness; comparisons on memory tasks do not isolate the gate's contribution. Backbone inconsistencies and missing implementation settings limit reproducibility.",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "Long manipulation sequences require remembering objects or completed subtasks after they leave view. The authors seek both transferable motion structure and persistent task state, without generating future video during deployment. Their proposed division of labor is motion tokenization, skill prediction, and selective storage of task history.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03",
+      "e09",
+      "e11"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A continuous two-level action representation combines flow-supervised local motion with variable-length skill segments; a planner and executor translate current multimodal inputs into robot-action chunks.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "text": "A learned write gate receives a boundary prediction and is supervised by discovered skill boundaries. External memory is retrieved through a separate read gate, rather than being equated with the planner's internal state.",
+      "kind": "source",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e10"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current multi-view RGB observations o_t",
+      "Proprioception p_t and language instruction ℓ",
+      "External memory bank M_t",
+      "Training supervision: future observations, optical flow, offline latent/skill/boundary targets, and available action labels"
+    ],
+    "outputs": [
+      "High-level skill and boundary predictions",
+      "Low-level latent-action chunk of length K",
+      "Decoded executable robot-action chunk and conditional memory update"
+    ],
+    "steps": [
+      {
+        "name": "Learn local motion offline",
+        "detail": "DPFlow estimates inter-frame flow separately for each view; components are normalized by image width and height. A variational tokenizer combines motion, visual, proprioceptive and instruction context. Flow reconstruction and KL regularization use unlabeled videos; auxiliary action alignment is masked to labeled transitions. The trained tokenizer is frozen to generate cached low-level targets.",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      },
+      {
+        "name": "Discover and unfold skills",
+        "detail": "At each hierarchy stage, adjacent normalized query/key dissimilarity determines segment starts; attention pooling creates one token per segment. Next-latent prediction, frozen-decoder flow reconstruction, boundary-ratio regularization and within-segment consistency train the hierarchy. Index maps unfold final skills and boundaries to control timesteps; invalid chunk-tail positions are masked.",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "name": "Read memory and choose a skill",
+        "detail": "Attention retrieves continuous tokens from the external bank, returning zero context when empty. A scalar read gate adds projected context to the current state. Appendix A.5 specifies Qwen3-VL-4B-Instruct with projected proprioception and memory inputs, plus continuous skill and sigmoid boundary heads.",
+        "evidenceIds": [
+          "e08",
+          "e09"
+        ]
+      },
+      {
+        "name": "Expand, ground and store",
+        "detail": "The executor expands the predicted skill into a latent chunk; the action decoder maps it and the adapted state to controls. A candidate memory token combines state, predicted skill and pooled predicted latents. Writing requires the write gate to exceed its threshold; overflow triggers compression under a fixed memory budget.",
+        "evidenceIds": [
+          "e09",
+          "e11"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage I trains only the tokenizer. Stage II discovers high-level targets and trains planner/executor with skill MSE, latent-chunk MSE and boundary BCE, with memory disabled. Stage III activates memory and action supervision while retaining auxiliary latent/boundary losses; write-gate BCE and read/write sparsity penalties train the memory interface.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e10",
+          "e12"
+        ]
+      },
+      {
+        "text": "The appendix permits teacher-forced memory warmup using discovered boundaries and target latents, then predicted writing; it does not establish whether or how long warmup was used. Real-world training reports 400 demonstrations per task and five SFT epochs, without a complete pretraining data or optimization recipe.",
+        "kind": "source",
+        "evidenceIds": [
+          "e11",
+          "e17",
+          "e24"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Each decision uses current RGB, proprioception, instruction and stored memory: retrieve context, predict skill/boundary, expand latents, decode controls, and conditionally write memory. Future video and DPFlow are absent from this online sequence. The memory candidate includes planned motion, not verified action completion. Execution frequency and how many actions precede fresh feedback are unspecified.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e09",
+          "e11",
+          "e12",
+          "e24"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}_l=\\|\\hat{\\Phi}_t-\\Phi_t\\|_1+\\lambda_a I_t^{\\mathrm{act}}\\|\\hat a_t-a_t\\|_2^2+\\beta D_{\\mathrm{KL}}\\!\\left(q_\\phi(z_t^l\\mid c_t)\\,\\|\\,\\mathcal N(0,I)\\right)",
+        "explanation": "Equation (3): Φ_t is optical flow, its hat is reconstruction, z_t^l is the low-level latent, and c_t contains current/future observations, proprioception, instruction and flow. I_t^act masks missing action labels; â_t is auxiliary action prediction. λ_a and β weight action alignment and Gaussian-prior regularization.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "r_i^{(s)}=\\tfrac12\\!\\left(1-(\\hat q_{i-1}^{(s)})^\\top\\hat k_i^{(s)}\\right),\\qquad b_i^{(s)}=\\mathbb I[r_i^{(s)}\\geq\\delta_s]\\quad(i>1),\\qquad b_1^{(s)}=1",
+        "explanation": "Equations (14)–(15): s indexes hierarchy stages; normalized query/key features compare adjacent encoded tokens. Dissimilarity r reaching threshold δ_s starts a segment; the first token always starts one. This offline ≥ comparison differs from the strict > comparison used for online memory writing.",
+        "evidenceIds": [
+          "e05",
+          "e09"
+        ]
+      },
+      {
+        "expression": "\\mathcal M_{t+1}=\\begin{cases}U_\\psi(\\mathcal M_t,\\gamma_t),&\\alpha_t^w>\\eta,\\\\\\mathcal M_t,&\\text{otherwise}.\\end{cases}",
+        "explanation": "Equation (32): M_t is the memory bank, α_t^w the sigmoid write gate, η its threshold, and γ_t the candidate token from current adapted state, predicted skill and pooled latent chunk. U_ψ appends the token and compresses overflow beyond N_max; neither budget nor compression implementation is specified.",
+        "evidenceIds": [
+          "e09",
+          "e24"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Standard manipulation on LIBERO",
+      "setting": "Four suites: Spatial, Object, Goal and Long; 50 rollouts per task.",
+      "metric": "Success rate (%)",
+      "value": "97.7 average; suites 98.2 / 99.8 / 98.4 / 94.5.",
+      "comparison": "Without Stage II: 96.6 average; Fast-WAM: 97.6.",
+      "interpretation": "Stage II adds 1.1 percentage points. The 0.1-point lead over Fast-WAM has no reported uncertainty and does not establish a reliable ranking.",
+      "evidenceIds": [
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "task": "Zero-shot robustness on LIBERO-PLUS",
+      "setting": "Training only on standard LIBERO; seven deployment perturbation categories; 50 rollouts per task.",
+      "metric": "Success rate (%)",
+      "value": "76.0 average.",
+      "comparison": "Without Stage II: 72.2; HoloBrain-0: 75.3.",
+      "interpretation": "The 3.8-point Stage II gain exceeds the standard-benchmark gain. Robustness remains uneven: initial-state success is 38.1 versus HoloBrain-0's 58.2.",
+      "evidenceIds": [
+        "e13",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "task": "Memory-dependent manipulation on RMBench",
+      "setting": "Nine tasks; five M(1) and four M(n) tasks; 100 rollouts per task.",
+      "metric": "Success rate (%)",
+      "value": "26.3 total average; 31.6 on M(1), 19.8 on M(n).",
+      "comparison": "Table 1: π0.5 10.8 total average and X-VLA 9.8.",
+      "interpretation": "Improvement over listed baselines coexists with low absolute success. The authors say performance remains below Mem-0, whose scores are not tabulated. No memory-removal comparison isolates causality.",
+      "evidenceIds": [
+        "e13",
+        "e16"
+      ]
+    },
+    {
+      "task": "Hard real-world manipulation versus π0.5",
+      "setting": "Place two plates and make breakfast on the dual-arm platform; standard (ST) and perturbed generalization (GE) settings; 20 trials per task are stated.",
+      "metric": "Reported success-rate advantage (percentage points)",
+      "value": "+25.0 ST; +20.0 GE.",
+      "comparison": "π0.5 under the corresponding settings in Figure 3 and Section 4.4.",
+      "interpretation": "These are physical-execution results, not video-generation scores. The two-task category and perturbation-protocol ambiguity constrain generalization.",
+      "evidenceIds": [
+        "e17",
+        "e18",
+        "e22"
+      ]
+    },
+    {
+      "task": "Stage II ablation across real-world action representations",
+      "setting": "Hard tasks, ST only; joint-position versus end-effector-pose controls.",
+      "metric": "Success rate (%)",
+      "value": "Joint positions: 15.0 without Stage II → 35.0 with; end-effector pose: 10.0 → 30.0.",
+      "comparison": "Within-representation Stage II removal in Table 4.",
+      "interpretation": "Both hard-task gains are 20 percentage points. The ablation tests the bundled Stage II procedure, not hierarchy, flow priors and memory separately.",
+      "evidenceIds": [
+        "e17",
+        "e19"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors acknowledge substantial offline computation and engineering complexity, dependence on latent/boundary/memory quality, and evaluation on only one dual-arm platform with ten tasks.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e20"
+      ]
+    },
+    {
+      "text": "Architecture documentation is inconsistent: Figure 1 labels Wan2.2-TI2V-5B and puts skill extraction in Stage I, while the method and Appendix A specify a Qwen3-VL-4B planner and Stage II skill discovery. Figure 2's DPFlow path also lacks the explicit offline/online separation supplied by Table 5.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e21",
+        "e08",
+        "e10",
+        "e12"
+      ]
+    },
+    {
+      "text": "Figure 1 prints a 10.4% RMBench π0.5 score whereas Table 1 prints 10.8%; this report retains Table 1. Section 4.3 mentions four GE perturbation types, but Figure 3 and Appendix B enumerate five. These source differences remain unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e21",
+        "e16",
+        "e17",
+        "e18",
+        "e22"
+      ]
+    },
+    {
+      "text": "The supplied comparisons report no confidence intervals or seed variation. Stage II removal changes a training bundle; neither the memory gate nor learned boundaries receive an isolated ablation. Qualitative flow/rollout images do not measure boundary correctness or memory fidelity.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e14",
+        "e15",
+        "e16",
+        "e18",
+        "e19",
+        "e23"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Rebuilding requires synchronized observations, proprioception/instructions, action labels where available, DPFlow preprocessing, frozen latent targets, hierarchy training, and sequential memory finetuning. Hardware evaluation used two AgileX Piper 6-DoF arms and four Intel RealSense D435i cameras.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e10",
+        "e17"
+      ]
+    },
+    {
+      "text": "Unspecified items include pretraining corpora and mixing, latent sizes, K, hierarchy depth and thresholds, boundary-ratio targets, loss weights, η, memory capacity/compression, hard-boundary gradient treatment, optimizer/batch settings, compute and software versions. Deterministic and stochastic action objectives are both described without identifying the evaluated choice.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e09",
+        "e10",
+        "e24"
+      ]
+    },
+    {
+      "text": "Reader-proposed checks: hold backbone, data and training compute fixed while comparing learned boundaries with matched-rate fixed segmentation; separately compare learned memory writing with equally budgeted periodic writing and no memory. Measure success by perturbation and memory-complexity group, alongside writes and latency. These experiments have not been run.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e09",
+        "e13",
+        "e15",
+        "e16",
+        "e19"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The described planner → latent executor → action decoder supports the recorded hierarchical/dual-system VLA and latent-action-pretraining labels. The external memory bank is an adapter, not itself a second planner. Future-motion supervision is offline; deployment neither jointly generates future observations/actions nor infers controls from a generated future, supporting the recorded not-applicable prediction quadrant. This assesses the textual architecture; the inconsistent backbone diagrams prevent a stronger implementation-level conclusion.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e08",
+        "e09",
+        "e11",
+        "e12",
+        "e21"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "VLA",
+      "subcategories": [
+        "Hierarchical & dual-system VLA",
+        "Latent action pretraining"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "3dc2f0a760869c6a9e0d4df78e2a8b674a11002925df3c0c2df87b5180ef8b58"
+    }
+  },
+  "discussionQuestions": [
+    "Does boundary timing improve memory usefulness after controlling write count and capacity?",
+    "How much robustness comes from flow supervision versus additional Stage II training?",
+    "How are planned memory events corrected when physical execution fails?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, complete byline, affiliations and arXiv margin stamp",
+      "detail": "Exact supplied title; 15 authors from Xiaoquan Sun through Jiayu Chen; six affiliations including INFIFORCE; arXiv:2606.10363v1 dated 9 Jun 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract, Section 1 contributions and Section 3 overview, Eq. (1)",
+      "detail": "Motivates motion/skill abstraction and task memory; factorizes controls through a skill and low-level latent chunk."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3, Low-level latent actions, Eqs. (2)–(3)",
+      "detail": "Gaussian variational tokenizer uses future/current observations and flow; flow L1, masked action MSE and KL losses; tokenizer is frozen for offline extraction."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Appendix A.2, Eqs. (10)–(13) and Offline latent extraction",
+      "detail": "Flow is normalized by view width/height; motion and semantic features fuse across views; action alignment is label-masked; DPFlow stops after offline extraction."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix A.3, Eqs. (14)–(16)",
+      "detail": "Adjacent normalized query/key dissimilarity at or above δ_s starts a segment; first token is a boundary; attention pooling produces higher-level tokens."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix A.3, Eqs. (17)–(21)",
+      "detail": "Skill loss combines next-latent L1, flow reconstruction through a frozen decoder, target boundary-ratio penalty and within-segment consistency."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix A.4, Eqs. (22)–(26)",
+      "detail": "Recursive start-index maps unfold final skills/boundaries to original timesteps; invalid positions in the trailing action chunk are masked."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 4, memory module; p. 13, Appendix A.5, Eqs. (27)–(28)",
+      "detail": "Qwen3-VL-4B-Instruct planner receives RGB, language, projected proprioception and memory; continuous heads predict skill and boundary score. Planner is distinct from memory bank."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A.5, Eqs. (29)–(32); p. 4, Eqs. (5)–(6)",
+      "detail": "Attention/read gate conditions state; executor predicts latents; candidate combines adapted state, predicted skill and pooled chunk; α_t^w > η triggers append/compress under N_max."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Eqs. (7)–(9); p. 14, Appendix A.6, Eqs. (33)–(40)",
+      "detail": "Three stages train tokenizer, then memory-free latent policy, then action-grounded memory policy. Skill/action-latent MSE and boundary BCE are retained; gate BCE and sparsity regularize memory."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A.6 warmup, Eqs. (41)–(42), and Appendix A.7 steps 1–7",
+      "detail": "Optional teacher-forced warmup uses target boundaries/latents. Online sequence reads current inputs/memory, predicts skill/chunk, decodes actions and writes conditionally; no future-video generation or flow estimation."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Appendix A.1, Table 5 and surrounding explanation",
+      "detail": "Table distinguishes supervised from predicted latents, optional Stage I action labels, disabled Stage II memory, and absence of flow/action annotations at inference."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1, Benchmark Selection and Evaluation Metrics",
+      "detail": "LIBERO and LIBERO-PLUS use 50 rollouts/task; RMBench uses 100; all report success rate."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2, HiMem-WAM, w/o Stage II and Fast-WAM rows",
+      "detail": "HiMem-WAM averages 97.7 (98.2/99.8/98.4/94.5); w/o Stage II averages 96.6; Fast-WAM 97.6. No uncertainty columns."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3 caption, HiMem-WAM, w/o Stage II and HoloBrain-0 rows",
+      "detail": "Standard-LIBERO-only zero-shot protocol; averages 76.0, 72.2 and 75.3. HiMem-WAM initial-state 38.1 versus HoloBrain-0 58.2; seven perturbation columns."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, task/group/total rows and Key Finding 2",
+      "detail": "HiMem-WAM 31.6 on five M(1) tasks, 19.8 on four M(n), 26.3 overall; π0.5 10.8 and X-VLA 9.8 overall. Mem-0 is discussed as stronger but omitted from the table; no memory-off row."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.3 hardware; p. 7, Task Settings, Evaluation Settings and Training Details",
+      "detail": "Two AgileX Piper 6-DoF arms and four D435i cameras; ten tasks across three difficulties; ST/GE evaluation; 400 demonstrations/task, five SFT epochs, 20 trials/task. Text says four GE perturbation types."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 3(a)–(e); p. 7, Section 4.4, Key Finding 3",
+      "detail": "Task-specific ST/GE bars compare π0.5 with HiMem-WAM; five GE variations and platform are shown. Text reports hard-task gains of 25.0 points ST and 20.0 GE; medium gains 12.5 and 10.0."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 4, all rows and ST footnote; Key Finding 4",
+      "detail": "Joint-position Stage II changes: Easy 100→100, Medium 80→82.5, Hard 15→35. EE pose: 90→100, 67.5→75, 10→30. All are ST success percentages."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 6 Limitations",
+      "detail": "Authors identify substantial training computation, multi-stage engineering dependencies and limited validation on one dual-arm platform with ten tasks."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 1 stage labels, caption and RMBench mini-chart; p. 3, Figure 2(d)",
+      "detail": "Figure 1 names Wan2.2-TI2V-5B, places skill latents under Stage I and prints π0.5 RMBench 10.4. Figure 2 depicts DPFlow feeding latent actions without an explicit deployment-stage distinction."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix B.1–B.2; p. 8, Figure 4",
+      "detail": "Five GE types are position, unseen distractors, layout/height, lighting and instruction. Four easy and four medium tasks accompany two hard tasks: sequential plate placement and bread–ham–bread breakfast assembly."
+    },
+    {
+      "id": "e23",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Figure 5; p. 18, Figure 6",
+      "detail": "Qualitative RGB/flow rollout strips and seven LIBERO-PLUS perturbation examples are shown; no numerical latent, boundary or memory-fidelity diagnostic is provided."
+    },
+    {
+      "id": "e24",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–15, Appendix A.2–A.7; p. 7, Training Details",
+      "detail": "Provides symbolic losses, boundaries, memory budget/update and optional warmup, but not numerical hyperparameters, full backbone integration, pretraining recipe, optimizer/compute/software configuration, or control timing. Real-world demonstration count and SFT epochs are given."
+    }
+  ]
+}

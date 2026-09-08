@@ -1,0 +1,525 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.09811",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T15:33:46.060Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.09811",
+      "title": "AHA-WAM:Asynchronous Horizon-Adaptive World-Action Modeling with Observation-Guided Context Routing",
+      "kind": "pdf",
+      "sha256": "b7035e82cbba6f7ccd63b5afa5a2501b58b31f3057f198d7c9670407f1338de5",
+      "wordCount": 9753,
+      "accessedAt": "2026-09-07T14:00:01.701954+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; 1 Introduction (pp. 1–3)",
+      "2 Related Work (pp. 3–4)",
+      "3 Asynchronous Horizon-Adaptive World-Action Modeling, including 3.1–3.5 (pp. 4–8)",
+      "4 Experiments, including 4.1–4.5 (pp. 8–10)",
+      "5 Conclusion, limitations and acknowledgments (p. 11)",
+      "References (pp. 12–14)",
+      "A Implementation Settings (pp. 15–16)",
+      "B RoboTwin Evaluation Details (p. 16)",
+      "C Real-World Task Execution and Scoring Criteria (pp. 16–17)",
+      "D Inference Speedup Details (pp. 16–19)",
+      "E Per-Task RoboTwin Success Rates (p. 20)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity: the inspected title page identifies arXiv:2606.09811v1 [cs.RO], 8 June 2026. Its title and all 13 authors agree with the catalog after name-order normalization. No alternative revision or edition was supplied or substituted.",
+      "The acquisition warning that text extraction does not reconstruct figure images was addressed by inspecting the retained PDF's figures, equations and tables. All six text chunks were read individually without truncation.",
+      "Separate supplemental material availability has not been fully verified; no separate supplement was supplied.",
+      "The source explicitly omits logging, checkpoint and dataset paths, run-specific bookkeeping, and inactive legacy annealing options in Appendix A.",
+      "Code, project pages and external baseline sources were not inspected; no experiments were reproduced. Reference-list text was read, but the cited works were not independently reviewed."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 7)",
+      "Figure 4 (p. 11)",
+      "Figure 5 (p. 17)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (p. 9)",
+      "Table 3 (p. 10)",
+      "Tables 4–5 (p. 15)",
+      "Tables 6–7 (p. 17)",
+      "Tables 8–9 (p. 18)",
+      "Tables 10–11 (p. 19)",
+      "Table 12 (p. 20)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "AHA-WAM separates a video-trained world planner from a fast action executor. The planner exposes reusable latent context; current images route and edit that context before each action chunk. Future-video prediction supervises training but is removed at deployment. The evidence supports strong manipulation performance with substantial systems acceleration, subject to different pretraining and timing protocols across comparisons.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "A shared short temporal horizon makes world modeling expensive at every control update. The authors propose slower, longer-horizon visual modeling alongside reactive action generation, but context reuse creates stale visual information and planner–executor phase mismatch. “Horizon-adaptive” means training for variable phase offsets, not choosing horizons online.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A dual-DiT interface couples a slow video planner and fast action executor through layerwise attention while removing explicit future-frame generation from deployment.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04"
+      ]
+    },
+    {
+      "text": "OVCR, randomized action-start offsets and rolling planner memory address observation alignment, temporal phase and historical context, respectively.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "text": "CUDA deployment and action-sampler distillation produce a measured speed–success tradeoff; architectural asynchrony alone is not the entire acceleration story.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e16",
+        "e19",
+        "e21"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Language instruction; visual observation history and current images",
+      "Proprioceptive robot state; noisy action tokens during denoising"
+    ],
+    "outputs": [
+      "Executable short action chunks",
+      "Future video latents during training; reusable layerwise planner K/V context during inference"
+    ],
+    "steps": [
+      {
+        "name": "Build the slow planner",
+        "detail": "Wan2.2 initializes the video DiT, text encoder and VAE. Language conditions both branches. The video planner uses a causal video mask and exposes layerwise keys and values after one forward. The action branch cannot attend to future video tokens.",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e09"
+        ]
+      },
+      {
+        "name": "Separate memory from the executor interface",
+        "detail": "A fixed FIFO retains historical K/V states inside the planner. Each refresh attends to this memory to produce new context; the executor consumes only the latest adapted context, rather than directly reading the historical FIFO.",
+        "evidenceIds": [
+          "e04",
+          "e08"
+        ]
+      },
+      {
+        "name": "Route current visual feedback",
+        "detail": "Learnable queries pool projected current visual tokens, attend to cached planner features and generate gated residual K/V edits at each layer. Proprioception enters the action DiT directly; visual feedback enters through OVCR.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "name": "Denoise and execute",
+        "detail": "Action queries attend jointly to the action branch's own K/V and the adapted planner K/V. The planner refreshes asynchronously while successive action updates obtain fresh observations and reuse its context.",
+        "evidenceIds": [
+          "e04",
+          "e06",
+          "e09"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Joint flow matching supervises actions and future video latents with logit-normal noise times and equal video/action loss weights. Offset training samples every phase within a chunk. RoboTwin uses 50 clean and 500 randomized demonstrations per task, global batch 512, five epochs, AdamW at 10^-4, weight decay 0.01 and cosine scheduling with 5% warmup.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e07",
+          "e17",
+          "e18"
+        ]
+      },
+      {
+        "text": "Flash freezes the video DiT and regresses from sampled noisy trajectory anchors to the teacher's final action. Table 5 specifies a 16-step teacher, two-step student, learning rate 2×10^-5 and five epochs. This conflicts with prose describing a 10-step teacher; the exact teacher configuration remains unresolved.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09",
+          "e17",
+          "e20"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The configured planning horizon is 64 and executable chunk size is 16; history holds at most six frames and OVCR uses 32 queries. Table 4 separately labels the aggregate action horizon as 64, comprising four chunks. Default action inference uses ten denoising steps and CFG 1.0.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09",
+          "e17"
+        ]
+      },
+      {
+        "text": "Reported action-update latency includes image encoding, context access, routing and denoising. Video prefill runs in the background. These frequencies describe chunk-inference updates, not an independently measured low-level actuator servo rate.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e09",
+          "e16",
+          "e22"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "y_\\rho=(1-\\rho)y+\\rho\\epsilon,\\qquad \\mathcal{L}_{\\mathrm{FM}}(y)=\\mathbb{E}_{y,\\epsilon,\\rho}\\!\\left[\\left\\|f_\\theta(y_\\rho,\\rho,O_t^v,s_t,l)-(\\epsilon-y)\\right\\|_2^2\\right],\\qquad \\mathcal{L}=\\mathcal{L}_a+\\lambda\\mathcal{L}_v",
+        "explanation": "The target y is an action chunk or future video latents; epsilon is Gaussian noise and rho is flow time. The network f_theta predicts velocity conditioned on visual history O_t^v, state s_t and language l. Action and video losses instantiate the same objective; lambda balances them and is effectively one for joint optimization.",
+        "evidenceIds": [
+          "e05",
+          "e18"
+        ]
+      },
+      {
+        "expression": "\\widetilde K_t^{p,\\ell}=K_{\\tau(t)}^{p,\\ell}+\\alpha_t^\\ell\\Delta K_t^{p,\\ell},\\qquad \\widetilde V_t^{p,\\ell}=V_{\\tau(t)}^{p,\\ell}+\\alpha_t^\\ell\\Delta V_t^{p,\\ell}",
+        "explanation": "K and V are planner keys and values, p denotes the planner, ell the transformer layer, t the action update and tau(t) the latest planner refresh. The router predicts residual updates Delta K and Delta V; learned gate alpha controls their addition. Tildes identify the adapted context.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "expression": "\\delta\\sim\\mathcal{U}\\{0,1,\\ldots,h_a-1\\},\\qquad \\mathcal{L}_a=\\mathbb{E}_{\\delta}\\!\\left[\\mathcal{L}_{\\mathrm{FM}}(A_\\tau^\\delta)\\right]",
+        "explanation": "Delta is the sampled action-grid offset, h_a the chunk horizon and A_tau^delta an offset-aligned action chunk within the planner window beginning at tau. The loss trains across chunk phases without changing either horizon online.",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboTwin 2.0: 50-task manipulation",
+      "setting": "Multi-task clean/randomized training; 100 evaluation episodes per task per setting; no embodied pretraining for AHA-WAM. External baseline results are published values when available.",
+      "metric": "Task-averaged success (%)",
+      "value": "93.40 clean; 92.20 randomized; 92.80 overall.",
+      "comparison": "Fast-WAM: 91.88/91.78/91.83; LingBot-VA: 92.90/91.50/92.20.",
+      "interpretation": "The reported overall gain is 0.97 percentage points over Fast-WAM and 0.60 over LingBot-VA. No seed-level uncertainty is supplied. Figure 1 labels LingBot-VA 92.24; this report uses Table 1's 92.20.",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e18",
+        "e24"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0: Flash speed–success tradeoff",
+      "setting": "Same reported clean/randomized benchmark; distilled two-step action sampler.",
+      "metric": "Task-averaged success (%)",
+      "value": "90.48 clean; 89.92 randomized; 90.20 overall.",
+      "comparison": "Ten-step AHA-WAM: 92.80 overall.",
+      "interpretation": "Flash loses 2.60 percentage points overall; faster action inference does not preserve every task's performance.",
+      "evidenceIds": [
+        "e11",
+        "e17",
+        "e21",
+        "e23"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0: asynchronous component ablation",
+      "setting": "Clean/randomized task averages in Table 2; memory and OVCR are described as separate additions to Naive-Async.",
+      "metric": "Overall success (%)",
+      "value": "Naive-Async 88.60; + KV Memory 91.01; + OVCR 91.47; full AHA-WAM 92.80.",
+      "comparison": "Fast-WAM 91.83.",
+      "interpretation": "Memory and routing recover the naive asynchronous drop. The table does not independently isolate offset training or provide capacity-matched controls.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Physical bimanual manipulation: original conditions",
+      "setting": "AgileX Piper; head RGB, state and language; four tasks; about 120 demonstrations per task. AHA-WAM and Fast-WAM receive RoboCOIN pretraining: 24,600 trajectories, about 165 hours. Appendix C states 30 trials per model/task.",
+      "metric": "Average task success (%)",
+      "value": "78.33",
+      "comparison": "Fast-WAM 68.33; pi0.5 76.67; Motus 21.67.",
+      "interpretation": "This is executed robot behavior. It is not evidence for robot-data-free real-world learning; slower WAM baselines use RTC-style execution and interpolation.",
+      "evidenceIds": [
+        "e13",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "task": "Physical bimanual manipulation: generalization shifts",
+      "setting": "Lighting, towel texture, object configuration and environment shifts for the four physical tasks.",
+      "metric": "Average task success (%)",
+      "value": "53.3",
+      "comparison": "pi0.5 55.0; Fast-WAM 46.7; Motus 16.7.",
+      "interpretation": "AHA-WAM ranks second in success under these shifts. The printed progress-score aggregation is unclear, so it is not converted to a mean 0–3 score.",
+      "evidenceIds": [
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "task": "Closed-loop action-chunk inference latency",
+      "setting": "RoboTwin timing; single RTX 5090D except Fast-WAM's official latency. Warmup episode discarded; bf16; asynchronous planner prefill.",
+      "metric": "Latency (ms); action-update frequency (Hz)",
+      "value": "AHA-WAM 41.37 ms / 24.17 Hz; Flash 17.56 ms / 56.95 Hz.",
+      "comparison": "Fast-WAM 190.00 ms / 5.26 Hz: reported speedups 4.59× and 10.82×. AHA-WAM eager-to-optimized latency: 415.77 to 41.37 ms.",
+      "interpretation": "The internal optimization comparison substantiates systems gains; the external speedup is not a fully hardware-matched experiment.",
+      "evidenceIds": [
+        "e16",
+        "e19",
+        "e21",
+        "e22"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify planner frequency, video horizon and action chunk size as task-dependent choices and call for dedicated long-horizon evaluation. The paper does not demonstrate dynamic horizon selection.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e02",
+        "e25"
+      ]
+    },
+    {
+      "text": "Aggregate success hides failures: Open Microwave is 40% clean and 46% randomized for AHA-WAM, versus 9%/23% for Flash. Success tables lack seed-level uncertainty, and the component ablation does not separate offset training from other changes.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e12",
+        "e23"
+      ]
+    },
+    {
+      "text": "Figure 4 prints progress scores such as 35, whereas Appendix C defines per-trial scores from 0 to 3. The aggregation is unspecified. Neither those bars nor the small success advantage over pi0.5 establishes statistical superiority.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Recreate three RoboTwin camera views at 384×320, 14-dimensional state/action inputs, 30 routed layers, six-frame history and 32 queries. The model totals about 7.23B parameters. Training GPU count, wall-clock cost, exact RoboCOIN subset selection, router/gate implementation and precise noisy-anchor sampling probabilities remain insufficiently specified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e09",
+        "e13",
+        "e17",
+        "e20"
+      ]
+    },
+    {
+      "text": "Resolve the 10-versus-16-step teacher discrepancy before reproducing Flash. Record the exact runtime: Table 8 changes PyTorch 2.7.1/cu128 and Triton 3.3.1 to PyTorch 2.12.0/cu130 and Triton 3.7.0, with TensorRT 10.16.1.11 throughout. Measure chunk latency and planner prefill separately.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e17",
+        "e19",
+        "e20",
+        "e22"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Dual-system × Joint prediction classification fits two distinct DiTs coupled by layerwise attention and jointly supervised action/video prediction. This is not inverse-dynamics extraction from decoded future frames. Joint prediction describes training; deployment retains video-trained latent context while removing explicit future prediction. FIFO memory and the asynchronous executor support the recorded memory and efficiency subcategories.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e08",
+        "e09"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Memory & long-horizon modeling",
+        "Efficient inference & real-time control",
+        "Joint video-action modeling"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q3 · Dual-system × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "b96aa04287b322bd2effe30999a1a55174e42d6e6da2b0e546db0542649ceef6"
+    }
+  },
+  "discussionQuestions": [
+    "Does offset training improve robustness to delayed planner refreshes when routing and memory are held fixed?",
+    "Which task failures increase when two-step distillation replaces the default sampler?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin stamp",
+      "detail": "The observed title matches the supplied title; arXiv:2606.09811v1 is dated 8 June 2026. Authors in order are Jisong Cai, Long Ling, Shiwei Chu, Zhongshan Liu, Jiayue Kang, Zhixuan Liang, Wenjie Xu, Yinan Mao, Weinan Zhang, Xiaokang Yang, Ru Ying, Ran Zheng and Yao Mu. Affiliations are Shanghai Jiao Tong University, Shanghai AI Laboratory, Baidu AI Cloud and The University of Hong Kong."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–4, Introduction and opening of Section 3",
+      "detail": "The authors motivate different world/action temporal roles and explicitly define horizon-adaptive as decoupled horizons with offset robustness, not online horizon selection."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and caption",
+      "detail": "The architecture shows separate video/action DiTs, observation-guided routing, residual K/V adaptation, rolling planner memory and training/inference attention masks."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.1, Eqs. (1)–(3) and masking paragraph",
+      "detail": "The planner emits reusable layerwise K/V; action attention concatenates its own K/V with adapted planner context. Video prediction uses a causal mask; actions cannot attend to future video tokens, allowing removal of the future-video path during inference."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.1, Eqs. (4)–(7)",
+      "detail": "Gaussian interpolation defines the flow-matching velocity target epsilon minus y; action and future-video losses are combined with weight lambda. Explicit future-frame decoding is removed at deployment."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.2, Eqs. (8)–(10)",
+      "detail": "Base queries attention-pool current visual tokens. Layerwise routing reads planner features, predicts K/V residuals and applies a learned gate; proprioception is encoded directly for the executor."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 3, Section 3.3 and Eqs. (11)–(12)",
+      "detail": "The action grid is shifted by a discrete uniform offset from zero through h_a minus one inside a longer planner horizon; the action flow-matching objective averages over offsets."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 3.4 and Eq. (13)",
+      "detail": "A fixed FIFO of historical video K/V is internal to the planner. It informs each new context refresh and is not directly consumed by the action DiT."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Sections 3.5 and 4.1",
+      "detail": "Non-blocking streams separate planner refresh and action updates. Wan2.2 initializes the planner; reported sizes are 4.99B video, 1.02B action and 1.22B memory/routing parameters. Horizons are 64/16, history six frames and routing 32 queries. Flash prose describes 10-to-2-step distillation with a frozen video DiT."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.2, benchmark protocol",
+      "detail": "RoboTwin has 50 tasks, 50 clean and 500 randomized training demonstrations per task, global batch 512 and 100 test trials per task per setting."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 1, AHA-WAM, Flash, Fast-WAM and LingBot-VA rows; Section 4.2",
+      "detail": "Clean/randomized/average success is 93.40/92.20/92.80 for AHA-WAM, 90.48/89.92/90.20 for Flash, 91.88/91.78/91.83 for Fast-WAM and 92.90/91.50/92.20 for LingBot-VA. Robot-pretraining flags differ. No success uncertainty is shown."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Table 2 and Section 4.3",
+      "detail": "Overall success is Fast-WAM 91.83, Naive-Async 88.60, + KV Memory 91.01, + OVCR 91.47 and full AHA-WAM 92.80. The text describes memory and routing as separate and joint additions; no standalone offset-training ablation is reported."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 4.4, Setup, Implementation and Results; compare p. 1 Abstract",
+      "detail": "Physical tests use AgileX Piper, head RGB, state/language and four tasks with about 120 demonstrations per task. AHA-WAM and Fast-WAM are pretrained on 24,600 RoboCOIN trajectories (about 165 hours), qualifying the abstract's broad no-robot-pretraining language. Original success is 78.33 versus 68.33 Fast-WAM, 76.67 pi0.5 and 21.67 Motus. Slower baselines use RTC-style execution and interpolation."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Figure 4, original/generalization summaries and four task panels",
+      "detail": "Generalization success is AHA-WAM 53.3%, pi0.5 55.0%, Fast-WAM 46.7% and Motus 16.7%. Panels show lighting, texture, object configuration and environment shifts. The graphic prints AHA-WAM generalization score 35 and original score 38 despite the caption referring to 0–3 scores."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF pp. 16–17, Appendix C, Figure 5 and Table 6",
+      "detail": "Appendix C states 30 independent trials per model/task, binary success at score 3, and ordered subtask progress scores 0–3. Table 6 defines plate transfer/racking, towel folding/basket placement, desktop organization and soy-milk preparation. Figure 5 calls the final task Spoon Powder; Table 6 calls it Prepare Soy Milk. Figure 4's larger score aggregates are not defined here."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 3 and Section 4.5",
+      "detail": "AHA-WAM is 41.37 ms/24.17 Hz/4.59×, Flash 17.56 ms/56.95 Hz/10.82× and Fast-WAM 190.00 ms/5.26 Hz/1.00×. Fast-WAM uses official latency; the remaining methods are timed on a single RTX 5090D."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A, Tables 4–5 and omission statements",
+      "detail": "Table 4 gives three cameras, 384×320 resolution, six history frames, frequency ratio and RoPE stride 8, 30 routed layers, 14-dimensional states/actions, aggregate action horizon 64 and four 16-action chunks, 32 queries, AdamW 10^-4, weight decay 0.01, 5% warmup, batch 512, five epochs, ten default inference steps and CFG 1.0. Table 5 specifies 16 teacher steps, two student steps, anchors 0/1/2/4/8/12/16 and learning rate 2×10^-5. Run paths, bookkeeping and legacy options are explicitly omitted."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix A Training configuration and Appendix B",
+      "detail": "Joint video/action flow matching uses equal weights and logit-normal noise times. RoboTwin uses 2,500 clean and 25,000 randomized demonstrations; 100 test episodes per task/setting. External baselines use official published results when available."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix D, Table 8 including runtime footnote, and Table 9",
+      "detail": "Cumulative CUDA stages reduce L_chunk from 415.77±0.33 to 41.37±0.03 ms; Action DiT TRT/CUDA Graph gives 83.87±0.51 ms. Runtime A is PyTorch 2.7.1/cu128, Triton 3.3.1, TensorRT 10.16.1.11; B is PyTorch 2.12.0/cu130, Triton 3.7.0, same TensorRT. Default prefill compile gives 34.59±0.08 ms with 71.45 ms chunk latency; reduce-overhead gives 25.70±0.22 ms prefill but 75.08 ms chunk latency. The ± statistic is not defined."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF pp. 18–19, Appendix D, ODE distillation; compare p. 15 Table 5 and p. 8 Section 3.5",
+      "detail": "The video DiT is frozen and the student regresses from non-final anchors to the teacher's final action, favoring noisy anchors. Appendix D refers both to a 10-step teacher and a 16-step teacher trajectory; Table 5 specifies 16 steps. Exact noisy-anchor probabilities are not given."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Table 11",
+      "detail": "One/two/four/ten distilled sampling steps have chunk latencies 14.67/17.56/23.45/41.37 ms and rounded frequencies 68.3/56.9/42.6/24.2 Hz. The table contains no corresponding one- or four-step task-success results."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF pp. 16–17, Appendix D Measurement protocol and Table 7",
+      "detail": "L_chunk includes image encoding, context access, OVCR and action denoising; L_prefill is a separate asynchronous video call. Timing uses RoboTwin tasks, discards the first warmup episode, averages remaining per-episode means and uses bf16 for baseline and optimized pipelines."
+    },
+    {
+      "id": "e23",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Appendix E, Table 12, Open Microwave row and Average row",
+      "detail": "Open Microwave clean/randomized success is 40/46 for AHA-WAM, 9/23 for Flash, 62/45 for Fast-WAM and 82/86 for LingBot-VA. The printed average row repeats Table 1's clean/randomized aggregates."
+    },
+    {
+      "id": "e24",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 1 RoboTwin chart; compare p. 9 Table 1",
+      "detail": "Figure 1 labels LingBot-VA 92.24; Table 1 and its surrounding comparison use 92.20, giving a 0.60-point advantage for AHA-WAM."
+    },
+    {
+      "id": "e25",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Section 5, Limitations and future work",
+      "detail": "The authors identify task/embodiment-dependent temporal hyperparameters and call for dedicated long-horizon benchmarks and stronger future planner representations."
+    }
+  ]
+}

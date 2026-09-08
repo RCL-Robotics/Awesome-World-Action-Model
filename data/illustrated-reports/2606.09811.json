@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.09811",
+  "shortTitle": "AHA-WAM",
+  "thesis": "AHA-WAM reuses a slow video planner's latent context for fast, observation-conditioned action updates, gaining speed through both its asynchronous interface and substantial deployment optimization.",
+  "standfirst": "A robot can benefit from visual dynamics without generating a new future video before every action. AHA-WAM trains a video planner together with an action executor, then deploys them at different rhythms. The key interface is reusable layerwise attention context: current images help the executor retrieve and edit that context between planner refreshes. Read this paper by separating three questions: what video prediction teaches during training, how fresh feedback reaches an action chunk, and which engineering changes produce the reported speed. The simulation results, physical trials and latency tables answer different questions and use different pretraining or measurement conditions.",
+  "evidenceIds": [
+    "e03",
+    "e04",
+    "e05",
+    "e06",
+    "e11",
+    "e13",
+    "e16",
+    "e19"
+  ],
+  "featuredResultTask": "RoboTwin 2.0: 50-task manipulation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2606.09811/architecture.png",
+      "width": 1297,
+      "height": 885,
+      "sourceSha256": "b7035e82cbba6f7ccd63b5afa5a2501b58b31f3057f198d7c9670407f1338de5",
+      "sourceUrl": "https://arxiv.org/pdf/2606.09811#page=4",
+      "crop": [
+        0.195,
+        0.09,
+        0.805,
+        0.412
+      ],
+      "alt": "Two transformer branches connected by observation-guided K/V routing, with rolling video memory and separate training and inference attention masks.",
+      "caption": "Current observations adapt the planner's cached context before the action expert uses it.",
+      "readingGuide": "Start at the bottom left: the VAE and rolling K/V memory feed the blue video planner. Move to the current image beneath the green branch: its visual features form observation-guided queries, which read the cached video context. The circled cross marks attention; the circled plus marks the residual edit before joint attention in the action DiT. The state encoder supplies a separate proprioceptive pathway. On the right, compare the training mask's causal video block with the smaller inference mask. Section 3.1 explains the removed tokens: future-video supervision is available during training, but actions are masked from those future tokens.",
+      "takeaway": "The connection between world modeling and action execution survives removal of future-video generation. The reusable object is layerwise latent K/V context, adapted using current visual feedback. This supports a dual-system interpretation: two distinct transformers interact through attention while serving different temporal roles.",
+      "caution": "The diagram is a structural explanation, not a complete router specification. Equations (8)–(10) define observation pooling and gated residual edits, but the precise layerwise router and gate implementation remain insufficiently specified for exact reconstruction.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e06",
+        "e08"
+      ]
+    },
+    {
+      "id": "offset-training",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 7,
+      "asset": "report-assets/2606.09811/offset-training.png",
+      "width": 1088,
+      "height": 183,
+      "sourceSha256": "b7035e82cbba6f7ccd63b5afa5a2501b58b31f3057f198d7c9670407f1338de5",
+      "sourceUrl": "https://arxiv.org/pdf/2606.09811#page=7",
+      "crop": [
+        0.18,
+        0.091,
+        0.82,
+        0.174
+      ],
+      "alt": "A blue planner timeline above a green action timeline, with delta marking a shifted start of the action-chunk grid.",
+      "caption": "Offset training varies where the action grid begins inside a fixed planner window.",
+      "readingGuide": "Follow the blue timeline first, then the more frequent green action updates below it. The delta bracket at the left shifts the green grid relative to the planner's starting point. The caption and Equation (11) specify a discrete offset drawn from zero through one less than the action chunk size. This is a training-time shift of the action grid, not an online decision to lengthen or shorten a horizon. The drawing is schematic: use Section 4.1 and Table 4 for the configured planning horizon, chunk size and temporal settings rather than estimating implementation ratios from the artwork.",
+      "takeaway": "Randomized alignment exposes the executor to different phases of a reused planner context. Together with current-observation routing, it supplies a plausible training mechanism for asynchronous operation. The planner horizon stays longer than an individual executable action chunk; the sampled offset changes their relative alignment.",
+      "caution": "Table 2 does not include a standalone removal of offset training. The figure explains the intended mechanism, but the reported component ablation cannot establish its independent contribution or robustness to arbitrarily long planner delays.",
+      "evidenceIds": [
+        "e02",
+        "e07",
+        "e09",
+        "e12",
+        "e17"
+      ]
+    },
+    {
+      "id": "robotwin-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 9,
+      "asset": "report-assets/2606.09811/robotwin-results.png",
+      "width": 1234,
+      "height": 489,
+      "sourceSha256": "b7035e82cbba6f7ccd63b5afa5a2501b58b31f3057f198d7c9670407f1338de5",
+      "sourceUrl": "https://arxiv.org/pdf/2606.09811#page=9",
+      "crop": [
+        0.258,
+        0.105,
+        0.742,
+        0.253
+      ],
+      "alt": "RoboTwin comparison table with robot-pretraining flags and clean, randomized and average success columns; AHA-WAM reports 92.80 percent overall.",
+      "caption": "AHA-WAM leads the reported RoboTwin average, while Flash exchanges some success for speed.",
+      "readingGuide": "Read the robot-pretraining flag before comparing the success columns. AHA-WAM, Flash and Fast-WAM are marked as having no embodied pretraining before RoboTwin training; this still permits pretrained video initialization. Clean and randomized columns summarize different scene settings, and the last column is their reported average. Section 4.2 uses 50 tasks and 100 test episodes per task in each setting. Start with Fast-WAM as the closest interface comparison, then inspect LingBot-VA and the generalist policies. Appendix B says external baseline values come from official published results when available, so these rows are not all new runs in one controlled implementation.",
+      "takeaway": "AHA-WAM reports 92.80% overall, compared with 91.83% for Fast-WAM and 92.20% for LingBot-VA. Its 93.40% clean and 92.20% randomized results remain close. Flash reports 90.20% overall, exposing a measurable success cost alongside its faster sampler.",
+      "caution": "No seed-level uncertainty accompanies these success rates. Figure 1 prints LingBot-VA as 92.24, whereas this table and the main comparison use 92.20. The report preserves that inconsistency and uses the table value.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e11",
+        "e18",
+        "e24"
+      ]
+    },
+    {
+      "id": "component-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 9,
+      "asset": "report-assets/2606.09811/component-ablation.png",
+      "width": 1112,
+      "height": 449,
+      "sourceSha256": "b7035e82cbba6f7ccd63b5afa5a2501b58b31f3057f198d7c9670407f1338de5",
+      "sourceUrl": "https://arxiv.org/pdf/2606.09811#page=9",
+      "crop": [
+        0.5,
+        0.787,
+        0.827,
+        0.889
+      ],
+      "alt": "Five-row component ablation table comparing Fast-WAM, naive asynchrony, separate memory and routing additions, and full AHA-WAM.",
+      "caption": "Naive context reuse loses success; memory and observation-guided routing each recover part of it.",
+      "readingGuide": "Use Naive-Async as the intervention baseline: it separates planner and executor but reuses the latest context without memory or OVCR. Section 4.3 says the next two mechanisms are added separately, then jointly in the full model. Accordingly, the '+ OVCR' row should not be read as necessarily including the preceding '+ KV Memory' row. Read across clean and randomized columns before comparing averages, since a mechanism could help one condition more than the other. The accompanying discussion assigns historical continuity to memory and current-state alignment to routing; those functional explanations should be distinguished from what the table directly measures.",
+      "takeaway": "Naive-Async achieves 88.60% overall, below Fast-WAM's 91.83%. Memory alone raises the reported average to 91.01%, and routing alone to 91.47%; the full system reaches 92.80%. The observed pattern supports combining historical context with fresh visual conditioning.",
+      "caution": "This is not a capacity-matched factorial study of every design choice. It does not isolate offset training, query count, memory length or planner refresh schedule, and no uncertainty estimates accompany the component differences.",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e08",
+        "e12"
+      ]
+    },
+    {
+      "id": "real-world-results",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 4",
+      "page": 11,
+      "asset": "report-assets/2606.09811/real-world-results.png",
+      "width": 1315,
+      "height": 618,
+      "sourceSha256": "b7035e82cbba6f7ccd63b5afa5a2501b58b31f3057f198d7c9670407f1338de5",
+      "sourceUrl": "https://arxiv.org/pdf/2606.09811#page=11",
+      "crop": [
+        0.19,
+        0.09,
+        0.809,
+        0.315
+      ],
+      "alt": "Real-world success and score summaries beside four pairs of task images showing original conditions and lighting, object configuration, texture or environment changes, with colored model bars.",
+      "caption": "Physical success depends on the task and shift; aggregate progress scores require a separate interpretation.",
+      "readingGuide": "The left panels summarize original and shifted conditions; the right panels pair each task with one visual change. Keep the model colors aligned with the bottom legend. Store Plate varies lighting, Organize Desktop changes object configuration, Fold Towel changes texture, and Prepare Soy Milk changes environment. Success bars are percentages. The panels labeled Score require caution: Appendix C defines an individual rollout score from zero to three, but the plotted aggregate values use an unexplained scale. Appendix C states 30 trials per model and task, with success requiring completion of the third subtask. Section 4.4 supplies the pretraining and physical deployment conditions.",
+      "takeaway": "The reported original-condition average is 78.3% for AHA-WAM, 76.7% for pi0.5 and 68.3% for Fast-WAM. Under the illustrated shifts, AHA-WAM reaches 53.3%, behind pi0.5 at 55.0%. Thus the physical evidence supports competitive robustness across these four tasks, with no uniform advantage across conditions.",
+      "caution": "AHA-WAM and Fast-WAM receive RoboCOIN pretraining for these experiments. The printed progress score of 35 cannot be treated as a mean on the defined 0–3 scale; its aggregation is unresolved. The small success differences lack reported uncertainty.",
+      "evidenceIds": [
+        "e13",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "id": "cuda-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 8",
+      "page": 18,
+      "asset": "report-assets/2606.09811/cuda-ablation.png",
+      "width": 1377,
+      "height": 471,
+      "sourceSha256": "b7035e82cbba6f7ccd63b5afa5a2501b58b31f3057f198d7c9670407f1338de5",
+      "sourceUrl": "https://arxiv.org/pdf/2606.09811#page=18",
+      "crop": [
+        0.175,
+        0.263,
+        0.823,
+        0.434
+      ],
+      "alt": "Cumulative CUDA optimization stages with action-chunk and planner-prefill latencies, runtime labels, and exact software-version footnotes.",
+      "caption": "The reported action-update speed requires a cumulative compiler and runtime optimization path.",
+      "readingGuide": "Read downward: each row adds an optimization to the previous stage. L_chunk measures one action update, while L_prefill measures the background video-planner call. TRT denotes TensorRT and CG denotes CUDA Graph capture. The first large drop follows compiling and capturing the action DiT; later rows add context modules, prefill compilation, redundant-work removal, a runtime upgrade, buffer-copy removal and a TensorRT VAE encoder. A dash in the prefill column means no value is reported there, not zero planner cost. Preserve the runtime footnote: the A-to-B change updates PyTorch and Triton as part of the measured cumulative path.",
+      "takeaway": "The table reports a decrease from 415.77 ± 0.33 ms in eager execution to 41.37 ± 0.03 ms after all stages. The first action-DiT optimization already reaches 83.87 ± 0.51 ms. These within-model results show that deployment engineering contributes substantially to the final latency.",
+      "caution": "Cumulative rows cannot isolate order-independent effects, and the paper does not define the displayed ± statistic. Prefill is separate from action latency. The headline Fast-WAM speedup additionally uses an external published timing rather than this same cumulative experiment.",
+      "evidenceIds": [
+        "e09",
+        "e16",
+        "e19",
+        "e22"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Train on futures, deploy through latent context",
+      "text": "During training, AHA-WAM receives dense visual-dynamics supervision alongside action supervision. The same flow-matching construction corrupts either future video latents or action chunks and trains a velocity predictor; Appendix A gives equal weights when the branches are jointly optimized. The crucial deployment preparation is the attention mask: action tokens cannot rely on future video tokens during training. At inference, the future-video path can therefore disappear while the planner still supplies a representation shaped by video learning. Reader interpretation: the term world planner here denotes learned, future-oriented latent context, not an explicit search over candidate action sequences. Physical action comes from the action DiT's denoising process and execution interface. Keeping that distinction clear prevents attributing test-time imagined rollouts or inverse-dynamics decoding to this architecture.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e18"
+      ]
+    },
+    {
+      "heading": "Keep three kinds of temporal information separate",
+      "text": "The system handles history, current evidence and relative timing with different mechanisms. Rolling K/V memory belongs inside the slow planner and lets a new refresh incorporate historical observations. OVCR works between refreshes: current visual tokens form compact queries, those queries retrieve planner features, and a gated residual update changes the layerwise keys and values consumed by the action expert. Proprioception follows a direct state-encoding path. Offset training changes the action chunk's starting phase within the longer planner window, exposing the executor to different alignments during learning. None of these operations selects a new horizon at test time. A useful reading order is therefore memory before planner refresh, routing before action denoising, and randomized offsets before deployment. Table 2 measures memory and routing additions, leaving the independent offset-training effect open.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e07",
+        "e08",
+        "e12"
+      ]
+    },
+    {
+      "heading": "Read the speed claim as a measured tradeoff",
+      "text": "Asynchrony moves video prefill outside the action-update critical path, but the fast branch still requires image encoding, context routing and repeated action denoising. Table 8 shows why implementation matters: the same ten-step deployment path becomes much faster after TensorRT compilation, CUDA Graph capture, redundant-work elimination and a runtime upgrade. Flash then reduces the action sampler to two steps, with lower RoboTwin success in Table 1. Reader interpretation: a useful reproduction should report both success and action-update latency, while also checking that background planner refresh remains timely. Table 9 reinforces this point: the compile mode with the shortest prefill latency increases chunk latency, so optimizing the slow branch in isolation can hurt the fast path. The external Fast-WAM speedup should remain separate from these within-model comparisons.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e11",
+        "e16",
+        "e19",
+        "e21",
+        "e22"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate offset robustness from observation routing",
+      "text": "Reader-proposed experiment, not performed: train matched replicas with fixed versus randomized action-grid offsets, crossed with OVCR enabled versus disabled, while holding planner memory, horizons, demonstrations and training budget constant. Keep the disabled router's architecture present where possible to control parameter count. Evaluate identical held-out RoboTwin episodes while varying planner refresh delay and applying a controlled object displacement between refreshes. Record success by delay, planner-context age and action latency over multiple seeds. Offset training should particularly reduce sensitivity to phase shifts, while OVCR should help after changed visual evidence. If neither advantage appears under matched delays, the claimed separation of temporal alignment and observation correction would be weakened.",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e08",
+        "e10",
+        "e12",
+        "e17"
+      ]
+    },
+    {
+      "title": "Reproduce the latency–success curve with a fixed teacher and runtime",
+      "text": "Reader-proposed experiment, not performed: first resolve and record whether the teacher trajectory uses 10 or 16 steps; if clarification is unavailable, test both as separate configurations. On the same RTX 5090D, data split and fixed bf16 runtime, compare eager ten-step inference, optimized ten-step inference and the distilled two-step student. Reuse identical task seeds and log chunk latency, prefill latency, context age and per-task success. Follow the paper's warmup exclusion and per-episode averaging, and add clearly labeled latency quantiles. Open Microwave is a useful diagnostic because Table 12 shows a large Flash drop. A speedup without the reported success profile, or with accumulating stale context, would fail to reproduce the full deployment tradeoff.",
+      "evidenceIds": [
+        "e09",
+        "e11",
+        "e16",
+        "e17",
+        "e19",
+        "e20",
+        "e22",
+        "e23"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    "notes": "The title/author/version page, all five figures, all twelve tables, method equations, training settings, physical scoring definitions and timing appendices were rendered and visually inspected. Six faithful crops were inspected at their final asset sizes; the component-table crop was adjusted to retain its full top rule and inspected again. Figure 2's arrows and mask blocks were checked against its caption and Sections 3.1–3.2; Figure 3's offset was checked against Equations (11)–(12). The declared pages cover all retained numerical, method, training, evaluation and reproduction claims. References on pp. 12–14 were read as text; those pages contain no retained scientific claims requiring visual evidence. Unresolved source inconsistencies remain explicit: Figure 1 versus Table 1's LingBot-VA average, the real-world progress-score aggregation, and the distillation teacher schedule. Separate supplements and external code remain outside this reading."
+  }
+}
