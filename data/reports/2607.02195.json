@@ -1,0 +1,469 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.02195",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T12:27:41.250Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2607.02195",
+      "title": "Bridge-WA: Predicting Where and How the World Changes for Robotic Action",
+      "kind": "pdf",
+      "sha256": "4042f26992574ba438e03b33e897b917ce568a64a6b5c917fe12908fb87545b6",
+      "wordCount": 10172,
+      "accessedAt": "2026-09-07T13:57:44.152842+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 BRIDGE-WA Model, including 3.1–3.3",
+      "4 Experiments, including 4.1–4.3",
+      "5 Conclusion and Limitations",
+      "References",
+      "Appendix A: setup, A.1 task definitions, A.2 evaluation protocol",
+      "Appendix B.1–B.4: teacher, cache, predictor, conditioning",
+      "Appendix C.1–C.3: training, baselines, additional results",
+      "Appendix D: additional visualizations"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity/version: the title page identifies arXiv:2607.02195v1, 2 July 2026. Title and all six authors match the catalog; small-capital styling is not a title change. No other revision or separate edition was supplied or compared (e01).",
+      "All six text chunks were read individually, covering all 21 pages. Text extraction does not reconstruct figure images; the retained PDF was visually inspected separately on pages 1–9 and 15–21. Reference-only pages 10–14 were read as text.",
+      "Separate supplemental material availability has not been fully verified; none was supplied.",
+      "Linked code and project resources were not opened. No code was inspected and no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 3)",
+      "Figure 2 (p. 4)",
+      "Figures 3–4 (p. 6)",
+      "Figure 5 (p. 15)",
+      "Figures 6–7 (p. 20)",
+      "Figure 8 (p. 21)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (p. 7)",
+      "Tables 3–4 (p. 8)",
+      "Table 5 (p. 9)",
+      "Tables 6–8 (p. 19)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Bridge-WA compresses a manipulation-trained future teacher into outcome tokens, spatial change maps and motion-flow maps. A policy predicts these priors from current context and reads them while generating action chunks. Reported gains concern executed manipulation, with improved averages but uneven transfer across perturbations and tasks. Efficiency is architectural; deployment latency is not measured (e03, e10, e12, e13, e20).",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Reactive vision-language-action policies may exploit appearance correlations without representing manipulation consequences. The authors seek useful foresight without deploying a large future-image generator. Their bottleneck retains what outcome is intended, where change should occur and how affected regions should move.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Distill a separately trained world teacher into three compact targets, then remove the teacher and cache at deployment.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e05"
+      ]
+    },
+    {
+      "text": "WorldBridge supplies prior memories and spatial attention biases at different transformer depths. Ablations test both information content and its routing into action generation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e08",
+        "e14"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Multi-view RGB observations",
+      "Robot proprioception",
+      "Language instruction"
+    ],
+    "outputs": [
+      "Continuous action chunk with reference horizon H = 30",
+      "Intermediate predicted future tokens, change map and image-coordinate motion flow"
+    ],
+    "steps": [
+      {
+        "name": "Acquire a robot-specific future teacher",
+        "detail": "Initialize Wan2.2-TI2V-5B, pretrain on BridgeData V2, then adapt to the downstream dataset. During target adaptation only the DiT changes; VAE and text encoder remain frozen. Freeze the resulting teacher before caching.",
+        "evidenceIds": [
+          "e04",
+          "e17"
+        ]
+      },
+      {
+        "name": "Compress and predict the future",
+        "detail": "Pool predicted future latents into outcome tokens. Pool and normalize absolute current/future latent differences into change maps; estimate image-space flow to the decoded predicted future. Cache these targets with sample alignment metadata. Lightweight heads share encoded visual-language context and learn to recover them.",
+        "evidenceIds": [
+          "e03",
+          "e05",
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "name": "Condition action generation progressively",
+        "detail": "Policy queries read ordinary self-attention memories plus active future/change/flow memories. Change and flow add attention-logit biases. Route outcome information earlier, spatial support in middle-to-late layers, and local motion near decoding; omit inactive priors. Figure 2 additionally shows FiLM-style modulation.",
+        "evidenceIds": [
+          "e08"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Jointly optimize action imitation and prior distillation. Future tokens use squared-L2 regression; change and flow use L1; every branch also has cosine alignment. All six weights default to 0.1. Policy training reads the cache without teacher forward passes.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "text": "Appendix B.4 specifies a 0.5 blend of teacher and predicted guidance during training, modulation scale 0.1 and change/flow bias scales 1.0. This qualifies the main-text description of predicted-prior conditioning. Several action-head families are permitted without a complete head-specific recipe.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08",
+          "e17"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Encode current observations and instruction, predict priors, and generate actions through WorldBridge and the action decoder. Teacher, cache and future-image decoder are absent. Proprioception belongs to the formal context although Figure 1 draws its connection only to the action-token encoder.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e07",
+          "e17"
+        ]
+      },
+      {
+        "text": "This is future-conditioned action prediction rather than explicit candidate-action search in a deployed simulator. Chunk execution length before re-observation and the precise online denoising schedule are unspecified.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e03",
+          "e08",
+          "e17"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\hat Z_t=g_\\phi(x_t),\\quad Z_t=(T_{f,t},M_{c,t},M_{o,t}),\\quad \\pi_{\\theta,\\phi}(a_{t:t+H-1}\\mid x_t)=\\pi_\\theta(a_{t:t+H-1}\\mid x_t,\\hat Z_t)",
+        "explanation": "Eq. (2): x_t contains images, proprioception and language; g_phi predicts the tuple. T_f denotes outcome tokens, M_c change support and M_o image-coordinate motion. The policy conditions an H-step action chunk on the predicted tuple.",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      },
+      {
+        "expression": "T_f^\\star=P_f(\\tilde F_{t+\\Delta}),\\quad M_c^\\star=\\operatorname{Norm}\\!\\left(P_c\\!\\left(|\\tilde F_{t+\\Delta}-F_t|\\right)\\right),\\quad M_o^\\star=\\operatorname{Resize}\\!\\left(\\operatorname{Flow}(I_t,\\tilde I_{t+\\Delta})\\right)",
+        "explanation": "Eq. (8): Delta is the future offset; tildes mark predicted future latent/image; F_t is the current latent. P_f and P_c pool latent information; stars denote targets. Flow estimates image-space motion. Normalization and resizing are source-named operations with unspecified implementations.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "\\mathcal L_{\\mathrm{train}}=\\mathcal L_{\\mathrm{act}}\\!\\left(\\pi_{\\theta,\\phi}(a_{t:t+H-1}\\mid x_t),a^\\star_{t:t+H-1}\\right)+\\mathcal L_{\\mathrm{prior}}",
+        "explanation": "Eq. (12) adds imitation of demonstrated actions to six weighted regression/alignment terms. These train the predictor and conditioned policy, not the frozen teacher.",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "VLABench five-category manipulation",
+      "setting": "Ten tasks; front/secondary/wrist RGB, robot state and language; five public categories.",
+      "metric": "Average SR; intention score (IS); progress score (PS)",
+      "value": "Reported SR 52.8%; IS/PS 71.2%/64.0%.",
+      "comparison": "SR: π0-Fast delta chunk 43.1% (+9.7 percentage points). IS/PS: X-VLA 70.2%/51.2%.",
+      "interpretation": "Cross-category SR is 23.0% versus 34.2% for π0-Fast delta. Table 2 imports some baselines from a separate frozen-backbone training setting.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus zero-shot robustness",
+      "setting": "Seven independently perturbed evaluation dimensions; no LIBERO-Plus training.",
+      "metric": "Average success rate",
+      "value": "Reported 72.1%.",
+      "comparison": "OpenVLA-OFT 69.6% (+2.5 percentage points).",
+      "interpretation": "Robot-state, lighting and background scores are 92.8%, 96.7% and 94.3%; camera-view success is 25.0%, versus π0-Fast’s 65.1%. Robustness is dimension-specific.",
+      "evidenceIds": [
+        "e09",
+        "e12"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0 bimanual manipulation",
+      "setting": "15-task subset; BRIDGE-WA trains on Easy only and directly evaluates the same checkpoint on Hard.",
+      "metric": "Average success rate by split",
+      "value": "Reported Easy 79.67%; Hard 37.73%.",
+      "comparison": "X-VLA: Easy 68.53%; Hard 36.00%.",
+      "interpretation": "The Easy advantage is much larger than the Hard advantage; domain randomization remains difficult.",
+      "evidenceIds": [
+        "e18"
+      ]
+    },
+    {
+      "task": "Dobot Nova2 manipulation under visual shifts",
+      "setting": "Five tasks, 50 demonstrations each; ten Easy trials and five trials per distractor, lighting and tablecloth factor.",
+      "metric": "Normalized task score, labeled Avg. SR; includes partial credit",
+      "value": "Reported Easy 73.6%; Hard 69.1%.",
+      "comparison": "X-VLA: 69.6% and 58.0% (+4.0 and +11.1 percentage points).",
+      "interpretation": "These are not all-or-nothing completion frequencies. PickGrape improves strongly, but StackBowls remains weak and drawer Hard ties X-VLA.",
+      "evidenceIds": [
+        "e09",
+        "e13",
+        "e16"
+      ]
+    },
+    {
+      "task": "VLABench-5 world-prior and routing ablation",
+      "setting": "Same five tasks and optimization budget; stated 100 episodes per task; four reported tracks.",
+      "metric": "Reported Avg. SR",
+      "value": "Layered conditioning 50.4%.",
+      "comparison": "No-world 46.3%; all-three token combination 46.6%; attention-only 44.8%; no-gate 49.3%.",
+      "interpretation": "Routing matters: adding all three alone barely improves the baseline. The source does not fully explain Avg. aggregation from the track columns.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Franka FR3 Easy manipulation",
+      "setting": "Five tasks on the additional robot platform; Easy evaluation only.",
+      "metric": "Reported average success rate",
+      "value": "73.0%.",
+      "comparison": "VLA-JEPA 49.0%; π0.5 47.0%.",
+      "interpretation": "Supports a second-platform result, not Franka OOD robustness. Table-specific trial denominators remain unclear relative to the generic protocol.",
+      "evidenceIds": [
+        "e16",
+        "e19"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Teacher coverage, short-horizon image-space priors and offline-cache construction cost limit the method. Geometry-aware and longer-horizon extensions remain future work.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e20"
+      ]
+    },
+    {
+      "text": "Teacher-target heatmaps and selected rollouts illustrate representations, without establishing that the deployed predictor isolates causal effects. Comparisons lack uncertainty intervals; no measured latency supports a numerical efficiency claim.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e21",
+        "e20"
+      ]
+    },
+    {
+      "text": "Main-text Dobot RGB is 640×480, whereas Appendix A says 480×480. Table 8’s 25% binary drawer baselines are not reconciled with the generic ten-trial protocol. Neither discrepancy is silently repaired.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e16",
+        "e19"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reference caching uses four GPUs, batch 128, ten teacher diffusion steps and horizon 30; teacher inputs are 256×256 with VLABench future_index 30. Reproduction needs aligned camera/time/task keys, teacher checkpoints and downstream demonstrations. GPU models, optimizer/schedule, policy-backbone freezing, exact routing indices and the chosen action-head implementation remain incompletely specified.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e08",
+        "e17"
+      ]
+    },
+    {
+      "text": "The single-factor sweep motivates compact future tokens, intermediate change grids and finer flow grids, without establishing their joint optimum. Exact flow estimation, normalization/pooling, selected five-task ablation identities and execution/re-observation timing require clarification before exact replication.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e08",
+        "e14",
+        "e15",
+        "e17"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Latent prediction & JEPA",
+        "Visual planning & IDM",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "ccdd0329f728e0b78e25ca71c8780a15445891dea7e7391ff33e57a8b8f5b643"
+    },
+    "reasoning": {
+      "text": "WAM membership is supported by predicted world priors used during action inference. Separate teacher and policy support a dual-system description during training; deployment shares an encoder with lightweight prediction heads. IDM is less secure: the paper formulates imitation conditioned on predicted summaries, without an explicit inverse-dynamics objective over observed state transitions. Joint predictor/policy training alone does not establish a unified future-and-action generator. Preserve Q4 as the catalog snapshot with this unresolved interpretation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e07",
+        "e08"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does correct spatial alignment of predicted priors matter more than extra supervision and parameters?",
+    "Can predicted-only training retain the benefit of teacher/predicted guidance blending?",
+    "Would geometry-aware priors improve camera robustness without losing the deployment advantage?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin",
+      "detail": "The title matches the supplied observed title, with BRIDGE-WA typeset in small capitals. Authors are Yongjie Bai, Hanting Wang, Mingtong Dai, Qijun Zhong, Yang Liu and Liang Lin. Four affiliations are listed. The margin identifies arXiv:2607.02195v1, 2 Jul 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "The authors motivate compact outcome, change and motion representations to retain predictive information while avoiding deployment-time dense future generation."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 1 and Section 3; p. 4, Eq. (2) and Section 3.2",
+      "detail": "The Florence-2 visual-language backbone feeds lightweight prior heads and an action transformer. A frozen teacher/cache supplies training targets; deployment uses predicted priors. The text includes proprioception in the predictor context, although Figure 1 explicitly draws it only into the action-token encoder."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2(I), Section 3.2; p. 16, Appendix B.1, Eq. (7)",
+      "detail": "The Wan2.2-TI2V-5B teacher predicts future observations from images, robot state and language. Reference inputs are 256×256 and VLABench future_index is 30."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix B.1, Eq. (8) and definitions",
+      "detail": "Future targets pool predicted future latents; change targets normalize pooled absolute current/future latent differences; motion targets resize flow estimated between current and teacher-predicted future images. Exact pooling, normalization and flow implementations are not supplied."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Appendix B.2, Eq. (9)",
+      "detail": "Cache entries contain sample key, future offset, priors and alignment metadata including camera order, time and task. The reference uses four GPUs, batch 128, ten teacher diffusion steps and a 30-action horizon, with half precision where possible. GPU models and total cache cost are unspecified."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Appendix B.3, Eqs. (10)–(12)",
+      "detail": "Predictor heads share encoded visual-language context and train jointly with action imitation. Future regression uses squared L2; change/flow use L1. All branches also use cosine distance; each of six default weights is 0.1. Inference uses only predicted priors."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2(II); p. 5, Section 3.3, Eqs. (3)–(4); pp. 17–18, Appendix B.4, Eqs. (13)–(15)",
+      "detail": "Policy queries read self and active prior key/value memories, with additive change/flow biases. Future enters earlier, change in middle-to-late layers and flow near decoding; inactive priors are omitted. Defaults: modulation 0.1, both bias scales 1.0, teacher/predicted guidance blend 0.5 during training. Numerical layer ranges are unspecified."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4, simulation and real-robot setup",
+      "detail": "VLABench uses front, secondary and wrist views and five categories. LIBERO-Plus perturbs seven dimensions without training on its data. Dobot has five tasks, 50 demonstrations each, ten Easy trials and five per Hard factor. Main-text RGB is standardized to 640×480."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, all rows and Avg. SR/Cross-Cat. columns; p. 19, Table 7",
+      "detail": "VLABench average SR is 52.8 versus 43.1 for π0-Fast delta chunk. BRIDGE-WA category SRs are 78.0, 23.0, 51.1, 67.0 and 45.0; the strongest cross-category entry is 34.2. Table 7 reports ten individual tasks."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2, Avg. columns and caption",
+      "detail": "Average IS/PS are 71.2/64.0 for BRIDGE-WA and 70.2/51.2 for X-VLA. Diamond-marked baselines come from ACoT-VLA’s 60K-step frozen-backbone setting; matching categories/metrics does not establish identical training budgets."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3, BRIDGE-WA, OpenVLA-OFT and π0-Fast rows and caption",
+      "detail": "LIBERO-Plus average SR is 72.1 for BRIDGE-WA versus 69.6 for OpenVLA-OFT. BRIDGE-WA scores 25.0 on camera, 92.8 on robot state, 96.7 on lighting and 94.3 on background; π0-Fast scores 65.1 on camera."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4, per-task entries, Avg. SR block and scoring footnote",
+      "detail": "Dobot Easy/Hard averages are 73.6/69.1 for BRIDGE-WA versus X-VLA’s 69.6/58.0. PickGrape Hard is 14/15 versus 10/15; StackBowls Hard is 5/15 versus 5.1/15; drawer Hard is 7/15 for both. Several tasks use partial credit."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4.2; p. 9, Table 5 and caption",
+      "detail": "VLABench-5 uses the same five tasks/optimization budget and states 100 episodes per task. Reported Avg. SR: no-world 46.3, change-only 48.4, flow-only 45.2, all-three 46.6, attention-only 44.8, no-gate 49.3, layered 50.4. Tracks 1–4 denote in-distribution, cross-category, common-sense and semantic-instruction. Avg. aggregation is not fully explained."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 4(IV), complete plot and caption; p. 8, Section 4.2, World-prior Size Sweep Analysis",
+      "detail": "Future 1×1 has SR/PS 46.8/60.2 versus 43.4/56.4 at 4×4. Change peaks at 8×8 with 49.4/62.8; flow SR rises from 45.2 at 2×2 to 49.0 at 16×16. The plot uses modality-specific sizes and a broken vertical axis."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Appendix A overview, A.1 and A.2",
+      "detail": "Dobot Nova2/Franka FR3 data use seven-dimensional Cartesian pose/gripper vectors, 30 Hz demonstrations and 50 demonstrations per task. Dobot D455/D405 videos are 480×480, differing from p. 5. Easy has ten trials; each Hard factor has five. Buttons allow 0/0.5/1, fruits/bowls 0/0.3/0.6/1; other tasks are binary. Initial states, instructions and resets are matched."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix C.1, Training Recipe",
+      "detail": "The teacher is pretrained on BridgeData V2, then fine-tuned on the downstream dataset before caching. Target fine-tuning updates only the 5B DiT; VAE, text encoder and other components stay frozen. Policy imitation/distillation follows with action horizon 30. Optimizer, learning-rate schedule, policy training steps and exact action-head implementation are unspecified."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 4(III); p. 18, Appendix C.3; p. 19, Table 6",
+      "detail": "RoboTwin 2.0 covers 15 tasks; BRIDGE-WA trains only on Easy and directly evaluates the same checkpoint on Hard. Average SR is 79.67/37.73, versus X-VLA’s 68.53/36.00 in Figure 4(III)."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 19, paragraph preceding Table 8 and Table 8",
+      "detail": "Franka Easy average is 73.0% for BRIDGE-WA, 49.0% for VLA-JEPA and 47.0% for π0.5. Table-specific denominators are unexplained; binary drawer baseline values of 25% are not reconciled with Appendix A.2’s generic ten-trial description."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5; pp. 5–9, experiments; pp. 17–18, deployment and training",
+      "detail": "Authors identify teacher quality/coverage, short-horizon image-space priors and offline-cache cost as limitations. The evaluation reports task scores without measured deployment latency or uncertainty intervals for the retained comparisons."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 3(III) and caption; p. 20, Figure 7 and caption; p. 21, Figure 8",
+      "detail": "Figure 3 explicitly labels teacher-target visualizations; change peaks and the flow color wheel illustrate spatial support and motion. Figures 7–8 provide simulation prior examples and representative Dobot executions, without a quantitative causal-isolation test."
+    }
+  ]
+}

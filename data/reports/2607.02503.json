@@ -1,0 +1,395 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.02503",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T12:33:46.013Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2607.02503",
+      "title": "VT-WAM: Visual-Tactile World Action Model for Contact-Rich Manipulation",
+      "kind": "pdf",
+      "sha256": "237eb6230bd43016d80f437963050804aa0bcaee2a4c65c1df29ec53278d62d5",
+      "wordCount": 6107,
+      "accessedAt": "2026-09-07T13:57:50.876661+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "PDF p. 1: title, authors, affiliations, v1 stamp, abstract and Section I",
+      "PDF p. 2: Sections I–II and III-A",
+      "PDF pp. 3–4: Sections III-A–D.1, attention masks, AVTAG and objectives",
+      "PDF pp. 5–6: Sections III-D.2 and IV-A–C, implementation, protocol and results",
+      "PDF p. 7: Sections IV-C–D, prediction metrics, ablations and recovery diagnostic",
+      "PDF p. 8: Section V and all references; all four supplied text chunks read in full"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction-only figure omission was addressed by inspecting all eight PDF pages, all six figures, all three tables, and every final crop.",
+      "No separate supplement was supplied. Only the supplied arXiv v1 was reviewed; no other edition was supplied for comparison. Title and author identity agree with the catalog.",
+      "Code, project website and external references were not inspected; experiments were not reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, p. 1",
+      "Figure 2, p. 3",
+      "Figure 3, p. 4",
+      "Figure 4, p. 5",
+      "Figure 5, p. 6",
+      "Figure 6, p. 7"
+    ],
+    "tablesReviewed": [
+      "Table I, p. 5",
+      "Table II, p. 7",
+      "Table III including notes, p. 7"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "VT-WAM learns visual futures, tactile deformation and robot actions in an integrated multi-expert flow model. During control it keeps a current visual anchor and predicts tactile evolution alongside actions. A contact-gated training loss encourages action queries to use touch. Its six-task average is 71.67% versus Fast-WAM’s 45.00%, but surface-task scores include partial credit. Evidence supports task-specialized contact manipulation, with missing latency and uncertainty measurements limiting broader claims.",
+  "readingTimeMinutes": 8,
+  "problem": {
+    "text": "Contact deformation, slip and pressure can change while a wrist-camera image barely changes. The authors argue that dense visual evidence dominates joint learning because useful touch is temporally sparse. Their question is whether predicting tactile evolution, and encouraging its use specifically during contact, improves executed manipulation.",
+    "kind": "source",
+    "evidenceIds": [
+      "problem"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Couple future visual, tactile and action prediction through three modality-specific experts connected within one MoT backbone.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture",
+        "objective"
+      ]
+    },
+    {
+      "text": "Use asymmetric attention to retain tactile-sequence access while removing future visual tokens during control; use AVTAG only during training to encourage contact-phase tactile attention.",
+      "kind": "source",
+      "evidenceIds": [
+        "mask",
+        "guidance",
+        "inference"
+      ]
+    },
+    {
+      "text": "Demonstrate improvements across six real-world tasks, supported by tactile prediction metrics and two-task mechanism ablations.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "main-results",
+        "prediction",
+        "ablation"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Wrist-camera RGB observations",
+      "Paired tactile 3D deformation fields",
+      "Proprioceptive state and language instruction",
+      "Demonstration action chunks and future observations for training"
+    ],
+    "outputs": [
+      "Visual, tactile and action flow velocity fields during joint training/prediction",
+      "Predicted tactile evolution and executable action chunks in visual-cache control"
+    ],
+    "steps": [
+      {
+        "name": "Encode three streams",
+        "detail": "A Wan2.2 video VAE encodes wrist images; a pretrained tactile VAE encodes six deformation channels from two sensor surfaces. Action chunks receive linear projection. Language and state condition each expert through cross-attention.",
+        "evidenceIds": [
+          "architecture"
+        ]
+      },
+      {
+        "name": "Route information asymmetrically",
+        "detail": "Each expert forms its own queries, keys and values. Visual queries cannot read tactile or action keys. Tactile queries read the first visual frame but no action keys. Action queries read that visual anchor and the full tactile latent sequence. Thus predicted touch can inform actions without a downstream inverse-dynamics module.",
+        "evidenceIds": [
+          "architecture",
+          "mask"
+        ]
+      },
+      {
+        "name": "Guide contact-phase queries",
+        "detail": "AVTAG constructs auxiliary attention using action queries and detached visual/tactile keys. It compares total attention mass by modality and penalizes visual dominance only for action tokens identified by pronounced tactile deformation. Stop-gradient blocks this auxiliary path into keys; it does not establish that the encoders or backbone are globally frozen.",
+        "evidenceIds": [
+          "guidance"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Train a separate model per task using 100 kinesthetic demonstrations, with all streams synchronized to 30 Hz. The visual backbone is pretrained Wan2.2-5B; tactile and action experts are 1B-scale DiTs. The three flow-loss weights equal 1, and the AVTAG coefficient is 0.05.",
+        "kind": "source",
+        "evidenceIds": [
+          "implementation",
+          "protocol"
+        ]
+      },
+      {
+        "text": "Optimization uses AdamW, learning rate 1e-4, weight decay 1e-2, bf16, gradient clipping 1.0, cosine decay and 5% warmup on NVIDIA A100 80GB GPUs. Training stages, frozen-parameter policy, batch size, update count and GPU count are not specified.",
+        "kind": "source",
+        "evidenceIds": [
+          "implementation"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Prediction analysis jointly denoises visual, tactile and action tokens. Physical control instead removes future visual tokens and denoises tactile and action latents against the current visual anchor, using 10 denoising steps on a remote A100 server. This is a computational design benefit without a reported millisecond latency measurement.",
+        "kind": "source",
+        "evidenceIds": [
+          "inference",
+          "implementation"
+        ]
+      },
+      {
+        "text": "The action head supplies control chunks; the paper does not specify executable action coordinates, chunk length, execution fraction, feedback/replanning schedule or end-to-end control rate. The 30 Hz sensing/resampling rate should not be treated as measured policy throughput.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "architecture",
+          "implementation",
+          "inference"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "P_{vt}=\\operatorname{Softmax}\\!\\left(\\frac{Q_a\\operatorname{sg}([K_v;K_t])^{\\top}}{\\sqrt{d}}\\right),\\qquad L_{\\mathrm{AVTAG}}=\\mathbb{E}_{r\\in\\mathcal{C}}[\\max(0,p_v(r)-p_t(r))]",
+        "explanation": "Q_a contains action queries; K_v and K_t are visual and tactile keys; d is token width and sg stops gradients. The source obtains p_v and p_t by summing auxiliary attention over each modality and normalizing by their combined mass. C contains contact-phase action tokens and r indexes them. The penalty is zero when tactile mass equals or exceeds visual mass; it does not demand exclusive tactile attention.",
+        "evidenceIds": [
+          "architecture",
+          "guidance"
+        ]
+      },
+      {
+        "expression": "L_{\\mathrm{Train}}=\\lambda_v L_v+\\lambda_t L_t+\\lambda_a L_a+\\lambda_{\\mathrm{AVTAG}}L_{\\mathrm{AVTAG}},\\qquad L_v=\\mathbb{E}\\|\\hat f^v-f_v^*\\|^2",
+        "explanation": "L_v, L_t and L_a are modality-wise squared errors between predicted velocity fields and flow targets; the displayed visual term is representative. The lambda coefficients weight those objectives. AVTAG is an auxiliary training term, not an inference-time force controller.",
+        "evidenceIds": [
+          "objective",
+          "guidance"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Six real-world contact-rich manipulation tasks",
+      "setting": "Separate task training on the same 100 demonstrations per task; 20 independent physical trials per method/task on the same robot. Surface tasks allow scores 0/0.5/1; insertion is binary.",
+      "metric": "Reported success rate: average task score as a percentage",
+      "value": "VT-WAM: 71.67% overall; surface 81.67%, insertion 61.67%. Board/vase/cucumber/plug/card/tube: 90/85/70/60/70/55%.",
+      "comparison": "Fast-WAM: 45.00% overall, 56.67% surface, 33.33% insertion; task scores 70/55/45/20/55/25%. OmniVTLA: 35.83% overall.",
+      "interpretation": "The overall advantage over Fast-WAM is 26.67 percentage points; versus OmniVTLA it is 35.84 points using displayed rounded means. The metric is not a uniform binary completion probability. Same demonstrations do not equalize pretrained models or tactile availability.",
+      "evidenceIds": [
+        "implementation",
+        "protocol",
+        "main-results"
+      ]
+    },
+    {
+      "task": "Tactile deformation prediction",
+      "setting": "Joint inference; all compared methods evaluated on the same task demonstrations. Held-out split and prediction horizon are unspecified.",
+      "metric": "Full-field l2 distance (lower); cosine similarity over non-zero deformation regions (higher)",
+      "value": "VT-WAM: 0.077 l2 and 0.749 cosine.",
+      "comparison": "exUMI: 0.091 and 0.618; UVA: 0.083 and 0.667.",
+      "interpretation": "Both metrics favor VT-WAM under this reported protocol. Physical error units and uncertainty are absent; these prediction metrics do not independently establish control success.",
+      "evidenceIds": [
+        "prediction"
+      ]
+    },
+    {
+      "task": "Tactile readout and AVTAG ablation on wipe vase and insert tube",
+      "setting": "Two task representatives; Table III compares Fast-WAM-based variants under the paper’s task-scoring protocol.",
+      "metric": "Reported wipe-vase / insert-tube success score (%)",
+      "value": "M0 baseline 55/25; M1 symmetric tactile sequence 65/40; M2 asymmetric first tactile frame 40/30; M3 asymmetric full sequence 70/50; M4 with AVTAG 85/55.",
+      "comparison": "M2 to M3 adds 30/20 percentage points; M3 to M4 adds 15/5 points.",
+      "interpretation": "Temporal tactile readout has the larger observed effect. M3–M4 isolates AVTAG according to the authors; 5 points on binary tube insertion equals one additional success in 20 trials, so its stability remains untested.",
+      "evidenceIds": [
+        "protocol",
+        "ablation"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors explicitly leave multi-task training and scaling laws unexplored. Task-specialized results do not establish transfer to new tasks or objects.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "limitations",
+        "protocol"
+      ]
+    },
+    {
+      "text": "Tables I–III give point estimates without confidence intervals or seed variability. Figure 6 illustrates disturbed vase wiping, but attention traces are diagnostic associations, not proof that attention weights alone cause recovery.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "main-results",
+        "prediction",
+        "ablation",
+        "recovery"
+      ]
+    },
+    {
+      "text": "Removing future visual prediction is architecturally motivated, but no measured latency, throughput, or matched-compute accuracy comparison establishes real-time performance.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "inference",
+        "implementation",
+        "ablation"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the xArm7/Robotiq 2F-85 platform, wrist RGB and paired Xense sensing, task demonstrations, and compatible visual/tactile VAEs and DiT initialization. RGB is 128×128; each sensor provides a 35×20 3D deformation field at 30 Hz.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture",
+        "implementation"
+      ]
+    },
+    {
+      "text": "Resolve the numerical contact threshold, token-to-contact alignment, auxiliary attention aggregation, action representation/horizons, flow sampling recipe and optimization duration before exact replication. The supplied paper does not provide these details or a declared prediction train/test split.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "guidance",
+        "objective",
+        "implementation",
+        "prediction"
+      ]
+    },
+    {
+      "text": "Proposed checks: repeat M3–M4 with matched disturbance schedules and multiple seeds; separately compare full tactile readout with first-frame-only and temporally shuffled readout while holding architecture and compute fixed. Measure recovery and task score, not attention alone.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "mask",
+        "guidance",
+        "ablation",
+        "recovery"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "WAM, tactile sensing and Joint prediction are supported. The recorded Dual-system/Q3 architecture conflicts with the described integrated backbone: Figure 2 connects three experts through shared attention layers and predicts modalities through their heads, without separate planning and execution systems. This favors a One Model reading on architectural evidence, beyond merely sharing a loss. The efficiency subcategory is design-supported but lacks timing measurements. The catalog snapshot is preserved for editorial review.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "mask",
+        "objective",
+        "inference"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Multimodal, tactile & audio sensing",
+        "Joint video-action modeling",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q3 · Dual-system × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "12b230a83196fbf697aefb239441fd382c4c1fcd4e564b4f53fbe76bfc5138f7"
+    }
+  },
+  "discussionQuestions": [
+    "Would temporally shuffled predicted touch reduce control performance when its marginal deformation statistics remain intact?",
+    "Does contact-gated guidance remain beneficial with calibrated tactile noise or changed contact thresholds?",
+    "How much latency is saved by removing visual futures at matched action quality?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author/affiliation block and arXiv margin stamp",
+      "detail": "The observed title matches the supplied title. The ten authors, in order, are Shuai Tian, Yupeng Zheng, Yuhang Zheng, Songen Gu, Yujie Zang, Yuxing Qin, Weize Li, Haoran Li, Wenchao Ding, and Dongbin Zhao. The artifact is arXiv:2607.02503v1 [cs.RO], 2 July 2026. All five supplied affiliations match the title page; no title or author revision discrepancy is observed."
+    },
+    {
+      "id": "problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract, Section I and Figure 1(a)",
+      "detail": "The authors motivate tactile dynamics through sparse contact information and visual dominance; Figure 1(a) plots effective contact ratios for the six tasks, without defining its error bars in the caption."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section III-A; p. 3, Figure 2(a) and Section III-A continuation",
+      "detail": "Wan2.2 video VAE tokens, pretrained tactile VAE tokens from two 3D deformation surfaces, and projected action chunks enter modality-specific experts connected by MoT attention in one backbone. State and language use cross-attention. Modality-specific heads predict flow velocity fields."
+    },
+    {
+      "id": "mask",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section III-B cross-modal mask equations; p. 3, Figure 2(b)",
+      "detail": "Rows are queries and columns are keys. Visual queries cannot read tactile/action keys; tactile queries read the first visual frame and no action keys; action queries read the first visual frame and full tactile sequence. Figure 2 removes future visual tokens for inference and keeps first-frame anchors isolated from future same-modality tokens."
+    },
+    {
+      "id": "guidance",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section III-C, auxiliary attention, normalization and hinge-loss equations; p. 3, Figure 2(c)",
+      "detail": "AVTAG uses action queries and stop-gradient visual/tactile keys to form auxiliary attention. It sums and normalizes attention by modality, then penalizes max(0,p_v-p_t) on action tokens with pronounced tactile deformation. The formal loss has zero penalty at p_t >= p_v; the graphic uses the stricter shorthand Encourage p_t > p_v. No numerical contact threshold is specified."
+    },
+    {
+      "id": "objective",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section III-D.1, flow matching and full training objective equations",
+      "detail": "Visual, tactile and action squared velocity errors form a weighted joint flow loss; the full training loss adds weighted contact-gated AVTAG. Predicted fields and target fields are defined, but the detailed flow interpolation/sampling procedure is not specified here."
+    },
+    {
+      "id": "inference",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section III-D.2, Efficient Visual-Cache Inference",
+      "detail": "Joint inference denoises visual, tactile and action tokens for prediction analysis. Real-world control retains the current visual anchor, removes future visual prediction, and denoises tactile and action latents. No measured latency comparison is reported."
+    },
+    {
+      "id": "implementation",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 3; p. 5, Sections IV-A.1–2",
+      "detail": "The platform is a 7-DoF xArm7 with Robotiq 2F-85, a RealSense D435 labeled in Figure 3, and paired Xense sensors. Data comprise 100 kinesthetic demonstrations per task, synchronized at 30 Hz; RGB is 128 by 128 and each tactile field 35 by 20 by 3. Wan2.2-5B and 1B-scale tactile/action DiTs use AdamW, learning rate 1e-4, weight decay 1e-2, bf16, clipping 1.0, cosine decay and 5% warmup. Loss weights are 1,1,1 and AVTAG 0.05. Training uses A100 80GB GPUs; inference uses a remote A100 and 10 denoising steps."
+    },
+    {
+      "id": "protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 4 and Section IV-A; p. 6, Sections IV-A.3 and IV-B.1–2",
+      "detail": "Methods train separately per task on the same demonstrations and share platform, tasks and metrics. Each method/task has 20 independent trials. Surface tasks score 0, 0.5 for more than half the region, or 1 for complete coverage; insertion tasks score binary target attainment. The three surface tasks and three insertion tasks are explicitly listed."
+    },
+    {
+      "id": "main-results",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table I, all method rows and task/average columns; p. 6, Section IV-C.1",
+      "detail": "VT-WAM scores 90/85/70/60/70/55 percent on board/vase/cucumber/plug/card/tube, with surface/insertion/overall averages 81.67/61.67/71.67. Fast-WAM gives 70/55/45/20/55/25 and averages 56.67/33.33/45.00. OmniVTLA averages 33.33/38.33/35.83. No uncertainty intervals accompany Table I."
+    },
+    {
+      "id": "prediction",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 5 and Section IV-C.2; p. 7, Table II and Section IV-C.2 continuation",
+      "detail": "Joint inference produces qualitative visual/tactile sequences. Tactile l2 is evaluated over the full 3D field and cosine similarity over non-zero deformation regions, on the same task demonstrations for all methods. Table II reports exUMI 0.091/0.618, UVA 0.083/0.667 and VT-WAM 0.077/0.749. The evaluation split, prediction horizon, physical error units and uncertainty are not specified."
+    },
+    {
+      "id": "ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table III including Notes, and Section IV-D, Ablations 1–2",
+      "detail": "On wipe vase/insert tube, M0 Fast-WAM gives 55/25; M1 symmetric tactile-sequence prediction 65/40; M2 asymmetric first-tactile-frame readout 40/30; M3 asymmetric full tactile-sequence readout 70/50; M4 adds training-only AVTAG and gives 85/55 percent. The text says M3 and M4 differ only in AVTAG."
+    },
+    {
+      "id": "recovery",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 6(a–b), caption and Section IV-D, Ablation 2",
+      "detail": "A vase-wiping disturbance lowers the support. Red tactile and blue visual attention are compared without/with AVTAG; dashed contact force and side views are visualization only. The top panel labels contact weakening, and the bottom panel labels maintained contact; the text describes contact recovery. Panels have different action-step spans and force-axis ranges."
+    },
+    {
+      "id": "limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section V, Conclusion",
+      "detail": "The authors explicitly restrict the study to individual-task specialization and leave multi-task training and scaling laws to future work. The supplied eight-page PDF ends with references and has no appendix."
+    }
+  ]
+}
