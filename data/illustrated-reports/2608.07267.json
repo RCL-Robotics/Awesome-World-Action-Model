@@ -1,0 +1,248 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.07267",
+  "shortTitle": "WNM-3D",
+  "thesis": "A geometry-aware history prefix improves joint video–action navigation on GN-Bench, while the curriculum shows that expert correction must precede effective reward refinement in the tested configurations.",
+  "standfirst": "WNM-3D asks how a navigation policy can use the geometry implicit in its past RGB views while predicting both motion and what that motion will reveal. A frozen geometry encoder and a learned adapter turn the observed history into scene tokens that remain available throughout joint video–action denoising. The paper then separates two training problems: recovering from states reached by an imperfect policy, and making successful behavior more efficient. Its strongest evidence comes from the WNM-2D comparison and the training-stage table. Read these alongside the inference rule: only actions execute, and only newly observed images enter the next history.",
+  "evidenceIds": [
+    "e-problem",
+    "e-architecture",
+    "e-inference",
+    "e-results",
+    "e-ablation"
+  ],
+  "featuredResultTask": "GN-Bench Unseen closed-loop navigation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 4,
+      "asset": "report-assets/2608.07267/architecture.png",
+      "width": 1312,
+      "height": 376,
+      "sourceSha256": "fb921446edb659ab1cb46214157e935ea1c17a3e2760e3958c1893ab535a0b30",
+      "sourceUrl": "https://arxiv.org/pdf/2608.07267#page=4",
+      "crop": [
+        0.114,
+        0.08,
+        0.886,
+        0.251
+      ],
+      "alt": "Three-panel architecture: alternative RGB-history encoders produce a prefix for a shared video–action DiT; modality decoders and a block-causal visibility matrix appear to the right.",
+      "caption": "History-derived scene tokens condition the same transformer that generates visual and action variables.",
+      "readingGuide": "Start at panel (a), where the history branches into WNM-3D's frozen VGGT-Ω plus trainable adapter or WNM-2D's frozen video VAE. Both paths end at history tokens, so the interface to the generator stays comparable. In panel (b), future-frame and expert-action inputs depict supervised training targets; noise enters both modalities before the shared DiT predicts them. Snowflakes mark frozen modules and flames mark trainable ones. Finally read panel (c) by temporal block: each visual/action pair can exchange information and see preceding blocks. The shaded prefix column makes history available across the predicted horizon.",
+      "takeaway": "The diagram supports the One Model × Joint prediction assessment: a shared transformer couples visual and action variables despite separate modality encoders and heads. Geometry enters as clean conditioning during generation. It is neither a separate action-selection planner nor solely an auxiliary training target.",
+      "caution": "The displayed video decoder does not imply RGB decoding during navigation. Section 3.5 states that inference retains visual latents, executes only the first action block, and adds actual simulator observations to history.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-flow",
+        "e-inference"
+      ]
+    },
+    {
+      "id": "scene-adapter",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 6,
+      "asset": "report-assets/2608.07267/scene-adapter.png",
+      "width": 1220,
+      "height": 928,
+      "sourceSha256": "fb921446edb659ab1cb46214157e935ea1c17a3e2760e3958c1893ab535a0b30",
+      "sourceUrl": "https://arxiv.org/pdf/2608.07267#page=6",
+      "crop": [
+        0.476,
+        0.497,
+        0.886,
+        0.738
+      ],
+      "alt": "Three stacked adapter stages show gated geometry features, pooled and structured target queries with local deformable sampling, and spatial–temporal refinement with detail and coarse heads.",
+      "caption": "The adapter compresses a history feature lattice into a fixed scene-token interface.",
+      "readingGuide": "Follow the upper panel from history frames through frozen VGGT-Ω features to per-location layer fusion. This preserves patch correspondence while deciding which encoder levels contribute at each location. In the middle panel, the coarse pooled base, learned target-grid queries and structured embeddings meet at query initialization. Anchored resampling then gathers fine detail near learned offsets in the source lattice. The lower panel separates spatial and temporal refinement, projects the detailed representation, and adds a coarse residual before flattening. Appendix A.1 fixes the target lattice at 9×5×10, yielding the same 450-token prefix length used by WNM-2D.",
+      "takeaway": "The design combines a coarse scene summary with locally retrieved detail rather than exposing the complete source memory to global cross-attention. Matching prefix length makes the downstream token interface comparable, but WNM-3D also introduces a 23.97M-parameter adapter and geometry encoding computation. This figure explains the mechanism; it does not measure each component's benefit.",
+      "caution": "The illustrated lattice spans history, height and width. It should not be read as a metrically reconstructed voxel map. The paper does not separately ablate gating, resampling or the coarse residual.",
+      "evidenceIds": [
+        "e-adapter",
+        "e-configuration",
+        "e-ablation"
+      ]
+    },
+    {
+      "id": "training-curriculum",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 7,
+      "asset": "report-assets/2608.07267/training-curriculum.png",
+      "width": 1312,
+      "height": 532,
+      "sourceSha256": "fb921446edb659ab1cb46214157e935ea1c17a3e2760e3958c1893ab535a0b30",
+      "sourceUrl": "https://arxiv.org/pdf/2608.07267#page=7",
+      "crop": [
+        0.114,
+        0.08,
+        0.886,
+        0.322
+      ],
+      "alt": "Training schematic progressing from A* supervised joint prediction, through policy rollout and expert corrective labeling, to counterfactual branches with separate visual, navigation and stopping rewards.",
+      "caption": "Expert imitation, corrective supervision and reward refinement address different training conditions.",
+      "readingGuide": "Read the panels as successive checkpoint transitions. Stage I learns from expert actions and future images rendered along those same actions. The middle panel introduces the learned policy into simulation: observations from policy-visited states are paired with A* corrections and matching future views to form the DAgger dataset. In the right panel, the Stage-II policy generates counterfactual samples for visual, navigation and stopping rewards. The branching sketch represents a controlled change to one denoising transition, not alternative simulator rollouts during optimization. The accompanying text specifies that Stage III scores generated samples against fixed reference records without stepping the interactive simulator.",
+      "takeaway": "The curriculum changes more than the objective. DAgger changes supervised state coverage, and the full Stage-III run uses records recollected with the Stage-II policy. Counterfactual reward refinement then routes visual credit through visual transition ratios and navigation/stopping credit through action ratios while updating the shared transformer.",
+      "caution": "This overview does not prove that reward refinement can replace expert correction. The direct Stage-I-to-DanceGRPO ablation degrades success. The full and direct refinement configurations also start from different checkpoints and use differently collected records.",
+      "evidenceIds": [
+        "e-curriculum",
+        "e-counterfactual",
+        "e-stage3-data",
+        "e-ablation"
+      ]
+    },
+    {
+      "id": "navigation-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 10,
+      "asset": "report-assets/2608.07267/navigation-results.png",
+      "width": 1647,
+      "height": 767,
+      "sourceSha256": "fb921446edb659ab1cb46214157e935ea1c17a3e2760e3958c1893ab535a0b30",
+      "sourceUrl": "https://arxiv.org/pdf/2608.07267#page=10",
+      "crop": [
+        0.113,
+        0.08,
+        0.888,
+        0.359
+      ],
+      "alt": "Full GN-Bench comparison table with Depth, BEV and FPV observation flags, Seen and Unseen metrics, and highlighted WNM-2D and WNM-3D rows; the dagger definition is retained.",
+      "caption": "Geometry-conditioned WNM-3D improves success and SPL on both benchmark splits.",
+      "readingGuide": "Begin with the observation columns: both WNM rows use first-person RGB, whereas one GN-BAE row additionally uses BEV and CMA uses depth. The retained legend explains the dagger marking GN-Matrix supervised fine-tuning. Next compare the two highlighted WNM rows within a split, tracking Success Rate (SR) and success weighted by path length (SPL) together. Navigation Error (NE) is lower-is-better; Oracle Success (OS) is higher-is-better. Trajectory Length (TL) has no improvement arrow and needs the success metrics for interpretation. The appendix evaluates WNM checkpoints on 1,000 Seen and 5,000 Unseen episodes using one inference seed.",
+      "takeaway": "On Unseen episodes, WNM-3D reaches 53.5% SR and 46.6% SPL versus WNM-2D's 45.9% and 42.8%, gains of 7.6 and 3.8 percentage points. Seen gains are larger: 88.7% versus 75.6% SR. These are simulator navigation results, not measured physical-robot performance.",
+      "caution": "All values are point estimates without confidence intervals. The authors explicitly say the Seen-to-Unseen gap is not reduced. Across prior methods, observation inputs and training differ; even the WNM comparison uses policy-specific corrective datasets.",
+      "evidenceIds": [
+        "e-results",
+        "e-protocol",
+        "e-supervised",
+        "e-problem"
+      ]
+    },
+    {
+      "id": "training-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 11,
+      "asset": "report-assets/2608.07267/training-ablation.png",
+      "width": 1635,
+      "height": 495,
+      "sourceSha256": "fb921446edb659ab1cb46214157e935ea1c17a3e2760e3958c1893ab535a0b30",
+      "sourceUrl": "https://arxiv.org/pdf/2608.07267#page=11",
+      "crop": [
+        0.116,
+        0.161,
+        0.885,
+        0.341
+      ],
+      "alt": "Training-stage checkmarks and Seen/Unseen TL, NE, OS, SR and SPL for four WNM-3D configurations followed by four WNM-2D configurations.",
+      "caption": "DAgger raises success, but reward refinement is needed to recover path efficiency in the Unseen comparison.",
+      "readingGuide": "Read the training checkmarks before comparing metrics. Within each model, the first row is A* supervision, the second adds DAgger, the third skips DAgger and adds DanceGRPO directly, and the fourth uses all three stages. Start with WNM-3D's Unseen SR, SPL and TL columns. Moving from the first to second row raises success while reducing SPL and increasing trajectory length. Moving from the second to fourth row raises both success measures while shortening trajectories. The third row is the crucial counterexample to treating reward refinement as a substitute for corrective supervision. The lower WNM-2D group provides a second instance of the direct-refinement failure.",
+      "takeaway": "WNM-3D's Unseen SR rises from 43.1% to 49.7% after DAgger, while SPL falls from 41.6% to 38.2%. Full refinement reaches 53.5% SR and 46.6% SPL, with TL dropping from 13.2 to 10.2. Direct refinement instead gives 39.2% SR, below Stage I.",
+      "caution": "The table measures curriculum outcomes, not the proposed cause of failure. The authors suggest that poor or insufficiently differentiated branches weaken group-relative learning, but report no direct branch-diversity or reward-spread measurements.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-stage3-data",
+        "e-protocol"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Turn multiview history into shared conditioning",
+      "text": "At a replanning step, the agent has several past views but no depth or pose input to the policy. WNM-3D samples 33 RGB observations across that history and runs the frozen geometry encoder on resized versions. The adapter is responsible for translating its cross-view feature lattice into the DiT's conditioning format. Its coarse path preserves pooled scene content, while its detail path retrieves local features around structured anchors and refines them spatially and temporally. The resulting prefix contains 450 tokens, matching WNM-2D's interface. The reader interpretation is that this makes geometric evidence accessible to both modalities without forcing the downstream generator to consume the full upstream feature grid. The paper's comparison tests that complete conditioning design; it does not separate geometric information from added representation capacity or input-resolution effects.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-adapter",
+        "e-configuration",
+        "e-results"
+      ]
+    },
+    {
+      "heading": "Keep prediction, execution and observation separate",
+      "text": "The joint generator predicts four aligned blocks, each representing eight future frames and eight actions. During supervised learning, a visual block and its action block share a noise level, but draw independent noise. Their tokens interact inside one temporal block while remaining unable to attend to later blocks. At deployment, sampling produces both streams, but only the first action block is eligible for execution. Action decoding restores the three physical increments from checkpoint quantiles. XY increments share the local frame fixed at replanning; accumulated yaw does not rotate subsequent XY increments again. STOP checks may terminate before an action is applied. After execution, real simulator observations update history and the prefix is recomputed. Thus the policy uses a jointly sampled visual representation without treating its imagined frames as new sensory evidence.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-flow",
+        "e-architecture",
+        "e-configuration",
+        "e-actions",
+        "e-inference"
+      ]
+    },
+    {
+      "heading": "Distinguish coverage correction from reward credit",
+      "text": "DAgger first collects states actually reached by the imperfect Stage-I policy and supplies expert-corrected futures there. Counterfactual DanceGRPO then asks a different question: which local denoising decisions produce better completed samples? For each context, four noise strata each supply a four-branch group. Branches share initial latents and all external noise except at one intervention. Separate reward streams compare completed videos and action chunks with fixed references; advantages are standardized within the corresponding group and gradients replay only the intervention. Visual rewards combine image and temporal quality with motion consistency, while navigation and stopping rewards shape progress, collision avoidance and settling. The reader interpretation of Table 2 is that correction establishes a useful starting distribution for refinement. That explanation remains provisional because branch diversity and reward spread were not directly measured.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-curriculum",
+        "e-counterfactual",
+        "e-stage3-data",
+        "e-visual-reward",
+        "e-nav-reward",
+        "e-stop-reward",
+        "e-ablation"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does the scene prefix help under matched corrective data?",
+      "text": "Reader-proposed experiment, not performed: train WNM-2D and WNM-3D from their common backbone initialization on the same Stage-I examples and a fixed pooled set of corrective records, with equal optimizer-update counts and effective batch size. Preserve the 450-token prefix and common action decoder, STOP rules and evaluation episodes. First compare after supervised adaptation, before policy-specific Stage-III recollection adds another data difference. Report paired episode SR/SPL differences, inference variation, memory and latency. Then test history-prefix shuffling at evaluation as a diagnostic for dependence on scene-specific information, recognizing that shuffling creates distribution shift. Persistence of the navigation gain under matched training would support conditioning attribution; disappearance would weaken the claim that prefix representation alone explains the original comparison.",
+      "evidenceIds": [
+        "e-configuration",
+        "e-supervised",
+        "e-actions",
+        "e-results",
+        "e-protocol"
+      ]
+    },
+    {
+      "title": "Does DAgger create more informative counterfactual groups?",
+      "text": "Reader-proposed experiment, not performed: sample the Stage-I and Stage-II checkpoints on an identical held-out subset of annotated navigation contexts. Use the same four strata, four branches, shared initial latents and matched intervention noise. Before any update, measure within-group action-path diversity, each reward stream's standard deviation, tie frequency and valid-branch fraction. Then run a matched-budget refinement comparison while holding record selection fixed, evaluating with the same STOP rule. The authors' explanation predicts that correction should yield more feasible and informative groups and improved subsequent refinement. Similar reward spread and diversity despite opposite refinement outcomes would weaken that mechanism and motivate examination of reward calibration or optimization instead. Keep this diagnostic separate from the paper's full curriculum, which recollects Stage-III records using Stage II.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-counterfactual",
+        "e-stage3-data",
+        "e-visual-reward",
+        "e-nav-reward",
+        "e-stop-reward",
+        "e-stage3-settings",
+        "e-protocol"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22
+    ],
+    "notes": "Visually inspected the title/author/version page, the motivation page, every method and results page, and all implementation/evaluation appendix pages. Figures 1–4 and Tables 1–8 were read in the original PDF render. All five final crops were separately viewed: Figures 1–3 and Tables 1–2. Table 1 retains its observation and dagger legend; the other crops exclude long captions and body prose. The narrow adapter crop was rendered at 350 DPI and the numerical tables at 250 DPI. Page 3 and reference pages 12–13 were read as text but were not part of the visual pass. No separately supplied supplement was available."
+  }
+}
