@@ -1,0 +1,451 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.01221",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T10:13:45.161Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.01221",
+      "title": "EndoWAM: A Grounded World-Action Model for Generalizable Endoscopic Navigation",
+      "kind": "pdf",
+      "sha256": "cc3a0e1d4ab6fb8e097a10064907fe68b1339c6e074c70a3eb40f8a922de83a7",
+      "wordCount": 4425,
+      "accessedAt": "2026-09-07T13:54:26.941900+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method",
+      "3.1 Problem Formulation",
+      "3.2 Model Architecture",
+      "3.3 Training and Inference",
+      "3.4 Controlled Variants for Grounding WAM",
+      "4 Experiments",
+      "4.1 Implementation Details",
+      "4.2 Comparison with State-of-the-Art",
+      "4.3 Comparison with EndoWAM Variants",
+      "4.4 Ablation Study",
+      "4.5 Generalization Capability",
+      "4.6 Deployment Efficiency",
+      "5 Conclusion",
+      "References"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Identity: the title and all 13 authors match the catalog after name-order normalization. The title page identifies arXiv:2608.01221v1 [cs.RO], 2 August 2026. Only this supplied revision was reviewed; no other edition was compared.",
+      "All four supplied text chunks and all nine PDF pages were read. The acquisition's text extraction did not reconstruct figure images; the retained PDF was visually inspected for every figure, table, and equation layout.",
+      "Appendices A–G are referenced but absent from the supplied nine-page PDF, which ends with references. Platform and detailed success criteria (A), annotation pipeline (B), per-procedure statistics (C), architecture and optimization (D), baseline configurations (E), extra rollouts (F), and failure breakdowns (G) remain unavailable.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Code, datasets, checkpoints, and external resources were not inspected. No experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "PDF p. 1, Figure 1",
+      "PDF p. 3, Figure 2",
+      "PDF p. 4, Figure 3",
+      "PDF p. 5, Figure 4",
+      "PDF p. 6, Figure 5",
+      "PDF p. 7, Figure 6"
+    ],
+    "tablesReviewed": [
+      "PDF p. 6, Table 1",
+      "PDF p. 6, Table 2",
+      "PDF p. 7, Table 3",
+      "PDF p. 7, Table 4"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "EndoWAM turns intermediate video-model features into discrete endoscope action chunks. During training, reconstructing future target crops makes those features task-aware; deployment drops that reconstruction branch and avoids decoding future frames. The paper reports 80.2% success on three-stage physical-phantom navigation, versus 27.1% for its strongest baseline, and 7.5 Hz control. Its key evidence is executed phantom navigation and component ablations, with clinical transfer and detailed reproducibility left unresolved (architecture, navigation, ablation, efficiency, missing-appendices).",
+  "readingTimeMinutes": 8,
+  "problem": {
+    "text": "Endoscopic navigation must track instructed anatomical targets despite narrow viewpoints, deformable tissue, occlusions, and specular artifacts. The authors argue that observation-to-action policies lack useful predictive dynamics, while ordinary video-model inference is too slow. EndoWAM seeks target-aware prediction that supports responsive three-DoF control.",
+    "kind": "source",
+    "evidenceIds": [
+      "problem",
+      "architecture"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A pretrained video DiT supplies shared predictive features to a discrete action expert and a future-target reconstruction branch, coupling navigation supervision with task-specific latent prediction.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture",
+        "heads"
+      ]
+    },
+    {
+      "text": "EndoMotion supplies aligned observations, target-derived actions, and future crops across three phantom procedures; rotation augmentation expands viewpoint coverage.",
+      "kind": "source",
+      "evidenceIds": [
+        "data"
+      ]
+    },
+    {
+      "text": "The authors describe EndoWAM as the first WAM for generalizable robotic endoscopic navigation. This priority claim is reported, not independently established.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "problem"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current endoscopic frame and language instruction",
+      "Training supervision: future frames, detected future target crops, and target-relative discrete action labels"
+    ],
+    "outputs": [
+      "Categorical action chunks for insertion and two bending axes",
+      "Training predictions: future video latents and future target-region latents"
+    ],
+    "steps": [
+      {
+        "name": "Encode the current view and task",
+        "detail": "Cosmos-Predict2.5-2B provides the video DiT, text encoder, and video VAE. The VAE maps observations into tokens; the current frame stays clean, while future tokens are perturbed. Instruction features enter through cross-attention.",
+        "evidenceIds": [
+          "architecture"
+        ]
+      },
+      {
+        "name": "Extract predictive features",
+        "detail": "After one denoising pass, block-17 activations are flattened into shared tokens H. These are intermediate predictive features, not a fully decoded future video.",
+        "evidenceIds": [
+          "heads",
+          "implementation"
+        ]
+      },
+      {
+        "name": "Decode actions and supervise future grounding",
+        "detail": "Learnable action queries use bidirectional self-attention within the chunk and cross-attention to H; an MLP predicts per-axis categorical logits. Separately, a Grounding DiT conditions on projected, resampled H to reconstruct VAE latents of future target crops.",
+        "evidenceIds": [
+          "heads"
+        ]
+      },
+      {
+        "name": "Compare grounding routes",
+        "detail": "EG adds an expert crop of the current target to the input. CG regresses future oriented bounding boxes. FG-Gen makes future target regions part of the video generation target. EndoWAM instead uses a separate reconstruction branch.",
+        "evidenceIds": [
+          "variants"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "EndoMotion contains 515 teleoperated phantom trajectories and 0.98M frames. Fine-tuned Grounding DINO detects targets; Kalman filtering produces oriented bounding-box tracks. Target-center offsets become discrete action labels, and future crops supervise grounding. Joint 45-degree rotations of trajectories and boxes yield 4,120 sequences and 7.84M frames.",
+        "kind": "source",
+        "evidenceIds": [
+          "data"
+        ]
+      },
+      {
+        "text": "LoRA adapts attention and feed-forward projections; the text encoder and video VAE remain frozen. Training combines video rectified-flow velocity regression, validity-masked, class-weighted per-axis action cross-entropy, and cosine-schedule target-latent noise prediction. The binary target mask makes missed detections contribute no grounding gradient.",
+        "kind": "source",
+        "evidenceIds": [
+          "implementation",
+          "objectives"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The current observation and instruction produce H through one video-model denoising pass, then the action expert generates a chunk. Future-frame decoding and the Grounding DiT are omitted. Figure 1 connects the chunk to a physical endoscope controller and subsequent observations; chunk length and the executed prefix before feedback are unspecified in the supplied body.",
+        "kind": "source",
+        "evidenceIds": [
+          "architecture",
+          "heads",
+          "control-overview",
+          "missing-appendices"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\begin{aligned}z_{t+1}&\\sim p_v(\\cdot\\mid o_t,l),\\\\a_t&\\sim p_a\\!\\left(\\cdot\\mid\\mathcal{H}(z_{t+1}^{\\tau_v})\\right),\\\\r_{t+1}&\\sim p_r\\!\\left(\\cdot\\mid\\mathcal{H}(z_{t+1}^{\\tau_v})\\right).\\end{aligned}",
+        "explanation": "Equation (1): current observation o_t and instruction l condition future latent dynamics z_{t+1}. The operator H extracts hidden features at flow time tau_v; those features condition actions a_t and future target regions r_{t+1}. As tau_v approaches zero, the intermediate latent approaches the predicted future latent.",
+        "evidenceIds": [
+          "architecture"
+        ]
+      },
+      {
+        "expression": "x_\\tau=(1-\\tau)x_0+\\tau\\epsilon,\\qquad\\mathcal{L}_{\\mathrm{video}}=\\mathbb{E}_{\\tau,\\epsilon}\\!\\left[\\left\\|v_\\theta(x_\\tau,\\tau\\mid o_t,l)-(\\epsilon-x_0)\\right\\|_2^2\\right]",
+        "explanation": "Equation (3): x_0 is the unperturbed future latent, epsilon is sampled Gaussian noise, and tau is resampled per training example. The model velocity v_theta is trained against epsilon minus x_0 over future positions. Training tau is distinct from the feature-extraction time tau_v.",
+        "evidenceIds": [
+          "objectives"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}=\\mathcal{L}_{\\mathrm{action}}+\\lambda_v\\mathcal{L}_{\\mathrm{video}}+\\lambda_r\\mathcal{L}_{\\mathrm{ground}}",
+        "explanation": "Equation (6) balances action prediction, video co-training, and future grounding. Lambda_v and lambda_r weight the auxiliary objectives; their numerical values are not supplied.",
+        "evidenceIds": [
+          "objectives",
+          "missing-appendices"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Three-stage navigation at unseen roll viewpoints",
+      "setting": "Physical ureteroscopy, esophagoscopy, and ERCP phantoms; 32 trials each. Test rolls span 360 degrees and avoid training augmentation angles. Success requires reaching and retaining the instructed target in view.",
+      "metric": "Closed-loop success rate (%)",
+      "value": "77/96 successes; average 80.2%; ureteroscopy 90.6%, esophagoscopy 56.3%, ERCP 93.8%.",
+      "comparison": "GR00T-N1.7 averages 27.1%: a reported 53.1 percentage-point gap. Qwen3AE scores 17.7%, versus Qwen3DiT 8.3%.",
+      "interpretation": "Baselines share observations, instructions, augmented data, and optimization-step counts. Backbone differences prevent attributing the entire baseline gap to grounding alone; esophagoscopy remains weakest.",
+      "evidenceIds": [
+        "protocol",
+        "navigation"
+      ]
+    },
+    {
+      "task": "Alternative grounding strategies",
+      "setting": "Matched EndoWAM variants under the same three-procedure, unseen-viewpoint protocol.",
+      "metric": "Average closed-loop success rate (%)",
+      "value": "EndoWAM 80.2%.",
+      "comparison": "EG 61.5%, FG-Gen 51.0%, CG 45.8%; reported advantage over EG is 18.7 percentage points.",
+      "interpretation": "The reconstruction design wins this comparison; the ranking does not establish which representation property causes the gain.",
+      "evidenceIds": [
+        "variants",
+        "grounding-comparison",
+        "protocol"
+      ]
+    },
+    {
+      "task": "Grounding and viewpoint augmentation ablations",
+      "setting": "Independent single-factor removals under the three-procedure navigation evaluation.",
+      "metric": "Average closed-loop success rate (%)",
+      "value": "Full model 80.2%; without Grounding DiT 37.5%; without viewpoint augmentation 28.1%.",
+      "comparison": "Both removals reduce success across every procedure.",
+      "interpretation": "Both components matter in this setup. Removing grounding also removes an auxiliary objective, so this does not isolate future timing from generic reconstruction supervision.",
+      "evidenceIds": [
+        "ablation",
+        "objectives"
+      ]
+    },
+    {
+      "task": "Two-stage zero-shot environment and target shifts",
+      "setting": "32 trials per condition; lumen traversal and target localization, without entrance cannulation. Six unseen reflectance, geometry, texture, shape, size, and color shifts.",
+      "metric": "Closed-loop success rate (%)",
+      "value": "Average 90.1%; condition rates 93.8%, 87.5%, 100.0%, 84.4%, 93.8%, and 81.3%, respectively.",
+      "comparison": "GR00T-N1.7 46.9%; Qwen3AE 36.5%; reported gap to GR00T is 43.2 percentage points.",
+      "interpretation": "This tests selected unseen conditions under a shorter protocol. Its 90.1% must not be compared directly with the three-stage 80.2%.",
+      "evidenceIds": [
+        "generalization"
+      ]
+    },
+    {
+      "task": "Closed-loop deployment efficiency",
+      "setting": "Single NVIDIA RTX 5090; reported EndoWAM model size 2.1B parameters.",
+      "metric": "Control frequency (Hz; higher is faster)",
+      "value": "7.5 Hz.",
+      "comparison": "Cosmos Policy: 1.1 Hz, 2.0B; GR00T-N1.7: 8.9 Hz, 1.6B; Qwen3AE: 12.1 Hz, 2.2B. Authors report 6.8× over Cosmos Policy.",
+      "interpretation": "One-pass features improve speed relative to iterative video denoising, but EndoWAM is slower than the two listed VLA baselines. Timing variance and detailed measurement boundaries are absent.",
+      "evidenceIds": [
+        "efficiency",
+        "architecture"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Physical-phantom success does not establish patient safety, clinical tissue generalization, or reduced injury. Failures include lumen loss, wall impaction, and timeout, but the referenced failure breakdown is unavailable.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "protocol",
+        "missing-appendices"
+      ]
+    },
+    {
+      "text": "Tables report point estimates without confidence intervals or repeated-training variability. Figure 5 offers qualitative attention examples without a color scale or quantitative localization metric; it cannot by itself prove reliable target tracking.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "navigation",
+        "ablation",
+        "attention",
+        "generalization"
+      ]
+    },
+    {
+      "text": "Detector-derived action labels and future crops share an annotation source. Undetected targets receive no grounding gradient, leaving performance under systematic detector errors unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "data",
+        "objectives"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required ingredients include Cosmos-Predict2.5-2B, its frozen encoders, LoRA adaptation, block-17 feature extraction, action and grounding heads, EndoMotion annotations, and the three-DoF phantom platform. The deployment benchmark uses one RTX 5090; training hardware is not specified.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture",
+        "implementation",
+        "data",
+        "protocol",
+        "efficiency"
+      ]
+    },
+    {
+      "text": "The missing appendices prevent recovering action bins and offset thresholds, chunk and prediction horizons, LoRA rank, loss weights, optimizer settings, learning rate, batch size, step counts, training hardware, software versions, trajectory splits, and detailed timeout criteria. Dataset/code release and licensing are not established by the supplied PDF.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "missing-appendices",
+        "data",
+        "objectives",
+        "protocol",
+        "implementation"
+      ]
+    },
+    {
+      "text": "Proposed checks: compare matched future-crop and current-crop reconstruction to test temporal specificity, and split original trajectories before rotation to test whether unseen-angle gains survive strict trajectory separation. These are proposals, not reproduced results.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "data",
+        "objectives",
+        "ablation"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The WAM and navigation labels are supported. Distinct video-model and action-expert modules support Dual-system. IDM is less explicit: Eq. (1) conditions actions on intermediate predicted-dynamics features, rather than a stated current/future-state inverse-dynamics pair; Eq. (2) describes joint latent-action-region training. Thus Q4 is plausible under a broad IDM definition but unverified under a narrow one. Joint training does not make this a single unified action/video generator. Efficient inference is supported by Table 4.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "heads",
+        "efficiency"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Navigation",
+        "Visual planning & IDM",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "3fdb540b9e036ee694aea72e26c70a21d945a244c3e7affa5a1ce10f4f984a69"
+    }
+  },
+  "discussionQuestions": [
+    "Would equally weighted reconstruction of current target crops retain the future-grounding benefit?",
+    "How much does performance depend on detector-derived action labels and trajectory-level train/test separation?",
+    "Which failure modes dominate esophagoscopy, and what measurements would support a clinical safety claim?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block, arXiv margin stamp",
+      "detail": "Observed title matches the catalog. The 13 named authors agree in order; the revision is arXiv:2608.01221v1 [cs.RO], 2 Aug 2026. Affiliations are printed as CUHK, SLAI, SYSU, Durham, NYU, and WFU."
+    },
+    {
+      "id": "problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "The paper motivates target-directed endoscopic control under deformation, occlusion, limited data/viewpoints, and video-model latency; it claims first WAM coverage of generalizable robotic endoscopic navigation."
+    },
+    {
+      "id": "control-overview",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Figure 1 and caption",
+      "detail": "Current observation and instruction feed EndoWAM; an action chunk drives insertion and two bending axes through the endoscopy controller, with observation feedback."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2 and caption; Sections 3.1–3.2, Eqs. (1)–(2)",
+      "detail": "Video DiT hidden states feed separate Grounding DiT and action expert branches. Cosmos-Predict2.5-2B supplies the video prior; current observation is clean, future tokens are noised, and instructions use cross-attention. Inference drops grounding and future-frame decoding."
+    },
+    {
+      "id": "heads",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2 continuation, paragraphs above Section 3.3",
+      "detail": "Flattened intermediate features H condition action queries using bidirectional self-attention and cross-attention; an MLP produces per-axis categorical logits. Grounding reconstructs future target-crop VAE latents from projected, resampled H."
+    },
+    {
+      "id": "data",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 1 dataset paragraph; PDF p. 4, Section 3.3, Dataset",
+      "detail": "Teleoperation in three anatomical phantoms yields 515 trajectories and 0.98M frames. Fine-tuned Grounding DINO and Kalman-filtered OBB tracks supply offset-derived action labels and future crops. Rotations at 45-degree intervals yield 4,120 sequences and 7.84M frames."
+    },
+    {
+      "id": "objectives",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.3, Eqs. (3)–(6) and surrounding definitions",
+      "detail": "Training uses rectified-flow future-latent velocity regression, masked weighted per-axis action cross-entropy, and cosine-schedule future-target noise prediction. The target mask removes grounding gradients for missed detections; two coefficients balance the auxiliary losses."
+    },
+    {
+      "id": "variants",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 3, caption, and Section 3.4",
+      "detail": "EG adds a current-target expert crop, CG regresses future OBB parameters, FG-Gen jointly generates future frames and target regions, and the proposed method reconstructs future target-region latents with a separate Grounding DiT."
+    },
+    {
+      "id": "protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 4 and Section 4.1, Deployment and evaluation protocol / Baselines",
+      "detail": "Three-stage navigation covers entrance cannulation, lumen traversal, and target localization on a shared physical phantom platform. Each procedure uses 32 trials at roll viewpoints unaligned with training angles. Success requires reaching and retaining the target; failures are lumen loss, wall impaction, or timeout. Baselines share data, inputs, and optimization-step counts."
+    },
+    {
+      "id": "implementation",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1, Model and optimization",
+      "detail": "Attention and feed-forward projections use LoRA; text encoder and video VAE are frozen. Shared features come from block 17 after one denoising pass. Further configurations are referred to Appendix D."
+    },
+    {
+      "id": "navigation",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.2 Results; PDF p. 6, Table 1 upper block, procedure and Average columns",
+      "detail": "EndoWAM succeeds in 77/96 trials: 90.6%, 56.3%, 93.8% by procedure and 80.2% average. GR00T-N1.7 averages 27.1%, Qwen3AE 17.7%, Qwen3DiT 8.3%, pi_0.5 15.6%, and Diffusion Policy 2.1%. The reported strongest-baseline gap is 53.1 percentage points."
+    },
+    {
+      "id": "grounding-comparison",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1 lower block and Section 4.3",
+      "detail": "Average success is 45.8% for CG, 51.0% for FG-Gen, 61.5% for EG, and 80.2% for the proposed reconstruction-based grounding. The reported gap to EG is 18.7 percentage points."
+    },
+    {
+      "id": "ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2 and Section 4.4",
+      "detail": "Full-model success is 90.6/56.3/93.8% across the three procedures, averaging 80.2%. Removing Grounding DiT gives 37.5/28.1/46.9%, averaging 37.5%; removing viewpoint augmentation gives 31.3/15.6/37.5%, averaging 28.1%."
+    },
+    {
+      "id": "attention",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 5 and caption; Section 4.4 continuing onto PDF p. 7",
+      "detail": "Three observation/attention examples compare no Grounding DiT with the full model. The authors interpret the latter as more target-focused under darkness and occlusion. No numeric color scale or quantitative localization score accompanies the panels."
+    },
+    {
+      "id": "generalization",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3 and caption, Figure 6, Section 4.5",
+      "detail": "Two-stage lumen traversal and target localization use 32 trials per unseen shift. EndoWAM scores 93.8/87.5/100.0/84.4/93.8/81.3% for reflectance/geometry/texture/shape/size/color, averaging 90.1%; GR00T averages 46.9%, Qwen3AE 36.5%. The caption warns against direct comparison with three-stage Table 1."
+    },
+    {
+      "id": "efficiency",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 4 and Section 4.6",
+      "detail": "A single RTX 5090 yields EndoWAM 7.5 Hz at 2.1B parameters, Cosmos Policy 1.1 Hz at 2.0B, GR00T-N1.7 8.9 Hz at 1.6B, and Qwen3AE 12.1 Hz at 2.2B. Authors attribute their reported 6.8× Cosmos speedup to one-pass intermediate features."
+    },
+    {
+      "id": "missing-appendices",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.3 appendix references; p. 5, Section 4.1 appendix references; p. 6, Section 4.2 continuation; pp. 7–9, terminal Conclusion/References",
+      "detail": "Body references point to A for platform/evaluation, B for annotation, C for procedure statistics, D for architecture/optimization, E for baseline configurations, F for demonstrations, and G for failure breakdowns. The supplied PDF ends with references and contains none of these appendices."
+    }
+  ]
+}

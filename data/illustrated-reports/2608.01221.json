@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.01221",
+  "shortTitle": "EndoWAM",
+  "thesis": "EndoWAM trains a video-model representation to reconstruct future target regions, then uses that representation for fast discrete endoscopic control while omitting the grounding branch at deployment.",
+  "standfirst": "An endoscope must keep finding its target as the camera moves through a narrow lumen. EndoWAM uses a pretrained video model to supply predictive features, then teaches those features to emphasize future target regions. A separate action expert turns them into control chunks. The grounding branch is a training instrument: deployment retains one video-model pass and action decoding. The most useful evidence combines phantom navigation, grounding comparisons, and component ablations. Read the reported 80.2% three-stage success separately from the 90.1% two-stage shift result, and keep the absent implementation appendices in view when assessing reproducibility.",
+  "evidenceIds": [
+    "problem",
+    "architecture",
+    "heads",
+    "navigation",
+    "generalization",
+    "missing-appendices"
+  ],
+  "featuredResultTask": "Three-stage navigation at unseen roll viewpoints",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2608.01221/architecture.png",
+      "width": 1276,
+      "height": 572,
+      "sourceSha256": "cc3a0e1d4ab6fb8e097a10064907fe68b1339c6e074c70a3eb40f8a922de83a7",
+      "sourceUrl": "https://arxiv.org/pdf/2608.01221#page=3",
+      "crop": [
+        0.125,
+        0.07,
+        0.875,
+        0.33
+      ],
+      "alt": "Video DiT in the center receives a current frame and instruction; its hidden states connect to a future-target Grounding DiT on the left and an action expert on the right.",
+      "caption": "One predictive representation supports action decoding and auxiliary future-target reconstruction.",
+      "readingGuide": "Start in the center with the current frame and instruction. The Video DiT supplies hidden states along the two outward paths: left to the Grounding DiT, right to the action expert. The left branch also receives noisy future-target information during training, while the right branch receives learnable action queries. Outputs above the blocks are future target latents, future video latents, and an action chunk. The snowflake marks the frozen video backbone and the flame marks its trainable LoRA adapter; the two heads are trainable. Sections 3.2 and 4.1 specify that shared features come from a single pass at block 17.",
+      "takeaway": "The action expert consumes predictive hidden features, so it need not wait for a future movie to finish denoising and decoding. Future-target reconstruction supplies an additional training signal to those same features. This is the architectural basis for retaining predictive information while reducing deployment work.",
+      "caution": "The drawing contains training pathways. Section 3.2 explicitly removes the Grounding DiT and future-frame decoding at inference; the pictured future images are not observations available to the deployed controller or proof of accurate video forecasts.",
+      "evidenceIds": [
+        "architecture",
+        "heads",
+        "implementation"
+      ]
+    },
+    {
+      "id": "grounding-variants",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/2608.01221/grounding-variants.png",
+      "width": 1007,
+      "height": 673,
+      "sourceSha256": "cc3a0e1d4ab6fb8e097a10064907fe68b1339c6e074c70a3eb40f8a922de83a7",
+      "sourceUrl": "https://arxiv.org/pdf/2608.01221#page=4",
+      "crop": [
+        0.52,
+        0.066,
+        0.915,
+        0.27
+      ],
+      "alt": "Four diagrams compare an external current-target crop, future oriented-box prediction, joint frame-and-region generation, and a separate future-region reconstruction branch.",
+      "caption": "The grounding variants change where target information enters or supervises the model.",
+      "readingGuide": "Read panels (a) through (d) as different placements of target information. In (a), a grounding expert transforms the current image into an extra crop that enters EG. In (b), CG sends predictive features toward future oriented bounding boxes; the label CoT refers here to a box-regression grounding variant, not a displayed verbal reasoning trace. In (c), FG-Gen puts future frames and target regions together in the generative output. In (d), the separate Grounding DiT takes hidden features and noise to reconstruct future target latents. The arrows agree with Section 3.4's descriptions of input grounding, regression, generation, and reconstruction.",
+      "takeaway": "This comparison asks whether giving the policy a current crop is enough, or whether supervising future target content is more useful. Under the reported matched navigation setting, reconstruction reaches 80.2% average success, compared with 61.5% for EG, 51.0% for FG-Gen, and 45.8% for CG.",
+      "caution": "The panels summarize training concepts and do not specify full optimization settings. Future-frame output boxes should not be read as an inference requirement for the proposed method. The referenced configuration appendices are absent.",
+      "evidenceIds": [
+        "variants",
+        "architecture",
+        "grounding-comparison",
+        "missing-appendices"
+      ]
+    },
+    {
+      "id": "navigation-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "asset": "report-assets/2608.01221/navigation-results.png",
+      "width": 1357,
+      "height": 427,
+      "sourceSha256": "cc3a0e1d4ab6fb8e097a10064907fe68b1339c6e074c70a3eb40f8a922de83a7",
+      "sourceUrl": "https://arxiv.org/pdf/2608.01221#page=6",
+      "crop": [
+        0.102,
+        0.066,
+        0.9,
+        0.26
+      ],
+      "alt": "Success-rate table for ureteroscopy, esophagoscopy, and ERCP, with a baseline block and an EndoWAM grounding-variant block; EndoWAM averages 80.2 percent.",
+      "caption": "EndoWAM leads the three-stage phantom benchmark, with a pronounced procedure gap.",
+      "readingGuide": "Read the three procedure columns before the average. Each procedure has 32 physical trials spanning unseen roll viewpoints, so the average summarizes equally sized groups. Success requires reaching the instructed target and keeping it visible through termination; the rollout includes entrance cannulation, lumen traversal, and target localization. The upper block compares five baselines with EndoWAM. The lower block holds the EndoWAM family closer while changing grounding strategy. The three checkmark columns describe discrete actions, visual grounding, and a dynamics prior. They are method attributes, not independent experimental interventions. Baselines use the same observations, instructions, augmented training dataset, and matched optimization-step counts.",
+      "takeaway": "EndoWAM succeeds in 77 of 96 trials, averaging 80.2%, versus 27.1% for GR00T-N1.7. Its 56.3% esophagoscopy success is much lower than 90.6% ureteroscopy and 93.8% ERCP. The aggregate lead therefore coexists with a substantial unresolved weakness in one procedure in this benchmark.",
+      "caution": "Different backbones and action heads confound a causal reading of the upper block. The table supplies no confidence intervals or training-seed variability. Physical-phantom success does not establish clinical safety or patient generalization.",
+      "evidenceIds": [
+        "protocol",
+        "navigation",
+        "grounding-comparison"
+      ]
+    },
+    {
+      "id": "component-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 6,
+      "asset": "report-assets/2608.01221/component-ablation.png",
+      "width": 1340,
+      "height": 304,
+      "sourceSha256": "cc3a0e1d4ab6fb8e097a10064907fe68b1339c6e074c70a3eb40f8a922de83a7",
+      "sourceUrl": "https://arxiv.org/pdf/2608.01221#page=6",
+      "crop": [
+        0.086,
+        0.335,
+        0.48,
+        0.404
+      ],
+      "alt": "Three-row ablation table reports full-model average success of 80.2 percent, 37.5 without Grounding DiT, and 28.1 without viewpoint augmentation.",
+      "caption": "Both future grounding and viewpoint augmentation contribute to navigation success.",
+      "readingGuide": "Use the full-model row as the reference, then move upward one removal at a time. The first row deletes Grounding DiT supervision; the second deletes viewpoint augmentation. These are separate single-factor ablations, not cumulative removals. Compare within each procedure column to see whether the average hides an exception: both removals lower success in ureteroscopy, esophagoscopy, and ERCP. The augmentation matters to the evaluation design because test roll angles deliberately fall between the eight training rotations. The grounding removal matters to the learning objective because it eliminates the future-target reconstruction signal that would otherwise shape the shared predictive features.",
+      "takeaway": "The full system averages 80.2%, while removing grounding yields 37.5% and removing augmentation yields 28.1%. The consistent direction across procedures supports retaining both components for this setting. These results provide stronger component evidence than the feature checkmarks in the main comparison table.",
+      "caution": "Removing the Grounding DiT also removes its auxiliary reconstruction loss. This does not isolate future supervision from current-target reconstruction, and the table does not measure interactions when both components are removed.",
+      "evidenceIds": [
+        "ablation",
+        "objectives",
+        "data",
+        "protocol"
+      ]
+    },
+    {
+      "id": "target-attention",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 5",
+      "page": 6,
+      "asset": "report-assets/2608.01221/target-attention.png",
+      "width": 1064,
+      "height": 1131,
+      "sourceSha256": "cc3a0e1d4ab6fb8e097a10064907fe68b1339c6e074c70a3eb40f8a922de83a7",
+      "sourceUrl": "https://arxiv.org/pdf/2608.01221#page=6",
+      "crop": [
+        0.56,
+        0.333,
+        0.873,
+        0.59
+      ],
+      "alt": "Three rows show an endoscopic observation, diffuse attention without the Grounding DiT, and more concentrated attention in the full model.",
+      "caption": "The attention examples offer a qualitative interpretation of the grounding ablation.",
+      "readingGuide": "Read horizontally: each left image is the observation, the middle panel removes Grounding DiT, and the right panel uses the full model. Across the displayed rows, the middle maps spread colored activation over multiple regions, whereas the right maps concentrate more strongly near the region the authors identify as the target. Use the dark lumen openings and the surrounding anatomy as spatial references rather than treating bright reflections as targets. The caption interprets the unguided maps as distraction by specular highlights and mucosal texture. These are selected qualitative examples accompanying the success-rate ablation, not additional rollout statistics or a calibrated segmentation output.",
+      "takeaway": "The examples are consistent with the authors' explanation that future-region supervision makes predictive features more target-focused. They provide a possible representation-level account of the Table 2 improvement, while the executed navigation trials remain the evidence that the trained policy performs better.",
+      "caution": "The original figure provides no numeric color scale, attention extraction recipe, or localization metric. Absolute values and cross-panel normalization cannot be recovered from the colors. Apparent concentration alone does not prove causal attention use or safety.",
+      "evidenceIds": [
+        "attention",
+        "ablation"
+      ]
+    },
+    {
+      "id": "shift-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 7,
+      "asset": "report-assets/2608.01221/shift-results.png",
+      "width": 1298,
+      "height": 192,
+      "sourceSha256": "cc3a0e1d4ab6fb8e097a10064907fe68b1339c6e074c70a3eb40f8a922de83a7",
+      "sourceUrl": "https://arxiv.org/pdf/2608.01221#page=7",
+      "crop": [
+        0.118,
+        0.066,
+        0.882,
+        0.153
+      ],
+      "alt": "Zero-shot success rates under reflectance, geometry, texture, shape, size, and color shifts; EndoWAM averages 90.1 percent, GR00T-N1.7 46.9, and Qwen3AE 36.5.",
+      "caption": "Selected environment and target shifts are tested under a distinct two-stage protocol.",
+      "readingGuide": "Follow the grouped headers. Reflectance, geometry, and texture belong to cross-environment tests; shape, size, and color belong to cross-target tests. Each column contains 32 trials under a condition described as unseen during training. Read across each model row to distinguish a strong average from consistent performance: EndoWAM is above 80% in every displayed condition. Crucially, this table covers lumen traversal and target localization only. The source caption expressly separates it from Table 1's three-stage task. Figure 6 on the same page provides representative observations of these shifts, which help interpret the condition names but do not define their complete severity ranges.",
+      "takeaway": "EndoWAM averages 90.1%, compared with 46.9% for GR00T-N1.7 and 36.5% for Qwen3AE. Its highest reported rate is 100.0% under texture shift, and its lowest is 81.3% under color shift. This supports transfer across the six tested condition changes under this two-stage protocol.",
+      "caution": "The 90.1% result cannot be interpreted as an improvement over Table 1's 80.2% because the stages differ. The supplied source does not establish coverage of arbitrary anatomy, combined shifts, or clinical environments.",
+      "evidenceIds": [
+        "generalization",
+        "protocol"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Learn where the target will matter",
+      "text": "Begin with the annotation pipeline rather than the network name. A detector and temporal filtering produce oriented target boxes along a demonstration. From the same track, EndoWAM derives target-relative action labels and crops from future frames. The video model is trained to predict latent dynamics, while the Grounding DiT must reconstruct those future crop latents from shared hidden features. Action queries also attend to those features. Reader interpretation: the reconstruction objective creates pressure to preserve target-specific information that a generic future-video loss might underweight. This is a plausible explanation of the ablation, not a measured causal decomposition. The binary target mask is also consequential: frames with missed detections do not teach the grounding branch, so the quality and coverage of the annotation track constrain this learning signal.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "data",
+        "heads",
+        "objectives",
+        "ablation"
+      ]
+    },
+    {
+      "heading": "Keep prediction features in the control loop",
+      "text": "At deployment, the model still encodes the current observation and instruction and performs one video DiT denoising pass. It extracts block-17 hidden states, then the action expert uses learnable queries to produce categorical actions across the chunk. Bidirectional self-attention connects positions inside that predicted chunk; it does not grant access to future camera observations. The Grounding DiT and future-frame decoder are removed. Figure 1 links the resulting controls to the physical endoscope and observation feedback. This separation explains how a training-time future-target objective can influence execution without reconstructing target crops online. Table 4 reports 7.5 Hz on one RTX 5090, faster than Cosmos Policy's 1.1 Hz but slower than the listed VLA baselines. The supplied source leaves chunk length and feedback timing unresolved.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture",
+        "heads",
+        "implementation",
+        "control-overview",
+        "efficiency",
+        "missing-appendices"
+      ]
+    },
+    {
+      "heading": "Separate evidence for the system from evidence for the mechanism",
+      "text": "Use the experiments in a sequence. Table 1 first asks whether the complete policy navigates the physical phantoms successfully; its lower block compares alternative grounding placements. Table 2 then removes grounding or rotation augmentation to test component dependence. Figure 5 supplies a qualitative attention interpretation. Together these establish useful system-level and component-level evidence, but they leave temporal specificity open: no displayed comparison reconstructs current target crops with the same auxiliary head and loss budget. Finally, Table 3 broadens the tested conditions while shortening the task to two stages. Reader interpretation: success under selected shifts strengthens the transfer case within this setup, but it cannot close the clinical safety gap or repair missing implementation details. A reproduction should therefore distinguish benchmark replication from a targeted test of future grounding.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "protocol",
+        "navigation",
+        "variants",
+        "grounding-comparison",
+        "ablation",
+        "attention",
+        "generalization",
+        "missing-appendices"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does future timing help beyond target reconstruction?",
+      "text": "Reader-proposed experiment, not performed: train matched models with future-target reconstruction, current-target reconstruction using the same Grounding DiT capacity, and no reconstruction. Keep the original trajectory split, video/action losses, loss-weight budget, action head, training steps, and rotation augmentation fixed; normalize target availability so differing detector masks do not change supervision volume. Evaluate all models on identical held-out roll trials, reporting per-procedure success and uncertainty across training seeds. A repeatable future-over-current advantage would support temporal specificity; comparable current and future results would weaken that explanation while preserving evidence for target-aware auxiliary learning. Recover missing configurations before treating this as a replication.",
+      "evidenceIds": [
+        "data",
+        "heads",
+        "objectives",
+        "ablation",
+        "protocol",
+        "missing-appendices"
+      ]
+    },
+    {
+      "title": "Do viewpoint gains survive splitting before augmentation?",
+      "text": "Reader-proposed experiment, not performed: assign all frames from each original teleoperation trajectory to one split before generating any rotated copies, and keep every copy of that trajectory in its original split. Compare otherwise matched models trained with and without the eight-angle augmentation, using identical optimization-step budgets and new physical rollouts at unseen roll offsets. Report success by procedure and by roll interval under the original three-stage criterion. If the augmentation advantage persists, it supports genuine viewpoint robustness under strict trajectory separation. If it shrinks markedly relative to the reported removal gap, shared trajectory content or the effective data budget deserves investigation. This proposal does not allege leakage; the supplied source does not document its trajectory split.",
+      "evidenceIds": [
+        "data",
+        "protocol",
+        "ablation",
+        "missing-appendices"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "notes": "All nine supplied PDF pages were visually inspected, including the title/author/version block; Figures 1–6; Tables 1–4; Eqs. (1)–(6); method, data, training, evaluation, and deployment details; and the concluding references. Every final crop was inspected at its saved dimensions. Figure 2's hidden-state arrows and frozen/trainable markers and Figure 3's branch directions were checked against the captions and Sections 3.1–3.4. Their training pathways are distinguished from the branches removed at inference. Pages 4–6 refer to Appendices A–G, but the supplied PDF ends at page 9 without them. Separate supplements, code, data, and external resources remain outside this reading; no experiments were executed."
+  }
+}

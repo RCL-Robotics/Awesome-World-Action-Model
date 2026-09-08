@@ -1,0 +1,424 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.00547",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T10:14:56.231Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.00547",
+      "title": "Disentangling Visuo-Tactile Foresight: Oracle-Guided Interface Discovery for World Action Models",
+      "kind": "pdf",
+      "sha256": "a52a962354879fb0d325ff2aa0d93ec1caea5b49ea29aa3f8cdf0ebee2e6fbca",
+      "wordCount": 3946,
+      "accessedAt": "2026-09-07T13:54:32.049165+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "PDF p. 1: title, author affiliations, version stamp, Abstract and I. Introduction",
+      "PDF pp. 2–3: II. Related Work, A–B",
+      "PDF p. 3: III. Method, A–C; Eqs. (1)–(12)",
+      "PDF pp. 4–5: IV. Experiments, A–G, including training, evaluation conditions, main results and ablations",
+      "PDF p. 5: V. Conclusion",
+      "PDF pp. 5–6: References"
+    ],
+    "omissions": [
+      "Identity verified on PDF p. 1: title and all three authors match the supplied record; the observed edition is arXiv:2608.00547v1 [cs.RO], 1 August 2026. No title/author discrepancy was found; other revisions were not supplied or compared.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction limitation was addressed by visually inspecting all six PDF pages, all three figures and both tables, plus four final original crops.",
+      "No appendix or dedicated limitations section is present in the six-page PDF. Separate supplements were not supplied.",
+      "Code and external resources were not inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "PDF p. 2, Figure 1: architecture, routing matrices and phase-local inset",
+      "PDF p. 4, Figure 2: Put Shelf reference trajectory",
+      "PDF p. 5, Figure 3: AFM-family success chart"
+    ],
+    "tablesReviewed": [
+      "PDF p. 4, Table I: all seven tasks and Average row",
+      "PDF p. 5, Table II: successes and average success rates"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "Oracle Visuo-Tactile Foresight (OVTF) studies how an action policy consumes successful future RGB and tactile observations. Privileged reference trajectories replace a learned future predictor. Asymmetric Phase-Local Future Memory (AFM) compresses these streams into slots with selective visual-to-tactile attention. Across seven UniVTAC simulation tasks, AFM records 32.0% success versus 23.7% with isolated modality routing. This diagnoses an interface under oracle access; it does not establish performance with predicted futures.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "End-to-end visuo-tactile control mixes physically invalid visual predictions, unreliable future branches, mismatched tactile forecasts and poor consumption of otherwise useful futures. OVTF fixes a paired, chronological, simulation-verified successful provider matched to the current initialization, asking which representation lets an actor exploit that information.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem",
+      "e-oracle"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "OVTF makes future-to-action interfaces independently studyable while excluding future actions and state metadata from oracle inputs.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-oracle"
+      ]
+    },
+    {
+      "text": "AFM performs asymmetric fusion before ACT: tactile slots can read vision, visual slots read only vision, and opposite tactile streams cannot access each other at this interface.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-routing",
+        "e-architecture"
+      ]
+    },
+    {
+      "text": "The authors separate routing quality, test-time future dependence and the policy path without futures through IFM, Forced-Zero and Zero-Train controls.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-controls",
+        "e-ablation"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current head RGB, plus wrist RGB for Insert Tube and Lift Can; left/right tactile RGB; 8-D joint positions.",
+      "Oracle conditions additionally receive paired RGB and tactile frames from the remaining successful reference trajectory."
+    ],
+    "outputs": [
+      "A normalized 50 × 8 action chunk, aggregated with overlapping predictions during simulated rollout."
+    ],
+    "steps": [
+      {
+        "name": "Select the successful suffix",
+        "detail": "From training reference index τ_ref, uniformly sample up to 100 frames through trajectory end, inclusively. At rollout, advance the reference by Eq. (2) and resample the remaining suffix. These reference observations are not contiguous predictions from the live state. No future action, qpos, object pose, simulator state or success label is supplied.",
+        "evidenceIds": [
+          "e-oracle"
+        ]
+      },
+      {
+        "name": "Encode temporal streams",
+        "detail": "Trainable future ResNet-18 encoders copy released current-encoder weights. Figure 1 depicts separate vision and shared tactile encoders. Pooling and projection produce H, L and R sequences of width 512; two-camera tasks fuse vision with a two-layer MLP. Each stream adds a zero-gated depthwise temporal residual, with kernel 5, padding 2 and 512 groups.",
+        "evidenceIds": [
+          "e-encoding",
+          "e-architecture"
+        ]
+      },
+      {
+        "name": "Read phase-local memory",
+        "detail": "Twelve learned 512-D slots comprise four per modality, anchored at phases 0.125, 0.375, 0.625 and 0.875. Each tactile slot jointly attends over its own tactile sequence concatenated with vision. Gaussian phase penalties favor nearby phases without excluding distant valid positions. IFM removes only visual-to-tactile reading edges, retaining parameterization and memory budget.",
+        "evidenceIds": [
+          "e-routing"
+        ]
+      },
+      {
+        "name": "Integrate with the actor",
+        "detail": "Frozen current encoders and state projection supply current memory. Zero-initialized tanh gates scale future slots. ACT memory places the first gated slot on the zero-latent base, followed by proprioception, remaining slots and current spatial tokens. The ACT encoder permits subsequent modality interaction; interface isolation is not an actor-wide mask.",
+        "evidenceIds": [
+          "e-actor",
+          "e-architecture"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The CVAE/action encoder is disabled and latent z remains zero. Future encoders, temporal filters, slot reader, ACT transformer and action head are trainable. Masked action L1 is the sole optimization loss; detached slot decorrelation does not backpropagate.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-actor"
+        ]
+      },
+      {
+        "text": "Task-specific UniVTAC-ACT* checkpoints initialize all AFM-family arms. Training lasts 2,000 steps on two RTX 4090 D GPUs, with micro-batch 1 per GPU and accumulation 8, yielding effective batch 16. AdamW ordinary/gate learning rates are 10⁻⁵/10⁻³, with weight decay 10⁻⁴/0. Cosine annealing ends at 10⁻⁶; clipping is 1.0. Results use step 2,000.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Fresh observations and scheduled reference frames enter a transformer with four encoder layers, seven decoder layers and 50 action queries. Overlapping chunks use exp(−0.01 × age) weighting. The reference index follows policy calls; the paper explicitly supplies no physical-frequency interpretation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-oracle",
+          "e-actor",
+          "e-training"
+        ]
+      },
+      {
+        "text": "Oracle and IFM read futures during training and evaluation. Forced-Zero uses the Oracle-trained checkpoint but zeros future-memory slots at evaluation. Zero-Train never reads future HDF data and injects literal 12 × 512 zeros before future modules throughout training and evaluation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-controls"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\phi_i=\\frac{\\tau_i-\\tau_{\\mathrm{ref}}}{\\max(1,T-1-\\tau_{\\mathrm{ref}})},\\qquad \\tau_{\\mathrm{ref}}=\\min(\\lfloor p/2\\rfloor,T-1)",
+        "explanation": "Eqs. (1)–(2): τ_i is a sampled reference-frame index, T−1 the final frame and φ_i its remaining-horizon phase. During rollout, policy-call index p determines τ_ref; the second equation is not the training sampler.",
+        "evidenceIds": [
+          "e-oracle"
+        ]
+      },
+      {
+        "expression": "\\mathrm{score}_{k,i}^{h}=\\frac{(q_k^h)^\\top k_i^h}{\\sqrt{64}}-\\frac{(\\phi_i-c_k)^2}{2\\times0.18^2},\\qquad \\alpha_{k,i}^{h}=\\operatorname{softmax}_{i}(\\mathrm{score}_{k,i}^{h}+\\mathrm{mask}_i)",
+        "explanation": "Eqs. (6)–(7): head h compares slot k query q_k^h with source-position i key k_i^h. Anchor c_k supplies the soft phase preference; mask_i marks source validity. Attention weights α combine content and phase over permitted streams.",
+        "evidenceIds": [
+          "e-routing"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{action}}=\\operatorname{mean}\\!\\left(|\\hat a-a|\\odot\\mathbf{1}_{\\mathrm{not\\text{-}pad}}\\right)",
+        "explanation": "Eq. (12): predicted actions â are compared with demonstration actions a, masking padded entries. The displayed formula does not explicitly specify valid-element renormalization.",
+        "evidenceIds": [
+          "e-actor"
+        ]
+      }
+    ]
+  },
+  "relatedPaperIds": [],
+  "results": [
+    {
+      "task": "Seven-task UniVTAC manipulation",
+      "setting": "Simulation, evaluation episodes 50–99 per task, 50 rollouts each; vendor success predicate. Put Shelf trains on 0–39 with development 40–49; other tasks train on 0–49.",
+      "metric": "Successes / rollouts and average success rate",
+      "value": "AFM Oracle: 112/350, 32.0%.",
+      "comparison": "IFM: 83/350, 23.7%; UniVTAC-ACT*: 52/350, 14.9%.",
+      "interpretation": "The reported Oracle–IFM difference is 8.3 percentage points under matched future source, budget and training. The asterisk identifies UniVTAC's implementation rather than original ACT.",
+      "evidenceIds": [
+        "e-main",
+        "e-splits",
+        "e-routing",
+        "e-baseline"
+      ]
+    },
+    {
+      "task": "Future-availability ablation across seven tasks",
+      "setting": "Same 350 evaluation rollouts; Forced-Zero reuses the Oracle checkpoint, whereas Zero-Train is separately trained without future data.",
+      "metric": "Successes / rollouts and average success rate",
+      "value": "Forced-Zero: 68/350, 19.4%; Zero-Train: 70/350, 20.0%.",
+      "comparison": "Oracle: 112/350, 32.0%; benchmark baseline: 52/350, 14.9%.",
+      "interpretation": "Slot removal lowers Oracle performance by 12.6 percentage points. No-future arms also exceed the baseline, so the entire baseline-to-Oracle gain cannot be attributed to future information.",
+      "evidenceIds": [
+        "e-controls",
+        "e-ablation",
+        "e-main"
+      ]
+    },
+    {
+      "task": "Pull Out Key",
+      "setting": "Head RGB and both tactile streams; train episodes 0–49, evaluate 50–99 in simulation.",
+      "metric": "Successful rollouts",
+      "value": "Oracle: 27/50, 54%.",
+      "comparison": "IFM: 12/50, 24%; Forced-Zero: 1/50, 2%; Zero-Train: 15/50, 30%; baseline: 11/50, 22%.",
+      "interpretation": "Strong oracle benefit coexists with severe loss when the trained policy loses expected future inputs.",
+      "evidenceIds": [
+        "e-task-variation",
+        "e-splits",
+        "e-controls"
+      ]
+    },
+    {
+      "task": "Insert Tube",
+      "setting": "Head/wrist RGB and both tactile streams; train episodes 0–49, evaluate 50–99 in simulation.",
+      "metric": "Successful rollouts",
+      "value": "Oracle and Forced-Zero: each 21/50, 42%.",
+      "comparison": "IFM: 20/50, 40%; Zero-Train: 17/50, 34%; baseline: 7/50, 14%.",
+      "interpretation": "Equal reported success totals do not establish an added test-time future benefit on this task.",
+      "evidenceIds": [
+        "e-task-variation",
+        "e-splits"
+      ]
+    },
+    {
+      "task": "Insert Hole",
+      "setting": "Head RGB and both tactile streams; train episodes 0–49, evaluate 50–99 in simulation.",
+      "metric": "Successful rollouts",
+      "value": "Oracle: 2/50, 4%.",
+      "comparison": "IFM: 4/50, 8%; Forced-Zero: 3/50, 6%; Zero-Train and baseline: each 1/50, 2%.",
+      "interpretation": "IFM leads at low absolute success, limiting claims of uniform AFM superiority.",
+      "evidenceIds": [
+        "e-task-variation",
+        "e-splits"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Successful, initialization-matched reference futures are privileged. The experiments test neither learned predictors nor forecast-error robustness or physical-robot deployment; simulation success cannot establish those capabilities.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-oracle",
+        "e-splits",
+        "e-main"
+      ]
+    },
+    {
+      "text": "Tables report 50 rollouts per task without confidence intervals or repeated-training-seed variability. The routing comparison retains the phase prior, so it does not separately establish the value of anchors, bandwidth or blocking cross-tactile access.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-routing",
+        "e-main",
+        "e-ablation"
+      ]
+    },
+    {
+      "text": "Reference progression follows policy-call indexing rather than measured task progress. Whether asynchronous behavior or phase mismatch erodes AFM's advantage remains untested.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e-oracle",
+        "e-routing",
+        "e-ablation"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires task checkpoints, paired successful HDF trajectories and the episode/reset mapping, normalization, camera contract and vendor evaluator. The paper holds these fixed across AFM-family arms but does not enumerate numerical rollout horizons, early-stop settings or random seeds.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-baseline",
+        "e-oracle",
+        "e-splits",
+        "e-training"
+      ]
+    },
+    {
+      "text": "The reported stack includes Ubuntu 20.04.6, two RTX 4090 D 24 GB GPUs, Python 3.10.12, PyTorch 2.7.0+cu128, torchvision 0.22.0+cu128, Isaac Sim 4.5.0 and Isaac Lab 0.41.3. Models use width 512, eight heads, dropout 0.1 and FP32 without AMP; future-encoding chunk size 8 is a memory optimization.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-training",
+        "e-software"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Evaluation metrics & protocols",
+        "Action policy foundations"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "8ea2b99de6b1fa2ff130308f40c81884c3a7710b65e08e3b817f289d74adbc59"
+    },
+    "reasoning": {
+      "text": "The foundational evaluation/action-policy classification is supported. OVTF fixes an external oracle and trains an action interface; it neither learns a joint future/action predictor nor extracts actions by inverse dynamics. A shared ACT consumer does not establish a unified predictive world-action architecture. The architecture, prediction-paradigm and quadrant axes are therefore not applicable, rather than unverified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-problem",
+        "e-oracle",
+        "e-actor"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does AFM retain its routing advantage with imperfect learned futures?",
+    "Would phase misalignment selectively erase the advantage over IFM, or does visual access help without accurate phase correspondence?"
+  ],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block and left-margin arXiv stamp",
+      "detail": "Title matches the supplied observedTitle. Authors: Zihang Yao, Chaoyue Ding, Yingying Yu. Yao: Brigham Young University, Provo, Utah, USA; Ding and Yu: Beijing Academy of Science and Technology, Beijing, China. Yu is corresponding author. Stamp: arXiv:2608.00547v1 [cs.RO], 1 Aug 2026."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Abstract and Section I, four confounds and OVTF proposal",
+      "detail": "The authors separate invalid visual futures, unreliable future use, mismatched tactile predictions and poor interfaces by fixing successful paired reference futures."
+    },
+    {
+      "id": "e-baseline",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section II.A, final paragraph",
+      "detail": "UniVTAC-ACT* denotes the implementation and task checkpoints distributed with UniVTAC, distinct from original ACT."
+    },
+    {
+      "id": "e-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 1 and caption",
+      "detail": "Frozen current vision/shared-tactile encoders, state projection and trainable future encoders feed ACT. Future memory has 4H, 4L and 4R slots. Routing matrices agree with Eqs. (9)–(10); modalities can interact again inside ACT."
+    },
+    {
+      "id": "e-oracle",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section III.A, first four paragraphs and Eqs. (1)–(2)",
+      "detail": "Inputs include task-dependent cameras, both tactile images and 8-D qpos. Up to 100 frames are sampled from a successful initialization-matched suffix. Rollout uses min(floor(p/2), T−1), without a physical-frequency interpretation. Oracle inputs exclude actions, qpos, object pose, simulator state and success labels."
+    },
+    {
+      "id": "e-encoding",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section III.A, encoder paragraphs and Eqs. (3)–(4)",
+      "detail": "Copied trainable ResNet-18 weights produce three N × 512 streams; two-camera vision uses a two-layer MLP. Depthwise temporal convolution has kernel 5, padding 2, 512 groups and initially zero tanh gates."
+    },
+    {
+      "id": "e-routing",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section III.B, Eqs. (5)–(10)",
+      "detail": "Twelve learned 512-D slots use anchors 0.125, 0.375, 0.625, 0.875 and Gaussian scale 0.18. Tactile AFM slots attend jointly to their own tactile plus visual sequences; cross-tactile reading is blocked. IFM removes only visual-to-tactile edges, retaining other listed design/training factors."
+    },
+    {
+      "id": "e-actor",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section III.C, Eqs. (11)–(12) and surrounding text",
+      "detail": "ACT memory is [z0+s1, q, s2, …, s12, M_current], with frozen current encoders/state projection and gated slots. Fifty queries produce 50 × 8 actions; aggregation uses exp(−0.01 × age). CVAE is disabled, latent zero, and only masked action L1 backpropagates."
+    },
+    {
+      "id": "e-reference",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and caption",
+      "detail": "Four chronological columns at equal-segment centers show head RGB and left/right tactile RGB from one successful Put Shelf reference trajectory. The caption limits the figure to task progression and observation format."
+    },
+    {
+      "id": "e-splits",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Sections IV.A–B",
+      "detail": "All tasks evaluate episodes 50–99. Put Shelf trains on 0–39 and develops on 40–49; others train on 0–49. Insert Tube/Lift Can use head and wrist RGB. AFM-family arms share resets, evaluator, preprocessing, normalization, aggregation, horizon, early stopping, cameras and vendor success predicate."
+    },
+    {
+      "id": "e-controls",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV.C",
+      "detail": "Oracle trains/tests with oracle futures and AFM; IFM changes routing. Forced-Zero zeros Oracle-checkpoint slots at evaluation. Zero-Train reads no future HDF and injects literal 12 × 512 zeros before future modules during training and evaluation."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV.D, first paragraph",
+      "detail": "Training: task checkpoints, 2,000 steps, two RTX 4090 D GPUs, per-GPU micro-batch 1, accumulation 8, effective batch 16. AdamW ordinary/gate rates 10⁻⁵/10⁻³, decay 10⁻⁴/0; cosine endpoint 10⁻⁶, clip 1.0. Architecture: 4 encoder/7 decoder layers, width 512, 8 heads, dropout 0.1; FP32 without AMP, future-encoding chunks of 8."
+    },
+    {
+      "id": "e-software",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV.D, second paragraph",
+      "detail": "Ubuntu 20.04.6, Intel i9-14900K, 128 GB RAM, two RTX 4090 D 24 GB GPUs, driver 570.133.20, Python 3.10.12, PyTorch 2.7.0+cu128, torchvision 0.22.0+cu128, Isaac Sim 4.5.0, Isaac Lab 0.41.3."
+    },
+    {
+      "id": "e-main",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Table I, complete table and Average row; Section IV.E",
+      "detail": "Average totals: baseline 52/350 (14.9%), Zero-Train 70/350 (20.0%), IFM 83/350 (23.7%), Forced-Zero 68/350 (19.4%), Oracle 112/350 (32.0%). Bold marks row maxima; underlining marks second-highest distinct scores. No uncertainty intervals are displayed."
+    },
+    {
+      "id": "e-task-variation",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Table I, Put Shelf, Pull Out Key, Insert Tube and Insert Hole rows; PDF p. 5, Section IV.G",
+      "detail": "Put Shelf Oracle: 27/50 (54%). Pull Out Key baseline/Zero-Train/IFM/Forced-Zero/Oracle counts: 11/15/12/1/27 of 50. Insert Tube: 7/17/20/21/21. Insert Hole: 1/1/4/3/2. The text discusses these task-specific differences."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 3, Table II and Sections IV.F–G",
+      "detail": "AFM-family averages: 20.0%, 23.7%, 19.4%, 32.0%; dashed baseline: 14.9%. The text reports an 8.3-point AFM–IFM gap and a decline under Forced-Zero. Displayed experiments do not vary phase anchors, bandwidth or prediction corruption."
+    }
+  ]
+}

@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.00635",
+  "shortTitle": "FlowPilot",
+  "thesis": "FlowPilot jointly denoises future-depth latents and a compact polynomial trajectory to improve agile navigation, while its onboard timing and feasibility claims require narrower interpretation than its headline suggests.",
+  "standfirst": "A drone needs more than a plausible next waypoint: its controller needs a smooth reference quickly enough to react to nearby clutter. FlowPilot addresses both requirements by coupling future-depth prediction with a small generative action space. Read the architecture and training masks first to see where geometry and motion exchange information. Then separate three kinds of evidence: simulated goal-reaching success, a targeted latent-depth intervention, and onboard timing. The depth rollout explains what the model predicts, but the collision table tests a control consequence. Physical indoor and forest flights establish deployment examples, while missing protocol details and timing boundaries limit broader conclusions.",
+  "evidenceIds": [
+    "e-problem",
+    "e-architecture",
+    "e-training",
+    "e-simulation",
+    "e-ablation",
+    "e-depth",
+    "e-latency",
+    "e-flight"
+  ],
+  "featuredResultTask": "Synchronous future-depth denoising in PX4 SITL",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "alt": "Blue video and orange action streams pass upward through separate encoders, shared video-action attention, separate feed-forward networks, and output decoders; the action output labels control points b3 through b7.",
+      "caption": "Two expert streams exchange information inside each denoising layer.",
+      "readingGuide": "Read upward from the inputs. The blue side supplies current-depth conditioning and future-depth information; the orange side supplies state and goal, speed, previous trajectory, noisy free control points, and register tokens. Each side has its own projection and feed-forward network, but the horizontal attention block joins their tokens. The separate flow-time inputs modulate the two streams. Snowflake symbols on the Wan encoder and decoder agree with the frozen VAE described in Section III-B; the MoT and action pathway are learned. The five labeled output points are the free part of the polynomial, not the entire reference or motor commands.",
+      "takeaway": "Future-scene and action representations can influence one another within a denoising step. This supports joint world-action prediction without requiring identical parameters for both modalities. At deployment, the controller needs the resulting curve; decoded future images are optional diagnostics, while latent-depth updates have a separate tested role.",
+      "caution": "The artwork places noisy-depth thumbnails below the encoder, whereas Equations (8)–(11) define noise interpolation on VAE latents. Use the equations for corruption placement. The diagram also does not specify a complete deployed token/noise schedule.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-inputs",
+        "e-bernstein",
+        "e-flow",
+        "e-ablation"
+      ],
+      "page": 3,
+      "asset": "report-assets/2608.00635/architecture.png",
+      "width": 1020,
+      "height": 842,
+      "sourceSha256": "024ca00d7e69c53c75d32bfcd74271938f16f75f7ccb8b49fa9989c4e00c8176",
+      "sourceUrl": "https://arxiv.org/pdf/2608.00635#page=3",
+      "crop": [
+        0.515,
+        0.065,
+        0.915,
+        0.32
+      ]
+    },
+    {
+      "id": "training-masks",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "alt": "A depth-data pyramid lists 2 h real data, 8 h Flightmare, and 16 h IsaacLab. A blue phase-1 attention matrix enables only the first three token types; an orange phase-2 matrix enables every token pair.",
+      "caption": "Broad depth pretraining precedes joint alignment with expert trajectories.",
+      "readingGuide": "Start with the left pyramid: quantity increases toward the 16 h simulation base, while quality points toward the 2 h real-data apex. These are the authors' organizing axes, not measured quality scores. On the right, rows are queries and columns are keys. In phase 1, the filled three-by-three block joins conditioning-frame tokens V_c, future-video tokens V, and state–goal token P. Hatching masks speed S, previous trajectory T_p, and action A in both directions. Phase 2 fills the whole matrix. The masks and their direction agree with the caption and Section III-F: action information cannot enter phase-1 world modeling through the masked tokens.",
+      "takeaway": "The curriculum separates a broad navigation representation from expert action alignment. The second phase can exchange geometry and motion information directly because all token groups attend jointly. Its SUPER action targets come specifically from forested Flightmare environments, so the depth pyramid does not imply equally broad expert-action coverage.",
+      "caution": "The paper provides no ablation that separately establishes the value of each data tier or the two-stage curriculum. It also omits phase-specific sample counts, optimization schedules, and a complete train/test split.",
+      "evidenceIds": [
+        "e-data",
+        "e-training",
+        "e-repro"
+      ],
+      "page": 5,
+      "asset": "report-assets/2608.00635/training-masks.png",
+      "width": 1035,
+      "height": 422,
+      "sourceSha256": "024ca00d7e69c53c75d32bfcd74271938f16f75f7ccb8b49fa9989c4e00c8176",
+      "sourceUrl": "https://arxiv.org/pdf/2608.00635#page=5",
+      "crop": [
+        0.512,
+        0.062,
+        0.918,
+        0.19
+      ]
+    },
+    {
+      "id": "success-rates",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 6",
+      "alt": "Two success-rate plots compare FlowPilot, action-only FlowPilot, EGO-Planner, and YOPO from 3 to 8 m/s in dense and sparse forests, with a shared legend below.",
+      "caption": "Success stays high for FlowPilot as commanded speed increases in these simulated forests.",
+      "readingGuide": "Read each panel at a fixed commanded velocity before comparing methods. Panel (a) is sparsity 10, the denser forest; panel (b) is sparsity 15. The horizontal axis is commanded speed, and the vertical axis is goal-reaching success across 20 trials per speed and sparsity. Red circles denote FlowPilot, magenta triangles its action-only variant, blue squares EGO-Planner, and yellow crosses YOPO. Keep the two panels separate because obstacle density changes the task. Also distinguish this action-only variant, which removes the future-depth stream and shared attention, from Table I's intervention that freezes future-depth latents during inference.",
+      "takeaway": "At 8 m/s, the plotted FlowPilot success rate is 90% in both panels, compared with YOPO's 10% in dense and 35% in sparse forests and EGO-Planner's 0% in both. The separation grows under challenging conditions; lower-speed points include ties between FlowPilot and EGO-Planner.",
+      "caution": "The curves provide no confidence intervals or per-trial outcomes. Twenty trials per point support a finite-sample comparison, not a universal safety rate. Commanded speed does not establish sustained flight at that speed.",
+      "evidenceIds": [
+        "e-simulation",
+        "e-setup",
+        "e-ablation"
+      ],
+      "page": 6,
+      "asset": "report-assets/2608.00635/success-rates.png",
+      "width": 1020,
+      "height": 443,
+      "sourceSha256": "024ca00d7e69c53c75d32bfcd74271938f16f75f7ccb8b49fa9989c4e00c8176",
+      "sourceUrl": "https://arxiv.org/pdf/2608.00635#page=6",
+      "crop": [
+        0.515,
+        0.065,
+        0.915,
+        0.199
+      ]
+    },
+    {
+      "id": "depth-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table I",
+      "alt": "Full and depth-frozen PX4 SITL results list collision rate, task time, mean speed, peak speed, commanded-speed ratio, and normalized jerk.",
+      "caption": "Updating future-depth latents improves collision and traversal outcomes in the reported ablation.",
+      "readingGuide": "Compare columns within a row. Full performs synchronous future-depth and action denoising; Depth-frozen holds future-depth latents fixed as noise while continuing to denoise the action. The collision row therefore probes whether evolving latent predictions contribute during action generation. Next read task time and speed together: lower traversal time accompanies higher mean speed in Full. The last row matters because it prevents treating every number as a uniform win: normalized jerk is slightly higher for Full. Retain the printed plus/minus quantities literally; the paper does not define them as standard deviations, standard errors, or confidence intervals.",
+      "takeaway": "Full reports 4.0% collisions versus 26.0%, a reduction of 22 percentage points. Task time falls from 14.17 ± 1.51 s to 12.98 ± 1.29 s while mean speed rises from 3.83 ± 0.34 to 4.14 ± 0.32 m/s. These results support useful anticipatory information in latent updates under this test.",
+      "caution": "This table's trial count, exact commanded speed, uncertainty convention, speed-ratio definition, and jerk normalization are unspecified. Independent training noise levels motivate the intervention but do not prove identical closed-loop state distributions or a theoretical imitation-performance ceiling.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-flow"
+      ],
+      "page": 7,
+      "asset": "report-assets/2608.00635/depth-ablation.png",
+      "width": 1031,
+      "height": 458,
+      "sourceSha256": "024ca00d7e69c53c75d32bfcd74271938f16f75f7ccb8b49fa9989c4e00c8176",
+      "sourceUrl": "https://arxiv.org/pdf/2608.00635#page=7",
+      "crop": [
+        0.086,
+        0.059,
+        0.49,
+        0.198
+      ]
+    },
+    {
+      "id": "future-depth",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 8",
+      "alt": "Predicted and ground-truth depth frames are paired at t, t+0.4 s, t+0.8 s, t+1.2 s, and t+1.6 s, above a trajectory illustration with conditioning-frame and horizon annotations.",
+      "caption": "A qualitative rollout connects future geometry to the trajectory horizon.",
+      "readingGuide": "Compare the two rows vertically at the same time label. The upper row is predicted depth and the lower row is ground truth; the shared current frame anchors the sequence. Later predictions retain broad bright and dark regions but are visibly noisier and less sharply structured than the corresponding observations. The lower panel locates the conditioning frame along a red trajectory and labels the 1.6 s horizon. It also marks a 0.2 s interval near the start; the displayed frame pairs above use 0.4 s spacing. These annotations show temporal alignment without supplying a quantitative depth-accuracy measure.",
+      "takeaway": "The figure illustrates the kind of future geometry available to the action representation and gives qualitative context for Table I. It is consistent with the authors' claim that obstacle layout and ego-motion trends can inform action denoising, even when deployment does not decode the frames for the controller.",
+      "caution": "One selected rollout cannot establish prediction calibration, obstacle-clearance accuracy, or causal control benefit by itself. The noisy images should not be read as a certified free-space map; the closed-loop ablation supplies different evidence.",
+      "evidenceIds": [
+        "e-depth",
+        "e-ablation",
+        "e-architecture"
+      ],
+      "page": 7,
+      "asset": "report-assets/2608.00635/future-depth.png",
+      "width": 1030,
+      "height": 591,
+      "sourceSha256": "024ca00d7e69c53c75d32bfcd74271938f16f75f7ccb8b49fa9989c4e00c8176",
+      "sourceUrl": "https://arxiv.org/pdf/2608.00635#page=7",
+      "crop": [
+        0.087,
+        0.208,
+        0.491,
+        0.387
+      ]
+    },
+    {
+      "id": "onboard-latency",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table II",
+      "alt": "Module timings report mean, standard deviation, and maximum milliseconds for depth preprocessing, distilled depth encoding, three-step flow denoising, total inference, and MPC.",
+      "caption": "The labeled inference path is fast, but the complete timing boundary remains unresolved.",
+      "readingGuide": "Read the columns as mean, standard deviation, and maximum milliseconds; unlike Table I, this table defines the uncertainty column. Three denoising steps average 14.924 ms, and the distilled encoder averages 1.163 ms. The row labeled total inference reports 16.294 ms mean and 17.055 ms maximum. Preprocessing and MPC appear as separate rows. Do not automatically add all maxima or assume every row belongs to a serial total. Section IV-C specifies TensorRT and host-side Bernstein reconstruction, while Section IV-A separately states 100 Hz trajectory tracking. That tracking rate refers to the downstream controller, not a measured model update frequency.",
+      "takeaway": "The labeled neural inference total is below 18 ms on the reported Jetson. As reader arithmetic, preprocessing plus encoding plus denoising means sum to 20.834 ms, already above that total. The difference calls for explicit timing boundaries or overlap information before accepting the abstract's full perception-to-action budget.",
+      "caution": "The source does not explain asynchronous overlap, timestamp boundaries, or whether preprocessing and reference reconstruction are included. The arithmetic sum is a diagnostic consistency check, not a measured end-to-end latency; MPC is reported separately.",
+      "evidenceIds": [
+        "e-latency",
+        "e-setup"
+      ],
+      "page": 7,
+      "asset": "report-assets/2608.00635/onboard-latency.png",
+      "width": 1007,
+      "height": 419,
+      "sourceSha256": "024ca00d7e69c53c75d32bfcd74271938f16f75f7ccb8b49fa9989c4e00c8176",
+      "sourceUrl": "https://arxiv.org/pdf/2608.00635#page=7",
+      "crop": [
+        0.515,
+        0.059,
+        0.91,
+        0.186
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Trace a replan from depth to an executed reference",
+      "text": "The policy starts with depth and a state–goal description in the drone's current body frame. During joint modeling, video and action experts each predict a velocity field, and shared attention lets the partially denoised representations condition one another. This is the central causal path to examine: geometry is not simply decoded and handed to a separate optimizer. A flow sample supplies five free control points; the remaining points come from current state, and the resulting curve goes to OMMPC. Deployment can skip future-image decoding while retaining informative latent-depth computation. Table I tests the latter by freezing future latents as noise, which differs from removing the video expert altogether. The observed collision difference supports this coupling under the reported protocol, without proving that every predicted depth frame is metrically accurate.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-inputs",
+        "e-architecture",
+        "e-flow",
+        "e-bernstein",
+        "e-setup",
+        "e-ablation",
+        "e-depth"
+      ]
+    },
+    {
+      "heading": "Separate what the two training phases can learn",
+      "text": "Phase 1 learns scene evolution from the depth pyramid, with attention confined to current-frame, future-video, and state–goal tokens. The absent action pathway in the mask matters: expert action alignment is introduced later, rather than inferred from the presence of real depth in the pretraining set. Phase 2 enables all-token attention and supervises both velocity fields, using SUPER trajectories collected in forested Flightmare. Independent noise levels expose the network to differently corrupted modalities, including clean-action/noisy-video and clean-video/noisy-action regimes. This supplies a rationale for varying depth corruption at inference, but does not itself certify an unchanged closed-loop distribution. Reproducing the curriculum also requires details absent from the paper, particularly loss weighting, action normalization, phase schedules, and precise partitions of the available data.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-data",
+        "e-training",
+        "e-flow",
+        "e-ablation",
+        "e-repro"
+      ]
+    },
+    {
+      "heading": "Separate curve smoothness from replan consistency and feasibility",
+      "text": "A degree-7 Bernstein curve has eight control points. Fixing the first three to satisfy initial position, velocity, and acceleration leaves fifteen scalar outputs, arranged as five three-dimensional points. This construction provides analytic velocity, acceleration, and jerk, avoiding numerical differentiation of independent waypoint predictions. It does not impose a bound on those derivatives or guarantee clearance from obstacles. A second issue arises across replans: independent samples can switch maneuvers even when each curve is smooth. The previous-trajectory token softly biases the next sample, with dropout teaching the model to operate without that token. As reader analysis, the two devices address different problems: polynomial structure supports within-reference smoothness, whereas conditioning encourages temporal consistency. Neither alone proves exact continuity during tracking errors or dynamic feasibility at all vehicle states.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-bernstein",
+        "e-previous",
+        "e-limitations"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test latent-depth guidance with matched noise and planning delay",
+      "text": "Reader-proposed experiment, not performed: use one joint checkpoint in PX4 SITL and paired forest scenes, start–goal pairs, speeds, and action-noise seeds. Compare synchronous depth/action updates with the paper's depth-frozen intervention, retaining the same polynomial representation and controller. First use identical denoising-step counts; then equalize reference-delivery delay so any compute difference cannot change reaction time. Predeclare trial counts, collision criteria, and uncertainty estimates, and log traversal time and normalized jerk with an explicit definition. If the collision advantage persists under paired seeds and matched delay, that strengthens the case for informative latent geometry. If it disappears, the original attribution needs qualification. Include the separately trained action-only model as an additional comparison, without treating it as the same intervention.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-simulation",
+        "e-setup",
+        "e-flow"
+      ]
+    },
+    {
+      "title": "Reconcile the Jetson timing budget with explicit end points",
+      "text": "Reader-proposed experiment, not performed: on the specified Orin NX platform, fix input resolution, three Euler steps, and the 1.6 s horizon. Timestamp depth arrival, preprocessing completion, encoder completion, denoising completion, reconstructed-reference availability, and controller consumption. Collect repeated warm-run measurements with GPU synchronization only at clearly documented measurement boundaries, and compare the normal overlapping pipeline with a forced serial diagnostic run. Keep optional future-image decoding disabled in the primary comparison. Report per-stage distributions and observed end-to-end latency separately from the 100 Hz controller period. If preprocessing is included and the actual arrival-to-reference path remains below 18 ms, the broad budget is supported; if only the neural subpath does, Table II's narrower interpretation is confirmed.",
+      "evidenceIds": [
+        "e-latency",
+        "e-setup",
+        "e-architecture",
+        "e-bernstein"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "notes": "All eight supplied PDF pages were rendered and visually inspected: p. 1 title/authors/version/affiliations; p. 2 overview; pp. 3–5 architecture, all method equations, smoothness schematic, data pyramid and attention masks; p. 6 conditioning, platform, simulation protocol and Figures 5–7; p. 7 Tables I–II, future-depth rollout, forest flights and deployment details; p. 8 flight continuation, conclusions and references. All six final crops were individually viewed at their original 300-DPI render resolution. Architecture arrows were checked against the caption and latent-noise equations; the schematic-versus-equation corruption placement is disclosed. Figure 4 query/key directions and filled/masked token blocks agree with its caption. All numerical, method and proposed-check evidence pages are included here. No appendix is present, and no separate supplement or external code was inspected."
+  }
+}

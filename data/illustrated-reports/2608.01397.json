@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.01397",
+  "shortTitle": "SG-WAM",
+  "thesis": "SG-WAM uses geometry-aligned policy tokens and action-conditioned future prediction to improve a compact manipulation policy, while keeping the predictive branches out of deployment.",
+  "standfirst": "A robot policy can learn from future observations without generating a future image when it acts. SG-WAM makes this idea concrete by placing learnable dynamics tokens inside the same vision-language context that conditions action generation. During training, demonstrated actions help a predictor forecast those tokens' future states; an exponential moving average copy of the policy supplies the targets. A frozen geometry model separately grounds current image tokens. The important reading distinction is between these training signals and the deployed controller. The figures below trace that distinction, then test it against zero-shot transfer, physical execution and controlled ablations.",
+  "evidenceIds": [
+    "e03",
+    "e04",
+    "e05",
+    "e07",
+    "e12",
+    "e15",
+    "e18",
+    "e20"
+  ],
+  "featuredResultTask": "LIBERO-Plus zero-shot transfer",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2608.01397/architecture.png",
+      "width": 1463,
+      "height": 649,
+      "sourceSha256": "bfdf447d22ebbea5313f51bce87cb95d589a72efe80efcb208d749f234839e2e",
+      "sourceUrl": "https://arxiv.org/pdf/2608.01397#page=3",
+      "crop": [
+        0.068,
+        0.057,
+        0.929,
+        0.352
+      ],
+      "alt": "Main and wrist images, language and dynamics tokens enter a VLM; full context conditions an action expert. Upper branches show frozen VGGT supervision and an action-conditioned predictor aligned with an EMA future target.",
+      "caption": "Predictive training shapes the context used by the action expert.",
+      "readingGuide": "Start at the lower inputs: main and wrist images, instruction L, and learnable dynamics tokens Q. The VLM's output sequence feeds the action expert on the right. Follow the upper pink branch separately: current dynamics states are projected and combined with intervening actions, while future inputs feed an EMA VLM and projector to create targets. The blue branch aligns main-view image states with frozen VGGT features. The double-headed loss markers show comparisons, not bidirectional gradient updates. Equations (7)–(8) and Appendix B specify that target gradients stop; the EMA snowflakes therefore mean exclusion from gradient optimization, not permanently unchanged weights.",
+      "takeaway": "Future supervision and action imitation meet through shared online policy states. Geometry supervision shapes image tokens, while the predictor learns transitions of dynamics tokens. At deployment, the VLM, dynamics tokens and action expert remain; the geometry teacher, predictor and EMA target pathway are removed.",
+      "caution": "The diagram abbreviates geometry projection and uses t+T for the future, whereas the equations use t+Δ. Appendix B specifies eight intervening steps. This figure does not describe inference-time planning or a measured rollout-speed improvement.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06",
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "id": "world-predictor",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 5",
+      "page": 11,
+      "asset": "report-assets/2608.01397/world-predictor.png",
+      "width": 1300,
+      "height": 686,
+      "sourceSha256": "bfdf447d22ebbea5313f51bce87cb95d589a72efe80efcb208d749f234839e2e",
+      "sourceUrl": "https://arxiv.org/pdf/2608.01397#page=11",
+      "crop": [
+        0.245,
+        0.5,
+        0.755,
+        0.708
+      ],
+      "alt": "Projected dynamics states enter self-attention, then supply queries to cross-attention. The encoded intervening-action sequence supplies keys and values; the output is the predicted future dynamics representation.",
+      "caption": "Current state slots query the ordered actions that connect two observations.",
+      "readingGuide": "Follow the top-left path from contextualized dynamics tokens through the projector to the current latent states. Self-attention lets those slots exchange information before they enter cross-attention as queries. The lower action branch supplies keys and values, as marked by K and V. Here the attention label Q means queries; the paper also uses Q for its learnable dynamics embeddings, so the two uses should not be conflated. Appendix B states that eight seven-dimensional actions are embedded individually with learned temporal positions. The sequence is retained rather than pooled, allowing state slots to attend selectively to different action steps.",
+      "takeaway": "The predictor is a forward transition model: current state plus intervening actions produces a future latent estimate. It does not infer the actions from two states. Its output is compared with an EMA policy target, making the relationship to the downstream policy explicit at the representation level.",
+      "caution": "The colored slots are schematic; their drawn count is not the configured eight-token count. The source leaves latent width and predictor depth/head counts unspecified. Attention connectivity alone does not prove that the model uses action order effectively.",
+      "evidenceIds": [
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "id": "libero-plus",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 5,
+      "asset": "report-assets/2608.01397/libero-plus.png",
+      "width": 1444,
+      "height": 357,
+      "sourceSha256": "bfdf447d22ebbea5313f51bce87cb95d589a72efe80efcb208d749f234839e2e",
+      "sourceUrl": "https://arxiv.org/pdf/2608.01397#page=5",
+      "crop": [
+        0.075,
+        0.336,
+        0.925,
+        0.498
+      ],
+      "alt": "LIBERO-Plus success table with nine methods, seven perturbation columns and an Overall column. SG-WAM scores 73.0 overall; OpenVLA-OFT scores 69.6 and VLA-JEPA 62.9.",
+      "caption": "The strongest reported overall transfer score coexists with weaker individual conditions.",
+      "readingGuide": "Read the bottom row across the seven perturbations before checking Overall. Camera, Robot, Language, Light, Background, Noise and Layout are distinct test conditions; they are not stages of one episode. Bold marks the best reported score in a column and underlining marks second-best. The SG-WAM checkpoint is trained jointly on the four original LIBERO suites and transferred without fine-tuning. Appendix E defines Overall through successful rollouts, so do not reconstruct it as an unweighted mean of the seven displayed percentages. The Params column describes model size, not a matched training budget, and Section 4.1 says simulation baseline values come from their respective papers.",
+      "takeaway": "SG-WAM reports 73.0% overall, exceeding OpenVLA-OFT's 69.6% by 3.4 percentage points. It leads the displayed Camera, Language, Light and Noise columns. Its Robot, Background and Layout scores are below the strongest corresponding baselines, showing that the overall advantage is not uniform.",
+      "caution": "Section 4.2 claims best Layout performance, but the table gives VLA-JEPA 74.6 versus SG-WAM 74.2. Also, Robot is described as embodiment shift in prose but Robot Initial States in Figure 22. Neither inconsistency is resolved by the supplied source.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e12",
+        "e13",
+        "e22"
+      ]
+    },
+    {
+      "id": "physical-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 7,
+      "asset": "report-assets/2608.01397/physical-results.png",
+      "width": 1360,
+      "height": 218,
+      "sourceSha256": "bfdf447d22ebbea5313f51bce87cb95d589a72efe80efcb208d749f234839e2e",
+      "sourceUrl": "https://arxiv.org/pdf/2608.01397#page=7",
+      "crop": [
+        0.1,
+        0.06,
+        0.9,
+        0.159
+      ],
+      "alt": "Physical robot success rates for VLA-JEPA, VPP and SG-WAM. Pick and Place and Towel Folding each have ID and three visual-shift columns; Toolbox Organization has only ID.",
+      "caption": "Physical execution improves, with narrow task and perturbation coverage.",
+      "readingGuide": "Read the grouped headers carefully. Pick and Place and Towel Folding each have an in-distribution column and three OOD columns, while Toolbox Organization has only an ID column. The platform is a UR5e with main and wrist RGB cameras. Each task contributes 100 demonstrations; the methods are evaluated for 20 trials on each of the first two tasks and 10 on Toolbox Organization. Appendix F says the three tasks are trained jointly and the same final real-world checkpoint serves ID and OOD evaluation. Novel Object means an unseen towel or changed cube colors with updated instructions, rather than unrestricted category transfer.",
+      "takeaway": "SG-WAM leads every displayed cell: ID success is 75% for Pick and Place, 45% for Towel Folding and 50% for Toolbox Organization. Nevertheless, its OOD performance falls to 40% on novel-color cubes and 25% on an unseen towel, so relative gains do not imply consistently reliable execution.",
+      "caution": "No Toolbox Organization OOD score is supplied. Initial scenes are reproduced only as closely as possible across methods, and the small trial counts come without confidence intervals. These results do not establish direct zero-shot transfer from the simulation checkpoint.",
+      "evidenceIds": [
+        "e14",
+        "e15",
+        "e16"
+      ]
+    },
+    {
+      "id": "objective-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 7,
+      "asset": "report-assets/2608.01397/objective-ablation.png",
+      "width": 1401,
+      "height": 378,
+      "sourceSha256": "bfdf447d22ebbea5313f51bce87cb95d589a72efe80efcb208d749f234839e2e",
+      "sourceUrl": "https://arxiv.org/pdf/2608.01397#page=7",
+      "crop": [
+        0.075,
+        0.2,
+        0.487,
+        0.286
+      ],
+      "alt": "Four-row LIBERO ablation crossing geometric supervision and world modeling. Average success is 95.3 with neither, 96.6 with geometry only, 97.6 with world modeling only and 98.5 with both.",
+      "caption": "Both training objectives contribute to policy success.",
+      "readingGuide": "Use Geo. and WM. as the two switches. Geo. means the frozen-teacher alignment of main-view image states; WM. means self-guided latent world modeling. The top row removes both, the middle rows retain one objective each, and the bottom row is the complete method. Read Avg. to assess overall policy performance, then Long to inspect the suite most affected by removing world modeling. These cells are task success percentages, not latent MSE values. In particular, turning off an auxiliary objective should not be confused with removing a prediction module at deployment: the full trained policy already deploys without its predictor.",
+      "takeaway": "The full combination reaches 98.5% average success, compared with 95.3% for neither component. Removing world modeling costs 1.9 percentage points overall and 4.0 on Long; removing geometry costs 0.9 overall. This supports complementary benefits for the policy within the reported training setup.",
+      "caution": "The table supplies no seed variation or confidence intervals. The gains establish behavioral usefulness in this setting, not geometric reconstruction accuracy or uniquely action-causal latent representations. The action-information control in Table 7 addresses a narrower mechanism.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e08",
+        "e18",
+        "e20"
+      ]
+    },
+    {
+      "id": "action-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 7",
+      "page": 17,
+      "asset": "report-assets/2608.01397/action-ablation.png",
+      "width": 1414,
+      "height": 259,
+      "sourceSha256": "bfdf447d22ebbea5313f51bce87cb95d589a72efe80efcb208d749f234839e2e",
+      "sourceUrl": "https://arxiv.org/pdf/2608.01397#page=17",
+      "crop": [
+        0.292,
+        0.489,
+        0.708,
+        0.548
+      ],
+      "alt": "LIBERO comparison between Null-Action Sequence and SG-WAM. The null variant scores 97.6 average and 94.6 on Long; SG-WAM scores 98.5 and 96.2.",
+      "caption": "Keeping the predictor but withholding actual actions tests the information it uses.",
+      "readingGuide": "This comparison changes the predictor's action input rather than deleting its action branch. The Table 7 caption and Equations (17)–(18) state that the demonstrated intervening actions are replaced with an all-zero sequence before the same action encoder. Sequence length, temporal positional embeddings, architecture, objectives and other training settings are retained. Consequently, Null-Action Sequence still contains a learnable conditioning pathway and temporal structure; it simply lacks information about the actual robot commands. Compare the two rows within each suite. Because both are policies evaluated through task completion, the result measures the downstream effect of that training information.",
+      "takeaway": "Actual actions improve every displayed suite: the full model reaches 98.5% average versus 97.6% for null actions, and 96.2% versus 94.6% on Long. The narrower control supports a contribution from action content beyond the retained pathway's capacity and temporal embeddings.",
+      "caution": "Zero inputs are not equivalent to deleting the action encoder, whose learned parameters and positional embeddings can still produce nonzero features. The paper does not report action-order shuffling, repeated-seed uncertainty or direct prediction-error measurements for this control.",
+      "evidenceIds": [
+        "e05",
+        "e20"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Construct a future target inside the policy's representation family",
+      "kind": "source",
+      "text": "Begin with the policy context, not the predicted future. Image and language embeddings are followed by continuous dynamics embeddings, and the VLM contextualizes the whole sequence. The resulting dynamics states have two roles: they remain available to the action expert, and a projector maps them into the latent prediction space. For the target, the same architecture processes a later observation with the same instruction, using an EMA copy of the backbone, projector and dynamics embeddings. The online predictor then learns to match that detached future representation given the demonstrated intervening actions. The EMA update stabilizes the target as the online representation changes; it does not make the target a permanently frozen external feature space. Training optimizes the online pathway while the target pathway follows through parameter averaging.",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "heading": "Separate geometric grounding from the learned transition",
+      "kind": "source",
+      "text": "Geometry enters through a different target and a different set of tokens. A frozen VGGT-1B receives only the current main-view frame. Its final patch features are pooled onto an 8×8 grid and aligned by cosine distance with projected main-view policy image states. No VGGT tokens are appended to the VLM. The dynamics tokens then form their representations in that geometrically supervised visual context. In parallel, the predictor learns the action-conditioned change between current and future dynamics states, while flow matching trains the action expert on complete policy context. All three losses shape the online model in one stage. At deployment, auxiliary branches disappear, but the learned dynamics tokens remain. Thus the deployed policy retains the representations learned under geometric and predictive supervision without computing either auxiliary target.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "heading": "Read the evidence as policy learning, then ask what mechanism is isolated",
+      "kind": "analysis",
+      "text": "Reader analysis: organize the experiments into three different questions. The published benchmark tables ask whether the trained policy performs competitively; their heterogeneous model sizes and imported baselines limit causal attribution. The physical table asks whether gains appear in executed manipulation, but its small sample and restricted OOD conditions constrain generalization. The ablations ask which ingredients help within SG-WAM. Removing either auxiliary objective lowers success, and replacing actions with zeros while preserving the branch provides more specific evidence that action information matters. None of these observations alone measures physical fidelity of the predicted latent states or proves that EMA policy targets outperform every external representation. The strongest supported conclusion is that this particular combination improves action-policy learning in the supplied experiments, with its predictive computation confined to training.",
+      "evidenceIds": [
+        "e10",
+        "e14",
+        "e15",
+        "e18",
+        "e20",
+        "e05"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Distinguish action content from action order",
+      "text": "Reader-proposed check, not executed: reproduce true-action and zero-action training, then add a variant that shuffles the eight actions within each chunk before adding the unchanged temporal embeddings. Keep the demonstration split, future-frame pairing, architecture, loss weights and training schedule fixed, with paired initialization seeds. Evaluate overall and Long success on identical initial states and report rollout counts and uncertainty across training runs. If true actions reproducibly outperform zeros but match shuffled actions, the evidence supports useful action content without establishing sensitivity to its temporal order. A reproducible advantage over both controls would strengthen the ordered-transition explanation.",
+      "evidenceIds": [
+        "e05",
+        "e09",
+        "e20"
+      ]
+    },
+    {
+      "title": "Test whether spatial correspondence explains the geometry gain",
+      "text": "Reader-proposed check, not executed: compare aligned VGGT targets, spatially permuted targets and no geometry loss while holding the EMA predictor, action supervision and compute budget fixed. Permute teacher positions within each 8×8 grid to preserve its feature distribution while breaking correspondence to main-view policy tokens. Match seeds and evaluation initial states, and report success on LIBERO and the LIBERO-Plus Camera, Background and Layout conditions. If aligned targets consistently beat both controls, spatial correspondence becomes a stronger explanation for the gain. If permuted targets perform similarly, generic regularization remains a plausible alternative. Include the source's null-action control when assessing interactions.",
+      "evidenceIds": [
+        "e04",
+        "e08",
+        "e09",
+        "e12",
+        "e18",
+        "e20"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22
+    ],
+    "notes": "Visually inspected the title/author page; all scientific body pages; Appendix A–G method, preprocessing, training, hardware, result and ablation pages; and Appendix H–J rollout pages. Figures 1–27 and Tables 1–7 were inspected in their page context. All six final original crops were individually viewed, including the corrected framework crop. Figure 2 loss arrows and EMA symbols were checked against Eqs. (4), (7)–(8) and Appendix B; Figure 5 query/key/value directions agree with its caption and Appendix B. References on pages 8–10 were read as text and are not a basis for independently verified claims about other papers. Separate supplements, external code and linked pages remain outside this pass. Illustrative rollout strips are not treated as additional success-rate measurements."
+  }
+}
