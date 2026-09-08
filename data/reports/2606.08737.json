@@ -1,0 +1,509 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.08737",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T15:47:19.460Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.08737",
+      "title": "Dream-Tac: A Unified Tactile World Action Model for Contact-Rich Robot Manipulation",
+      "kind": "pdf",
+      "sha256": "3c8413736c059c30e43d9a257fd18eba57defa8fea85f90c7b3aef03302f827a",
+      "wordCount": 11407,
+      "accessedAt": "2026-09-07T14:00:25.177018+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "2.1 Tactile in Robot Manipulation",
+      "2.2 World Action Model",
+      "3 Method",
+      "3.1 Problem Formulation",
+      "3.2 Dream-Tac Architecture",
+      "3.3 Contact-Aware Self Attention",
+      "3.4 Training Objective",
+      "3.5 Efficiency Design",
+      "4 Experiment",
+      "4.1 Experimental Setups",
+      "4.2 Evaluations",
+      "4.3 Training and Inference Efficiency",
+      "4.4 Analysis",
+      "5 Conclusion",
+      "Acknowledgments",
+      "References",
+      "A Additional Experimental Details",
+      "A.1 Real-World Experimental Setup",
+      "A.2 Task Details",
+      "A.3 Experimental Settings",
+      "A.4 Baseline Settings",
+      "A.5 Training Hyperparameters",
+      "A.6 Contact Gate Statistics",
+      "B Implementation Details of the Acceleration",
+      "B.1 FlashBias Implementation",
+      "B.2 Diffusion-Step Time Cache",
+      "C Additional Reconstruction Results",
+      "C.1 Visual Reconstruction",
+      "C.2 Visuo-Tactile Reconstruction",
+      "D Limitations and Future Work"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity: the supplied title page identifies arXiv:2606.08737v1 [cs.RO], 7 June 2026. Its exact title and all ten authors agree with the catalog; no different edition or revision was supplied for comparison.",
+      "Acquisition caveat preserved: text extraction does not reconstruct figure images or equation/table layout. This reading additionally inspected all sixteen original PDF pages, Figures 1–13 and Tables 1–2.",
+      "Separate supplemental material availability has not been fully verified; none was supplied.",
+      "Code and linked resources were not inspected, and experiments were not reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8",
+      "Figure 9",
+      "Figure 10",
+      "Figure 11",
+      "Figure 12",
+      "Figure 13"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Dream-Tac fine-tunes a shared video diffusion transformer to generate robot actions together with future camera and tactile latents. A deterministic tactile-change gate directs attention toward touch, while fused attention and diffusion caching reduce computational cost. Real robot experiments support the multimodal design, but do not isolate the benefit of predicting future touch from simply observing it.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Vision can leave contact onset, slip and local deformation ambiguous. Touch supplies these cues, but sparse events coexist with long, nearly static intervals. Dream-Tac asks how a world action model can use tactile observations selectively while jointly anticipating future interaction and generating executable action chunks.",
+    "evidenceIds": [
+      "e-motivation",
+      "e-joint"
+    ],
+    "kind": "source"
+  },
+  "contributions": [
+    {
+      "text": "A shared latent sequence combines visual, tactile, state and action tokens within one diffusion transformer, reusing a pretrained video backbone and its text encoder/VAE.",
+      "evidenceIds": [
+        "e-joint",
+        "e-architecture"
+      ],
+      "kind": "source"
+    },
+    {
+      "text": "Contact-aware self-attention adds a deterministic, directed tactile bias; a rank-one attention reformulation and fixed diffusion-step cache reduce the expanded model’s computational cost.",
+      "evidenceIds": [
+        "e-casa",
+        "e-gate",
+        "e-flash",
+        "e-cache"
+      ],
+      "kind": "source"
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current third-person and wrist RGB observations",
+      "Left/right fingertip tactile RGB and preceding observed tactile frames for the gate",
+      "Robot proprioceptive state",
+      "Language instruction"
+    ],
+    "outputs": [
+      "A jointly denoised action chunk with H = 20",
+      "Future visual and tactile latents, optionally decoded into images"
+    ],
+    "steps": [
+      {
+        "name": "Build a shared latent sequence",
+        "detail": "The pretrained VAE encodes visual and tactile images. Robot states and actions enter as padded latent-frame tokens. T5 language embeddings reach DiT blocks through cross-attention. Bidirectional self-attention lets action tokens interact with jointly predicted visual and tactile futures; a separate inverse-dynamics decoder is not described.",
+        "evidenceIds": [
+          "e-joint",
+          "e-architecture",
+          "e-training"
+        ]
+      },
+      {
+        "name": "Measure tactile change and bias attention",
+        "detail": "Compute each fingertip’s mean absolute RGB change from the preceding observed frame, normalize by 255, then take the larger value. Fixed normalization and a sigmoid produce a bounded gate without a learned gating network. CASA adds bias only from non-tactile queries to tactile keys; content attention still chooses individual tokens.",
+        "evidenceIds": [
+          "e-casa",
+          "e-gate",
+          "e-gate-diagnostic"
+        ]
+      },
+      {
+        "name": "Preserve fused attention",
+        "detail": "The directed bias is rank one. Appendix B.1 appends scalar channels to queries and keys so their dot product equals the original scaled content score plus bias. Zero padding accommodates kernel alignment without materializing a dense bias matrix.",
+        "evidenceIds": [
+          "e-flash"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Appendix A.5 fine-tunes Cosmos-Predict2-2B Video2World with Fused Adam, learning rate 10^-4, betas (0.9, 0.99), weight decay 0.1 and bfloat16. RGB is 224 × 224; states/actions are standardized. Chunk length is 20; per-GPU batches are 25 for vision-only and 16 for visuo-tactile layouts. A.4 describes eight H100 GPUs for Cosmos Policy under the same configuration as Dream-Tac.",
+        "evidenceIds": [
+          "e-training"
+        ],
+        "kind": "source"
+      },
+      {
+        "text": "Observed context stays clean while future/action tokens are jointly noised. Section 3.4 presents Gaussian corruption and an epsilon-prediction MSE with modality losses. Appendix A.5 specifies the inherited rectified-flow/hybrid-EDM objective and hybrid noise sampling. Their exact correspondence, modality weights and frozen-module policy are not fully specified.",
+        "evidenceIds": [
+          "e-objective",
+          "e-training"
+        ],
+        "kind": "analysis"
+      }
+    ],
+    "inference": [
+      {
+        "text": "Condition on current observations, state and instruction, jointly denoise action/future tokens, and read out the action chunk; image decoding is optional. The gate uses observed tactile history. The paper does not fully specify how many chunk actions execute before observation refresh or the low-level control interface.",
+        "evidenceIds": [
+          "e-joint",
+          "e-architecture",
+          "e-gate",
+          "e-training"
+        ],
+        "kind": "analysis"
+      },
+      {
+        "text": "For ten-step cached inference, full forward computation occurs at the first and third steps; remaining steps reuse cached computation. This retains a ten-step schedule with two full evaluations.",
+        "evidenceIds": [
+          "e-cache",
+          "e-efficiency"
+        ],
+        "kind": "source"
+      }
+    ],
+    "equations": [
+      {
+        "expression": "p(a_{1:H},v_{1:T},x_{1:T}\\mid o,x,l)",
+        "explanation": "Equation (5): jointly model action chunk a over H steps and visual/tactile futures v/x over T steps, conditioned on current visual observation o, tactile observation x and instruction l.",
+        "evidenceIds": [
+          "e-joint"
+        ]
+      },
+      {
+        "expression": "\\operatorname{logit}_{ij}=\\frac{q_i^\\top k_j}{\\sqrt d}+\\alpha g_t(1-M_i)M_j",
+        "explanation": "Equation (6): q/k are query/key vectors, d is head dimension, M marks tactile tokens, and g is the tactile-change gate. The addition applies only to non-tactile queries and tactile keys; alpha = 2.0 in Appendix A.5.",
+        "evidenceIds": [
+          "e-casa",
+          "e-training"
+        ]
+      },
+      {
+        "expression": "\\rho_t=\\max(\\delta_t^L,\\delta_t^R),\\quad z_t=k\\frac{\\rho_t-m}{s+\\epsilon},\\quad g_t=g_{\\min}+(g_{\\max}-g_{\\min})\\sigma(z_t)",
+        "explanation": "Equations (7)–(9): delta is normalized mean absolute image change per fingertip, rho their maximum, and sigma the sigmoid. Fixed (m,s,k,epsilon) = (0.002,0.001,4,10^-6); z is clipped to [-30,30]. Gate bounds [0.15,1.0] reduce, but never eliminate, the bias.",
+        "evidenceIds": [
+          "e-gate"
+        ]
+      },
+      {
+        "expression": "\\widetilde y=y+\\sigma\\epsilon,\\qquad\\mathcal L_{\\mathrm{denoise}}=\\mathbb E_{y,\\epsilon,\\sigma}\\left[\\left\\|f_\\theta(\\widetilde y,\\sigma,o,x,l)-\\epsilon\\right\\|_2^2\\right]",
+        "explanation": "Equations (10)–(11): y contains future visual, tactile and action latents; epsilon is Gaussian noise, sigma the sampled noise level, and f_theta the backbone. This is the main-text presentation, subject to the appendix parameterization caveat above.",
+        "evidenceIds": [
+          "e-objective",
+          "e-training"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Six-task real-world manipulation",
+      "setting": "Franka Panda, two D435i cameras and two Xense Photon tactile sensors; 100 demonstrations per task; 20 evaluation trials per method/task, best checkpoint under a shared selection rule.",
+      "metric": "Mean task success rate (%)",
+      "value": "83.3",
+      "comparison": "Cosmos Policy 51.7; ForceVLA 50.8; pi0.5 45.0; pi0 30.8.",
+      "interpretation": "Displayed means differ by 31.6 percentage points; averaging the per-task gaps gives 31.7 points after rounding. The abstract calls this action accuracy, although the experiment measures task success.",
+      "evidenceIds": [
+        "e-data",
+        "e-protocol",
+        "e-main",
+        "e-headline"
+      ]
+    },
+    {
+      "task": "Per-task real-world manipulation",
+      "setting": "Same six-task evaluation; Figure 3 task order.",
+      "metric": "Success rate (%)",
+      "value": "Pick Baguette 100; Insert USB 35; Clean Whiteboard 90; Peel Cucumber 85; Play Mahjong 100; Cut Banana 90.",
+      "comparison": "Cosmos Policy: 100, 15, 55, 65, 35, 40 respectively. ForceVLA reaches 90 on Peel Cucumber.",
+      "interpretation": "Dream-Tac ties the best baguette result and leads four other tasks, but USB insertion remains unreliable. Mahjong is described as visually occluded.",
+      "evidenceIds": [
+        "e-main",
+        "e-protocol"
+      ]
+    },
+    {
+      "task": "Tactile fusion and CASA ablation",
+      "setting": "Table 1, mean over six real-world tasks.",
+      "metric": "Average success rate (%)",
+      "value": "Visual WAM 51.7; visuo-tactile WAM 74.2; visuo-tactile WAM + bias 83.3.",
+      "comparison": "Adding tactile modeling gains 22.5 points; adding bias gains another 9.1 points, calculated from displayed means.",
+      "interpretation": "The staged comparison supports tactile modeling and bias, but provides no constant-bias control or input-only tactile variant.",
+      "evidenceIds": [
+        "e-ablation"
+      ]
+    },
+    {
+      "task": "Environment-variation generalization",
+      "setting": "Figure 4: height shifts for Peel Cucumber, unseen placements for Pick Baguette, unseen tiles for Play Mahjong, changed background for Cut Banana.",
+      "metric": "Success rate (%)",
+      "value": "Dream-Tac: +5/-5 cm height 90/75; OOD placement 80; unseen tiles 85; altered background 70.",
+      "comparison": "Cosmos Policy: 30/0; 80; 15; 25, respectively.",
+      "interpretation": "Advantages depend on the perturbation; spatial generalization ties. These are selected task/variation pairs, not broad cross-task transfer.",
+      "evidenceIds": [
+        "e-ood"
+      ]
+    },
+    {
+      "task": "Peel Cucumber computational efficiency",
+      "setting": "Figure 5: full tactile-plus-bias training configuration; ten-step inference with or without caching.",
+      "metric": "Training time (s), inference latency (ms), task success (%)",
+      "value": "Training 27.48 s; cached inference 619 ms at 85% success.",
+      "comparison": "Training reference 80.82 s; uncached inference 1109 ms at 85%.",
+      "interpretation": "Approximately 2.9× training and 1.8× inference speedups for these comparisons. Figure 5 does not clearly identify training-time aggregation or timing hardware; other timing claims should not be merged with it.",
+      "evidenceIds": [
+        "e-efficiency",
+        "e-timing-context"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors acknowledge limited task/environment coverage, a simple change-based gate that may miss subtle or long-horizon interaction, and continued diffusion cost relative to lightweight reactive policies.",
+      "evidenceIds": [
+        "e-limitations"
+      ],
+      "kind": "source"
+    },
+    {
+      "text": "No uncertainty intervals or repeated-seed statistics accompany success means. Best-checkpoint reporting, an unspecified validation split, and differing baseline compute/action horizons limit causal comparison. Qualitative reconstructions and t-SNE do not establish calibrated contact dynamics or prove that future tactile prediction improves control.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-training",
+        "e-ablation",
+        "e-reconstruction",
+        "e-latent"
+      ],
+      "kind": "analysis"
+    },
+    {
+      "text": "Source discrepancies remain: Figure 2 labels gate images t and t+1, but Eq. (7) uses observed t-1 and t. Section 4.1 requires peeling/cutting thresholds exceeding 5 cm, while Appendix A.2 uses qualitative success descriptions.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-gate",
+        "e-task-definitions"
+      ],
+      "kind": "analysis"
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires synchronized camera/tactile/proprioceptive demonstrations collected at 30 Hz, the specified robot/sensors and pretrained checkpoint. Table 2 supplies execution limits. Missing details include split membership, seeds, total Dream-Tac training steps, modality weights, future horizon T, frozen modules and precise cache tensors.",
+      "evidenceIds": [
+        "e-data",
+        "e-training",
+        "e-objective",
+        "e-cache"
+      ],
+      "kind": "analysis"
+    },
+    {
+      "text": "Reader-proposed priorities are matched input-only versus future-tactile prediction and constant-bias versus changing-gate controls. Verify dense/augmented attention equivalence and benchmark cache errors on held-out contact transitions before interpreting speedups as preserved control quality.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-flash",
+        "e-cache",
+        "e-gate"
+      ],
+      "kind": "analysis"
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Joint video-action modeling",
+        "Multimodal, tactile & audio sensing",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q1 · One Model × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "16d6e171fb2b2c01328355182ad74a13abc732390de020358ea8af7b7a1884f2"
+    },
+    "reasoning": {
+      "text": "One Model × Joint prediction is supported architecturally: the same DiT jointly denoises action, visual-future and tactile-future tokens with bidirectional attention. T5/VAE encoders do not constitute a separate world-model-to-policy cascade. Tactile and efficiency tags are supported; no audio experiment is presented despite the broader catalog subcategory wording.",
+      "evidenceIds": [
+        "e-joint",
+        "e-architecture",
+        "e-objective",
+        "e-efficiency"
+      ],
+      "kind": "analysis"
+    }
+  },
+  "discussionQuestions": [
+    "Does predicting future tactile latents improve control when current tactile input and training compute are fixed?",
+    "Does the changing gate outperform constant bias of matched average magnitude under sensor noise and sustained static contact?",
+    "How robust is the first/third-step cache schedule when contact dynamics or task horizons change?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin",
+      "detail": "Exact observed title matches the supplied primary title; arXiv:2606.08737v1, 7 June 2026. Authors: Yunfan Lou, Yifan Ye, Yankai Fu, Jun Cen, Xiaowei Chi, Yaoxu Lyu, Peidong Jia, Sirui Han, Zhihe Lu and Shanghang Zhang. Affiliations identify Peking University, HKUST and Nanjing University, including Zhang’s Peking University laboratory/school."
+    },
+    {
+      "id": "e-motivation",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 1, contact ambiguity and transient tactile signals",
+      "detail": "Vision can miss contact cues; uniform attention can dilute sparse tactile interaction events."
+    },
+    {
+      "id": "e-joint",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Sections 3.1–3.2, Eq. (5) and architecture paragraphs",
+      "detail": "The joint distribution covers actions and visual/tactile futures. A shared DiT uses T5 cross-attention, VAE image/tactile tokens and padded state/action frames with bidirectional self-attention."
+    },
+    {
+      "id": "e-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and caption",
+      "detail": "The diagram distinguishes clean/noisy tokens, joint denoising and optional image decoding. Its gate inset labels VT_t and VT_(t+1); CASA token colors/labels differ from modality colors on the left, so directional claims require Eq. (6)."
+    },
+    {
+      "id": "e-casa",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.3, Eq. (6) and following paragraph",
+      "detail": "The additive alpha*g_t*(1-M_i)*M_j term biases non-tactile queries toward tactile keys; tactile-to-tactile attention is unchanged."
+    },
+    {
+      "id": "e-gate",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Eqs. (7)–(9) and observed-input paragraph; p. 13, Appendix A.6",
+      "detail": "Gate inputs are consecutive observed left/right tactile RGB frames. Fixed parameters are (0.002,0.001,4,10^-6), clipping is [-30,30], rho_0=0, and Appendix A.6 gives gate bounds [0.15,1.0]."
+    },
+    {
+      "id": "e-objective",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.4, Eqs. (10)–(12)",
+      "detail": "The main text describes Gaussian corruption, epsilon-prediction MSE and an action/image/tactile loss decomposition with unspecified lambda_v and lambda_t values."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendices A.4–A.5",
+      "detail": "A.4 gives baseline compute and training settings, including eight H100s for Cosmos Policy under the same configuration as Dream-Tac. A.5 names Cosmos-Predict2-2B Video2World, optimizer/precision, hybrid noise objective, clean context, RGB resolution, normalized actions/state, chunk length 20, batches 25/16 and alpha=2.0. Validation-based selection is stated without split membership."
+    },
+    {
+      "id": "e-data",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Appendices A.1/A.3 and Figure 8; p. 12, Appendix A.3; p. 13, Table 2",
+      "detail": "Franka Panda uses fixed/wrist D435i cameras and two Xense Photon sensors. Each task has 100 SpaceMouse demonstrations recorded at 30 Hz. Evaluation randomizes positions within an unspecified predefined range, uses 20 trials and task-specific maximum steps; Table 2 lists those limits."
+    },
+    {
+      "id": "e-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.1; p. 6, Section 4.2.1; p. 7, Figure 3 caption",
+      "detail": "Hardware and common success criteria are described; 20 trials per method/task and shared best-checkpoint selection are stated. Mahjong is described as fully visually occluded. No uncertainty intervals accompany the results."
+    },
+    {
+      "id": "e-main",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 3, all task panels and Average panel; p. 6, Section 4.2.1",
+      "detail": "Dream-Tac task success is 100/35/90/85/100/90, mean 83.3. Cosmos Policy is 100/15/55/65/35/40, mean 51.7. Other means are 50.8,45.0,30.8; ForceVLA scores 90 on Peel Cucumber."
+    },
+    {
+      "id": "e-headline",
+      "sourceId": "primary",
+      "location": "PDF p. 2, abstract continuation and Section 1; p. 1, Figure 1(c); p. 7, Figure 3",
+      "detail": "The abstract says 31.7% action accuracy improvement; the introduction and overview say 31.6%. Figure 3’s displayed means are 83.3% and 51.7% success."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, all three rows; Section 4.2.2",
+      "detail": "Visual WAM, visuo-tactile WAM and visuo-tactile WAM plus bias score 51.7,74.2,83.3. The table does not separate tactile input from future-tactile supervision or compare dynamic and constant bias."
+    },
+    {
+      "id": "e-ood",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.2.3; p. 8, Figure 4(a–d)",
+      "detail": "Figure 4 reports task-specific height, placement, tile and background changes. Dream-Tac/Cosmos results are 90/30 at +5 cm, 75/0 at -5 cm, 80/80 for OOD placement, 85/15 for unseen tiles and 70/25 for altered background."
+    },
+    {
+      "id": "e-efficiency",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.3; p. 8, Figure 5 and caption",
+      "detail": "Figure 5 concerns Peel Cucumber. Full tactile+bias training times are 80.82 versus 27.48 seconds. Inference is 60%/481 ms at 1 step, 80%/972 ms at 5, 85%/1109 ms at 10 and 85%/619 ms at 10 with cache. Training aggregation and benchmark-specific hardware are not identified in the figure/caption."
+    },
+    {
+      "id": "e-timing-context",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.5; p. 1, Figure 1(c); p. 8, Figure 5",
+      "detail": "Section 3.5 separately reports H200 training 97→29 ms/iteration and ten-step inference at 5 Hz on A800. Figure 1 shows Cosmos/Dream-Tac latency 987/619 ms; Figure 5 uses 1109/619 ms for uncached/cached Dream-Tac. These are distinct comparisons with incompletely reconciled timing contexts."
+    },
+    {
+      "id": "e-flash",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Appendix B.1, Eqs. (13)–(15)",
+      "detail": "Rank-one bias is folded into augmented query/key dot products; query content is pre-scaled by 1/sqrt(d). Padding preserves logits and fused computation avoids a dense S×S bias matrix."
+    },
+    {
+      "id": "e-cache",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix B.2; p. 15, Figure 11",
+      "detail": "Validation-set diffusion diagnostics motivate full evaluations at the first and third steps and cache reuse elsewhere. Generic intermediate-feature caching is described, but precise cache tensors and complete implementation are not specified."
+    },
+    {
+      "id": "e-gate-diagnostic",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–9, Section 4.4.2; p. 8, Figure 7; p. 13, Appendix A.6/Figure 10",
+      "detail": "Five sampled Peel Cucumber training episodes contribute 874 noninitial timesteps. Figure 7 plots blue tactile change and red gate with episode 75th-percentile dotted lines. Text attributes approach oscillations to noise/disturbance and describes phase tracking without independent contact labels."
+    },
+    {
+      "id": "e-latent",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4.4.1 and Figure 6",
+      "detail": "Pretrained Wan VAE tactile embeddings are visualized with t-SNE clusters for manipulation actions; no quantitative separability or causal control test accompanies the plot."
+    },
+    {
+      "id": "e-reconstruction",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–15, Appendices C.1–C.2; p. 16, Figures 12–13",
+      "detail": "Cut Banana examples compare predicted and ground-truth visual frames and tactile images. Figure 13 contrasts pre-contact/cutting and highlights lower tactile regions. The source acknowledges smoothing; it reports qualitative correspondence rather than reconstruction-error metrics."
+    },
+    {
+      "id": "e-task-definitions",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1 task list; p. 11, Appendix A.2",
+      "detail": "Main-text success requires a peeled strip longer than 5 cm and cut depth exceeding 5 cm. Appendix A.2 describes clean skin removal and clear banana separation. Pick and Place is the baguette task."
+    },
+    {
+      "id": "e-limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix D",
+      "detail": "Authors identify limited task/environment coverage, limitations of frame-to-frame gating and remaining diffusion expense. Broader datasets, richer contact modeling and harder long-horizon/dexterous settings are future work."
+    }
+  ]
+}

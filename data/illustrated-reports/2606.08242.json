@@ -1,0 +1,275 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.08242",
+  "shortTitle": "Light-WAM",
+  "thesis": "Light-WAM retains future-video supervision during training and directly decodes actions from pooled backbone states, gaining efficiency while giving up success on harder tasks.",
+  "standfirst": "Light-WAM asks how much of a video-generative model a robot policy needs at deployment. Its answer separates learning from acting: a downsampled future-video objective shapes adapted representations during training, while the deployed policy reads only the current observation, language and proprioception. Learned queries compress several backbone layers into a state for direct action decoding. This reading follows that interface, then compares the reported gains in training throughput and model-query latency with the task results. The tradeoff is uneven: LIBERO remains competitive, RoboTwin exposes a sizable gap to Fast-WAM, and the three physical tasks favor π0.5. All results here are the paper’s reported measurements.",
+  "evidenceIds": [
+    "e03",
+    "e05",
+    "e06",
+    "e10",
+    "e11",
+    "e12",
+    "e13",
+    "e14",
+    "e17"
+  ],
+  "featuredResultTask": "RoboTwin inference efficiency",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 3,
+      "asset": "report-assets/2606.08242/architecture.png",
+      "width": 1394,
+      "height": 484,
+      "sourceSha256": "7028480b1f8cee5674cdc9fd7f9c6619b65e5cc8c8cb6d76558567a11a0928c1",
+      "sourceUrl": "https://arxiv.org/pdf/2606.08242#page=3",
+      "crop": [
+        0.176,
+        0.094,
+        0.832,
+        0.27
+      ],
+      "alt": "Black shared-backbone arrows connect transformer blocks and a residual adapter; blue arrows lead to latent video, while red current-observation and pooled-state arrows lead to the StateFusionActionExpert.",
+      "caption": "One adapted backbone supplies a training video objective and a direct action decoder.",
+      "readingGuide": "Start at the two inputs on the left. The blue video path uses downsampled video latents; the red action path uses the current observation at original latent resolution. Black arrows mark shared processing, not simultaneous future generation at deployment. In the central block, context C conditions the transformer, and the adapter contributes to the adapted state. Equation (4) and Appendix A specify this residual as the block output plus its adapter output. Follow the red state connection into MHA: learned queries attend to the selected layer’s tokens as keys and values. The compressed layer states are averaged and fused before action decoding.",
+      "takeaway": "The architecture explains why video co-training can survive removal of the runtime video rollout: both objectives train adaptation modules in a shared representation pipeline, while the action head reads current-observation states directly. The diagram therefore supports a training-time world-model role rather than inference-time planning through imagined futures.",
+      "caution": "The sketch does not show all implementation detail, including LoRA placements or step embeddings. Its action curve is schematic; the specified decoder produces an action chunk, not a plotted probability density or an iterative generative trajectory.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06",
+        "e07",
+        "e10"
+      ]
+    },
+    {
+      "id": "libero-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "asset": "report-assets/2606.08242/libero-results.png",
+      "width": 1373,
+      "height": 462,
+      "sourceSha256": "7028480b1f8cee5674cdc9fd7f9c6619b65e5cc8c8cb6d76558567a11a0928c1",
+      "sourceUrl": "https://arxiv.org/pdf/2606.08242#page=6",
+      "crop": [
+        0.177,
+        0.125,
+        0.823,
+        0.293
+      ],
+      "alt": "LIBERO table compares VLA and WAM policies across Spatial, Object, Goal and Long, with parameter size, embodied-pretraining status, average success and ranks.",
+      "caption": "Competitive LIBERO averages coexist with a weaker Long-suite score.",
+      "readingGuide": "Read the EPT column before the rankings: it distinguishes embodied pretraining from the downstream evaluation, not all forms of pretraining. Light-WAM still uses pretrained video weights. The four suite columns describe different manipulation demands, so inspect the Long column before accepting the average as a complete description. Light-WAM’s final row gives 98.2, 99.6, 97.8 and 93.0 percent, with a reported average of 97.2. The nearest non-EPT WAM row, Fast-WAM, averages 97.0 but reaches 94.8 on Long. The Params column reports rounded model sizes; it must not be confused with the smaller trainable-parameter budget analyzed elsewhere.",
+      "takeaway": "Within this table, Light-WAM ranks first among methods without embodied pretraining and third overall. Its small average advantage over Fast-WAM does not extend to the Long suite. These results support the claim of competitive LIBERO performance, with a task-dependent tradeoff rather than uniform superiority.",
+      "caution": "The table mixes pretraining histories and supplies no confidence intervals or seed variation. A 0.2-percentage-point average difference is a reported ranking, not an established statistically reliable improvement under a fully matched training budget.",
+      "evidenceIds": [
+        "e04",
+        "e08",
+        "e09",
+        "e11",
+        "e19"
+      ]
+    },
+    {
+      "id": "training-efficiency",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 7,
+      "asset": "report-assets/2606.08242/training-efficiency.png",
+      "width": 1373,
+      "height": 305,
+      "sourceSha256": "7028480b1f8cee5674cdc9fd7f9c6619b65e5cc8c8cb6d76558567a11a0928c1",
+      "sourceUrl": "https://arxiv.org/pdf/2606.08242#page=7",
+      "crop": [
+        0.177,
+        0.125,
+        0.823,
+        0.236
+      ],
+      "alt": "Five training configurations progressively change backbone, action head, latent caching and video downsampling; columns show parameters, per-GPU memory and throughput, with a gradient-accumulation footnote.",
+      "caption": "The complete efficiency recipe matters more than backbone size alone.",
+      "readingGuide": "Read downward as a sequence of configurations measured on four H100 GPUs at effective global batch 64. Switching to the compact backbone while keeping a DiT action head yields 0.43 steps/s, below Fast-WAM’s 0.49. Replacing the head with StateFusion raises throughput to 0.56; enabling cached latents gives 0.86; applying 2× video downsampling reaches 2.08. Loaded parameters and trainable parameters answer different questions, while memory is reported per GPU. Keep the starred-row footnote in view: those two intermediate StateFusion configurations use batch eight per GPU with gradient accumulation two to avoid out-of-memory failures.",
+      "takeaway": "The final configuration reports 4.25× Fast-WAM’s normalized step throughput, 43.1 rather than 70.7 GiB per GPU, and 0.44B rather than 6.02B trainable parameters. The progression shows why a smaller backbone by itself is insufficient: the head, latent cache and supervision resolution contribute to the measured outcome.",
+      "caution": "These are combined engineering changes, not a controlled estimate of one module’s causal contribution. Equal effective batch size does not equal identical microbatch execution, and the table does not include a separate accounting of cache-creation cost.",
+      "evidenceIds": [
+        "e13",
+        "e09"
+      ]
+    },
+    {
+      "id": "inference-efficiency",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 7,
+      "asset": "report-assets/2606.08242/inference-efficiency.png",
+      "width": 1648,
+      "height": 264,
+      "sourceSha256": "7028480b1f8cee5674cdc9fd7f9c6619b65e5cc8c8cb6d76558567a11a0928c1",
+      "sourceUrl": "https://arxiv.org/pdf/2606.08242#page=7",
+      "crop": [
+        0.177,
+        0.308,
+        0.823,
+        0.388
+      ],
+      "alt": "Inference comparison lists prediction scope, VAE encoding, visual and action branches, policy forward, peak memory and total latency; a footnote identifies externally reported π0.5 timing.",
+      "caption": "Direct action decoding removes the dominant action-branch cost in this comparison.",
+      "readingGuide": "Begin with Prediction Scope: some baselines generate video and actions, while Fast-WAM and Light-WAM use action-only inference. Then read across the two action-only WAM rows. Light-WAM’s visual branch takes 56.5 ms versus Fast-WAM’s 36.0 ms, but its action branch takes 2.1 ms versus 356.8 ms. The overall latency column reports 72.03 versus 404.62 ms and peak memory is 4.1 versus 12.7 GiB. The caption defines a per-query measurement with cached language on a single paper-designated RTX 4090 48GB GPU. VAE encoding is included; simulator and I/O time are excluded. The retained footnote identifies the separate source of π0.5 timing.",
+      "takeaway": "The large reported reduction is concentrated in action decoding, even though the visual branch is slower. This supports the intended benefit of a direct StateFusionActionExpert for model querying. It does not establish that the complete robot loop runs at the reciprocal of the table’s overall latency.",
+      "caution": "Prediction scopes differ, and π0.5 was not timed in the same reported experiment. Displayed VAE-plus-policy component times do not exactly sum to the overall totals; the source does not explain this gap, so the reported totals are preserved.",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e10",
+        "e14"
+      ]
+    },
+    {
+      "id": "design-ablations",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 5",
+      "page": 7,
+      "asset": "report-assets/2606.08242/design-ablations.png",
+      "width": 1197,
+      "height": 414,
+      "sourceSha256": "7028480b1f8cee5674cdc9fd7f9c6619b65e5cc8c8cb6d76558567a11a0928c1",
+      "sourceUrl": "https://arxiv.org/pdf/2606.08242#page=7",
+      "crop": [
+        0.178,
+        0.815,
+        0.53,
+        0.909
+      ],
+      "alt": "LIBERO-Spatial ablation table varies video downsampling, adapter-layer set and query count, reporting success for the default and three alternatives.",
+      "caption": "The query bottleneck shows a larger success penalty than the tested resolution compromise.",
+      "readingGuide": "Use the bold default row as the reference: 2× spatial downsampling for video co-training, adapters at layers 8, 16 and 24, and 16 queries. Each subsequent row changes one listed design. Removing downsampling raises success from 98.2 to 99.0 percent. Adding adapters at layers 4 and 20 gives 98.0 percent. Reducing the learned queries to eight gives 95.4 percent. DS affects video supervision; Section 3.3 keeps the action observation at original latent resolution. Read this table together with the training-efficiency table, because success alone does not reveal the computational cost of keeping full-resolution future supervision.",
+      "takeaway": "The reported query reduction costs 2.8 percentage points, larger than the 0.8-point gain from full-resolution video supervision in this suite. Extra adapters bring no observed improvement. These local comparisons motivate the default bottleneck capacity and sparse layer selection, while leaving their behavior on harder tasks open.",
+      "caution": "Only LIBERO-Spatial is tested here, without reported uncertainty or a video-loss removal control. The rows do not establish that future supervision is necessary, nor that 16 queries is optimal across tasks.",
+      "evidenceIds": [
+        "e05",
+        "e13",
+        "e15"
+      ]
+    },
+    {
+      "id": "real-world",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 4",
+      "page": 8,
+      "asset": "report-assets/2606.08242/real-world.png",
+      "width": 1653,
+      "height": 339,
+      "sourceSha256": "7028480b1f8cee5674cdc9fd7f9c6619b65e5cc8c8cb6d76558567a11a0928c1",
+      "sourceUrl": "https://arxiv.org/pdf/2606.08242#page=8",
+      "crop": [
+        0.177,
+        0.582,
+        0.825,
+        0.685
+      ],
+      "alt": "IMETA Y1 robot and three manipulation scenes appear beside yellow π0.5 and pink Ours success bars: task pairs are 80/67, 93/87 and 60/53 percent.",
+      "caption": "Real-world demonstrations establish physical deployment, with lower success than π0.5 on every shown task.",
+      "readingGuide": "Follow the task labels beneath the three scenes: clear a paper ball into a trash bin, stack bowls and place them in a basket, then hand off a water bottle into a basket. T1, T2 and T3 in the chart refer to these scenes in the same order. Read the legend carefully: yellow is π0.5 and pink Ours is Light-WAM. Their success pairs are 80 versus 67, 93 versus 87, and 60 versus 53 percent. Section 4.7 reports 50 training demonstrations for each task and describes the comparison as using the same setting. Those demonstration counts are not evaluation trial counts.",
+      "takeaway": "These bars substantiate an actual physical-robot evaluation, extending the evidence beyond simulated manipulation or generated video. They also place a clear boundary on the performance claim: Light-WAM is below π0.5 on all three tasks, despite the favorable efficiency measurements reported for RoboTwin inputs.",
+      "caution": "Evaluation trial counts, uncertainty and physical-loop latency are not supplied. Appendix D’s rollout and future-prediction images add qualitative context, but generated future frames are separate from executed robot actions and cannot establish a success rate.",
+      "evidenceIds": [
+        "e14",
+        "e17"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Keep future supervision in training while preserving current-observation detail",
+      "kind": "source",
+      "text": "The two branches share an adapted backbone but receive different latent inputs. In the RoboTwin training algorithm, three camera streams form a canvas video; frames 0 through 32 are subsampled at stride four and encoded with the Wan VAE. The video branch spatially downsamples these latents, perturbs them for flow matching, and keeps the first latent frame fixed as an observation anchor. Separately, the action branch uses the original-resolution first latent frame. This is the essential separation: expensive temporal supervision can be reduced without applying that additional spatial reduction to the action observation. Algorithm 2 retains only current-observation encoding, backbone features and action decoding during deployment. It does not send generated future frames to a planner or inverse-dynamics model. The benefit of future prediction is therefore sought through learned representations.",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e08",
+        "e10"
+      ]
+    },
+    {
+      "heading": "Trace a dense video-token state into a direct action chunk",
+      "kind": "source",
+      "text": "The action expert begins with adapted states from layers 8, 16 and 24. At each depth, a distinct learned query set attends to that layer’s tokens as keys and values. Sixteen query outputs are averaged and normalized into one layer state; the representation is then projected, concatenated with the other selected states and fused. Appendix A specifies a 6144-dimensional fused state and one residual MLP block. This compression means the temporal decoder need not repeatedly attend over the full video-token grid. Projected sinusoidal step embeddings distinguish positions within the action horizon, and an output MLP produces the action for each position. RoboTwin uses a 24-by-14 chunk. The information reaches actions through the pooled backbone states; there is no iterative action denoising in the described inference algorithm.",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e07",
+        "e10"
+      ]
+    },
+    {
+      "heading": "Separate the measured tradeoff from the proposed explanation",
+      "kind": "analysis",
+      "text": "Reader analysis: the strongest evidence concerns the complete system’s efficiency, while the causal role of its temporal supervision remains less isolated. Table 3 changes multiple components and shows that the compact backbone alone is slower in the tested configuration. Table 4 localizes a major inference saving to the action branch. Table 5 then tests downsampling, adapter count and query count, but never removes the video loss. Consequently, the results support a useful recipe without proving how much success comes from future supervision. Task outcomes constrain the recipe’s value: the LIBERO average is competitive, RoboTwin trails Fast-WAM, and all three physical tasks trail π0.5. Figures 3 and 5 show learned future structure, but plausible frames and attention maps cannot close the missing causal comparison.",
+      "evidenceIds": [
+        "e11",
+        "e12",
+        "e13",
+        "e14",
+        "e15",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Measure the contribution of future-video supervision",
+      "text": "Reader-proposed, not executed: train the LIBERO-Spatial default alongside an action-only training control with the video loss removed. Keep demonstrations, pretrained weights, adapted layers, query count, action observation resolution, optimizer and checkpoint rule fixed. Compare both equal-update and equal-training-time budgets, since deleting a branch changes throughput. Use several seeds and the same evaluation initial states; report success, uncertainty, memory and samples processed. A repeatable success advantage for co-training at equal updates would support a representation benefit. If that advantage disappears at equal time, the evidence would favor a narrower accuracy–compute tradeoff. Resolve the paper’s unspecified regression weighting before treating either run as a reproduction.",
+      "evidenceIds": [
+        "e05",
+        "e07",
+        "e09",
+        "e10",
+        "e13",
+        "e15"
+      ]
+    },
+    {
+      "title": "Test whether query capacity and supervision resolution interact",
+      "text": "Reader-proposed, not executed: run a 2×2 comparison of eight versus sixteen queries and 1× versus 2× video-latent downsampling, retaining adapters at {8,16,24}. Keep current-observation resolution, demonstrations, initialization protocol and checkpoint selection fixed. Start on LIBERO-Spatial, then repeat on a prespecified RoboTwin task subset that includes low-success tasks such as Hanging Mug. Report success across seeds together with training throughput, peak memory and inference branch timings. If the query penalty persists at both video resolutions, it supports an action-interface bottleneck independent of supervision resolution. If full-resolution supervision removes that penalty, the two design choices interact and the paper’s separate ablations do not capture the full tradeoff.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e09",
+        "e13",
+        "e14",
+        "e15",
+        "e20"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      12,
+      13,
+      14,
+      15
+    ],
+    "notes": "Visually inspected the title/version/author page, all method and experiment pages, Appendix A/B configuration text, Algorithms 1–2, parameter breakdown, all per-task results and Appendix D. Figures 1–5 and Tables 1–7 were viewed on original PDF renders. All six final crops were separately inspected; the architecture crop was widened to retain its complete right-hand label. Figure 1’s shared/video/action arrows, query/key/value roles and residual adapter routing were cross-checked against its caption, Equations (4) and (9), Appendix A and Algorithms 1–2; the enlarged view resolves the adapter branch as leaving the transformer block, with no retained contradiction. References on pages 9–11 were read in the complete text but were not visually rendered. Separate supplements and code remain outside this review."
+  }
+}
