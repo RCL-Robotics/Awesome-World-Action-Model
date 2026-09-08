@@ -1,0 +1,480 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2511.09057",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T22:27:34.888Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2511.09057",
+      "title": "PAN: A World Model for General, Interactable, and Long-Horizon World Simulation",
+      "kind": "pdf",
+      "sha256": "81201c0b7046011620abb614d78e6b2ecaa02e1e116ecf374dd98a10a907d16f",
+      "wordCount": 13524,
+      "accessedAt": "2026-09-07T20:33:41.681328+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Overview and Section 1: Introduction",
+      "Sections 2.1–2.3: GLP and parameterization",
+      "Sections 3.1–3.3.5: encoder, backbone, diffusion, causal window and VAE details",
+      "Sections 4.1–4.2: both training stages",
+      "Sections 5–5.2: inference and acceleration",
+      "Sections 6.1–6.3: segmentation, filtering and captions",
+      "Sections 7.1–7.3: baselines, protocols and results",
+      "Sections 8.1–8.3: all qualitative sequences",
+      "Sections 9–10: related work and conclusion",
+      "Appendix A.1–A.2: contributors",
+      "References, pp. 28–33"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Pages with little extracted text require visual inspection: 21, 22, 24",
+      "All nine text chunks were read. PDF pages 1–27 were visually inspected, addressing the extraction cautions, including low-text pages 21, 22 and 24. References were read as text; cited works were not opened.",
+      "Separate supplements were not supplied or verified. Code, weights and full-motion demonstration videos were not inspected; experiments were not reproduced.",
+      "Identity/revision note: the observed version is arXiv:2511.09057v3, dated 15 November 2025; the IFM report date is 14 November 2025. The title matches the catalog, and the team byline plus all 33 named contributors were verified on pages 1 and 27. Earlier revisions were not compared. The manifest identifies the retained HTML as the same v3; that HTML was not re-read."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 5)",
+      "Figure 2 (p. 8)",
+      "Figure 3 (p. 9)",
+      "Figure 4 (p. 18)",
+      "Figure 5, all eight panels (p. 19)",
+      "Unnumbered qualitative sequences (pp. 21–25)"
+    ],
+    "tablesReviewed": [],
+    "appendix": "reviewed"
+  },
+  "synopsis": "PAN turns an initial image and successive language actions into simulated video futures. A Qwen-based backbone predicts compact latent states; a Wan-based causal diffusion decoder renders them and returns generated visual history. Its strongest evidence concerns comparative video continuity and prediction; planning uses an external VLM and does not establish physical execution success.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "An interactive simulator must respond to changing actions while preserving local motion and longer-term scene history. PAN addresses this with Generative Latent Prediction (GLP): abstract state prediction coupled to observation-space supervision.",
+    "kind": "source",
+    "evidenceIds": [
+      "problem",
+      "glp"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "PAN combines pretrained vision-language representations, continuous next-state queries and a diffusion decoder into an action-conditioned simulator.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture",
+        "conditioning"
+      ]
+    },
+    {
+      "text": "Causal Swin-DPM carries partially denoised history across chunks while masking future-action context, aiming to reduce discontinuities and error accumulation.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "window"
+      ]
+    },
+    {
+      "text": "Evaluation separates action fulfillment, long-horizon quality, atomic prediction and external-agent planning; these measure different capabilities.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "fidelity-protocol",
+        "forecast-protocol",
+        "atomic-protocol",
+        "planning"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Initial observation image; successive natural-language actions",
+      "Training video observations paired with dense temporal captions",
+      "Generated observations, latent states and action history during simulation"
+    ],
+    "outputs": [
+      "256 continuous tokens representing the next latent world state",
+      "Sequential video observations of imagined futures"
+    ],
+    "steps": [
+      {
+        "name": "Encode and predict",
+        "detail": "Qwen2.5-VL-7B-Instruct supplies the vision encoder and language backbone. Conversation-style turns alternate visual states and actions with 256 learnable assistant-query embeddings. The backbone produces 256 continuous state tokens; these are not motor commands.",
+        "evidenceIds": [
+          "architecture"
+        ]
+      },
+      {
+        "name": "Condition the decoder twice",
+        "detail": "Wan2.1-T2V-14B receives umT5 action features through text cross-attention. A separate world-state cross-attention stream adds its zero-initialized projected output to that pathway. Action text therefore reaches both predictor and renderer.",
+        "evidenceIds": [
+          "architecture",
+          "conditioning"
+        ]
+      },
+      {
+        "name": "Carry a denoising window forward",
+        "detail": "The decoder window contains one conditioning frame and two ten-frame latent chunks. Earlier content is less noisy than later content; completed content exits and fresh noise enters. Chunk-wise masking blocks future context while retaining within-chunk attention. Conditioning-frame noise is intended to damp accumulated artifacts.",
+        "evidenceIds": [
+          "window",
+          "window-details"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage 1 adapts the diffusion decoder; Qwen requires no additional adaptation, while Wan-VAE and the text encoder remain frozen. Five epochs use 960 H200 GPUs, BF16 AdamW, learning rate 10^-5, cosine decay, 5% warm-up and gradient clipping at 0.05.",
+        "kind": "source",
+        "evidenceIds": [
+          "stage1"
+        ]
+      },
+      {
+        "text": "Stage 2 is called joint training, but explicitly freezes the VLM and updates only query embeddings and the diffusion decoder with flow matching. Training uses ground-truth history, limited to ten rounds, and stops after one epoch based on validation convergence.",
+        "kind": "source",
+        "evidenceIds": [
+          "stage2",
+          "architecture"
+        ]
+      },
+      {
+        "text": "Public videos are segmented, merged and filtered for motion, aesthetics, text and undesirable content. Dense VLM captions emphasize temporal change. The resulting corpus size and exact filtering thresholds are not enumerated.",
+        "kind": "source",
+        "evidenceIds": [
+          "data"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Encode the initial image, predict a state for the current action, render a chunk, and re-encode that generated observation. Concatenate it with predicted states and action history for the next step. Feedback closes within simulation; there are no fresh real-world observations.",
+        "kind": "source",
+        "evidenceIds": [
+          "inference"
+        ]
+      },
+      {
+        "text": "Causal decoding caches DiT outputs at each denoising step and uses classifier-free guidance scale four. Eight-way sequence parallelism and modified SageAttention2++ accelerate inference, but absolute interactive latency is unreported.",
+        "kind": "source",
+        "evidenceIds": [
+          "inference",
+          "acceleration"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{GLP}}(h,f,g)=\\mathbb{E}_{(o_t,a_t,o_{t+1})\\sim\\mathcal{D}}\\!\\left[\\operatorname{disc}\\!\\left(g\\circ f(h(o_t),a_t),o_{t+1}\\right)\\right]",
+        "explanation": "Here o_t is an observation, a_t an action, D the transition dataset, h the encoder, f the predictor and g the decoder. The source instantiates disc with flow matching. This schematic objective omits some implementation-level conditioning.",
+        "evidenceIds": [
+          "glp",
+          "conditioning",
+          "inference"
+        ]
+      },
+      {
+        "expression": "x_k=kx_1+(1-k)x_0,\\qquad v_k=\\frac{dx_k}{dk}=x_1-x_0",
+        "explanation": "Equation 7 defines x_1 as the clean image/video latent, x_0 as Gaussian noise and k as interpolation time; Equation 8 gives the velocity target. Larger k is cleaner here, conflicting with the apparent noise-direction convention in later chunk sampling.",
+        "evidenceIds": [
+          "flow",
+          "window-details"
+        ]
+      },
+      {
+        "expression": "\\hat{s}'_k=[\\hat{s}_k,h(\\hat{o}_k)],\\qquad \\hat{s}_{t+1}=f(\\tilde{s}_t,a_t),\\qquad \\hat{o}_{t+1}=g(\\hat{s}_{t+1},\\hat{o}_t)",
+        "explanation": "Predicted state s-hat is augmented by the encoding of generated observation o-hat. Context s-tilde collects initial state, augmented states and prior actions. Section 5 gives these inference relations; Section 3.3.2 specifies the decoder's additional action pathway.",
+        "evidenceIds": [
+          "inference",
+          "conditioning"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Action Simulation Fidelity",
+      "setting": "Initial images and GPT-4o-proposed actions; VLM-judged agent/environment rollouts; test count and split unspecified.",
+      "metric": "Action fulfillment score (%)",
+      "value": "Agent 70.3%; environment 47.0%; overall 58.6%.",
+      "comparison": "Overall: Cosmos2 51.0%, WAN 2.2 50.2%, MiniMax 62.0%.",
+      "interpretation": "PAN leads the plotted open-source models; MiniMax scores higher overall. These judge scores are not physical-control accuracy.",
+      "evidenceIds": [
+        "fidelity-protocol",
+        "fidelity-results"
+      ]
+    },
+    {
+      "task": "Long-horizon Forecast",
+      "setting": "Multi-action rollouts; optical-flow smoothness and progressively penalized WorldScore-derived consistency; exact horizon unspecified.",
+      "metric": "Transition Smoothness / Simulation Consistency (%)",
+      "value": "53.6% / 64.1%.",
+      "comparison": "Best alternatives: Gen-3 smoothness 47.8%; KLING and Cosmos2 consistency 59.2%.",
+      "interpretation": "Both aggregate scores favor PAN. No uncertainty or horizon-specific breakdown establishes the stability of the advantage.",
+      "evidenceIds": [
+        "forecast-protocol",
+        "forecast-results",
+        "visual-scope"
+      ]
+    },
+    {
+      "task": "Step-Wise Simulation",
+      "setting": "Agibot next-observation selection with three distractors; all models domain-fine-tuned; human scoring for generators, latent similarity for V-JEPA 2.",
+      "metric": "Prediction accuracy (%)",
+      "value": "56.1%.",
+      "comparison": "Cosmos2 31.1%; V-JEPA 2 15.5%; Cosmos1 7.8%.",
+      "interpretation": "Strongest plotted atomic score, under differing output-assessment procedures; no executed robot policy is measured.",
+      "evidenceIds": [
+        "atomic-protocol",
+        "atomic-results"
+      ]
+    },
+    {
+      "task": "Open-Ended Simulation and Planning",
+      "setting": "Same OpenAI-o3 agent; 15 Agibot scenarios; simulated search and blinded human trajectory assessment.",
+      "metric": "Reported improvement over VLM-only agent (%)",
+      "value": "+26.7, plotted as improvement (%); absolute success rate not supplied.",
+      "comparison": "Cosmos1 +6.7; Cosmos2 0.0; V-JEPA 2 -6.7.",
+      "interpretation": "Supports usefulness for this protocol. Relative percent versus percentage-point improvement is not explicitly defined; neither is silently inferred.",
+      "evidenceIds": [
+        "planning",
+        "planning-results"
+      ]
+    },
+    {
+      "task": "Structured Simulation and Planning",
+      "setting": "Same agent–simulator loop on 46 Language Table cases, with minimally rearranged goal observations.",
+      "metric": "Reported improvement over VLM-only agent (%)",
+      "value": "+23.4, plotted as improvement (%); absolute success rate not supplied.",
+      "comparison": "Cosmos1 -2.1; Cosmos2 +4.3; V-JEPA 2 +10.6.",
+      "interpretation": "PAN yields the largest reported improvement; the denominator convention and physical transfer remain unresolved.",
+      "evidenceIds": [
+        "planning",
+        "planning-results"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "No controlled ablation isolates latent conditioning, generated-history feedback, causal masking or noise augmentation. Cross-model comparisons cannot establish their individual contributions, and reconstruction supervision alone does not demonstrate physically correct dynamics.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "glp",
+        "visual-scope"
+      ]
+    },
+    {
+      "text": "Evaluation leaves prompts, several sample counts, exact horizons, metric weights and uncertainty unspecified. Different scoring procedures for generative and embedding models further limit direct interpretation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "fidelity-protocol",
+        "forecast-protocol",
+        "atomic-protocol",
+        "planning-results"
+      ]
+    },
+    {
+      "text": "Kitchen, driving, fantasy-world, rover and hazard sequences demonstrate range but do not measure failure frequency, calibrated physics or real execution. No dedicated limitations section is supplied.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "qualitative",
+        "visual-scope"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the Qwen/Wan initializations, caption pipeline and stage-specific freeze policy. HSDP, checkpointing and sequence parallelism are described, but corpus size, batch size, wall time and complete evaluation recipes are missing.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "stage1",
+        "stage2",
+        "data",
+        "fidelity-protocol",
+        "forecast-protocol"
+      ]
+    },
+    {
+      "text": "Preserve the 21-latent/81-real-frame window and VAE padding of 0–122 prior frames. First resolve the schedule: assigning k+0.5 to the later chunk makes it cleaner under Equation 7; describing k=0.055 as slight noise also suggests a different convention. Neither statement can be silently repaired.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "flow",
+        "window",
+        "window-details"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Neural world simulators",
+        "Video generation backbones"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "09982a6ec673d51215b6e68983e22705f470332c100cf1df040be95017d3b3cf"
+    },
+    "reasoning": {
+      "text": "The foundational neural-world-simulator/video-backbone classification is supported. PAN predicts observations from supplied actions; an external VLM proposes and selects planning actions. There is no joint executable-action head or inverse-dynamics controller. The catalog's WAM architecture/paradigm/quadrant fields being not applicable is appropriate despite PAN's multi-module architecture.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "conditioning",
+        "inference",
+        "planning"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Which benefit survives a matched ablation of latent-state conditioning with decoder and data fixed?",
+    "Does simulated goal progress predict independent environment success under a fixed planning budget?",
+    "How much consistency comes from suppressing motion rather than preserving correct action effects?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/byline and arXiv margin; p. 27, Appendix A.1–A.2",
+      "detail": "Exact catalog title; arXiv:2511.09057v3 dated 15 November 2025; IFM Technical Report dated 14 November 2025. PAN Team, Institute of Foundation Models is the byline, with Mohamed bin Zayed University of Artificial Intelligence. All 33 named catalog contributors appear in Appendix A, grouped by role."
+    },
+    {
+      "id": "problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Overview and Section 1",
+      "detail": "PAN targets history- and language-action-conditioned future simulation, combining latent dynamics with observable video generation across domains."
+    },
+    {
+      "id": "glp",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Sections 2.1–2.2, Eqs. (1)–(6); p. 11, Section 4.2, Eq. (9)",
+      "detail": "Encoder h, predictor f and decoder g define generative latent prediction. The discrepancy supervises generated observations. The authors contrast this with latent matching and argue it avoids collapse and ungrounded transitions."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 1 and Section 2.3; pp. 6–7, Sections 3.1–3.2.2",
+      "detail": "Qwen2.5-VL-7B-Instruct supplies the vision encoder and autoregressive backbone; Wan2.1-T2V-14B supplies the decoder. The backbone uses 256 learnable query embeddings and outputs 256 continuous next-state tokens. Training uses ground-truth states in conversational turns."
+    },
+    {
+      "id": "flow",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 3.3.1, Eqs. (7)–(8)",
+      "detail": "The clean VAE latent x_1 and Gaussian noise x_0 are interpolated as x_k=k x_1+(1-k)x_0; velocity is x_1-x_0. Training samples from 1,000 discrete denoising values with a shifted schedule."
+    },
+    {
+      "id": "conditioning",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 2 and Section 3.3.2",
+      "detail": "umT5 action features use the original text cross-attention. Projected world-state tokens use an added cross-attention stream; its zero-initialized output projection is summed with the action-conditioned stream before the feed-forward network."
+    },
+    {
+      "id": "window",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 3 and Section 3.3.3; p. 10, Section 3.3.3 continuation",
+      "detail": "The earlier chunk starts half-noised and the later chunk fully noised; the earlier chunk is dequeued after half the denoising process and fresh noise is enqueued. Green blocks permit within-chunk and later-to-earlier attention; white blocks mask future context. Figure 3 uses total noise scale T, whereas the prose uses K."
+    },
+    {
+      "id": "window-details",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Sections 3.3.3–3.3.5",
+      "detail": "Training assigns k in [0,0.5] to the first chunk and k+0.5 to the second. The 21-latent-frame window corresponds to 81 real frames and contains one conditioning frame plus two chunks of ten. VAE encoding uses 0–122 preceding padding frames, later discarded. Conditioning noise is described as small at k=0.055; no loss is applied to that frame."
+    },
+    {
+      "id": "stage1",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Section 4.1",
+      "detail": "Stage 1 adapts the decoder to Causal Swin-DPM; Qwen requires no adaptation, and the Wan VAE and text encoder are frozen. Training uses BF16, AdamW, learning rate 10^-5, cosine decay, 5% warm-up, gradient norm cap 0.05, five epochs and 960 NVIDIA H200 GPUs. HSDP, checkpointing, FlashAttention-3 and FlexAttention are described."
+    },
+    {
+      "id": "stage2",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Section 4.2",
+      "detail": "The explicit implementation freezes the VLM and trains only query embeddings and the diffusion decoder, using at most ten history rounds. BF16 AdamW, learning rate 10^-5, cosine decay and 5% warm-up are reused; early stopping occurs after one epoch rather than five. Intra-node sequence-parallel group size is four."
+    },
+    {
+      "id": "inference",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Section 5, Eqs. (10)–(11); pp. 12–13, Section 5.1",
+      "detail": "The backbone receives initial state, actions, predicted states and re-encoded generated observations. The decoder receives predicted state and previous observation. Feedback uses generated history rather than new ground truth. DiT outputs are cached at every denoising step; CFG scale is four."
+    },
+    {
+      "id": "acceleration",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Section 5.2",
+      "detail": "Inference uses sequence-parallel group size eight with uneven head sharding. Modified SageAttention2++ gives reported acceleration of 30.3% over FlexAttention/FlashAttention3; absolute per-chunk latency is not reported."
+    },
+    {
+      "id": "data",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–15, Sections 6.1–6.3",
+      "detail": "Public videos are segmented, merged and filtered using motion/appearance rules, aesthetic/text detectors and a custom VLM. Dense VLM captions emphasize events and changes as action inputs. Corpus size, exact constituent sources, filter thresholds and a complete captioning recipe are not enumerated."
+    },
+    {
+      "id": "fidelity-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 16–17, Section 7.2, Action Simulation Fidelity",
+      "detail": "GPT-4o proposes feasible action sequences from images. A VLM judges generated rollouts for faithfulness and precision, separating agent behavior from environment interventions. Exact test counts, splits and judge prompts are absent."
+    },
+    {
+      "id": "forecast-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Section 7.2, Long-horizon Forecast",
+      "detail": "Transition Smoothness uses the inverse exponential of optical-flow acceleration magnitude. Simulation Consistency uses WorldScore-derived measures and increasing late-step penalties. Exact horizons, weights and full metric configuration are not given."
+    },
+    {
+      "id": "atomic-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Section 7.2, Step-Wise Simulation",
+      "detail": "Agibot instances supply a correct next observation and three distractors. All models are fine-tuned on Agibot; V-JEPA 2 gains UMT5 language conditioning. Generative outputs are human-assessed; embedding predictions use latent similarity."
+    },
+    {
+      "id": "planning",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Figure 4/caption and Section 7.2 planning settings",
+      "detail": "OpenAI-o3 proposes actions, the world model simulates alternatives, and the agent selects predicted goal progress. Fifteen Agibot scenarios use blinded human assessment; 46 Language Table cases use minimally rearranged goals. Goal completion is binary over a trajectory. Blue arrows show the selected can-transfer path; gray arrows show alternatives."
+    },
+    {
+      "id": "fidelity-results",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Figure 5 middle row and Section 7.3",
+      "detail": "PAN scores 70.3% agent, 47.0% environment and 58.6% overall action fulfillment. Cosmos2 overall is 51.0%, WAN 2.2 is 50.2%; MiniMax leads overall at 62.0% (72.3% agent, 51.7% environment)."
+    },
+    {
+      "id": "forecast-results",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Figure 5 bottom row; p. 20, Section 7.3",
+      "detail": "PAN scores 53.6% smoothness and 64.1% consistency. The best plotted alternatives are Gen-3 at 47.8% smoothness and KLING/Cosmos2 at 59.2% consistency."
+    },
+    {
+      "id": "atomic-results",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Figure 5 top-left; p. 20, Section 7.3",
+      "detail": "Step-Wise Simulation accuracy is PAN 56.1%, Cosmos2 31.1%, V-JEPA 2 15.5%, Cosmos1 7.8%."
+    },
+    {
+      "id": "planning-results",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Figure 5 top-middle/top-right; p. 20, Section 7.3",
+      "detail": "PAN improvement over the VLM agent is +26.7 open-ended and +23.4 structured, on an axis labeled percent. Cosmos1/Cosmos2/V-JEPA 2 score +6.7/0.0/-6.7 and -2.1/+4.3/+10.6 respectively. Absolute success rates and an explicit relative-percent-versus-percentage-point formula are absent."
+    },
+    {
+      "id": "qualitative",
+      "sourceId": "primary",
+      "location": "PDF pp. 20–25, Sections 8.1–8.3 and unnumbered sequences",
+      "detail": "Selected simulations show kitchen manipulation, a red-car journey, alternative worlds behind a door, rover actions and rare road hazards, without failure-rate or quantitative physical-validity tests."
+    },
+    {
+      "id": "visual-scope",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–20, Section 7 and Figures 4–5; pp. 20–26, Sections 8–10; p. 27, Appendix A",
+      "detail": "Empirical reporting consists of cross-model bars and qualitative examples. No quantitative table, controlled component ablation, uncertainty interval, dedicated limitations section or technical appendix is supplied; Appendix A lists contributors."
+    }
+  ]
+}

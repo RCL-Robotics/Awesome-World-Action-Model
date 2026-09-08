@@ -1,0 +1,488 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2511.14759",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T22:21:20.475Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2511.14759",
+      "title": "π∗ 0.6: a VLA That Learns From Experience",
+      "kind": "pdf",
+      "sha256": "9f4f5a3070ad9549ea7687ea54baa19858820dbcc0834cc805212d68fd6c8cb3",
+      "wordCount": 13569,
+      "accessedAt": "2026-09-07T14:10:05.574853+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; I. Introduction; II. Related Work (PDF pp. 1–3)",
+      "III. Preliminaries (p. 3)",
+      "IV. RECAP, A–C (pp. 3–5)",
+      "V. Implementation, Model, and System Details, A–D; Algorithm 1 (pp. 5–7)",
+      "VI. Experimental Evaluation, A–C (pp. 7–11)",
+      "VII. Discussion and Future Work; Acknowledgements (p. 11)",
+      "References (pp. 11–16)",
+      "Appendix A. Contributions; B. Additional Value Function Visualization; C. Computing the log-likelihood for policy improvement (pp. 16–17)",
+      "Appendix D. PPO implementation; E. Using CFG for test-time policy improvement; F. Additional algorithm details (pp. 17–18)"
+    ],
+    "omissions": [
+      "Identity: the title page verifies arXiv:2511.14759v2, dated 19 November 2025, with the supplied title and complete author list. The catalog submission date is 18 November 2025. Version 1 was not supplied, so revision differences beyond the observed version/date cannot be established; mathematical title typography is normalized in the supplied observedTitle.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "All eight supplied text chunks were read individually, covering all 18 PDF pages. Original figures were inspected separately in the PDF; the extraction limitation above was addressed by that visual pass.",
+      "The linked project, accompanying videos, model card, code, checkpoints, and training datasets were not supplied or inspected. No experiments were reproduced. Reference-only pages 12–15 were read as text, not rendered for visual review."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 2)",
+      "Figure 3 (p. 4)",
+      "Figure 4 (p. 5)",
+      "Figure 5 (p. 7)",
+      "Figure 6 (p. 8)",
+      "Figures 7–8 (p. 9)",
+      "Figures 9–12 (p. 10)",
+      "Figure 13 (p. 17)"
+    ],
+    "tablesReviewed": [],
+    "appendix": "reviewed"
+  },
+  "synopsis": "RECAP improves a flow-matching VLA by using a separately trained value function to label recorded actions as relatively advantageous, then conditioning action generation on the positive label. Demonstrations, autonomous trials, and optional human corrections feed repeated offline updates. Real-robot experiments report faster and more reliable laundry folding, espresso preparation, and box assembly, but several recipe and data-accounting inconsistencies limit exact reproduction.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "Imitation alone inherits demonstration speed and deployment mistakes. RECAP asks how a large VLA can learn from heterogeneous experience and sparse task-outcome feedback while retaining expressive continuous action generation. Its learning loop assumes observations serve as Markovian states; this is explicitly a simplification.",
+    "kind": "source",
+    "evidenceIds": [
+      "e01",
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The contribution is an integrated recipe: distributional value learning, binary advantage conditioning, and repeated collection of autonomous experience with optional corrective teleoperation. It applies reinforcement learning during both generalist pre-training and task specialization.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04",
+        "e07"
+      ]
+    },
+    {
+      "text": "The controlled-data laundry comparison supports the authors’ choice of advantage conditioning over their AWR and PPO implementations, but does not establish superiority over every PPO implementation or online data-collection regime.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Camera images and robot joint/gripper configuration; task language and additional language metadata",
+      "During learning: recorded actions, episode success labels, and optional human corrections; during conditioned action generation: a binary improvement indicator"
+    ],
+    "outputs": [
+      "Predicted textual subtask and continuous joint-angle/gripper action chunks",
+      "Training-only FAST-tokenized action predictions; a separate value model predicts a distribution over returns"
+    ],
+    "steps": [
+      {
+        "name": "Turn outcomes into progress targets",
+        "detail": "Successful terminal steps receive zero reward, unsuccessful terminal steps a large negative penalty, and other steps −1. Task-length normalization places value predictions on a negative-to-zero scale. A separate language-conditioned value model learns empirical returns using cross-entropy over 201 bins; its expected value supplies the critic.",
+        "evidenceIds": [
+          "e03",
+          "e06"
+        ]
+      },
+      {
+        "name": "Label relative action quality",
+        "detail": "Estimate whether the recorded trajectory segment improved expected return relative to its starting observation, then threshold that advantage. Human corrective actions are forced positive. This labels actions in an existing dataset; it does not simulate candidate futures or perform inverse dynamics.",
+        "evidenceIds": [
+          "e04",
+          "e08"
+        ]
+      },
+      {
+        "name": "Train a policy that can select good behavior",
+        "detail": "The VLA uses a Gemma 3 4B backbone and an 860M flow-matching action expert; the separate value backbone totals 670M. FAST actions and subtask text provide autoregressive supervision. Knowledge Insulation prevents action-expert gradients from updating the rest of the VLA, while that backbone still learns through token objectives.",
+        "evidenceIds": [
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "name": "Aggregate experience and restart fine-tuning",
+        "detail": "After offline RL pre-training, task demonstrations produce an initial SFT policy with the indicator fixed positive. Collect trials and optional corrections, refit the critic, and fine-tune the VLA on accumulated data. Both models restart from their pre-trained checkpoints each iteration to reduce drift.",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Pre-training uses tens of thousands of demonstration hours across tasks and robots, plus vision-language web data. Discrete outputs use token likelihoods; continuous actions use a flow-matching loss motivated by a likelihood lower bound. The indicator is randomly dropped 30% of the time to learn conditional and unconditional behavior.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e05",
+          "e08",
+          "e16"
+        ]
+      },
+      {
+        "text": "Appendix F specifies a 50-step lookahead for post-training advantages and a single-value-call empirical-return estimate for pre-training. It targets approximately 30% positive demonstration labels, generally 40% positive post-training rollout data, and 10% for T-shirts/shorts. The main-text threshold description conflicts with these appendix settings.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08",
+          "e20"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Predict a subtask, then generate flow-matching actions conditioned on that subtask and a positive indicator. Subtask prediction runs less frequently than action generation; joint/gripper commands execute at 50 Hz. The critic supplies training labels rather than an online search or action-selection loop. Default evaluation uses β=1.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e06",
+          "e10"
+        ]
+      },
+      {
+        "text": "Optional classifier-free guidance combines conditional and unconditional predictions for β>1. High guidance can push actions toward the learned support boundary and cause aggressive motions; Appendix E gives moderate examples of β between 1.5 and 2.5.",
+        "kind": "source",
+        "evidenceIds": [
+          "e17"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "r_t=\\begin{cases}0 & t=T\\text{ and success}\\\\-C_{\\mathrm{fail}} & t=T\\text{ and failure}\\\\-1 & \\text{otherwise}\\end{cases}",
+        "explanation": "Equation (5): t is the current step, T the terminal step, and C_fail a large failure penalty. Successful returns favor shorter completion times; failure remains costly. Task normalization follows reward construction.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "expression": "A^{\\pi}(o_t,a_t)=\\sum_{t^\\prime=t}^{t+N-1}r_{t^\\prime}+V^{\\pi}(o_{t+N})-V^{\\pi}(o_t),\\qquad I_t=\\mathbf{1}\\!\\left(A^{\\pi_{\\mathrm{ref}}}(o_t,a_t,\\ell)>\\epsilon_{\\ell}\\right)",
+        "explanation": "The sampled post-training estimate uses observation o_t, action a_t, rewards r, N-step lookahead, and value V. I_t is the binary indicator, ℓ the language task, ε_ℓ its threshold, and π_ref the dataset behavior mixture. Appendix F uses N=50.",
+        "evidenceIds": [
+          "e02",
+          "e04",
+          "e08"
+        ]
+      },
+      {
+        "expression": "\\min_{\\theta}\\;\\mathbb{E}_{D_{\\pi_{\\mathrm{ref}}}}\\!\\left[-\\log\\pi_{\\theta}(a_t\\mid o_t,\\ell)-\\alpha\\log\\pi_{\\theta}(a_t\\mid I_t,o_t,\\ell)\\right]",
+        "explanation": "Equation (3) fits unconditional and advantage-conditioned policies to behavior data D, with parameters θ and trade-off α. Implementation replaces this weighting with indicator dropout and substitutes flow matching for continuous likelihood. With β=1 in Equation (2), positive-conditioned sampling supplies the improved policy.",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e08",
+          "e16"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Laundry folding: diverse items, button-up-shirt evaluation",
+      "setting": "Real bimanual robot; trained across 11 clothing types, evaluated on button-up shirts; fold and stack within 500 seconds.",
+      "metric": "Successful completions per hour",
+      "value": "Approximately 8.3, read from Figure 7.",
+      "comparison": "Approximately 3.8 for offline RL + SFT; the authors describe more than doubled throughput.",
+      "interpretation": "This is difficult-item evaluation, not an 11-type average. Error bars are standard errors; exact plotted values are not tabulated.",
+      "evidenceIds": [
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "Cafe: double-shot espresso",
+      "setting": "Commercial espresso machine; complete preparation and serving within 200 seconds without critical errors.",
+      "metric": "Throughput and episode success rate",
+      "value": "Approximately 29 successes/hour and 92% success, read from Figures 7–8.",
+      "comparison": "Offline RL + SFT: approximately 14.5 successes/hour and 39% success.",
+      "interpretation": "Both speed and reliability improve in physical execution. These estimates do not quantify every drink type or verify long-duration video claims.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "Laundry folding: T-shirts and shorts",
+      "setting": "Variable basket initial conditions; fold and stack within 200 seconds; extraction baselines use the same RECAP-collected data.",
+      "metric": "Successful completions per hour",
+      "value": "Approximately 60, read from Figures 7 and 11.",
+      "comparison": "Approximately 33 for offline RL + SFT, 30 for AWR, and 22 for the implemented PPO variant.",
+      "interpretation": "AWR retains high success but is slower. The comparison also changes advantage-conditioned pre-training; PPO uses an off-policy stabilization recipe.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e13"
+      ]
+    },
+    {
+      "task": "Box assembly",
+      "setting": "Factory deployment; assemble, label, and stack a flattened box within 600 seconds.",
+      "metric": "Successful completions per hour",
+      "value": "Approximately 13, read from Figure 7.",
+      "comparison": "Approximately 10 for offline RL + SFT.",
+      "interpretation": "Figure 8 reports retrieval, folding, labeling, and stacking success separately; stage rates must not replace end-to-end success probability.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "Targeted collar-up folding failure removal",
+      "setting": "One orange T-shirt, fixed adversarial flattened start, correctly centered face-up collar and completed fold within 200 seconds.",
+      "metric": "Strict episode success rate",
+      "value": "97%, explicitly reported after two iterations.",
+      "comparison": "Initial offline RL + SFT policy: approximately 23% in Figure 12.",
+      "interpretation": "A narrow failure mode improves substantially. The no-correction-data claim is unresolved because Appendix F describes corrections for this ablation.",
+      "evidenceIds": [
+        "e09",
+        "e14",
+        "e21"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The system requires human outcome labeling, episode resets, and sometimes interventions. Exploration is largely greedy and depends on policy stochasticity and corrections. Updates occur between batches rather than concurrently with collection.",
+      "kind": "source",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "text": "The Monte Carlo critic estimates returns of a changing behavior mixture, not an optimal off-policy Q-function. Positive labels depend on critic and threshold quality; illustrated value traces are qualitative examples, not calibration measurements.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e19"
+      ]
+    },
+    {
+      "text": "Figure 9 plots roughly 33→60 laundry and 10→13 box successes/hour from i=0 to i=2. The accompanying claims of 50% and 2× improvements do not follow from those endpoints; their denominators are unclear. Box throughput initially drops.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "text": "Notation remains inconsistent: Appendix F writes the pre-training return sum from episode start, whereas Equation (1) defines return from the current step. Appendix C conditions the subtask factor on I, whereas Section V-B places I after the subtask. This report follows the explicit main-text sequence without repairing the appendix.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e08",
+        "e16"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A faithful run needs pre-training data/checkpoints, outcome annotations, task metadata, and the two-arm, three-camera platform. The PDF lacks complete optimizer schedules, hardware/compute budgets, all task mixture weights, and explicit held-out split accounting sufficient to reconstruct every result.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06",
+        "e08",
+        "e09",
+        "e18"
+      ]
+    },
+    {
+      "text": "Resolve threshold calibration: Section V-D says the 30th percentile of predicted values; Appendix F targets 30% positive advantages using a 10,000-point sample. These differ in quantity and tail fraction. Record actual positive-label fractions rather than assume equivalence.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e20"
+      ]
+    },
+    {
+      "text": "Resolve data lineage: the failure study says two batches of 600 trajectories without corrections, but Appendix F lists about 1,000 autonomous and 280+378 correction episodes. Box data are called 600 autonomous trials per iteration in the main text and 600 demonstrations in Appendix F, both with 360 correction episodes.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e21"
+      ]
+    },
+    {
+      "text": "Reader-proposed checks: compare calibrated versus shuffled advantage labels on identical data; compare autonomous-only versus correction-augmented learning on strict collar-up folding with matched budgets and fresh evaluations. These test label informativeness and intervention dependence separately.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e14",
+        "e18",
+        "e20"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "VLA and flow-matching categories are supported. Dual-system is defensible for the separate value learner and policy, and the VLA backbone/action-expert separation. This does not establish a predictive world-model/controller pair: no future-observation model or inverse-dynamics extraction is introduced. The world/action prediction paradigm and quadrant remain not applicable.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "VLA",
+      "subcategories": [
+        "VLA post-training & data augmentation",
+        "Diffusion & flow-matching VLA"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "9200c686e9350e089da0083312cb581f936838672d5b590d0f8a34e3242c46eb"
+    }
+  },
+  "discussionQuestions": [
+    "Does advantage conditioning retain its speed advantage when pre-training, fine-tuning data, and compute are all matched?",
+    "How much strict failure removal persists without corrections once contradictory dataset accounts are resolved?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block, arXiv margin stamp, Abstract and Figure 1",
+      "detail": "Title and Physical Intelligence author roster match the supplied catalog; the margin identifies 2511.14759v2, 19 November 2025. The abstract introduces RECAP and experience-based VLA improvement."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Sections I–IV; p. 3, Preliminaries and footnote 1",
+      "detail": "The method combines demonstrations, autonomous trials, and interventions. Preliminaries define returns and n-step advantages and explicitly simplify observations to Markovian states."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV-A, Equation (1), and preceding pre-training paragraph",
+      "detail": "A multi-task distributional critic learns discretized empirical returns using cross-entropy with 201 bins. Expected bin values yield a continuous critic of the dataset behavior mixture. Pre-training uses tens of thousands of demonstration hours."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section IV-B, Equations (2)–(3), intervention paragraph and footnote 2",
+      "detail": "Positive advantage is defined by A>ε_ℓ; the objective fits conditional and unconditional behavior. Corrective actions are forced positive. β=1 gives direct conditional sampling; high guidance can cause aggressive behavior."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 3 and caption; p. 6, Sections V-A–B",
+      "detail": "The figure separates VLA and value model, and its advantage arrow enters the VLA through binarization. The VLA uses Gemma 3 4B and an 860M action expert with stop-gradient insulation. Subtask text precedes I, FAST actions, and continuous actions; the expert does not consume FAST predictions."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section V-C, Equation (5), Figure 5 and caption",
+      "detail": "Rewards are zero for terminal success, −C_fail for terminal failure, and −1 otherwise. Values are task-length normalized; the value backbone is 670M. The evaluation robot has two 6-DoF arms, parallel-jaw grippers, three cameras, and 50-Hz joint-position control."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Algorithm 1; p. 7, Section V-D",
+      "detail": "SFT fixes the indicator positive. Experience is aggregated, then value and policy are fine-tuned from pre-trained checkpoints rather than the previous iteration. Corrections address major mistakes but are not guaranteed optimal."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix F, Advantage Estimation, Advantage conditioning dropout, Advantage threshold",
+      "detail": "Post-training uses N=50; pre-training uses a full-episode empirical-return expression. Indicator dropout is 30%. Threshold targets are about 30% positives for pre-training, generally 40% for fine-tuning, and 10% for T-shirts/shorts."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section VI-A and Figure 6",
+      "detail": "Task definitions specify 200-second simple-laundry, strict-laundry and double-espresso limits, 500-second button-up-shirt evaluation despite 11-type training, and a 600-second box-assembly limit."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 7, Section VI-B final-model paragraph and VI-C.1",
+      "detail": "Throughput counts successful tasks/hour, with standard-error bars. Approximate final versus SFT bars are 60 versus 33 (simple laundry), 8.3 versus 3.8 (diverse), 29 versus 14.5 (espresso), and 13 versus 10 (boxes). Default evaluation uses β=1."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 8, Section VI-C metric definitions and results",
+      "detail": "Success labels aggregate human quality judgments; bars show standard errors. Espresso is approximately 92% versus 39% for SFT. Box success is broken into four task stages. The plotted stages do not all improve monotonically despite the caption generalization."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Figures 9–10 and Section VI-C.2",
+      "detail": "The text describes 300 simple-laundry trajectories on four robots per iteration without corrections. Figure 9 has approximate i=0,1,2 throughputs of 33,42,60 for laundry and 10,8.5,13 for boxes; prose states 50% and 2× improvements without a matching explicit endpoint comparison."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section VI-B AWR/PPO definitions; p. 10, Figure 11 and VI-C.3; p. 17, Appendix D",
+      "detail": "Same RECAP-collected data are used for extraction comparisons. Figure 11 shows approximately 60,30,22 successes/hour for RECAP, AWR, PPO. Baselines start from π0.6 without advantage conditioning; PPO uses a single-step diffusion likelihood bound and an SPO-style trust-region variant."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Figure 12; p. 11, Section VI-C.4",
+      "detail": "The strict collar-up experiment reports 97% success after two iterations, with 600 trajectories per iteration and an explicit no-intervention/no-additional-demonstration claim. Figure 12 shows an initial SFT success bar near 23%."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Section VII, Discussion and Future Work",
+      "detail": "Authors identify human reward labeling, interventions and resets, largely greedy exploration, and batch offline updates rather than a fully concurrent online loop as limitations."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Equation (4) and Section V-B; p. 16, Appendix C, Equations (6)–(9)",
+      "detail": "Continuous likelihood is not closed form; flow-matching loss motivates a lower bound alongside token likelihood. Appendix Equation (6) writes I in the subtask factor, while Section V-B says only action likelihoods are affected because I follows the subtask."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Appendix E, Equations (12)–(13) and continuation",
+      "detail": "Conditional/unconditional guidance approximates sharpened policy sampling. High β can induce overly aggressive motions; moderate β∈[1.5,2.5] is suggested where useful."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix F, Dataset composition",
+      "detail": "Task-dependent collection includes diverse laundry: 450 evaluation and 287 correction episodes; cafe: 414 autonomous and 429 correction episodes in one iteration. Failure and box counts conflict with the main-text accounts."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 4 and caption; pp. 16–17, Appendix B and Figure 13",
+      "detail": "Value traces show local decreases during mistakes and increases during recovery/progress. These are illustrated trajectories rather than quantitative critic calibration or held-out prediction tests."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section V-D threshold paragraph; p. 18, Appendix F, Advantage threshold",
+      "detail": "Main text selects the 30th percentile of predicted values; appendix instead selects a threshold giving about 30% positive demonstration advantages on a random 10k-point sample. No reconciliation is provided."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section VI-C.2; p. 11, Section VI-C.4; p. 18, Appendix F, Dataset composition",
+      "detail": "Main failure-removal account says 600 trajectories per iteration with no corrections; appendix says about 1000 autonomous plus 280+378 correction episodes over three robots. Main box account calls 600 trials autonomous; appendix calls 600 episodes demonstrations, both with 360 corrections per iteration."
+    }
+  ]
+}

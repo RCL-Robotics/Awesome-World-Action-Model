@@ -1,0 +1,403 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2509.21790",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T22:44:50.891Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2509.21790",
+      "title": "LongScape: Advancing Long-Horizon Embodied World Models with Context-Aware MoE",
+      "kind": "pdf",
+      "sha256": "44347deaad2224fd086c0de7a721d5ebc37c80df311e95ed8d1e4f63ffcf5d6e",
+      "wordCount": 5590,
+      "accessedAt": "2026-09-07T14:10:52.113462+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, authors, affiliations and arXiv:2509.21790v1 stamp, 26 September 2025 (p. 1)",
+      "Abstract and Section 1 Introduction (pp. 1–2)",
+      "Section 2 Related Works, including 2.1 and 2.2 (pp. 2–3)",
+      "Section 3 Methodology, including 3.1–3.3 and Equations (1)–(5) (pp. 3–5)",
+      "Section 4 Experiments, including 4.1–4.3 (pp. 6–9)",
+      "Section 5 Conclusion and Future Works (pp. 9–10)",
+      "References (pp. 10–11)",
+      "Appendix A.1, Algorithm 1 and Figures 7–8 (pp. 12–13)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction limitation was addressed by visually inspecting every figure, both tables, the equations and Algorithm 1 in the supplied PDF. References on p. 11 were read as text, without a separate page-image inspection.",
+      "Only the supplied v1 was reviewed; no later revision or separate supplement was supplied or compared. Its title and all seven authors agree with the catalog; no identity discrepancy was found.",
+      "The abstract states that code is available, but the linked repository was not inspected. No paper scripts were executed and no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 3)",
+      "Figure 2 (p. 5)",
+      "Figure 3 (p. 6)",
+      "Figure 4 (p. 7)",
+      "Figure 5 (p. 8)",
+      "Figure 6 (p. 9)",
+      "Figure 7 (p. 12)",
+      "Figure 8 (p. 13)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 8)",
+      "Table 2 (p. 9)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "LongScape generates embodied manipulation videos by choosing how many frames to predict next. Robot action annotations define variable-length training chunks; four diffusion experts specialize in their lengths, and a text-and-vision router selects an expert during autoregressive rollout. The reported gains concern video similarity and distributional quality on LIBERO and AGIBOT-World. The method supplies neither executed robot actions nor evidence that its videos improve downstream policies.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Fixed temporal chunks can divide a manipulation event or mix different motion regimes. The authors argue that this undermines long-horizon coherence, while discrete autoregressive generation sacrifices visual detail. Their target is a video generator that combines local diffusion fidelity with sequential generation and context-dependent temporal granularity.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "motivation",
+      "factorization"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A preprocessing heuristic uses gripper changes and six-dimensional motion ranges to construct 8-, 16-, 24- and 32-frame chunks.",
+      "kind": "source",
+      "evidenceIds": [
+        "partition"
+      ]
+    },
+    {
+      "text": "Four complete DiT experts specialize in chunk length, while a separate contextual classifier selects the next expert from instruction and visual context. Action labels supervise preprocessing, rather than serving as required inference-time commands.",
+      "kind": "source",
+      "evidenceIds": [
+        "experts",
+        "router"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Training: videos with aligned gripper states, positions/orientations and text instructions",
+      "Inference: an initial image and global text instruction, followed by generated visual context"
+    ],
+    "outputs": [
+      "A concatenated video generated through variable-length diffusion chunks"
+    ],
+    "steps": [
+      {
+        "name": "Partition demonstrations",
+        "detail": "Begin with non-overlapping eight-frame units. For each positional dimension, set a threshold to a fraction alpha of its whole-video motion amplitude. Grow a candidate from one to four units. Commit it when any motion range exceeds its threshold; otherwise commit at four units; otherwise isolate the final unit if its gripper state changes; otherwise expand. This branch order matters: motion and maximum length take precedence over gripper splitting.",
+        "evidenceIds": [
+          "partition",
+          "algorithm"
+        ]
+      },
+      {
+        "name": "Specialize denoisers",
+        "detail": "Initialize each of four experts from pretrained CogVideoX parameters. Each uses transformer blocks with 3D full attention, feed-forward networks and AdaLN, and predicts noise for its assigned chunk length conditioned on text and preceding video context. This is routing among full generators, rather than token-level switching inside one shared DiT.",
+        "evidenceIds": [
+          "experts"
+        ]
+      },
+      {
+        "name": "Learn the next chunk class",
+        "detail": "A single cross-attention transformer predicts a ground-truth expert index derived from partition lengths. Its cross-entropy objective is distinct from the experts' noise-prediction objective; the paper does not specify an end-to-end joint optimization schedule.",
+        "evidenceIds": [
+          "experts",
+          "router"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Videos are sampled at 10 Hz, yielding approximately 30,000 training clips from each dataset. Each expert has 5.57G parameters; routers have 71.35M parameters for LIBERO and 108.57M for AGIBOT-World. Each expert trains for two epochs, reportedly about 24 hours on four NVIDIA H20 GPUs. Router training separately takes about 24 hours on four H20s.",
+        "kind": "source",
+        "evidenceIds": [
+          "setup"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Encode the initial image and instruction. At each step, the router uses the instruction and visual features from the current chunk's last frame, chooses the highest-scoring expert, and lets that expert denoise the next chunk. Concatenate generated chunks and decode the video. The feedback is generated visual context; the described pipeline contains no physical execution or environmental observation loop.",
+        "kind": "source",
+        "evidenceIds": [
+          "router"
+        ]
+      },
+      {
+        "text": "Figure 3 leaves its score-bar class order unlabeled. Under the natural left-to-right expert ordering, its middle and right maxima do not match the arrows to Experts 2 and 3. Equations (4)–(5) unambiguously specify argmax routing; the illustrative assignments remain unresolved.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "router"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "p(V)=p(S_1)\\prod_{t=1}^{N-1}p(S_{t+1}\\mid S_1,\\ldots,S_t)",
+        "explanation": "Equation (1): V is the video, S_t its chunk at step t, and N the number of chunks. This is the general causal factorization. The implemented denoiser uses preceding context; the equation alone does not establish an explicit memory of every earlier chunk.",
+        "evidenceIds": [
+          "factorization",
+          "router"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_i=\\mathbb{E}\\left[\\left\\|\\epsilon-\\mathcal{E}_i(z_\\tau,\\tau,c,S_t)\\right\\|^2\\right]",
+        "explanation": "Equation (2), with expectation indices suppressed: expert E_i predicts added Gaussian noise epsilon. z_tau is the noisy target-chunk latent at diffusion step tau, c is the global text condition, and S_t is the preceding chunk. The clean latent z_0 represents target S_{t+1}; tau ranges over the diffusion schedule through T.",
+        "evidenceIds": [
+          "experts"
+        ]
+      },
+      {
+        "expression": "i^*=\\operatorname*{arg\\,max}_{i\\in\\{1,\\ldots,K\\}}\\mathcal{R}(c,S_t)_i,\\qquad S_{t+1}=\\mathcal{E}_{i^*}(S_t,c)",
+        "explanation": "Equations (4)–(5): R is the router, K=4 counts experts, and i* selects one expert. The second expression abbreviates iterative diffusion generation; it is not one denoising step or an action-control equation.",
+        "evidenceIds": [
+          "router"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO long-horizon video generation",
+      "setting": "Approximately 20-second composite manipulation videos; exact evaluation split and video count unspecified. CogVideoX generates the whole sequence, while autoregressive/hybrid models roll out iteratively.",
+      "metric": "PSNR / LPIPS / SSIM / FVD",
+      "value": "19.977 / 0.1231 / 0.7883 / 153.72",
+      "comparison": "CogVideoX: 19.315 / 0.1402 / 0.7729 / 184.69, the strongest listed baseline in every LIBERO column.",
+      "interpretation": "All four metrics favor LongScape. These are video-quality results without reported uncertainty, not manipulation success rates.",
+      "evidenceIds": [
+        "main-results",
+        "comparison",
+        "setup"
+      ]
+    },
+    {
+      "task": "AGIBOT-World long-horizon video generation",
+      "setting": "Approximately 20-second composite tasks from real-world robot video; exact evaluation split and count unspecified.",
+      "metric": "PSNR / LPIPS / SSIM / FVD",
+      "value": "16.493 / 0.3613 / 0.7015 / 256.16",
+      "comparison": "Best baseline by column: Genie PSNR 16.166 and LPIPS 0.3620; NOVA SSIM 0.6998; CogVideoX FVD 267.39.",
+      "interpretation": "LongScape leads each column, but the LPIPS and SSIM margins are small and their statistical reliability is unreported.",
+      "evidenceIds": [
+        "main-results",
+        "comparison"
+      ]
+    },
+    {
+      "task": "Adaptive experts versus fixed chunk lengths",
+      "setting": "Single-expert variants trained exclusively on 8-, 16-, 24- or 32-frame chunks, evaluated on both datasets.",
+      "metric": "FVD, lower is better",
+      "value": "LongScape: 153.72 on LIBERO; 256.16 on AGIBOT-World",
+      "comparison": "Best fixed-length FVD: LIBERO 16-frame model, 176.55; AGIBOT-World 32-frame model, 282.38.",
+      "interpretation": "Adaptive LongScape wins, but performance is not monotonic in fixed length. The comparison changes expert count, specialization and partitioning together, so it cannot assign the gain uniquely to routing.",
+      "evidenceIds": [
+        "ablation",
+        "experts"
+      ]
+    },
+    {
+      "task": "LIBERO next-expert classification",
+      "setting": "Four-class router test on 12,700 samples.",
+      "metric": "Expert-index accuracy",
+      "value": "11,606 correct; reported accuracy 91.4%",
+      "comparison": "No majority-class, random-router or oracle-generation baseline is reported.",
+      "interpretation": "The router usually reproduces heuristic labels. The test does not establish accuracy on drifting generated contexts or downstream video quality conditional on a routing error.",
+      "evidenceIds": [
+        "router-test",
+        "router"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify heuristic chunking as a limitation and leave learned partitioning, multiple camera views and several-minute generation to future work.",
+      "kind": "source",
+      "evidenceIds": [
+        "future-work"
+      ]
+    },
+    {
+      "text": "The introduction claims stability over 15 rollouts, but the paper supplies no horizon-by-horizon quantitative curve. Selected qualitative frames support examples of coherence; they cannot establish continuous physical validity, executed task success or downstream policy improvement.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "motivation",
+        "qualitative",
+        "qualitative-ablation",
+        "main-results"
+      ]
+    },
+    {
+      "text": "The stated average improvements of 8.6% and 5.8% lack an explicit aggregation definition. Different baseline sizes and training budgets are insufficiently documented for a compute-matched comparison. Activating one expert also does not establish peak-memory or latency parity; those measurements and weight-loading details are absent.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "comparison",
+        "baselines",
+        "router",
+        "setup"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs aligned action/video data, instructions, the CogVideoX initialization, all four expert checkpoints and the contextual router. Appendix A.1 identifies the CogVideoX baseline as 5B, but exact Genie/NOVA configurations and training schedules are not supplied.",
+      "kind": "source",
+      "evidenceIds": [
+        "partition",
+        "experts",
+        "router",
+        "baselines"
+      ]
+    },
+    {
+      "text": "The numerical alpha threshold, optimizer, learning rate, batch size, resolution, sampling/guidance settings, frozen-module policy, software versions, seeds and generation-test split are unspecified. Algorithm 1 also omits explicit pointer advancement/reset, tail handling and treatment of the empty prefix when a gripper change occurs at n=1. These need clarification or declared implementation choices.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "partition",
+        "algorithm",
+        "experts",
+        "setup",
+        "comparison"
+      ]
+    },
+    {
+      "text": "Proposed checks should separate semantic partitioning from extra capacity, and test learned routing under generated-context drift. Keep evaluation videos and budgets fixed, report uncertainty and compare against controlled partition or routing alternatives; neither check has been run here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ablation",
+        "router-test",
+        "router"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Foundational work / Neural world simulators placement is supported: LongScape learns visual dynamics and generates videos. Its action annotations shape training chunks, while inference predicts future visuals from text and context. No action head, inverse-dynamics action extraction or policy execution is specified, so the action-model architecture/prediction quadrants remain not applicable. Four generative experts do not establish a joint future-and-action One Model architecture.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "partition",
+        "experts",
+        "router"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Neural world simulators"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "c85de420176fcfe30aeef8b4452aada03e88e6003aa0f4e041af47b1429dc046"
+    }
+  },
+  "discussionQuestions": [
+    "Would a capacity-matched model with nonsemantic variable lengths retain the gains?",
+    "How does an incorrect chunk-length decision affect subsequent generated contexts and router errors?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, affiliations, abstract and arXiv margin stamp",
+      "detail": "Title matches the catalog. Authors are Yu Shang, Lei Jin, Yiding Ma, Xin Zhang, Chen Gao, Wei Wu and Yong Li; affiliations are Tsinghua University and Manifold AI. The stamp identifies arXiv:2509.21790v1, 26 Sep 2025. The abstract states code availability via a repository link."
+    },
+    {
+      "id": "motivation",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "The authors motivate adaptive chunks by temporal drift and fixed-chunk semantic fragmentation, and claim stable generation over 15 rollouts."
+    },
+    {
+      "id": "factorization",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1, Equation (1) and conditional denoising discussion",
+      "detail": "Video is factorized into causal chunks; next-chunk generation uses continuous latent diffusion conditioned on preceding video context."
+    },
+    {
+      "id": "partition",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 1; p. 4, Section 3.2",
+      "detail": "Action ranges and gripper changes guide grouping of eight-frame units into four possible lengths. Thresholds are a fraction alpha of per-video motion amplitude; no numerical alpha is given. Figure 1 labels both shorter and 32-frame examples with threshold crossings."
+    },
+    {
+      "id": "algorithm",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Algorithm 1, lines 1–16; p. 4, Section 3.2 numbered rules",
+      "detail": "The ordered branches test motion above threshold, then n=4, then a gripper change, then expansion. The pseudocode does not explicitly advance/reset its pointer or specify empty-prefix and residual-tail cases."
+    },
+    {
+      "id": "experts",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 2 and Section 3.3, Equation (2)",
+      "detail": "Four CogVideoX-initialized DiT experts specialize in chunk lengths, with 3D full attention and AdaLN; their conditional noise-prediction losses are separate from the illustrated router classification losses."
+    },
+    {
+      "id": "router",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Equations (3)–(5); p. 6, Figure 3 and caption",
+      "detail": "The cross-attention router learns expert labels with cross-entropy and uses instruction plus current visual context, specifically last-frame features at inference. Argmax selects one expert. Figure 3 shows VAE/text encoding, generated-context feedback, concatenation and decoding; its unlabeled middle/right score maxima visually differ from arrow destinations under left-to-right expert ordering. Memory economy is asserted without measurements."
+    },
+    {
+      "id": "setup",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.1, Datasets, Metrics and Implementation of LongScape",
+      "detail": "Both datasets are sampled at 10 Hz with about 30,000 training clips each. Experts have 5.57G parameters; AGIBOT/LIBERO routers have 108.57M/71.35M. Experts train for two epochs, about 24 hours on four H20s; router training takes about 24 hours on four H20s. Metrics assess generated images/videos."
+    },
+    {
+      "id": "comparison",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.2, Quantitative comparison",
+      "detail": "Tasks last approximately 20 seconds. CogVideoX generates entire sequences while autoregressive/hybrid baselines use rollouts. Average improvements of 8.6% on LIBERO and 5.8% on AGIBOT-World are asserted without an explicit aggregation formula."
+    },
+    {
+      "id": "main-results",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1, all rows and both dataset column groups",
+      "detail": "LongScape reports LIBERO PSNR/LPIPS/SSIM/FVD 19.977/0.1231/0.7883/153.72 and AGIBOT-World 16.493/0.3613/0.7015/256.16. Table arrows favor higher PSNR/SSIM and lower LPIPS/FVD; each LongScape entry beats all listed baselines. No uncertainty is shown."
+    },
+    {
+      "id": "qualitative",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 4 and Section 4.2; p. 8, Figure 5 and accompanying discussion",
+      "detail": "Selected frames compare a LIBERO drawer task and AGIBOT cloth folding. The text attributes ghosting, incorrect object choice and disappearance to baselines. These are generated-video examples, not physical deployment trials."
+    },
+    {
+      "id": "ablation",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 4.3; p. 9, Table 2, all fixed-length rows",
+      "detail": "Single experts trained on fixed 8/16/24/32-frame chunks are compared with LongScape. LIBERO fixed FVD values for 32/24/16/8 frames are 180.31/191.02/176.55/229.71; AGIBOT values are 282.38/303.75/373.50/387.49. LongScape achieves 153.72 and 256.16."
+    },
+    {
+      "id": "router-test",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.3, Effectiveness of the dynamic router; p. 12, Figure 7",
+      "detail": "The LIBERO router correctly classifies 11,606 of 12,700 samples, reported as 91.4%. Figure 7 plots counts against prediction error at ticks from -24 to 24 in steps of eight; it supplies no sign convention, class-conditioned confusion matrix or generated-context evaluation."
+    },
+    {
+      "id": "qualitative-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 6; p. 13, Figure 8 and captions",
+      "detail": "AGIBOT and LIBERO frame grids compare adaptive LongScape with four fixed-length variants. Figure 6 annotates generated sequences as successful, locomotion-only, discontinuous or limited-motion examples; these are illustrative labels rather than measured execution rates."
+    },
+    {
+      "id": "future-work",
+      "sourceId": "primary",
+      "location": "PDF p. 10, continuation of Section 5 before References",
+      "detail": "The authors identify heuristic partition rules and propose learned chunking, multi-view inputs and several-minute generation as future directions."
+    },
+    {
+      "id": "baselines",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix A.1, Details of Baselines",
+      "detail": "CogVideoX uses the 5B version. Genie is described as discrete-token autoregressive generation and NOVA as diffusion within autoregressive frame generation; their exact configurations and training budgets are not detailed."
+    }
+  ]
+}

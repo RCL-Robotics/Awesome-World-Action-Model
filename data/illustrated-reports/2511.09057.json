@@ -1,0 +1,291 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2511.09057",
+  "shortTitle": "PAN",
+  "thesis": "PAN combines language-conditioned latent prediction with causal video diffusion to support iterative simulation, while its evidence leaves physical validity and individual component benefits unresolved.",
+  "standfirst": "PAN treats a simulated future as both a sequence of compact world states and a video that can be inspected. An autoregressive backbone uses visual history and natural-language actions to predict what comes next, while a diffusion decoder supplies detailed observations and feeds generated appearance back into the history. The central design question is how to preserve continuity when actions arrive one at a time and future details remain uncertain. This reading follows the state pathway, the decoder's separate conditioning streams, and its causal denoising window before examining the benchmark. It distinguishes simulated planning gains from physical execution and preserves the paper's unresolved noise-schedule convention.",
+  "evidenceIds": [
+    "architecture",
+    "conditioning",
+    "window",
+    "inference",
+    "planning",
+    "planning-results",
+    "flow",
+    "window-details"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 5,
+      "asset": "report-assets/2511.09057/architecture.png",
+      "width": 1199,
+      "height": 761,
+      "sourceSha256": "81201c0b7046011620abb614d78e6b2ecaa02e1e116ecf374dd98a10a907d16f",
+      "sourceUrl": "https://arxiv.org/pdf/2511.09057#page=5",
+      "crop": [
+        0.145,
+        0.07,
+        0.85,
+        0.416
+      ],
+      "alt": "Diagram linking an initial car image to a vision encoder, autoregressive world states, language actions and a video decoder, with history connections.",
+      "caption": "PAN links a long-history latent predictor to a decoder that maintains local video continuity.",
+      "readingGuide": "Start at the initial observation in the upper left and follow its downward path through the vision encoder. Blue tokens represent latent world states, while green tokens represent language actions. The yellow backbone predicts successive states using historical context; the pale blue decoder turns those states into video observations. Horizontal decoder connections represent local continuity, while long backbone arcs represent access to earlier context. The diagonal feedback paths should be read alongside Section 5: generated observations are re-encoded and appended to the next prediction context. This diagram summarizes information flow rather than specifying the exact tensor layout or training updates.",
+      "takeaway": "The separation lets PAN combine a compact state sequence with detailed video rendering. Crucially, simulation history includes both predicted latent states and the appearance of what the decoder actually generated. That is the source-defined feedback loop; it does not incorporate new measurements from a physical environment.",
+      "caution": "The final state–decoder link is drawn bidirectionally, whereas Equation 11 specifies state-to-observation generation. Section 5 separately defines observation re-encoding for feedback. Use those equations for implementation; the schematic does not define an inverse-dynamics or action-output module.",
+      "evidenceIds": [
+        "architecture",
+        "inference"
+      ]
+    },
+    {
+      "id": "decoder-conditioning",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 8,
+      "asset": "report-assets/2511.09057/decoder-conditioning.png",
+      "width": 956,
+      "height": 974,
+      "sourceSha256": "81201c0b7046011620abb614d78e6b2ecaa02e1e116ecf374dd98a10a907d16f",
+      "sourceUrl": "https://arxiv.org/pdf/2511.09057#page=8",
+      "crop": [
+        0.538,
+        0.438,
+        0.913,
+        0.733
+      ],
+      "alt": "Transformer block with action cross-attention and a copied world-state cross-attention branch feeding a zero-initialized linear layer and additive merge.",
+      "caption": "The diffusion block has separate pathways for current action text and predicted world state.",
+      "readingGuide": "Read this block from top to bottom. Hidden states first pass through self-attention, then feed two cross-attention streams. On the left, the action enters the existing text-conditioning path; Section 3.3.2 identifies its encoder as umT5. On the right, latent world-state features enter the copied cross-attention block. Its output passes through the explicitly marked zero-initialized linear projection before being added to the action-conditioned output. The combined representation continues into the feed-forward network. The surrounding repetition marker indicates this design is used across decoder blocks. The text also specifies an input projection for state features that the schematic does not show separately.",
+      "takeaway": "PAN preserves a direct action-conditioning route while adding state-dependent information from the autoregressive backbone. The zero-initialized output projection is a stabilization device: initially, the added pathway contributes no output through that projection. Learning can subsequently make world-state features affect the generated observation.",
+      "caution": "The two input routes create an opportunity to use history, but the diagram does not establish how much the trained decoder relies on each. The paper supplies no isolated ablation removing the state branch.",
+      "evidenceIds": [
+        "conditioning",
+        "visual-scope"
+      ]
+    },
+    {
+      "id": "causal-window",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 9,
+      "asset": "report-assets/2511.09057/causal-window.png",
+      "width": 1402,
+      "height": 583,
+      "sourceSha256": "81201c0b7046011620abb614d78e6b2ecaa02e1e116ecf374dd98a10a907d16f",
+      "sourceUrl": "https://arxiv.org/pdf/2511.09057#page=9",
+      "crop": [
+        0.088,
+        0.07,
+        0.913,
+        0.335
+      ],
+      "alt": "Shift-window denoising diagram with clean frames leaving left, fresh noise entering right and a block-causal green-and-white attention mask.",
+      "caption": "Causal Swin-DPM carries partially denoised context forward while hiding future chunks.",
+      "readingGuide": "Follow the queue from right to left: fresh noise enters, partially denoised content remains in the window, and completed frames leave. The drawing labels the noise scale T, whereas Section 3.3.3 calls the total scale K; both show a half-scale separation. Green blocks in the mask permit attention within each chunk and from the later chunk to the earlier chunk. The white upper-right block prevents the earlier chunk from accessing the future one. Section 5.1 adds an operational detail absent from the picture: DiT outputs are cached at each denoising step so the current chunk can finish before the next action is supplied.",
+      "takeaway": "The intended mechanism combines temporal overlap with causal interaction. Partially denoised history provides more transition context than a single final frame, while future-action masking avoids requiring an action that has not arrived. The authors argue this reduces accumulated artifacts, but cross-model results do not isolate that mechanism.",
+      "caution": "Schedule ambiguity remains: Equation 7 makes larger k cleaner, but Section 3.3.3 assigns k+0.5 to the later, supposedly noisier chunk; Section 3.3.5 also calls k=0.055 mild noise. The mask is interpretable, but the exact noise convention requires clarification.",
+      "evidenceIds": [
+        "window",
+        "window-details",
+        "flow",
+        "inference",
+        "visual-scope"
+      ]
+    },
+    {
+      "id": "planning-tree",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 18,
+      "asset": "report-assets/2511.09057/planning-tree.png",
+      "width": 1360,
+      "height": 722,
+      "sourceSha256": "81201c0b7046011620abb614d78e6b2ecaa02e1e116ecf374dd98a10a907d16f",
+      "sourceUrl": "https://arxiv.org/pdf/2511.09057#page=18",
+      "crop": [
+        0.09,
+        0.082,
+        0.89,
+        0.41
+      ],
+      "alt": "Tree of predicted robot manipulation images; blue arrows select yellow-can transfers and gray arrows mark alternative candidate actions toward equal tray counts.",
+      "caption": "The external agent searches over simulated consequences to choose a language action.",
+      "readingGuide": "Begin with the stated goal at the upper left: match yellow-can counts between the right blue tray and middle white tray. The initial observation is below it. Moving right, each column expands candidate language actions and displays their simulated consequences. Gray arrows identify alternatives that were explored; blue arrows mark the selected sequence, including grasping and releasing cans. The caption assigns proposal and selection to a VLM, while the world model supplies the imagined outcomes. Section 7.2 identifies the planning agent as OpenAI-o3. The final check mark denotes completion in this illustrated reasoning trajectory, not a separately reported hardware trial.",
+      "takeaway": "This example explains how a predictive model can assist planning without generating an executable policy itself. The agent compares imagined futures, selects an action and repeats from the chosen outcome. PAN therefore acts as an internal simulator within a larger decision process whose quality also depends on the external agent.",
+      "caution": "This is one selected search trace. It does not disclose the complete action budget, candidate-selection prompts or calibration of predicted goal progress against real outcomes. Robot imagery alone does not establish that the pictured plan was executed.",
+      "evidenceIds": [
+        "planning",
+        "planning-results"
+      ]
+    },
+    {
+      "id": "benchmark-results",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 5",
+      "page": 19,
+      "asset": "report-assets/2511.09057/benchmark-results.png",
+      "width": 1376,
+      "height": 1361,
+      "sourceSha256": "81201c0b7046011620abb614d78e6b2ecaa02e1e116ecf374dd98a10a907d16f",
+      "sourceUrl": "https://arxiv.org/pdf/2511.09057#page=19",
+      "crop": [
+        0.095,
+        0.073,
+        0.905,
+        0.692
+      ],
+      "alt": "Eight bar charts comparing PAN and baselines on atomic prediction, planning improvements, action fulfillment, transition smoothness and simulation consistency.",
+      "caption": "The result chart separates video quality, action effects and planning assistance.",
+      "readingGuide": "Read the three rows as distinct evaluations. The top-left panel reports atomic next-observation accuracy on Agibot after domain fine-tuning; the other top panels show improvement over the same VLM agent, not absolute success. The middle row separates environment interventions, agent behavior and their overall action-fulfillment score, using VLM judgment of generated rollouts. The bottom row measures optical-flow transition smoothness and WorldScore-derived simulation consistency with later-step penalties. Blue bars are PAN; gray bars are named baselines. Comparisons belong within a panel: the percentages do not share one definition. The planning sets contain 15 Agibot scenarios and 46 Language Table cases, whereas the other test counts and precise forecast horizon are unspecified.",
+      "takeaway": "PAN reaches 56.1% atomic prediction accuracy versus Cosmos2's 31.1%, and leads the forecast panels at 53.6% smoothness and 64.1% consistency. Its 58.6% overall action fulfillment exceeds the plotted open-source alternatives but trails MiniMax's 62.0%. Planning panels report +26.7 and +23.4 improvements, with their percent-versus-percentage-point convention unresolved.",
+      "caution": "No error bars or component ablations are shown. Human scoring for generated atomic predictions differs from latent-similarity scoring for V-JEPA 2. These comparisons support the reported benchmark ranking, not a proof of causal fidelity, physical execution or uniform superiority across all panels.",
+      "evidenceIds": [
+        "atomic-protocol",
+        "atomic-results",
+        "planning",
+        "planning-results",
+        "fidelity-protocol",
+        "fidelity-results",
+        "forecast-protocol",
+        "forecast-results",
+        "visual-scope"
+      ]
+    },
+    {
+      "id": "interactive-driving",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Section 8.1, unnumbered driving sequence",
+      "page": 22,
+      "asset": "report-assets/2511.09057/interactive-driving.png",
+      "width": 1263,
+      "height": 1914,
+      "sourceSha256": "81201c0b7046011620abb614d78e6b2ecaa02e1e116ecf374dd98a10a907d16f",
+      "sourceUrl": "https://arxiv.org/pdf/2511.09057#page=22",
+      "crop": [
+        0.127,
+        0.072,
+        0.87,
+        0.942
+      ],
+      "alt": "Nine rows of a red sports car driving through tunnels, flowers, snow, lava and a neon city; each row retains its language instruction.",
+      "caption": "A selected rollout changes environments while retaining a recognizable vehicle and viewpoint.",
+      "readingGuide": "Read each row left to right, then continue to the next instruction. The car first exits a mountain tunnel, then travels through a lit tunnel, a flower valley, snow, a volcanic landscape, an underground passage and a futuristic city. The text above each row is the source's instruction for that segment. Follow the vehicle silhouette and rear-view framing across environmental changes, and inspect the boundary between the last frame of one row and the first of the next. These are sampled stills from a qualitative simulation, so they can illustrate visual persistence and action-conditioned scene change but cannot directly reveal the smoothness of every intervening frame.",
+      "takeaway": "The example makes PAN's interaction format concrete: successive instructions can change the simulated setting while a recognizable red car remains central. It illustrates the breadth claimed for the simulator and complements the aggregate forecast scores. It is one selected trajectory rather than a measured distribution of long-horizon successes.",
+      "caution": "The page supplies no frame rate, full duration, physical ground truth or failure denominator. Changing from snow to lava through tunnels is an authored imagined scenario; it cannot establish accurate real driving dynamics or safe vehicle control.",
+      "evidenceIds": [
+        "qualitative",
+        "forecast-results"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "1. Make a latent prediction answer to observable data",
+      "kind": "source",
+      "text": "Start with the GLP objective: the encoder maps an observation into a state, the predictor advances that state under an action, and the decoder reconstructs the next observation. The discrepancy is imposed on the generated observation through flow matching, rather than only comparing two feature vectors. The authors argue that this anchors transitions to realizable sensory changes. PAN implements this idea with Qwen vision-language components, learnable query embeddings and a Wan diffusion decoder. The important implementation boundary is the freeze policy: in Stage 2, the VLM remains frozen while queries and the decoder are trained. Thus the phrase joint training does not mean every module learns new weights. Nor does the observation-space loss by itself demonstrate that all generated transitions obey physical laws; that stronger interpretation needs independent tests.",
+      "evidenceIds": [
+        "glp",
+        "architecture",
+        "flow",
+        "stage2",
+        "visual-scope"
+      ]
+    },
+    {
+      "heading": "2. Separate simulation feedback from causal video decoding",
+      "kind": "source",
+      "text": "At inference, the predicted latent state is only part of the next context. PAN also encodes the video it has just generated and appends that representation to its history. The next prediction can therefore use both the intended state and its visual realization. Locally, Causal Swin-DPM keeps partially noised chunks in a sliding window instead of restarting every segment from a single sharp image. Its block-causal mask prevents earlier content from seeing later context, and cached denoising outputs allow the next action to arrive after the current chunk finishes. These are two different continuity mechanisms: backbone history and decoder overlap. Neither supplies corrective measurements from the real world. Implementing the decoder also requires resolving the inconsistent apparent direction of the interpolation variable k across Equation 7 and the subsequent schedule description.",
+      "evidenceIds": [
+        "inference",
+        "window",
+        "window-details",
+        "flow"
+      ]
+    },
+    {
+      "heading": "3. Ask what the planner actually gains from imagination",
+      "kind": "analysis",
+      "text": "The planning experiment wraps the simulator in an external OpenAI-o3 agent. The agent proposes actions, inspects their predicted consequences and chooses the one that appears to advance the goal. Figure 4 makes that division of labor visible: the blue path is selected from gray alternatives, while the simulator renders the candidate outcomes. Reader interpretation: better-looking futures help only if their differences correctly rank the actions. A visually compelling but incorrect transfer of an object could otherwise mislead the search. The reported planning improvements are encouraging within the 15 Agibot scenarios and 46 Language Table cases, but the chart does not supply absolute success rates or clarify the improvement denominator. Treat this as evidence about a particular simulation-assisted decision process, with physical transfer still requiring a separate experiment.",
+      "evidenceIds": [
+        "planning",
+        "planning-results"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Isolate world-state conditioning under matched training",
+      "text": "Reader-proposed check, not performed: compare the full decoder with an otherwise matched decoder whose added world-state cross-attention contribution is disabled. Train both on the same fixed video/action subset with the same initialization, optimizer schedule, updates, causal window and direct umT5 action pathway. Use held-out action scripts with matched sampling seeds and report action fulfillment, transition smoothness and late-step consistency separately. Repeat across seeds and report uncertainty. If the state-conditioned variant does not improve history-dependent outcomes, the claimed benefit of the latent backbone is weakened even if visual quality remains high. Preserve the VLM freeze policy in both arms.",
+      "evidenceIds": [
+        "conditioning",
+        "stage1",
+        "stage2",
+        "fidelity-protocol",
+        "forecast-protocol",
+        "visual-scope"
+      ]
+    },
+    {
+      "title": "Test whether predicted goal progress survives independent execution",
+      "text": "Reader-proposed check, not performed: on a fixed set of Language Table-style tasks, compare the same planning agent with and without PAN under identical candidate-action and total decision budgets. Use identical initial states and goals, record each predicted outcome, then evaluate selected actions in an independently observed environment with a fixed execution interface. Score actual binary goal completion as well as predicted completion, and report raw counts, absolute rates and percentage-point differences. A high simulated success rate accompanied by unchanged or lower actual success would falsify the proposed transfer benefit. Keep this proposed execution test distinct from the paper's reported imagined trajectories.",
+      "evidenceIds": [
+        "planning",
+        "planning-results",
+        "atomic-protocol"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27
+    ],
+    "notes": "PDF pages 1–27 were rendered and actually viewed, including title/byline, contributor roster, every method/training/inference/evaluation page and all qualitative pages. Figures 1–5 and the six final crops were visually inspected; the architecture crop was expanded to retain complete action labels and viewed again. Figure 1's final bidirectional state–decoder link is interpreted using Section 5 rather than as inverse dynamics. Figure 2's branch merge and zero-initialized projection and Figure 3's mask were checked against their text. The unresolved k/noise convention is disclosed. References on pages 28–33 were read in text only. Full-motion videos, code and separate supplements were not inspected."
+  },
+  "featuredResultTask": "Long-horizon Forecast",
+  "visualLimitations": {
+    "kind": "analysis",
+    "text": "The reviewed v3 PDF contains no quantitative table and no controlled component ablation or ablation figure. Figure 5 is the original numerical evidence, so the edition preserves its eight bar charts instead of inventing a table. Architecture and qualitative figures fill the remaining visual roles; none is labeled as an ablation. The cross-model results cannot isolate Causal Swin-DPM, state conditioning or noise augmentation.",
+    "evidenceIds": [
+      "visual-scope",
+      "forecast-results",
+      "conditioning",
+      "window"
+    ]
+  }
+}

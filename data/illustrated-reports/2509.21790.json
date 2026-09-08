@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2509.21790",
+  "shortTitle": "LongScape",
+  "thesis": "LongScape turns action-derived chunk lengths into a choice among four video denoisers, improving reported long-horizon video quality while leaving routing causality and execution utility untested.",
+  "standfirst": "A robot approaching an object and closing its gripper need different kinds of temporal detail. LongScape uses that observation to decide the size of the next video segment. During preprocessing, recorded actions determine chunk boundaries. During generation, a learned router replaces those action annotations with a decision based on the instruction and recent visual context. Four diffusion experts then generate different chunk lengths, and their outputs become the context for later predictions. This edition follows the supplied September 2025 v1 from partition rules through training and inference to its two quantitative tables. The central evidence concerns generated-video quality; the architecture does not output a robot policy.",
+  "evidenceIds": [
+    "identity",
+    "partition",
+    "experts",
+    "router",
+    "main-results"
+  ],
+  "featuredResultTask": "LIBERO long-horizon video generation",
+  "visuals": [
+    {
+      "id": "action-partition",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 3,
+      "asset": "report-assets/2509.21790/action-partition.png",
+      "width": 1098,
+      "height": 235,
+      "sourceSha256": "44347deaad2224fd086c0de7a721d5ebc37c80df311e95ed8d1e4f63ffcf5d6e",
+      "sourceUrl": "https://arxiv.org/pdf/2509.21790#page=3",
+      "crop": [
+        0.178,
+        0.105,
+        0.824,
+        0.212
+      ],
+      "alt": "Four successive video chunks labeled 32, 8, 16 and 24 frames, with motion-threshold crossings or an effector-state change shown beneath them.",
+      "caption": "Action annotations determine the training video's temporal units.",
+      "readingGuide": "Read each purple boundary as one final chunk, then connect its length above to the action cue below. The eight-frame example isolates an effector-state change; the other examples terminate when an arm's accumulated action range crosses a threshold. Section 3.2 and Algorithm 1 explain how these lengths arise: start with eight frames and grow the candidate until an ordered stopping rule applies. A threshold crossing can therefore occur at 32 frames as well as at 16 or 24. The figure illustrates boundary construction, rather than a guarantee that every large-motion event always produces the shortest chunk.",
+      "takeaway": "Temporal granularity is supervised by recorded robot behavior before the generator is trained. The four allowed durations become four expert classes. This connects the segmentation heuristic to the learned routing problem, but it does not make the resulting units verified semantic action labels or equip inference with future robot commands.",
+      "caution": "The threshold fraction alpha is unspecified. Motion detection and the maximum-length branch precede gripper splitting in the written algorithm, so the caption's semantic-unit description is an intended effect, not an unconditional guarantee for every event boundary.",
+      "evidenceIds": [
+        "partition",
+        "algorithm",
+        "router"
+      ]
+    },
+    {
+      "id": "expert-training",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/2509.21790/expert-training.png",
+      "width": 969,
+      "height": 519,
+      "sourceSha256": "44347deaad2224fd086c0de7a721d5ebc37c80df311e95ed8d1e4f63ffcf5d6e",
+      "sourceUrl": "https://arxiv.org/pdf/2509.21790#page=5",
+      "crop": [
+        0.208,
+        0.104,
+        0.778,
+        0.34
+      ],
+      "alt": "An instruction connects to a contextual router and four DiT experts. Four chunk lengths supply diffusion losses to the experts and expert-index cross-entropy losses to the router.",
+      "caption": "Generating a chunk and selecting its generator have different training targets.",
+      "readingGuide": "Follow the lower half first: eight-, sixteen-, twenty-four- and thirty-two-frame examples align with Experts 1 through 4. The diffusion-loss links refer to Equation (2), where an expert predicts noise in a target latent using the instruction and preceding visual context. Now move upward: the router predicts expert identifiers, shown as predicted and ground-truth labels joined by cross-entropy losses. Equation (3) trains this classifier on instruction, current chunk and next-expert label. The diagram summarizes these two learning tasks; it does not depict the noisy latent, diffusion time or every preceding-context connection needed by the equations.",
+      "takeaway": "Specialization operates at the level of four CogVideoX-initialized denoisers. The router learns when to use them instead of synthesizing pixels itself. Its correctness is defined by preprocessing labels, which means excellent label prediction can coexist with imperfect chunk boundaries or imperfect generated motion.",
+      "caution": "The figure does not establish shared weights, encoder freezing or a joint end-to-end training schedule. The paper gives separate objectives and training times, but omits enough optimizer and configuration detail that this graphic alone cannot specify a reproducible training recipe.",
+      "evidenceIds": [
+        "experts",
+        "router",
+        "partition",
+        "setup"
+      ]
+    },
+    {
+      "id": "adaptive-inference",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 6,
+      "asset": "report-assets/2509.21790/adaptive-inference.png",
+      "width": 1047,
+      "height": 653,
+      "sourceSha256": "44347deaad2224fd086c0de7a721d5ebc37c80df311e95ed8d1e4f63ffcf5d6e",
+      "sourceUrl": "https://arxiv.org/pdf/2509.21790#page=6",
+      "crop": [
+        0.191,
+        0.103,
+        0.807,
+        0.4
+      ],
+      "alt": "Initial-image VAE encoding and text encoding feed a router above four experts; generated chunks feed later context through dotted arrows and are concatenated before VAE decoding.",
+      "caption": "Generated visual context determines which duration to predict next.",
+      "readingGuide": "Start at the initial frame and instruction on the left. Their encoded information reaches the router, which selects a generator for the next chunk. The green dotted arrows carry generated context into subsequent routing decisions; the text specifies last-frame visual features. Follow the chunks down to concatenation and VAE decoding to see the final output: a video. For the decision rule, use Equations (4)–(5): select the maximal router score and invoke that expert's iterative denoising process. The picture's score bars lack class labels, so their example destinations should not override this explicit mathematical rule.",
+      "takeaway": "LongScape adapts its video horizon one chunk at a time without requiring a future action sequence at inference. This also makes routing vulnerable to its own generated context: a visual error can influence the next duration decision. The diagram establishes this feedback path, not a measured robustness result.",
+      "caution": "If bars follow expert order, the middle group's third-bar maximum points to Expert 2 and the right group's fourth-bar maximum points to Expert 3. This appears inconsistent with argmax routing. The faithful figure is retained; its unlabeled bar mapping remains unresolved, while the report follows Equations (4)–(5).",
+      "evidenceIds": [
+        "router",
+        "experts"
+      ]
+    },
+    {
+      "id": "main-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 8,
+      "asset": "report-assets/2509.21790/main-results.png",
+      "width": 1094,
+      "height": 233,
+      "sourceSha256": "44347deaad2224fd086c0de7a721d5ebc37c80df311e95ed8d1e4f63ffcf5d6e",
+      "sourceUrl": "https://arxiv.org/pdf/2509.21790#page=8",
+      "crop": [
+        0.178,
+        0.141,
+        0.822,
+        0.247
+      ],
+      "alt": "Four video-generation methods compared on PSNR, LPIPS, SSIM and FVD for LIBERO and AGIBOT-World, with the LongScape row best in all eight columns.",
+      "caption": "LongScape leads the reported video-quality metrics on both datasets.",
+      "readingGuide": "Keep the two dataset blocks separate and follow each metric's direction arrow. PSNR and SSIM increase with the reported image similarity, while LPIPS and FVD decrease. On LIBERO, CogVideoX is the strongest baseline in all four columns, so one row gives a consistent comparison. On AGIBOT-World, the strongest comparator changes: Genie leads baseline PSNR and LPIPS, NOVA leads SSIM, and CogVideoX leads FVD. Section 4.2 describes approximately twenty-second composite tasks, with whole-sequence generation for CogVideoX and iterative rollout for autoregressive or hybrid methods. Thus the table compares complete systems under different generation structures.",
+      "takeaway": "LIBERO FVD falls from CogVideoX's 184.69 to 153.72, alongside improvements in all three image metrics. AGIBOT-World FVD falls from 267.39 to 256.16; its LPIPS margin over Genie is only 0.0007. The consistent directions support a video-quality advantage, while the varying margins discourage treating every gain as equally substantial.",
+      "caution": "The table contains no uncertainty, and the generation-test split and sample count are unspecified. It evaluates images and videos, not robot-executed success or downstream policy learning. Appendix A.1 also leaves baseline configurations too incomplete to establish a compute-matched comparison.",
+      "evidenceIds": [
+        "main-results",
+        "comparison",
+        "setup",
+        "baselines"
+      ]
+    },
+    {
+      "id": "fixed-chunk-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 9,
+      "asset": "report-assets/2509.21790/fixed-chunk-ablation.png",
+      "width": 1127,
+      "height": 262,
+      "sourceSha256": "44347deaad2224fd086c0de7a721d5ebc37c80df311e95ed8d1e4f63ffcf5d6e",
+      "sourceUrl": "https://arxiv.org/pdf/2509.21790#page=9",
+      "crop": [
+        0.175,
+        0.5,
+        0.838,
+        0.619
+      ],
+      "alt": "LongScape compared with single-expert models using 32-, 24-, 16- and 8-frame chunks, across four metrics on each of two datasets.",
+      "caption": "Adaptive generation beats each fixed-length variant, with no universal best fixed length.",
+      "readingGuide": "Read down one metric column before comparing datasets. The four lower rows are single experts trained exclusively on their respective fixed lengths; the top row combines four specialized experts with adaptive routing. LIBERO's best fixed FVD is 176.55 for sixteen frames, even though the thirty-two-frame model leads the fixed variants in the other three LIBERO metrics. On AGIBOT-World, thirty-two frames gives the best fixed FVD, while other metrics prefer different lengths. These crossings matter: the evidence supports an adaptive system over the listed fixed systems, rather than a simple rule that longer chunks are always better.",
+      "takeaway": "LongScape's FVD is 153.72 on LIBERO and 256.16 on AGIBOT-World, outperforming the best fixed alternatives at 176.55 and 282.38. The pattern is consistent with different temporal scales being useful, but it does not determine whether semantic boundaries, expert specialization or additional total capacity contributes most.",
+      "caution": "Replacing four routed specialists with one fixed-length expert changes capacity, training allocation and boundary structure together. There is no capacity-matched nonsemantic partition control or router-only ablation here, so a causal claim about routing alone would exceed this table.",
+      "evidenceIds": [
+        "ablation",
+        "experts",
+        "partition"
+      ]
+    },
+    {
+      "id": "router-errors",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 7",
+      "page": 12,
+      "asset": "report-assets/2509.21790/router-errors.png",
+      "width": 1122,
+      "height": 862,
+      "sourceSha256": "44347deaad2224fd086c0de7a721d5ebc37c80df311e95ed8d1e4f63ffcf5d6e",
+      "sourceUrl": "https://arxiv.org/pdf/2509.21790#page=12",
+      "crop": [
+        0.335,
+        0.67,
+        0.665,
+        0.866
+      ],
+      "alt": "Prediction-error histogram with a dominant zero-error bar, smaller bars around minus and plus eight, and very small outer bars; axes are Count and Prediction Error.",
+      "caption": "The router usually matches its heuristic target, but error consequences are unmeasured.",
+      "readingGuide": "Begin with the large bar at zero, then inspect the much smaller off-center bars. The vertical axis counts predictions; the horizontal ticks run from minus twenty-four to twenty-four in increments of eight. These increments are compatible with the spacing between allowed chunk lengths, but the paper does not define the sign convention or an explicit error formula. Section 4.3 provides the reliable aggregate: 11,606 correct assignments out of 12,700 LIBERO samples, reported as 91.4% accuracy. This plot is an aggregate error distribution, not a confusion matrix showing which true expert class is hardest to predict.",
+      "takeaway": "Text and visual context contain enough information for the router to reproduce most action-derived length labels in the stated test. This supports replacing unavailable future action annotations with a learned selection rule. It does not show that the heuristic targets are optimal or that every misclassification has the same effect on video quality.",
+      "caution": "Per-class sample counts, a majority-class baseline, sign convention and an evaluation on generated contexts are absent. A high aggregate classification score therefore cannot by itself establish robust long-horizon routing or measure how a wrong duration affects subsequent chunks.",
+      "evidenceIds": [
+        "router-test",
+        "router",
+        "partition"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Turn action traces into a temporal vocabulary",
+      "text": "LongScape first uses information that generation will not have: the recorded robot's gripper and motion trace. It partitions eight-frame base units into four allowed lengths, then treats length as the expert label. To understand the heuristic, imagine a candidate whose motion remains below threshold and whose gripper state does not change. It keeps growing until another rule fires or the four-unit cap is reached. A candidate crossing the motion threshold is committed immediately, with that crossing included. A gripper change splits off the final unit only if the earlier branches have not already fired. This is why rule precedence and missing edge-case handling matter. The semantic interpretation is an author motivation; the actual training labels come from a deterministic action-range heuristic.",
+      "kind": "source",
+      "evidenceIds": [
+        "partition",
+        "algorithm",
+        "motivation"
+      ]
+    },
+    {
+      "heading": "Separate predicting noise from predicting duration",
+      "text": "Once the chunks exist, there are two supervised problems. Each DiT expert learns to remove noise from a target chunk of its assigned length, conditioned on text and preceding visual context. The router instead learns a classification target: which expert should generate the next chunk? At inference, the router's argmax determines the temporal extent of the next diffusion problem. The chosen expert produces pixels through latent denoising, and generated context then feeds the next decision. Reader analysis: this separates local image synthesis from temporal scheduling, but it also couples their failures over time. A poor generated frame can distort routing even if the classifier performs well on its original test samples. Neither the causal factorization nor the router's label accuracy guarantees physical consistency.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "factorization",
+        "experts",
+        "router",
+        "router-test"
+      ]
+    },
+    {
+      "heading": "Ask what each experiment can identify",
+      "text": "Table 1 answers whether the complete LongScape system scores better than the listed baselines on generated-video metrics. Table 2 narrows the comparison to fixed-length single experts and shows that none matches the full adaptive system. Figure 7 then checks how often the router reproduces its assigned expert label. These are complementary tests, but they do not form a clean causal decomposition. Reader analysis: to credit semantic partitioning specifically, a control needs similar capacity and training exposure with boundaries unrelated to actions. To credit the router specifically, the experts should stay fixed while routing changes. The qualitative frames help locate plausible failure modes, but sampled images and labels such as successful action are not measured robot execution. This distinction limits how far the system's data-generation promise has been tested.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "main-results",
+        "ablation",
+        "router-test",
+        "qualitative",
+        "qualitative-ablation",
+        "experts"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does action-aligned segmentation matter at matched capacity?",
+      "text": "Reader-proposed, not run: compare the published action-guided partition with boundaries randomized within each training video while preserving its chunk-length histogram. Train four experts and a router in both arms, matching initialization, frame exposure and optimization budget. Evaluate identical held-out videos and prompts across seeds, reporting FVD and image metrics plus separately annotated boundary discontinuities. Specify alpha and algorithm edge cases before training. If the action-guided advantage disappears at matched capacity and length distribution, Table 2's gains would not uniquely support semantic boundary placement; a reproducible advantage would support that contribution.",
+      "evidenceIds": [
+        "partition",
+        "algorithm",
+        "experts",
+        "ablation",
+        "main-results"
+      ]
+    },
+    {
+      "title": "Does generated context degrade routing and amplify errors?",
+      "text": "Reader-proposed, not run: freeze the trained experts and router. At aligned positions in held-out demonstrations, score next-length classification using either the ground-truth preceding image or a generated preceding image. Report per-class accuracy and confusion, then compare rollouts under learned routing, heuristic labels derived from the held-out action trace as an evaluation oracle, and a frequency-matched random router. Match final video duration, initial images, prompts and sampling settings; report FVD, boundary discontinuities and error versus elapsed time. A generated-context accuracy drop accompanied by an oracle rollout advantage would identify routing drift as a remaining bottleneck.",
+      "evidenceIds": [
+        "router",
+        "router-test",
+        "partition",
+        "main-results",
+        "ablation"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      12,
+      13
+    ],
+    "notes": "Visually inspected the title/authors/version page, all eight original figures, Tables 1–2, method equations, the implementation and evaluation passages, the conclusion's future-work paragraph, Appendix A.1 and Algorithm 1. All six final original crops were separately viewed; Figure 7 was cropped from a 400-DPI render, and the other assets from 200-DPI renders. Figure 3's score-bar/arrow ambiguity was cross-checked against Equations (4)–(5) and disclosed. Figure 1 was checked against the ordered rules in Section 3.2 and Algorithm 1. All four text chunks, including references and the appendix, were read. Reference-only p. 11 was read as text and is outside the page-image pass. No separate supplement, code or continuous video playback was inspected."
+  }
+}
