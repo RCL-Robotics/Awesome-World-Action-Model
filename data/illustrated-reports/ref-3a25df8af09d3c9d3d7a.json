@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-3a25df8af09d3c9d3d7a",
+  "shortTitle": "DriveVLA-W0",
+  "thesis": "Predicting visual futures during training improves driving representations at large data scale, while an optional action expert reduces decoding cost without generating images during control.",
+  "standfirst": "A driving VLA must compress a camera scene into a short trajectory, leaving most visual structure without direct supervision. DriveVLA-W0 adds an image-prediction task to that training problem. Its two implementations follow the backbone's visual representation: discrete tokens support autoregression, while continuous features condition a diffusion model. A smaller action expert then specializes trajectory generation. The central reading question is which evidence supports better representations, which supports faster decoding, and which merely shows plausible generated scenes. The paired scaling results are compelling at the largest setting, but intermediate regressions, comfort tradeoffs and documented failures constrain the broader claims.",
+  "evidenceIds": [
+    "e-motivation",
+    "e-wm",
+    "e-expert",
+    "e-scaling",
+    "e-v2",
+    "e-dynamic-failure"
+  ],
+  "featuredResultTask": "Large-data planning with visual supervision",
+  "visuals": [
+    {
+      "id": "world-models",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "width": 1381,
+      "height": 817,
+      "crop": [
+        0.175,
+        0.102,
+        0.825,
+        0.399
+      ],
+      "alt": "Two world-model branches above an interleaved language, image and action backbone: autoregressive visual tokens on the left and conditional latent denoising on the right. Snowflakes mark frozen modules and flames mark trainable modules.",
+      "caption": "Two visual prediction objectives train the driving representation.",
+      "readingGuide": "Start at the bottom, where language, images and previous actions enter their respective tokenization modules. The central backbone produces language, visual and action features. Follow the upper-left branch as next-token prediction of an image from its preceding context; Section 3.2 calls this the current image because time is indexed relative to that prefix. On the right, a frozen VAE encodes the next image, noise is added, and a trainable denoiser receives current visual/action features as conditioning. The downward green gradient marker shows supervision reaching those features. Snowflakes and flames distinguish frozen coding components from trainable components; they do not indicate inference-time routing.",
+      "takeaway": "A discrete visual vocabulary permits the same autoregressive backbone to receive dense image-token supervision. Continuous ViT features instead receive that supervision through a diffusion branch. Both designs train predictive representations, and the paper explicitly bypasses image generation during driving. The illustration therefore explains the training signal, not an online search through generated futures.",
+      "caution": "Read the causal-prefix definition in Equation (2) alongside the diagram: AR predicts V_t, whereas diffusion predicts I_{t+1}. Treating both as reconstruction of the fully observed current frame would erase the mechanism. Loss weights and detailed diffusion configuration remain unspecified.",
+      "evidenceIds": [
+        "e-context",
+        "e-wm"
+      ],
+      "asset": "report-assets/ref-3a25df8af09d3c9d3d7a/world-models.png",
+      "sourceSha256": "1a29df41a78a27e0a9f6e9a36580f2610a336c28dea79821cef984a563f579d5",
+      "sourceUrl": "https://proceedings.iclr.cc/paper_files/paper/2026/file/0d70423f59c5fdd24f0dd3fa52e34623-Paper-Conference.pdf#page=4"
+    },
+    {
+      "id": "action-experts",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 6,
+      "width": 1658,
+      "height": 429,
+      "crop": [
+        0.175,
+        0.102,
+        0.825,
+        0.232
+      ],
+      "alt": "An 8B VLA expert and a 500M action expert share a joint-attention operation. Three adjacent panels show one-pass query regression, autoregressive action tokens and iterative flow-matching denoising, each with previous-action prefilling.",
+      "caption": "Shared attention connects a large context model to three alternative action decoders.",
+      "readingGuide": "Read panel (a) upward: each expert applies its own normalization and feed-forward processing, while joint attention connects their token streams. Equation (4) specifies concatenation of queries, keys and values, followed by splitting the resulting outputs. Panels (b)–(d) then show alternative output procedures, not three decoders run together. Query-based decoding maps updated queries through an MLP to waypoints. The orange feedback arrows in the AR panel represent sequential token generation. The loop in the flow panel represents repeated continuous denoising before denormalization. Every option prefills the previous action, preserving a common temporal input across the comparison.",
+      "takeaway": "The expert architecture changes where repeated action-generation computation occurs while retaining access to the large model's context. The query expert produces a full trajectory in one pass; autoregression incurs token-dependent cost; flow matching incurs iterative cost. This makes decoder choice a joint accuracy and latency decision, rather than a uniform acceleration.",
+      "caution": "The paper calls this MoE, but the shown mechanism is coupled transformer streams, without a depicted sparse routing gate. The 74.3 ms headline belongs to the query expert; it cannot be combined with the separate AR best-of-six score.",
+      "evidenceIds": [
+        "e-expert",
+        "e-latency",
+        "e-v1"
+      ],
+      "asset": "report-assets/ref-3a25df8af09d3c9d3d7a/action-experts.png",
+      "sourceSha256": "1a29df41a78a27e0a9f6e9a36580f2610a336c28dea79821cef984a563f579d5",
+      "sourceUrl": "https://proceedings.iclr.cc/paper_files/paper/2026/file/0d70423f59c5fdd24f0dd3fa52e34623-Paper-Conference.pdf#page=6"
+    },
+    {
+      "id": "data-scaling",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 9,
+      "width": 1658,
+      "height": 409,
+      "crop": [
+        0.175,
+        0.241,
+        0.825,
+        0.365
+      ],
+      "alt": "Table comparing TransFuser and paired VQ/ViT VLA baselines with world modeling at 70k, 700k and 70M training frames. Columns report ADE in meters and collision in percent; two middle-scale changes are marked as regressions.",
+      "caption": "Paired comparisons show strong large-data gains and mixed intermediate-scale effects.",
+      "readingGuide": "Compare each VLA baseline with the immediately following '+ World Model' row within the same data-scale block. The table excludes action experts, making these pairs more informative about visual supervision than the separately optimized benchmark scores. ADE is in meters over the in-house three-second trajectory; collision is in percent and lower is better for both. Green upward annotations denote relative improvements even though the metric values decrease; red downward annotations denote deterioration. Read the absolute entries first, then their annotations. The TransFuser rows provide additional baselines, but change architecture and initialization rather than isolating the world-model loss.",
+      "takeaway": "At 70M frames, VQ ADE falls from 1.4829 to 1.0563 m, a reported 28.8% reduction; ViT collision falls from 0.0359% to 0.0302%, a reported 15.9% reduction. At 700k, VQ ADE and ViT collision instead worsen. The strongest supported result is therefore a large-data benefit under this protocol, with exceptions at smaller settings.",
+      "caution": "Figure 1 labels its scales 700K/7M/70M and annotates 20.4%, unlike the 70k/700k/70M table and main text. This discrepancy remains unresolved. Three scales and no reported uncertainty do not establish a universal power law or a guaranteed benefit from extra data.",
+      "evidenceIds": [
+        "e-scaling",
+        "e-data",
+        "e-baselines",
+        "e-scale-conflict"
+      ],
+      "asset": "report-assets/ref-3a25df8af09d3c9d3d7a/data-scaling.png",
+      "sourceSha256": "1a29df41a78a27e0a9f6e9a36580f2610a336c28dea79821cef984a563f579d5",
+      "sourceUrl": "https://proceedings.iclr.cc/paper_files/paper/2026/file/0d70423f59c5fdd24f0dd3fa52e34623-Paper-Conference.pdf#page=9"
+    },
+    {
+      "id": "navsim-v2",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "width": 1658,
+      "height": 340,
+      "crop": [
+        0.175,
+        0.508,
+        0.825,
+        0.611
+      ],
+      "alt": "NAVSIM v2 table showing DriveVLA-W0 with the highest listed EPDMS of 86.1, versus DiffusionDrive at 84.5, but extended comfort of 58.9 versus 87.7.",
+      "caption": "The aggregate benchmark lead includes a pronounced comfort tradeoff.",
+      "readingGuide": "Start with the shaded rightmost EPDMS column, then move left to see which criteria contribute to the aggregate. NC means no at-fault collision; DAC, drivable-area compliance; DDC, driving-direction compliance; and TLC, traffic-light compliance. The remaining columns are ego progress, time to collision, lane keeping, history comfort and extended comfort. Section 4.1 combines compliance penalties with weighted subscores, so a leading aggregate need not mean every component improves. Compare the final row with DiffusionDrive immediately above it. Keep the dash in ARTEMIS's extended-comfort cell as missing information; it is not a zero or a measured failure.",
+      "takeaway": "DriveVLA-W0 reports 86.1 EPDMS against DiffusionDrive's 84.5, a 1.6-point advantage in this table. However, extended comfort is 58.9 versus 87.7. Reading the component columns therefore changes the conclusion from blanket superiority to a specific aggregate planning gain with a visible weakness.",
+      "caution": "Table 2 does not identify the action-expert or candidate-selection variant for its DriveVLA-W0 row. Do not import that setting from the differently annotated NAVSIM v1 table, or treat these aggregate benchmark scores as physical deployment evidence.",
+      "evidenceIds": [
+        "e-v2",
+        "e-data",
+        "e-v1"
+      ],
+      "asset": "report-assets/ref-3a25df8af09d3c9d3d7a/navsim-v2.png",
+      "sourceSha256": "1a29df41a78a27e0a9f6e9a36580f2610a336c28dea79821cef984a563f579d5",
+      "sourceUrl": "https://proceedings.iclr.cc/paper_files/paper/2026/file/0d70423f59c5fdd24f0dd3fa52e34623-Paper-Conference.pdf#page=7"
+    },
+    {
+      "id": "sequence-ablations",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Tables 5 and 6",
+      "page": 10,
+      "width": 1658,
+      "height": 248,
+      "crop": [
+        0.175,
+        0.141,
+        0.825,
+        0.216
+      ],
+      "alt": "Two side-by-side ablation tables. The left fixes 2VA fine-tuning and varies pretraining from none to 6V to 6VA. The right compares VA, 2VA and 6VA pretraining with the listed fine-tuning sequences.",
+      "caption": "Action interleaving and temporal context help, but the controls answer different questions.",
+      "readingGuide": "The left table is Table 5: read pretraining down the first column while checking that fine-tuning remains 2VA. The slash denotes no pretraining, 6V denotes the vision-only configuration, and 6VA adds interleaved actions. The right table is Table 6: read both sequence columns together, because the VA row also changes fine-tuning. NC and DAC measure collision and drivable-area compliance; shaded PDMS summarizes planning. These experiments use the default VQ model without action experts. For the cleaner pretraining-context comparison on the right, compare 2VA with 6VA, since both retain 2VA fine-tuning.",
+      "takeaway": "With fixed 2VA fine-tuning, PDMS progresses from 80.7 without pretraining to 84.1 after 6V and 85.6 after 6VA. In Table 6, extending pretraining from 2VA to 6VA improves PDMS from 84.2 to 85.6. Both comparisons support richer pretraining context under the reported setup.",
+      "caution": "The VA-to-6VA comparison changes both pretraining and fine-tuning context, while 6V-to-6VA changes action availability and supervision. These controls support the design but do not prove causal dynamics learning. Appendix Table 8 also leaves a sequence-label/score inconsistency unresolved.",
+      "evidenceIds": [
+        "e-sequence",
+        "e-training",
+        "e-fidelity"
+      ],
+      "asset": "report-assets/ref-3a25df8af09d3c9d3d7a/sequence-ablations.png",
+      "sourceSha256": "1a29df41a78a27e0a9f6e9a36580f2610a336c28dea79821cef984a563f579d5",
+      "sourceUrl": "https://proceedings.iclr.cc/paper_files/paper/2026/file/0d70423f59c5fdd24f0dd3fa52e34623-Paper-Conference.pdf#page=10"
+    },
+    {
+      "id": "dynamic-object-failure",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 12",
+      "page": 20,
+      "width": 1658,
+      "height": 743,
+      "crop": [
+        0.175,
+        0.107,
+        0.825,
+        0.332
+      ],
+      "alt": "Intersection failure case with two input frames and three rows of future frames. A red circle marks an oncoming car in ground truth and its absence in a generated frame conditioned on the ground-truth trajectory. A map shows a red predicted left turn and green ground-truth path.",
+      "caption": "A plausible scene can still omit a vehicle that matters to the plan.",
+      "readingGuide": "Read the two input frames first, then move left to right through the four future columns. Compare the ground-truth row with the row conditioned on the ground-truth trajectory: the red circles draw attention to an oncoming vehicle that the generated future misses. This comparison holds the supplied trajectory condition to the recorded trajectory, so the highlighted visual error is not simply a consequence of conditioning on the planner's different turn. The bottom row instead uses the predicted trajectory. On the map, this figure's legend assigns green dots to ground truth and red dots to the prediction. The caption states that all displayed images are MoVQGAN-token reconstructions.",
+      "takeaway": "The example exposes a task-relevant weakness that broad scene realism can conceal: the generated intersection remains recognizable while a conflicting vehicle is absent. The authors associate that prediction error with the incorrect left-turn plan. It motivates object-level diagnostics alongside aggregate planning scores and image-quality measures.",
+      "caution": "This is a selected diagnostic case, not a measured failure frequency. The caption's causal narrative does not mean generated images are consumed online: Section 3.2 says driving bypasses visual generation. The image therefore illustrates a representation weakness, not a documented rollout-based control chain.",
+      "evidenceIds": [
+        "e-dynamic-failure",
+        "e-wm"
+      ],
+      "asset": "report-assets/ref-3a25df8af09d3c9d3d7a/dynamic-object-failure.png",
+      "sourceSha256": "1a29df41a78a27e0a9f6e9a36580f2610a336c28dea79821cef984a563f579d5",
+      "sourceUrl": "https://proceedings.iclr.cc/paper_files/paper/2026/file/0d70423f59c5fdd24f0dd3fa52e34623-Paper-Conference.pdf#page=20"
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Why the visual target depends on the information already visible",
+      "text": "The two world-model branches solve different prediction problems because their conditioning differs. In the VQ branch, Equation (2) predicts the tokens of V_t from the prefix before that image plus previously generated image tokens. Calling V_t the current frame does not make this a reconstruction objective: the causal prefix has not already supplied the complete target image. In the ViT branch, the denoiser receives all current visual and action features together. Predicting that same observed image would allow a reconstruction shortcut, so the paper instead targets I_{t+1}. This explains the time-index difference visible in Figure 2. Reader interpretation: the important shared property is supervision about information beyond the available context, rather than a requirement that every backbone produce images with the same decoder.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-context",
+        "e-wm"
+      ]
+    },
+    {
+      "heading": "Separate representation learning from the cost of producing an action",
+      "text": "The two-stage schedule makes the paper's efficiency claim easier to understand. First, 6VA pretraining uses both action and visual losses to shape the VLA representation. Second, the model processes 2VA sequences and learns from the action expert's output loss, while the VLA backbone remains trainable. This is not a frozen teacher supplying fixed features. Joint attention connects the large and small parameter streams, and the decoder determines how often action-generation computation repeats. Queries need one pass, AR needs sequential tokens, and flow matching follows an iterative continuous path. The measured 74.3 ms result applies to the query expert on H200. Reader interpretation: the design offers several operating points; the maximum benchmark score and minimum measured latency cannot be combined into one demonstrated configuration.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-training",
+        "e-expert",
+        "e-latency",
+        "e-v1"
+      ]
+    },
+    {
+      "heading": "What survives a stricter reading of the scaling argument",
+      "text": "Table 3 gives the most direct evidence for the central training idea because it compares each base VLA with and without world modeling and excludes the action experts. Its large-data gains survive close reading, but its intermediate regressions rule out a uniform improvement claim. Table 4 asks a different question: which action decoder works best in each of two datasets? The ranking reversal is real in the table, yet data distribution and evaluation metrics change alongside scale. Finally, the appendix's FID comparison varies temporal context and contains a configuration inconsistency, so it cannot isolate image fidelity as the cause of better planning. Reader interpretation: the paper establishes useful empirical design choices under its reported protocols; causal explanations about supervision deficit, decoder capacity and physical understanding remain hypotheses for more controlled tests.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-scaling",
+        "e-decoder",
+        "e-fidelity",
+        "e-qualitative"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does aligned action context improve prediction beyond visual pretraining?",
+      "text": "Reader-proposed check, not performed: repeat the Table 5 comparison with the same VQ initialization, NuPlan frame subsets, 2VA NAVSIM fine-tuning, seeds and optimizer schedule. Compare action-only pretraining, 6V and aligned 6VA, reporting both update-matched and total-compute-matched results. At visual-prediction evaluation, additionally shuffle only the conditioning action histories among comparable clips and measure the change in future-image quality and oncoming-vehicle recall. Keep downstream planning evaluation unshuffled and report PDMS with uncertainty. An aligned-6VA planning benefit that survives compute matching, together with sensitivity to corrupted action context, would support the proposed mechanism. No benefit, or no sensitivity to action corruption, would weaken that explanation.",
+      "evidenceIds": [
+        "e-context",
+        "e-wm",
+        "e-training",
+        "e-sequence",
+        "e-scaling",
+        "e-dynamic-failure"
+      ]
+    },
+    {
+      "title": "Does decoder ranking reverse when only training-data size changes?",
+      "text": "Reader-proposed check, not performed: form nested training subsets from one fixed driving corpus and keep its test scenarios and trajectory horizon unchanged. At each size, initialize query, AR and flow-matching experts from the same pretrained checkpoint, as in Table 4. Compare a fixed training budget and a separate convergence-controlled budget, then evaluate ADE, collision and latency on the same hardware. Record AR token-length distributions and compare both single-output and explicitly matched candidate-selection budgets; sweep the flow step count rather than assuming ten steps is optimal. A reproducible AR crossover within this fixed distribution would support a scale-dependent advantage. A stable ranking, or a crossover removed by additional flow training, would challenge the scale-only explanation.",
+      "evidenceIds": [
+        "e-decoder",
+        "e-data",
+        "e-expert",
+        "e-latency",
+        "e-v1"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22
+    ],
+    "notes": "The title/author block, Figures 1–14, Tables 1–9, equations, training/evaluation text and Appendix B–D details were visually inspected on these pages. All six final original crops were separately inspected at their native rendered resolution. Figure 2's frozen/trainable markers, conditioning and gradient direction were checked against Section 3.2 and Eqs. (2)–(3); Figure 3's feedback loops were checked against Section 3.3 and Eq. (4). No claim-relevant architecture-marker conflict was found. Figure 1's scale labels conflict with Table 3; Appendix B.2 has the disclosed Table 5/6/8 configuration inconsistency. Reference-only pages 11–14 were read in the complete text but are not part of the visual audit. Separate supplements, external code, data and deployment were not inspected. The failure crop is a qualitative diagnostic, not a controlled ablation."
+  }
+}

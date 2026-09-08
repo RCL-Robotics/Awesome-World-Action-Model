@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2601.03782",
+  "shortTitle": "PointWorld",
+  "thesis": "PointWorld makes robot motion a geometric input to fast 3D scene prediction, enabling planner-based manipulation while depending on calibrated observations and accurately realized robot trajectories.",
+  "standfirst": "Imagine deciding how to fold a scarf from one RGB-D capture. PointWorld turns that problem into predictions about where the observed surface points will move for each contemplated gripper path. Its distinctive choice is to express both the scene and the robot's future motion as points in the same 3D space. A pretrained image encoder supplies visual features, a point-cloud network forecasts a short motion chunk, and a separate optimizer selects a path toward manually specified targets. The figures below trace this information flow, the evidence for its design choices, and the substantial gap between accurate short-horizon prediction and reliable physical execution.",
+  "evidenceIds": [
+    "e-model",
+    "e-cost",
+    "e-robot-results",
+    "e-deployment",
+    "e-limitations"
+  ],
+  "featuredResultTask": "Zero-shot physical manipulation across eight tasks",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2601.03782/architecture.png",
+      "width": 1154,
+      "height": 1035,
+      "sourceSha256": "368ee87a0aeb2b784026d4eb0bd47e38937759473a2762f0ac338f9ad06a4b08",
+      "sourceUrl": "https://arxiv.org/pdf/2601.03782#page=3",
+      "crop": [
+        0.094,
+        0.089,
+        0.482,
+        0.358
+      ],
+      "alt": "RGB-D scene observations and joint actions converted through a robot URDF form a concatenated point cloud; temporal robot features and DINOv3 scene features feed PTv3 to predict full-scene point flow.",
+      "caption": "Known gripper motion conditions a learned forecast of scene motion.",
+      "readingGuide": "Read the top half as input construction: the RGB-D observation supplies scene geometry, while joint actions and the URDF supply the magenta robot trajectories. Both occupy the concatenated cloud. The lower half separates their features before the PTv3 backbone produces scene flow. The DINOv3 box is shorthand: the text specifies projecting scene points into calibrated RGB views and sampling frozen image features, not running an image encoder directly on 3D coordinates. Temporal embeddings distinguish robot points at different future times. Figure 2 and Section 3.1 agree that robot motion is given to the model; the forecasted output is the scene response.",
+      "takeaway": "The architecture makes candidate actions geometrically comparable across robot embodiments while preserving their contact surfaces. One forward pass predicts ten future steps, each spaced by 0.1 seconds. This provides the dynamics function that a planner can repeatedly query; the diagram does not depict a learned policy selecting actions.",
+      "caution": "The initial scene is assumed static, and only observed scene points are propagated. Robot geometry follows forward kinematics as if the proposed trajectory were realized; contact-induced tracking error and gripper deformation are outside that assumption.",
+      "evidenceIds": [
+        "e-model",
+        "e-features",
+        "e-cost",
+        "e-limitations"
+      ]
+    },
+    {
+      "id": "backbone-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 9,
+      "asset": "report-assets/2601.03782/backbone-results.png",
+      "width": 1319,
+      "height": 607,
+      "sourceSha256": "368ee87a0aeb2b784026d4eb0bd47e38937759473a2762f0ac338f9ad06a4b08",
+      "sourceUrl": "https://arxiv.org/pdf/2601.03782#page=9",
+      "crop": [
+        0.094,
+        0.337,
+        0.482,
+        0.475
+      ],
+      "alt": "Table comparing GBND, PointNet, PointNet++, SparseConv, Transformer and four PTv3 sizes across relative parameters, memory, FLOPs, latency and mover/static error.",
+      "caption": "PTv3 scaling improves point-flow accuracy with a measurable latency cost.",
+      "readingGuide": "Start with the final two columns: they separate errors on moving and static points, measured in meters under the paper's evaluation protocol. The latency column is in milliseconds; parameter, memory and FLOP columns are ratios to GBND, not absolute resource counts. Compare the four PTv3 rows to see scaling within one backbone family, then compare against the other architectures. A smaller mover error alone is insufficient to judge a model that also disturbs background points, which is why the static column matters. These rows are Table 1's backbone comparison; Figure 7's progressive recipe is a different sequence and should not supply substitute baseline numbers.",
+      "takeaway": "PTv3-50M reports 0.0331 m mover error, improving to 0.0312 m for PTv3-1B; GBND reports 0.0390 m. The 1B model also reduces static error to 0.0056 m. Its 123.65 ms forward latency exceeds GBND's 13.46 ms, so accuracy gains come with a runtime tradeoff.",
+      "caution": "The DROID confidence filter has conflicting descriptions on pages 8 and 29. Forward-pass latency also excludes the full sampling optimizer: physical planning takes a few seconds. Training hardware counts on page 28 do not establish the timing setup for this table.",
+      "evidenceIds": [
+        "e-backbones",
+        "e-evaluation",
+        "e-roadmap",
+        "e-training",
+        "e-deployment"
+      ]
+    },
+    {
+      "id": "transfer-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 10,
+      "asset": "report-assets/2601.03782/transfer-results.png",
+      "width": 1505,
+      "height": 393,
+      "sourceSha256": "368ee87a0aeb2b784026d4eb0bd47e38937759473a2762f0ac338f9ad06a4b08",
+      "sourceUrl": "https://arxiv.org/pdf/2601.03782#page=10",
+      "crop": [
+        0.094,
+        0.371,
+        0.6,
+        0.473
+      ],
+      "alt": "Generalization table separates in-domain, cross-domain and held-out real evaluation, with zero-shot and finetuned mover/static errors and a from-scratch specialist reference.",
+      "caption": "Real-world pretraining transfers to a held-out lab; simulation alone leaves a larger zero-shot gap.",
+      "readingGuide": "Decode the arrows before comparing cells: D is DROID, B is BEHAVIOR-1K, and H is the held-out real CLVR lab. An arrow indicates the pretraining domain followed by the evaluation domain. The upper block is zero-shot evaluation, while the lower block permits adaptation. The gray From Scratch column is a specialist trained on the held-out lab, not another zero-shot model. For H, the lab data have a 90% training and 10% test split, and the finetuned variants use only the training subset. Each adaptation run uses one twentieth of the original training updates. Compare mover and static rows separately within a common target domain.",
+      "takeaway": "For held-out real scenes, mixed DROID+B1K pretraining gives 0.0300 m zero-shot mover error, close to DROID-only at 0.0305 m and the specialist at 0.0293 m. After adaptation, DROID-only and mixed models reach 0.0271 and 0.0272 m. B1K-only starts substantially worse at 0.0531 m.",
+      "caution": "Mixed pretraining does not improve every metric: its zero-shot held-out static error is 0.0063 m versus 0.0049 m for DROID-only. Reduced adaptation updates are not a comparison of total training cost, and the confidence-filter discrepancy still applies to real-data scores.",
+      "evidenceIds": [
+        "e-transfer",
+        "e-evaluation"
+      ]
+    },
+    {
+      "id": "action-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 11",
+      "page": 10,
+      "asset": "report-assets/2601.03782/action-ablation.png",
+      "width": 1246,
+      "height": 907,
+      "sourceSha256": "368ee87a0aeb2b784026d4eb0bd47e38937759473a2762f0ac338f9ad06a4b08",
+      "sourceUrl": "https://arxiv.org/pdf/2601.03782#page=10",
+      "crop": [
+        0.609,
+        0.361,
+        0.902,
+        0.526
+      ],
+      "alt": "Side-by-side DROID and BEHAVIOR-1K bar plots compare gripper-only flow, two whole-robot point budgets, end-effector pose and joint-position actions; gripper-only bars are lowest in each panel.",
+      "caption": "Concentrating action points on grippers performs best in the joint-training comparison.",
+      "readingGuide": "Use the colored symbols to associate each bar with an action representation; they serve as method labels rather than a separate measurement series. Both panels report mover error, but their vertical scales differ, so compare bar ordering within a panel. The two low-dimensional baselines use end-effector poses or joint positions plus gripper openness, whereas flow-based variants explicitly place robot points beside scene points. All variants are trained jointly on DROID and BEHAVIOR-1K. The gripper-only representation concentrates spatial resolution near likely contacts. The full-robot alternatives spread points over inactive body regions or increase the point budget, changing what the network must process.",
+      "takeaway": "Gripper-only flows have the lowest plotted mover error on both datasets. In simulation, whole-robot flows still outperform low-dimensional actions; in DROID, whole-robot variants underperform those baselines. This supports the particular contact-focused representation under the reported joint-training setup, while the authors' explanations about sparse signals remain mechanistic interpretations.",
+      "caution": "The dense full-robot count is unresolved: page 9 says 2,000 points, but this original legend says 3,000. Exact bar values are not tabulated. Joint-training comparisons alone do not isolate the benefit of cross-embodiment data sharing.",
+      "evidenceIds": [
+        "e-action-ablation"
+      ]
+    },
+    {
+      "id": "chunk-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 12",
+      "page": 11,
+      "asset": "report-assets/2601.03782/chunk-ablation.png",
+      "width": 1309,
+      "height": 643,
+      "sourceSha256": "368ee87a0aeb2b784026d4eb0bd47e38937759473a2762f0ac338f9ad06a4b08",
+      "sourceUrl": "https://arxiv.org/pdf/2601.03782#page=11",
+      "crop": [
+        0.516,
+        0.091,
+        0.901,
+        0.237
+      ],
+      "alt": "Five error curves compare autoregressive and chunked prediction strategies over ten 0.1-second timesteps, with matched chunking showing the lowest late-horizon error.",
+      "caption": "Training and inference should agree on how predicted states are reused.",
+      "readingGuide": "Read each legend arrow as training strategy followed by inference strategy. AR means autoregressive; sf means self-feeding and tf means teacher forcing, which uses reference inputs during training. The green and blue curves reuse a chunk-trained model through sliding windows of one or five steps. The solid red curve predicts the full chunk in the same way during training and inference. The horizontal axis advances in 0.1-second steps and the vertical axis measures mover error. The informative comparison is how the curves separate later in the horizon: repeatedly feeding predictions back can magnify deviations from the input distribution used during training.",
+      "takeaway": "Matched chunk training and inference yields the lowest late-horizon error among these settings while needing one forward pass for the ten-step prediction. Reusing the chunk model one step at a time produces the largest drift; a five-step window recovers part of the loss. Thus, a fast chunk model is not automatically a reliable single-step simulator.",
+      "caution": "The plot covers the trained one-second horizon. Physical planning chains three chunks over 30 steps, and the source does not provide an equivalent long-horizon drift curve here. This ablation does not establish robustness to arbitrary repeated rollout.",
+      "evidenceIds": [
+        "e-chunk-ablation",
+        "e-model",
+        "e-deployment"
+      ]
+    },
+    {
+      "id": "robot-results",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 8",
+      "page": 9,
+      "asset": "report-assets/2601.03782/robot-results.png",
+      "width": 1472,
+      "height": 808,
+      "sourceSha256": "368ee87a0aeb2b784026d4eb0bd47e38937759473a2762f0ac338f9ad06a4b08",
+      "sourceUrl": "https://arxiv.org/pdf/2601.03782#page=9",
+      "crop": [
+        0.094,
+        0.082,
+        0.589,
+        0.292
+      ],
+      "alt": "Eight success-rate bars show tissue box 70%, book 20%, scarf 80%, pillow 40%, microwave 30%, drawer 90%, duster 60% and broom 60%, above photographs of physical manipulation tasks.",
+      "caption": "Physical trials demonstrate diverse behaviors, with strongly uneven success across tasks.",
+      "readingGuide": "Read the bars as separate task-level success rates, not a continuous scale of task difficulty. The photographs illustrate pushing, deformable manipulation, articulated-object interaction and tool use; their arrows indicate intended motion rather than feedback or policy architecture. Appendix A.6 specifies ten randomly sampled, kinematically feasible initial configurations per task. A human restores each scene and starts execution; unsafe optimized plans count as failures. The robot uses one RGB-D capture and a jointly pretrained model with manual scene masks and target positions. Deformable and tool-use trials begin pre-grasped, so their rates evaluate the subsequent manipulation rather than autonomous grasp acquisition.",
+      "takeaway": "Drawer closing reaches 90% and scarf manipulation 80%, while book pushing and microwave opening reach 20% and 30%. Tissue-box pushing is 70%, pillow placement 40%, and both tools 60%. These are real executions using the learned dynamics model, showing a broader capability than motion-prediction accuracy alone, but also substantial failures.",
+      "caution": "Despite the MPC wording, Appendix A.6.1 explicitly says no replanning was performed. Each rate comes from ten trials, without reported confidence intervals or a competing physical controller baseline; detailed numerical success tolerances are also absent.",
+      "evidenceIds": [
+        "e-robot-results",
+        "e-deployment",
+        "e-open-details"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Turn a candidate action into contact geometry",
+      "kind": "source",
+      "text": "Begin with a calibrated RGB-D observation and a robot description. Back-project non-robot pixels into scene points, then propagate sampled gripper surface points along a proposed joint trajectory using forward kinematics. The resulting robot flows tell the model where the gripper would be, even where the camera cannot see it. PointWorld combines this temporal geometry with the initial scene cloud, frozen DINOv3 image features and raw geometric features. PTv3 then predicts displacements for the observed scene points. This is an action-conditioned forward model: robot motion is a condition, while scene motion is the prediction. A separate planner must still propose useful actions. Its geometric interface enables different embodiments to share a network, but the rigid-link and realized-trajectory assumptions remain part of that interface.",
+      "evidenceIds": [
+        "e-model",
+        "e-features",
+        "e-cost",
+        "e-limitations"
+      ]
+    },
+    {
+      "heading": "Make noisy movement supervision usable",
+      "kind": "analysis",
+      "text": "The training problem is unbalanced because most scene points remain static. Movement weighting uses reference displacements to increase the influence of moving points, but noisy real-world labels can then become unusually influential. The Huber residual and learned log-variance address that second problem: the residual is scaled by predicted inverse variance, while an additive log-variance term discourages assigning unlimited uncertainty. Real correspondences must also pass visibility and depth-validity masks. Simulation needs a different treatment. With nearly zero residuals, freely learned variance can collapse toward zero and produce unstable gradients, so the appendix replaces simulated uncertainty with a constant. Reader interpretation: these mechanisms concern learning from mixed-quality supervision; they do not by themselves constitute a calibrated measure of downstream planning risk.",
+      "evidenceIds": [
+        "e-loss",
+        "e-features",
+        "e-sim-variance"
+      ]
+    },
+    {
+      "heading": "Understand exactly what the planner demonstrated",
+      "kind": "analysis",
+      "text": "For deployment, the user selects scene points and target positions. MPPI samples end-effector trajectories, converts them into robot flows and rolls out their predicted scene consequences. Candidate costs combine point-to-goal distances with control regularization, then weighted updates refine the trajectory. The reported implementation plans 30 steps through three model chunks and sends the selected trajectory through inverse kinematics and a robot controller. Crucially, Appendix A.6.1 says the experiments do not replan. Reader interpretation: the success rates test whether a single observed scene and an optimized path suffice under the chosen initial configurations; they do not test recovery after an unexpected disturbance. Manual goals and pre-grasped starts also narrow the autonomy claim, even though no task-specific model finetuning is required.",
+      "evidenceIds": [
+        "e-cost",
+        "e-deployment",
+        "e-robot-results",
+        "e-limitations"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test whether model rankings depend on the confidence-filter interpretation",
+      "text": "Reader-proposed check, not performed: freeze one held-out DROID split, one expert model and identical evaluated predictions. Compare masks retaining the highest-confidence 80% against masks rejecting confidence below the 0.8 quantile, following the same voxel exclusion procedure. Add an unfiltered evaluation and a small independently checked correspondence subset. Report retained mover/static counts, error and model rankings for each mask. If rankings reverse or gains disappear on the checked subset, the reported improvements are sensitive to label selection; stable rankings would support a more robust conclusion. Resolve the source conflict before calling either implementation a faithful reproduction.",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-backbones"
+      ]
+    },
+    {
+      "title": "Separate model-prediction error from the absence of replanning",
+      "text": "Reader-proposed check, not performed: repeat matched tissue-box and drawer trials with the same checkpoint, manual goals, feasible initial configurations, cost terms and controller. Compare the reported single-plan execution against a variant that reacquires RGB-D and warm-starts MPPI after each executed chunk. Record total planning time, success, scene-flow error and commanded-versus-measured robot motion; retain unsafe plans as failures. Test both undisturbed scenes and predefined small object displacements. Improvement after disturbances would support feedback as a remedy for stale predictions. Persistent failures with large robot tracking deviations would instead challenge the assumption that commanded geometry is realized.",
+      "evidenceIds": [
+        "e-deployment",
+        "e-robot-results",
+        "e-limitations",
+        "e-chunk-ablation"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38
+    ],
+    "notes": "Visually inspected the title/author/version block; all main figures and both quantitative tables; appendix limitations, annotation equations and filtering, feature/training tables, uncertainty treatment, evaluation and deployment details; and Figures 14–21. All six final original-PDF crops were separately viewed with labels and legends intact. Figure 2's input/output connections were checked against Sections 3.1 and A.4; Figure 11's 2,000/3,000-point discrepancy, the confidence-filter conflict and the no-replanning deployment qualification are disclosed. All 12 text chunks were read. Reference-only pages 13–19 and contents page 20 were not rendered. No linked interactive visualizations, separate supplements, code or experiments were inspected or executed."
+  }
+}

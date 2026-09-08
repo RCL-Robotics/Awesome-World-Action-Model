@@ -1,0 +1,428 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-b21a967bfc27f43d29b2",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T20:33:45.322Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://openaccess.thecvf.com/content/CVPR2026/papers/Xia_DriveLaW_Unifying_Planning_and_Video_Generation_in_a_Latent_Driving_CVPR_2026_paper.pdf",
+      "title": "DriveLaW: Unifying Planning and Video Generation in a Latent Driving World",
+      "kind": "pdf",
+      "sha256": "74c3b1f2a64283620be6b01769fb036d2cb8e135f83d9bd5b2b8d2167c351f09",
+      "wordCount": 8571,
+      "accessedAt": "2026-09-07T14:07:35.045097+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract (p. 1)",
+      "1. Introduction (pp. 1–2)",
+      "2. Related Work, including 2.1–2.3 (pp. 2–3)",
+      "3. Method, including 3.1 representations, 3.2 architecture, 3.3 video model, 3.4 planner and 3.5 training (pp. 3–6)",
+      "4. Experiment, including 4.1 setup, 4.2 main results and 4.3 ablations (pp. 6–8)",
+      "5. Conclusion (p. 8)",
+      "References (pp. 9–12)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction limitation was addressed by inspecting PDF pages 1–8, all three figures and all seven tables; all six final crops were also visually inspected.",
+      "No appendix is present in the supplied 12-page PDF. Separate supplements were not supplied or inspected.",
+      "The title and complete author list match. This report reads the CVF Open Access accepted-paper edition, identified by the supplied PDF hash. Its watermark states that only the watermark differs from the accepted version. The final proceedings edition was not compared; no separate revision number or revision date was established.",
+      "Code was not inspected, linked resources were not opened, and experiments were not reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1: architecture (p. 4)",
+      "Figure 2: noise reinjection (p. 5)",
+      "Figure 3: qualitative comparison (p. 8)"
+    ],
+    "tablesReviewed": [
+      "Table 1: video generation (p. 7)",
+      "Table 2: NAVSIM planning (p. 7)",
+      "Table 3: nuScenes planning (p. 7)",
+      "Table 4: pretraining scale (p. 7)",
+      "Table 5: representations (p. 8)",
+      "Table 6: denoising step (p. 8)",
+      "Table 7: training stages (p. 8)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "DriveLaW uses a video diffusion model as the perception backbone for a separate trajectory diffusion model. Features cached during the first video denoising step condition every action denoising step, connecting video pretraining to planning. The reported gains cover nuScenes video generation and NAVSIM planning, but do not prove physical driving safety or guaranteed agreement between generated scenes and trajectories.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "The authors argue that world models used only as simulators, auxiliary supervisors or parallel video predictors leave their internal driving representations underused. Their proposed remedy is a direct feature pathway from video generation into trajectory planning. The central question is whether a good generative representation also makes a better planning condition.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A chained Video DiT–Action DiT architecture supplies intermediate generative features to the planner instead of requiring the planner to consume fully decoded future images.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e06"
+      ]
+    },
+    {
+      "text": "Selective noise reinjection addresses visual degradation, while progressive video training separates long-duration motion learning from high-resolution refinement before planning fine-tuning. These mechanisms have different evidence: reinjection is illustrated qualitatively, whereas training stages have a quantitative ablation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e07",
+        "e16"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Historical camera frames; four past frames for planning",
+      "Structured text from recent ego motion",
+      "Ego status and high-level command",
+      "Video/action diffusion noise"
+    ],
+    "outputs": [
+      "Generated future driving video",
+      "Future ego trajectory, supervised over 4 seconds at 2 Hz"
+    ],
+    "steps": [
+      {
+        "name": "Encode and model driving context",
+        "detail": "A causal spatiotemporal VAE compresses video into 128-channel latents; the paper reports 1:192 compression. Video DiT blocks process these tokens with self-attention and text conditioning. Recent ego kinematics become structured language prompts. Query/key RMSNorm and fractional-coordinate rotary embeddings support attention stability and spatiotemporal consistency.",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      },
+      {
+        "name": "Regenerate selected visual detail",
+        "detail": "Predict a clean latent, temporarily decode it, and find large grayscale Laplacian responses. Threshold at beta times the response standard deviation, then resize the binary mask with nearest-neighbor interpolation. Add Gaussian noise only within the latent mask before the next denoising update. The noise strength is manually tuned.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Pass video features to the planner",
+        "detail": "Cache features from every Video DiT block during its first denoising step. The Action DiT repeatedly uses these features alongside encoded action noise, ego status and command. This is an inference-time conditioning pathway, beyond auxiliary future-image supervision. Separate output branches produce video and trajectory.",
+        "evidenceIds": [
+          "e03",
+          "e06"
+        ]
+      },
+      {
+        "name": "Refine the generated video",
+        "detail": "A time-conditioned VAE decoder maps a late noisy latent into pixels for final detail refinement. This video-output operation is distinct from extracting intermediate planning features; the paper does not require a completed decoded video as the planner input.",
+        "evidenceIds": [
+          "e04",
+          "e06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The 2B Video DiT starts from LTX-Video weights; the planner has 133M parameters. Video pretraining uses 8 Hz nuScenes/nuPlan clips, first 740×352×121 and then 1280×704×25 (width×height×frames). Reported settings are batch 4, learning rate 1e-5, weight decay 5e-2 and token-wise uniform noise interpolation. The stated 30k iterations for the first two stages is ambiguous between per-stage and combined duration.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e08"
+        ]
+      },
+      {
+        "text": "Action fine-tuning updates both Video DiT and Planning DiT for 44k steps, with batch 192, learning rate 3e-5 and weight decay 1e-5. It uses four past camera frames and 4-second trajectory supervision at 2 Hz. Freezing the video backbone would therefore depart from the reported recipe; VAE and text-encoder freezing are not specified.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The paper specifies 30 sampling steps for video generation and five for trajectory planning. Cached first-step video features condition all action steps, so this does not establish that planning waits for all 30 video steps. No sampling solver, measured latency or physical actuator-control procedure is provided.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e06",
+          "e08"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "a_t=(1-t)a_0+t\\epsilon,\\qquad \\epsilon\\sim\\mathcal{N}(0,I),\\qquad \\mathcal{L}_{\\mathrm{FM}}=\\mathbb{E}_{t,a_0,\\epsilon}\\!\\left[\\left\\|f_\\theta(a_t,t)-(a_0-\\epsilon)\\right\\|_2^2\\right]",
+        "explanation": "As printed in Eqs. (7)–(9), a_0 is the clean action, a_t its noised interpolation, epsilon Gaussian noise, t continuous time, and f_theta the conditioned Action DiT. The target is a_0 minus epsilon. A reproduction must establish the corresponding integration direction; no update rule is supplied.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "expression": "L_t^{\\prime}=L_t+\\sigma_t^{\\prime}M\\odot\\epsilon_t,\\qquad \\epsilon_t\\sim\\mathcal{N}(0,I)",
+        "explanation": "Equation (6) perturbs current latent L_t with noise epsilon_t gated by high-frequency mask M and manually tuned strength sigma_t prime. The mask selects responses strictly above the adaptive threshold; it is not a semantic object mask.",
+        "evidenceIds": [
+          "e05"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "NAVSIM Navtest trajectory planning",
+      "setting": "Image-based DriveLaW; 12k Navtest samples; benchmark closed-loop metrics, without reported RL post-training or learned scorers.",
+      "metric": "PDMS ↑; NC/DAC/TTC/comfort/EP ↑",
+      "value": "89.1 PDMS; components 99.0/97.1/96.7/100/81.3.",
+      "comparison": "Epona 86.2; DriveVLA-W0 87.2; PWM 88.1; WoTE 88.3.",
+      "interpretation": "Best PDMS among listed methods, but not best progress: DiffusionDrive has EP 82.2. Sensors differ and matched training budgets are not established.",
+      "evidenceIds": [
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "task": "nuScenes validation single-view video generation",
+      "setting": "Reported single-view comparison on validation data.",
+      "metric": "FID ↓; FVD ↓",
+      "value": "4.6 FID; 81.3 FVD.",
+      "comparison": "Vista has best prior FID 6.9; Epona best prior FVD 82.8.",
+      "interpretation": "The abstract’s 33.3% FID and 1.8% FVD reductions use different baselines. These are generation metrics, not driving success.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e18"
+      ]
+    },
+    {
+      "task": "nuScenes validation open-loop trajectory planning",
+      "setting": "Displacement/collision evaluated at 1, 2 and 3 seconds.",
+      "metric": "Average L2 (m) ↓; average collision (%) ↓",
+      "value": "1.15 m; 0.24%.",
+      "comparison": "Epona: 1.25 m; 0.36%.",
+      "interpretation": "Average improvement hides one-second collision deterioration: 0.15% versus 0.01%. The table does not support improvement at every horizon.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Video-pretraining scale ablation",
+      "setting": "NAVSIM Navtest after planning fine-tuning; 0/76k/3.8M/7.6M video-pretraining samples.",
+      "metric": "PDMS ↑",
+      "value": "85.9/87.0/87.8/89.1.",
+      "comparison": "Largest versus zero driving-domain pretraining: +3.2 points.",
+      "interpretation": "Monotonic aggregate gains support transfer from video data; four configurations without uncertainty or matched compute do not establish a general scaling law.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Planning representation and feature-timing ablations",
+      "setting": "NAVSIM Navtest; representation conditions and denoising-step conditions evaluated separately.",
+      "metric": "PDMS ↑",
+      "value": "BEV/VLM/video: 84.1/86.5/89.1; steps 1/5/10: 89.1/86.9/23.2.",
+      "comparison": "Video exceeds BEV by 5.0 and VLM by 2.6 points.",
+      "interpretation": "Early-step features work best in this setup. The late-step collapse does not isolate redundant pixels as its cause.",
+      "evidenceIds": [
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "task": "Video-training-stage ablation",
+      "setting": "nuScenes video evaluation with one pretraining stage removed.",
+      "metric": "FID ↓; FVD ↓",
+      "value": "Complete: 4.6/81.3.",
+      "comparison": "Without stage one: 5.0/109.3; without stage two: 5.0/93.2.",
+      "interpretation": "Both stages help reported generation quality; removing stages also changes the training recipe, with no matched-budget control reported.",
+      "evidenceIds": [
+        "e09",
+        "e16"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The experiments establish benchmark prediction/planning scores and selected visual examples. They do not directly measure rare-event robustness, physical execution safety, or trajectory–video agreement. No confidence intervals are given in the result tables.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e11",
+        "e12",
+        "e17"
+      ]
+    },
+    {
+      "text": "Decoder usage is internally unclear: Section 3.3 says it is used only for the final step, then describes temporary decoding during reinjection. Likewise, the claimed avoidance of gradient interference is not reconciled with updating both DiTs during planning fine-tuning. Neither a stop-gradient rule nor a detailed gradient-routing algorithm is supplied.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e04",
+        "e05",
+        "e08"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the LTX-Video initialization, nuScenes/nuPlan video preprocessing, NAVSIM splits, the staged training settings and per-block feature interface. The main paper omits hardware, software versions, optimizer identity, exact video-evaluation sampling protocol, reinjection beta/noise schedules and detailed latent-to-action fusion implementation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06",
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "text": "Proposed first checks are to retrain planners separately for each denoising-step feature distribution and to compare no, global and masked reinjection under equal sampling budgets. These distinguish representation suitability from distribution shift and test whether localized perturbation supplies measurable benefit.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e15"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Visual planning & IDM"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "8f8838a41374aa0995feb6a6e7b8d9018a7767b5575f38df4f8ab234f7923caf"
+    },
+    "reasoning": {
+      "text": "The WAM and Dual-system labels fit the explicit video and action transformers and inference-time feature transfer. IDM is less secure: the supplied equations describe a video-feature-conditioned diffusion policy, without an explicit inverse-dynamics map from a current/future state pair to an action. Shared latents and joint fine-tuning do not make this a single-model architecture or establish IDM. The recorded Q4 classification is preserved pending clarification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e08"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Would later-step features recover planning quality if the action model were retrained on their distribution?",
+    "Does noise reinjection improve planning, or only generated appearance?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1 (39701), title block and CVF watermark",
+      "detail": "The title and all twelve authors match the catalog. Affiliations are Huazhong University of Science and Technology and Xiaomi EV. The CVF Open Access notice says the PDF is identical to the accepted version except for its watermark; the final proceedings version is elsewhere."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2 (39701–39702), Abstract and Section 1",
+      "detail": "The authors motivate directly conditioning planning on video-generator representations, contrasting this with simulation, auxiliary future supervision, and parallel generation/planning. They claim a chained design avoids gradient interference and improves consistency."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4 (39703–39704), Sections 3.1–3.2, Eqs. (1)–(2), Figure 1 and caption",
+      "detail": "Video frames and motion-related text condition the Video DiT. Downward arrows pass internal video features to a distinct Action DiT; action noise and encoded command/ego status also enter the action branch. Video and trajectory have separate output decoders."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4 (39704), Section 3.3, Spatiotemporal VAE and Video Transformer Architecture, Eqs. (3)–(4)",
+      "detail": "The causal VAE has 128 latent channels, reported compression 1:192 and pixel-to-token ratio 1:8192. A time-conditioned decoder performs late pixel refinement. Video attention uses query/key RMSNorm and fractional-coordinate rotary embeddings. Recent kinematics become structured text prompts. This passage says the decoder is used only for the final step."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5 (39705), Figure 2 and Section 3.3 Noise Reinjection, Eqs. (5)–(6)",
+      "detail": "A predicted clean latent is temporarily decoded; grayscale Laplacian magnitude is thresholded at beta times its standard deviation, using a strict greater-than test. The binary mask is resized with nearest-neighbor interpolation and gates Gaussian latent perturbations with manually tuned strength. Figure 2 compares blur, structural inconsistency and artifacts, without a quantitative reinjection ablation."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 5 (39705), Section 3.4, Eqs. (7)–(9)",
+      "detail": "The Action DiT uses encoded noised actions, ego status and high-level commands, conditioned on per-block features cached during the first video denoising step. Those features are reused at every action flow-matching step. The printed interpolation is a_t=(1-t)a_0+t epsilon and the target is a_0-epsilon."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6 (39705–39706), Section 3.5",
+      "detail": "Video training first uses 740×352×121 clips, then 1280×704×25 clips, prioritizing long motion before fine spatial detail. The third stage trains trajectory planning conditioned on the learned video features."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6 (39706), Section 4.1 Implementation Details",
+      "detail": "The video DiT has 2B parameters initialized from LTX-Video, and the planner has 133M. Video training uses 8 Hz nuScenes/nuPlan frames, batch 4, learning rate 1e-5 and weight decay 5e-2; the first two stages are described as trained for 30k iterations without saying whether that is per stage or combined. Action fine-tuning updates both DiTs using four past frames and 4-second trajectories at 2 Hz, batch 192, 44k steps, learning rate 3e-5 and weight decay 1e-5. Inference uses 30 video and 5 trajectory sampling steps."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 6 (39706), Section 4.1 Dataset and Metrics; Section 4.2 motion-planning results",
+      "detail": "Video generation is evaluated on nuScenes validation with FID/FVD. NAVSIM has 103k Navtrain and 12k Navtest samples; planning uses 2 Hz camera data. PDMS combines NC and DAC penalties with weighted EP, TTC and comfort. The authors report no RL post-training or learned-scorer post-processing for DriveLaW."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 7 (39707), Table 1, FID and FVD rows, all methods",
+      "detail": "On nuScenes validation, DriveLaW reports FID 4.6 and FVD 81.3. Vista reports 6.9/89.4 and Epona 7.5/82.8. The lowest prior FID and FVD belong to different baselines."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7 (39707), Table 2 and caption, DriveLaW and comparison rows",
+      "detail": "DriveLaW uses images without LiDAR and reports NC 99.0, DAC 97.1, TTC 96.7, comfort 100, EP 81.3 and PDMS 89.1 on Navtest. PDMS is 86.2 for Epona, 87.2 for DriveVLA-W0, 88.1 for PWM and DiffusionDrive, and 88.3 for WoTE. DiffusionDrive has EP 82.2 and uses LiDAR. The dagger denotes the same flow-matching objective."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7 (39707), Table 3, all time horizons and average columns; PDF p. 6, Section 4.2 Additional performance",
+      "detail": "Open-loop nuScenes validation L2 errors at 1/2/3 seconds and average are 0.44/1.10/1.91/1.15 m for DriveLaW versus 0.61/1.17/1.98/1.25 m for Epona. Collision percentages are 0.15/0.10/0.48/0.24 versus 0.01/0.22/0.85/0.36, so the one-second collision result is worse despite the better average."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 7 (39707), Table 4 and Section 4.3 scaling paragraph",
+      "detail": "For video pretraining sizes 0 (scratch), 76k, 3.8M and 7.6M, Navtest PDMS is 85.9, 87.0, 87.8 and 89.1. EP is 80.8, 80.8, 82.2 and 81.3. The prose describes the zero-size comparison as without driving-domain pretraining and claims a scaling law."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 8 (39708), Table 5 and representation-ablation paragraph",
+      "detail": "Under the same diffusion-based planner, BEV features, VLM hidden states and video latents produce Navtest PDMS 84.1, 86.5 and 89.1 respectively. The paper does not give matched representation-backbone compute or detailed training controls in this comparison."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 8 (39708), Table 6 and denoising-step ablation paragraph",
+      "detail": "Video denoising steps labeled t=1, t=5 and t=10 produce Navtest PDMS 89.1, 86.9 and 23.2. At t=10 comfort is 0 and EP is 15.4. The authors attribute worse late-step planning to redundant video information; the table does not isolate that explanation or state whether planners were retrained for each feature distribution."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 8 (39708), Table 7 and training-strategy discussion",
+      "detail": "Removing the first video-training stage gives FID/FVD 5.0/109.3; removing the second gives 5.0/93.2; the complete scheme gives 4.6/81.3. No uncertainty or matched total optimization budget is reported in the table."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 8 (39708), Figure 3 and caption; PDF p. 7, qualitative-results continuation",
+      "detail": "Selected nuScenes frames compare Epona and DriveLaW with highlighted vehicles and pedestrians. The authors interpret better-looking examples as evidence of visual quality, subject preservation and semantic understanding; this is not a measured detection or planning-consistency score."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 1 (39701), Abstract; PDF p. 7 (39707), Table 1",
+      "detail": "The abstract reports 33.3% FID and 1.8% FVD improvements. Table 1 supports these rounded relative reductions using Vista for FID (6.9 to 4.6) and Epona for FVD (82.8 to 81.3)."
+    }
+  ]
+}

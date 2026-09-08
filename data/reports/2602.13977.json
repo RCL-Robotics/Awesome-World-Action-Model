@@ -1,0 +1,491 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2602.13977",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T19:29:55.302Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2602.13977",
+      "title": "WoVR: World Models as Reliable Simulators for Post-Training VLA Policies with RL",
+      "kind": "pdf",
+      "sha256": "46eb8900c397d96282333f4110f6a30072fd07579eea8144c6990cadd50e1de9",
+      "wordCount": 11505,
+      "accessedAt": "2026-09-07T14:06:16.459262+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, abstract and Sections 1–2 (Introduction; Related Work)",
+      "Sections 3.1–3.3 (world model, KIR/GRPO, PACE)",
+      "Sections 4.1–4.3 (world-model, LIBERO and physical-robot experiments)",
+      "Sections 5–6 (Conclusion; Limitations)",
+      "References and appendix contents",
+      "Appendix A (GPU allocation)",
+      "Appendices B.1–B.3 (world-model, reward and KIR implementation)",
+      "Appendix C (evaluation metrics)",
+      "Appendices D.1–D.3 (context, PACE/KIR and reward ablations)",
+      "Appendix E (qualitative failure analysis)",
+      "Appendices F.1–F.4 (hardware, tasks, action execution and training settings)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction limitation was addressed by visually inspecting PDF pages 1–9 and 15–25, including all figures and tables; references and appendix contents on pages 10–14 were read in text.",
+      "Identity/version scope: the title and all 14 authors match the catalog. The inspected title page identifies arXiv:2602.13977v2, 27 June 2026; the catalog submission date is 15 February 2026. No earlier edition was supplied, so revision contents were not compared.",
+      "The title-page project link is wovr-rlinf.github.io, whereas the catalog projectUrl is wovr-corl.github.io; neither was accessed.",
+      "Code, linked models, project videos and external supplements were not inspected. No experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8",
+      "Figure 9",
+      "Figure 10",
+      "Figure 11"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "WoVR post-trains a VLA policy inside an action-conditioned video simulator. Anchored visual memory stabilizes predictions, keyframe initialization shortens imagined prefixes, and low-frequency simulator refinement addresses policy drift. LIBERO and physical execution improve, but physical experiments use a different data protocol without PACE. Simulator reliability remains empirical.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A visually plausible grasp can receive imagined success despite failing in execution. Closed-loop video prediction compounds its own errors, while RL changes the action distribution and can exploit those errors. WoVR asks how to obtain useful policy updates from an imperfect simulator.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The framework combines simulator stabilization, Keyframe-Initialized Rollouts (KIR), and Policy-Aligned Co-Evolution (PACE), addressing model errors at different points in the learning loop.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-overview"
+      ]
+    },
+    {
+      "text": "The authors claim that controlling hallucination makes learned video simulators practical for VLA reinforcement learning; the evidence is comparative performance and diagnostics rather than a reliability guarantee.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-overview",
+        "e-author-limits"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Language instruction and current RGB observation for the VLA policy",
+      "Initial reference frame, recent visual context and policy action sequence for the world model"
+    ],
+    "outputs": [
+      "Predicted future video chunks and learned rewards during imagined training",
+      "A post-trained VLA policy producing executable actions through platform-specific control conversion"
+    ],
+    "steps": [
+      {
+        "name": "Predict action-conditioned futures",
+        "detail": "A Wan2.2-TI2V-5B video backbone receives action embeddings through timestep-conditioned normalization and cross-attention in place of text embeddings. Its VAE encodes the persistent initial frame and recent memory; the DiT predicts future latents, which are decoded and fed back for the next chunk.",
+        "evidenceIds": [
+          "e-architecture",
+          "e-flow"
+        ]
+      },
+      {
+        "name": "Start near decisive interactions",
+        "detail": "KIR initializes a portion of imagined rollouts with the initial anchor plus four frames near a task-critical state. In practice, a fixed index per task approximates where the base policy approaches failure. Subsequent chunks use the normal autoregressive loop; KIR changes context initialization, not architecture.",
+        "evidenceIds": [
+          "e-kir"
+        ]
+      },
+      {
+        "name": "Optimize valid imagined segments",
+        "detail": "A learned reward classifier scores generated observations. GRPO uses group-relative advantages and averages each trajectory over valid timesteps up to first success, masking later steps. The authors argue that this increases the per-step weight of short, decisive segments; it does not verify that the first predicted success is real.",
+        "evidenceIds": [
+          "e-kir",
+          "e-reward"
+        ]
+      },
+      {
+        "name": "Refresh the simulator distribution",
+        "detail": "PACE trains WM_Base from base-policy trajectories, improves the policy inside it, then fits WM_Evo using additional evolved-policy rollouts. LIBERO allocates 1,500 base plus 1,000 aligned trajectories per suite. Policy-gradient rollouts are imagined, but simulator refinement still requires actual-environment data.",
+        "evidenceIds": [
+          "e-pace"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "World-model training uses rectified flow and mild noise on non-reference context while retaining a clean initial anchor. The main reward model is a ResNet-based binary classifier trained with cross-entropy and thresholded at 0.5.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-flow",
+          "e-reward"
+        ]
+      },
+      {
+        "text": "A Qwen3-VL alternative predicts 11 progress levels from four frames and task text using LoRA and an MLP head. It learns faster initially but reaches similar final performance with approximately three-times slower rollouts; sparse rewards are used in all main experiments.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-reward"
+        ]
+      },
+      {
+        "text": "Physical-robot world models instead train on rollouts from multiple SFT checkpoints, with no PACE data collection. The best physically evaluated SFT checkpoint initializes RL. This is a material protocol difference from the LIBERO study.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-real-setting"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "During imagined interaction, the policy and world model alternate, and the reward model supplies learning signals. Deployment directly runs the optimized policy on physical observations. Delta translation, Rotation 6D and gripper outputs are converted to absolute poses and IK joint commands; Piper accumulates deltas from its initial state to reduce feedback-noise sensitivity.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-overview",
+          "e-robot-results",
+          "e-control"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "x_\\tau=(1-\\tau)x_0+\\tau x_1,\\qquad v_\\tau=x_1-x_0,\\qquad \\mathcal{L}=\\mathbb{E}_{x_0,x_1,c,\\tau}\\left[\\|u(x_\\tau,c,\\tau;\\phi)-v_\\tau\\|^2\\right]",
+        "explanation": "Equations (2)–(4): x_0 is Gaussian noise, x_1 the target future latents, and tau the interpolation time. The model u with parameters phi predicts velocity conditioned on c, the anchored visual context and action sequence. This trains dynamics prediction separately from policy optimization.",
+        "evidenceIds": [
+          "e-flow"
+        ]
+      },
+      {
+        "expression": "C_T^{\\mathrm{KIR}}=[o_0,o_{T_{\\mathrm{KIR}}-3},o_{T_{\\mathrm{KIR}}-2},o_{T_{\\mathrm{KIR}}-1},o_{T_{\\mathrm{KIR}}}]",
+        "explanation": "Equation (14): o_0 is the persistent initial observation; T_KIR selects the task-level keyframe; the remaining observations supply local pre-failure context. Standard initialization repeats o_0 five times. The comparison changes how much preceding history must be imagined.",
+        "evidenceIds": [
+          "e-kir"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO policy success, one-trajectory SFT",
+      "setting": "Four ten-task suites; 2,500 actual-environment trajectories per suite for each RL method.",
+      "metric": "Average task success rate (%)",
+      "value": "WoVR 69.5; Spatial/Object/Goal/Long: 84.2/80.8/77.4/35.8.",
+      "comparison": "Base 40.5; online GRPO 44.6; WMPO 50.9.",
+      "interpretation": "The reported gain over SFT is 29.0 percentage points. This is executed benchmark performance, not imagined success.",
+      "evidenceIds": [
+        "e-policy-results",
+        "e-pace"
+      ]
+    },
+    {
+      "task": "LIBERO policy success, full-trajectory SFT",
+      "setting": "Same four suites and interaction budget; stronger SFT initialization.",
+      "metric": "Average task success rate (%)",
+      "value": "Table 2: 96.0; accompanying prose: 95.9.",
+      "comparison": "Base 88.1; online GRPO 89.7; WMPO 92.4.",
+      "interpretation": "The report retains the table value and discloses the unresolved discrepancy; no uncertainty estimates accompany these values.",
+      "evidenceIds": [
+        "e-policy-results"
+      ]
+    },
+    {
+      "task": "Action-conditioned video prediction at 512 frames",
+      "setting": "LIBERO; 3,000 training and 200 held-out trajectories; common chunk-wise autoregressive protocol.",
+      "metric": "LPIPS / FID / FVD / FloLPIPS (lower); FPS (higher)",
+      "value": "0.091 / 34.252 / 68.011 / 0.154; 23.0 FPS.",
+      "comparison": "OpenSora: 0.105 / 38.478 / 89.391 / 0.156; 7.00 FPS.",
+      "interpretation": "WoVR uses five diffusion steps. Perceptual metrics and throughput do not directly certify contact physics or reward correctness.",
+      "evidenceIds": [
+        "e-wm-results",
+        "e-metrics"
+      ]
+    },
+    {
+      "task": "Physical manipulation with OpenVLA-OFT",
+      "setting": "Three tasks per robot; 30 independent trials/task; multi-task policies; checkpoint-diverse world-model data without PACE collection.",
+      "metric": "Platform-average success rate (%)",
+      "value": "Franka 80.0; AgileX Piper 28.9.",
+      "comparison": "Base: 51.1/15.5; WMPO: 64.5/18.9.",
+      "interpretation": "Physical gains are 28.9 and 13.4 percentage points. Piper remains difficult; different platform tasks prevent a controlled hardware comparison.",
+      "evidenceIds": [
+        "e-robot-results",
+        "e-real-setting",
+        "e-hardware"
+      ]
+    },
+    {
+      "task": "Physical manipulation with pi_0.5",
+      "setting": "Piper; Fold Towel, Pick Cube and Pick Tomato; Flow-SDE optimization; 30 trials/task.",
+      "metric": "Average task success rate (%)",
+      "value": "56.7.",
+      "comparison": "Base 34.4; reported gain 22.3 percentage points.",
+      "interpretation": "Supports usefulness with a second policy backbone under the reported three-task setting.",
+      "evidenceIds": [
+        "e-pi-results"
+      ]
+    },
+    {
+      "task": "Context-mechanism ablation",
+      "setting": "LIBERO-Spatial; 1,500 training and 24 held-out trajectories; 512-frame rollout.",
+      "metric": "FVD (lower)",
+      "value": "Full WoVR 73.493.",
+      "comparison": "No reference 123.502; one memory frame 86.042; no noisy context 77.284.",
+      "interpretation": "Anchoring has a strong measured effect here. Noise is not uniformly superior: at 256 frames, no-noise FVD is 61.660 versus 63.948.",
+      "evidenceIds": [
+        "e-context-ablation"
+      ]
+    },
+    {
+      "task": "PACE and KIR ablation",
+      "setting": "One-trajectory SFT; Spatial and Object only; imagined policy optimization.",
+      "metric": "Two-suite average success rate (%)",
+      "value": "Full WoVR 82.5.",
+      "comparison": "1,500 base trajectories: 75.8; 2,500 base: 77.5; PACE without KIR: 79.7.",
+      "interpretation": "The matched data-count comparison supports policy alignment; removing KIR costs 2.8 percentage points. This average is not the four-suite headline metric.",
+      "evidenceIds": [
+        "e-pace-kir-ablation"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors lack a formal hallucination-propagation analysis or regret bound, and substantially longer-horizon or mobile manipulation remains underexplored.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-author-limits"
+      ]
+    },
+    {
+      "text": "Success classification can still reward physically false predictions. Selected failure illustrations are qualitative; neither attractive videos nor higher success alone measures the frequency of simulator exploitation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-problem",
+        "e-reward",
+        "e-failures"
+      ]
+    },
+    {
+      "text": "Figure 3 labels eight noisy future frames, whereas Appendix B.3 indexes nine first-chunk outputs. The PDF does not resolve this indexing discrepancy. Reported success tables lack confidence intervals; physical results use only 30 trials per task.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-kir",
+        "e-policy-results",
+        "e-robot-results"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the policy/video backbones, task-matched rollout datasets, success labels and robot action conversion. Table 7 reports Franka/Piper world-model SFT steps of 750k/1.25M, episode limits of 160/224, and RL epochs of 50/60. Physical data use D435 RGB recording at 30/10 Hz respectively.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-architecture",
+        "e-reward",
+        "e-real-setting",
+        "e-hardware",
+        "e-control"
+      ]
+    },
+    {
+      "text": "Appendix A explains shared GPU scheduling, but does not identify hardware or a complete throughput configuration. Exact context-noise strength, task keyframe indices, KIR mixture, and a complete GRPO hyperparameter/seed configuration are not provided in the supplied implementation sections. These remain prerequisites for a faithful repeat.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-systems",
+        "e-flow",
+        "e-kir"
+      ]
+    },
+    {
+      "text": "Proposed checks: compare critical versus random keyframes at matched remaining horizons; independently compare evolved-policy versus extra base-policy data at fixed sample and training budgets. Measure actual success and imagined-versus-actual disagreement, not only generated-image quality.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-kir",
+        "e-pace-kir-ablation",
+        "e-metrics"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Dual-system and Other mechanisms classification fits the architecture: a separate action-conditioned video simulator supplies imagined experience to a VLA policy. Actions are policy outputs and simulator inputs, rather than jointly predicted future/action tokens or inverse-dynamics extraction. PACE co-evolution does not make this one unified model; the outside-quadrants placement is supported.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-overview",
+        "e-architecture",
+        "e-pace"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Policy post-training & WM-RL",
+        "Memory & long-horizon modeling"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "6404d264a0b1246a48f7c4bb042c6a0aa0f24ad954f1009a75d574884c34cdf9"
+    }
+  },
+  "discussionQuestions": [
+    "Does KIR help because it shortens prediction depth, because it selects informative states, or both?",
+    "Would physically collected evolved-policy data improve on the checkpoint-diversity protocol used for the robot experiments?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and arXiv margin stamp",
+      "detail": "The exact title and all 14 catalog authors match. The artifact identifies arXiv:2602.13977v2 [cs.RO], 27 Jun 2026, and lists five affiliations."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Introduction and Figure 1",
+      "detail": "Hallucination means disagreement between imagined and actual closed-loop outcomes. Autoregressive feedback and changing policy distributions can produce spurious success."
+    },
+    {
+      "id": "e-overview",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2 and caption; pp. 4–6, Sections 3.1–3.3",
+      "detail": "The architecture separates VLA policy, action-conditioned world model and reward model. KIR reshapes imagined interaction; PACE refines the simulator using evolved-policy trajectories."
+    },
+    {
+      "id": "e-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1 and Figure 3",
+      "detail": "Wan2.2-TI2V-5B receives actions through timestep-conditioned normalization and cross-attention replacing text embeddings. The context uses an initial anchor and memory. Figure 3 depicts one reference frame, four memory frames and eight noisy frames; decoded reference and memory frames are marked Dismiss."
+    },
+    {
+      "id": "e-flow",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Appendix B.1, Equations (2)–(5)",
+      "detail": "Future latents and Gaussian noise define a rectified-flow velocity target. Conditioning includes anchored visual context and actions. Non-reference context receives mild noise; its interpolation coefficient is only specified as close to one."
+    },
+    {
+      "id": "e-kir",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Figure 4 and Equation (1); p. 17, Appendix B.3, Equations (11)–(15)",
+      "detail": "KIR replaces repeated initial-frame context with the first frame and four observations near a fixed task-level pre-failure index. GRPO normalizes by valid steps up to first success. Appendix equations index nine first-chunk outputs; exact task keyframe indices, KIR mixture and complete GRPO configuration are not supplied."
+    },
+    {
+      "id": "e-pace",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.3; p. 7, Section 4.2 setup",
+      "detail": "PACE improves the policy in WM_Base, then refines the simulator using evolved-policy data. LIBERO uses 1,500 base plus 1,000 evolved-policy trajectories per suite; each comparison RL method receives a 2,500 actual-environment-trajectory budget."
+    },
+    {
+      "id": "e-reward",
+      "sourceId": "primary",
+      "location": "PDF p. 5, reward paragraph; p. 16, Appendix B.2, Equations (6)–(10); pp. 21–22, Appendix D.3 and Figure 9",
+      "detail": "Main experiments use a ResNet-based binary classifier with a 0.5 threshold and binary cross-entropy. Qwen3-VL uses four frames and task text to predict 11 progress levels with LoRA and an MLP head. Dense rewards improve early learning but reach similar final performance with approximately three-times slower rollout."
+    },
+    {
+      "id": "e-wm-results",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1 setup; p. 7, Table 1, WoVR/OpenSora 512-frame rows and following paragraph",
+      "detail": "The evaluation uses 3,000 training and 200 held-out trajectories of 512 frames with common chunk-wise generation. WoVR reports LPIPS/FID/FVD/FloLPIPS 0.091/34.252/68.011/0.154 and 23.0 FPS; OpenSora reports 0.105/38.478/89.391/0.156 and 7.00 FPS. WoVR uses five diffusion steps."
+    },
+    {
+      "id": "e-policy-results",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2 and Section 4.2 setup; p. 8, Section 4.2 continuation",
+      "detail": "Each LIBERO suite has ten tasks. One-trajectory base/GRPO/WMPO/WoVR averages are 40.5/44.6/50.9/69.5 percent; full-trajectory averages are 88.1/89.7/92.4/96.0. The prose instead says 95.9. WoVR one-trajectory suite values are 84.2/80.8/77.4/35.8; full-trajectory values are 98.8/98.8/94.8/91.4. No confidence intervals are tabulated."
+    },
+    {
+      "id": "e-robot-results",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3 and Section 4.3 setup",
+      "detail": "Physical evaluation uses 30 independent trials per task and one multi-task policy per platform. Franka base/WMPO/WoVR averages are 51.1/64.5/80.0 percent; Piper averages are 15.5/18.9/28.9. WoVR Franka banana/bread/drawer values are 86.7/90.0/63.3; Piper towel/cube/tomato values are 20.0/33.3/33.3."
+    },
+    {
+      "id": "e-pi-results",
+      "sourceId": "primary",
+      "location": "PDF p. 8, final paragraph; p. 9, Table 4",
+      "detail": "Piper experiments with pi_0.5 and Flow-SDE use 30 trials per task. Mean success rises from 34.4 to 56.7 percent; towel/cube/tomato rates rise from 20.0/60.0/23.3 to 30.0/86.7/53.3."
+    },
+    {
+      "id": "e-author-limits",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 6",
+      "detail": "No formal hallucination-propagation characterization or regret bound is provided; much longer horizons and mobile manipulation remain underexplored."
+    },
+    {
+      "id": "e-systems",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A and Figure 6",
+      "detail": "Generation, neural simulation and policy training share GPU resources. Policy and simulator weights transfer at rollout-phase boundaries. The appendix illustrates scheduling without specifying GPU model or a reproducible throughput configuration."
+    },
+    {
+      "id": "e-metrics",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Appendix C, Equations (16)–(20)",
+      "detail": "LPIPS compares perceptual features; FID/FVD compare image/video distributions; FloLPIPS weights perceptual discrepancies by optical-flow differences; FPS counts generated frames per second."
+    },
+    {
+      "id": "e-context-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix D.1 setup; p. 19, Table 5; p. 20, Figure 7",
+      "detail": "The Spatial-only ablation uses 1,500 training and 24 held-out trajectories. At 512 frames full/no-reference/single-memory/no-noisy-context FVD is 73.493/123.502/86.042/77.284. At 256 frames no-noisy-context FVD is 61.660 versus full 63.948. Figure 7 illustrates drift and object disappearance."
+    },
+    {
+      "id": "e-pace-kir-ablation",
+      "sourceId": "primary",
+      "location": "PDF pp. 19–20, Appendix D.2 and Table 6; p. 21, KIR result paragraph",
+      "detail": "One-trajectory SFT averages on Spatial and Object are 75.8 percent with 1,500 base trajectories, 77.5 with 2,500 base, 79.7 with PACE but no KIR, and 82.5 for full WoVR. These are two-suite averages."
+    },
+    {
+      "id": "e-alignment-curves",
+      "sourceId": "primary",
+      "location": "PDF p. 20, final paragraph; p. 21, Figure 8 and caption",
+      "detail": "Blue curves denote imagined training success, red actual-environment evaluation, and the vertical band the PACE transition. The authors interpret the change as simulator recalibration; disagreement is not uniformly eliminated across suites."
+    },
+    {
+      "id": "e-failures",
+      "sourceId": "primary",
+      "location": "PDF p. 22, Appendix E and Figure 10",
+      "detail": "Examples describe unstable grasping, release and placement errors, and incomplete drawer, box-closing or towel interactions, with improvements after post-training. No failure-category counts are provided."
+    },
+    {
+      "id": "e-hardware",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Appendices F.1–F.2 and Figure 11",
+      "detail": "Six-DoF Piper uses head-view D435 RGB at 10 Hz; seven-DoF Franka uses fixed third-person D435 RGB at 30 Hz. Both have two-finger grippers. Tasks are banana-to-plate, bread-to-toaster, drawer opening, cube-to-box, tomato-to-box with lid closure, and towel folding."
+    },
+    {
+      "id": "e-control",
+      "sourceId": "primary",
+      "location": "PDF pp. 24–25, Appendix F.3, Equations (21)–(26) and platform-specific updates",
+      "detail": "Delta EEF actions contain translation, Rotation 6D and gripper components. They are converted to absolute EEF poses and IK joint commands. Franka uses current-state delta conversion; Piper accumulates deltas from its initial state to reduce sensitivity to noisy feedback."
+    },
+    {
+      "id": "e-real-setting",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Table 7 and Appendix F.4",
+      "detail": "Robot experiments omit PACE data collection, using multiple SFT checkpoints for world-model rollouts and the best physically evaluated SFT checkpoint for RL initialization. Franka uses 25 demos and 120 rollouts per task; Piper cube/tomato/towel uses 75/50/50 demos and 180/180/210 rollouts. Franka/Piper WM SFT steps are 750k/1.25M, episode limits 160/224, RL epochs 50/60."
+    }
+  ]
+}
