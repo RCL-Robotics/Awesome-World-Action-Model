@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2512.13644",
+  "shortTitle": "DexWM",
+  "thesis": "DexWM learns finger-conditioned latent dynamics from human videos and uses them for robot trajectory search, but reliable manipulation still depends on simulation adaptation, planning initialization and contact handling.",
+  "standfirst": "DexWM tackles a practical mismatch: abundant human manipulation video and scarce dexterous robot experience. It encodes images into frozen DINOv2 features, predicts how those features change under detailed hand actions, and adds supervision that keeps fingertips and wrists recoverable. A separate optimizer then searches robot joint trajectories toward an image goal. This reading follows the path from representation to physical execution, keeping the auxiliary learning objective distinct from the planning cost. The results show meaningful transfer after exploratory simulation fine-tuning, while the appendix exposes open-loop real deployment, initialization assistance, expensive planning and frequent object drops.",
+  "evidenceIds": [
+    "e02",
+    "e03",
+    "e04",
+    "e06",
+    "e07",
+    "e11",
+    "e15",
+    "e19"
+  ],
+  "featuredResultTask": "Real-world image-goal grasping",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2512.13644/architecture.png",
+      "width": 1282,
+      "height": 999,
+      "crop": [
+        0.512,
+        0.078,
+        0.889,
+        0.305
+      ],
+      "alt": "Observed images pass through frozen encoders into latent history tokens. Future tokens, dexterous actions and camera motion enter the DexWM predictor; predicted features branch to an image decoder and a keypoint predictor.",
+      "caption": "The learned transition predicts visual features; its two output branches make those features visible and geometrically testable.",
+      "readingGuide": "Read upward from the two observation images. Their encoder boxes produce state tokens; the blue freeze marks agree with the caption’s frozen DINOv2 description. The extra token group is initialized from the latest state, according to Section 3.2. Hand actions and camera changes condition the predictor; the detailed implementation uses AdaLN, so these schematic arrows should not be read as a complete attention specification. At the top, predicted state tokens branch left into image reconstruction and right into keypoint heatmaps. Appendix C.1 clarifies that the decoder is trained separately and used only for visualization.",
+      "takeaway": "DexWM’s main learned output is a future latent scene, rather than a robot command. The hand head supplies a local training signal that global feature regression can underweight. Keeping these branches distinct explains why visually plausible reconstructed frames and accurate hand geometry require separate evaluation.",
+      "caution": "The schematic contains no full attention-mask or temporal-target specification. Appendix C.1’s eight preceding frames and prediction indices through i=9 need clarification. Reconstructed images also depend on a separately trained decoder.",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06",
+        "e14",
+        "e16"
+      ],
+      "sourceSha256": "caa494829e49b893346ae4fcedbe462e99f197192c7e84d27405a2776723a390",
+      "sourceUrl": "https://arxiv.org/pdf/2512.13644#page=3"
+    },
+    {
+      "id": "goal-planning",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 5,
+      "asset": "report-assets/2512.13644/goal-planning.png",
+      "width": 1241,
+      "height": 770,
+      "crop": [
+        0.52,
+        0.078,
+        0.885,
+        0.253
+      ],
+      "alt": "Start and goal images are encoded separately. Candidate joint angles pass through forward kinematics to actions, which drive a multistep predictor. A planning cost compares the predicted terminal state to the encoded goal.",
+      "caption": "Forward prediction becomes control through an external search over robot joint waypoints.",
+      "readingGuide": "Begin with the green start image and follow its encoded state into the predictor. Above the predictor, CEM’s joint-angle candidates pass through G, the robot’s forward-kinematics mapping, to form candidate actions. The curved arrow represents repeated world-model prediction, not physical feedback by itself. Below, the terminal prediction is compared with the red goal image’s encoded state through cost C. Section 3.4 specifies both latent and keypoint distances, plus a grasp-orientation term. Appendix B supplies the missing execution step: a low-level controller interpolates the selected joint targets, with different replanning rules for simulation and the real robot.",
+      "takeaway": "The model can evaluate candidate futures without directly learning a goal-conditioned action policy. Simulation uses three-step receding-horizon planning. The reported physical grasping experiment instead optimizes two steps and executes them open loop. Those are distinct deployment protocols, despite sharing the same forward model and search framework.",
+      "caution": "The cost arrows are consistent with Eq. (6), but the diagram omits controller details and grasp initialization. Appendix B uses a teleoperated dummy grasp to seed search and reports substantial planning latency; the diagram alone cannot establish autonomous real-time control.",
+      "evidenceIds": [
+        "e07",
+        "e15"
+      ],
+      "sourceSha256": "caa494829e49b893346ae4fcedbe462e99f197192c7e84d27405a2776723a390",
+      "sourceUrl": "https://arxiv.org/pdf/2512.13644#page=5"
+    },
+    {
+      "id": "hand-consistency",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "asset": "report-assets/2512.13644/hand-consistency.png",
+      "width": 1095,
+      "height": 317,
+      "crop": [
+        0.14,
+        0.078,
+        0.462,
+        0.15
+      ],
+      "alt": "Hand-consistency ablation table: without versus with HC, four-second embedding error is 0.85 versus 0.66 and PCK is 26 versus 60; average error is 0.61 versus 0.50 and average PCK is 52 versus 69.",
+      "caption": "Local heatmap supervision improves both reported feature prediction and hand-keypoint accuracy.",
+      "readingGuide": "Compare the cross and check rows vertically, keeping the four-second endpoint separate from the average over the rollout. Embedding error decreases; PCK@20 increases and counts predicted hand keypoints within a 20-pixel radius. The endpoint PCK changes from 26 to 60, while the average changes from 52 to 69. These are percentage-valued scores, so their differences are percentage points. The feature-error columns also improve, from 0.85 to 0.66 at the endpoint. Read this together with the loss definition on page 5: HC supervises heatmaps recovered from predicted latent states, rather than adding pixel reconstruction to the world-model objective.",
+      "takeaway": "The cleanest mechanism evidence is the 34-percentage-point endpoint PCK improvement when the auxiliary loss is enabled. This supports the claim that scene-wide latent prediction alone loses useful local hand information. It does not, by itself, measure whether the object stays grasped during a robot trajectory.",
+      "caution": "The prose calls the endpoint change 34%; the table supports 34 percentage points. Its enabled row also differs from Table 3’s EgoDex-only result. Table 2 does not explicitly identify its training mixture, so the two rows should not be silently equated.",
+      "evidenceIds": [
+        "e06",
+        "e09",
+        "e10"
+      ],
+      "sourceSha256": "caa494829e49b893346ae4fcedbe462e99f197192c7e84d27405a2776723a390",
+      "sourceUrl": "https://arxiv.org/pdf/2512.13644#page=7"
+    },
+    {
+      "id": "robot-transfer",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 9,
+      "asset": "report-assets/2512.13644/robot-transfer.png",
+      "width": 1142,
+      "height": 369,
+      "crop": [
+        0.532,
+        0.229,
+        0.868,
+        0.313
+      ],
+      "alt": "Robot success-rate table: DexWM achieves 72, 28 and 58 percent in RoboCasa reach, place and grasp, and 83 percent in real grasping; Diffusion Policy reports 16, 8, 0 and 0, respectively.",
+      "caption": "Transfer gains are large in the tested setup, with different protocols behind simulation and physical success.",
+      "readingGuide": "First separate the three RoboCasa columns from the single Real Robot column. Within each column, compare the pretrained DexWM row with both Diffusion Policy and DexWM without pretraining. Every entry is a success percentage, not a prediction metric. Section 4.5 reports 50 simulation trials for each task and 12 physical grasp trials, while Appendix C specifies four physical objects. Appendix B further distinguishes simulation MPC from two-step open-loop physical execution. The physical 83 therefore means ten successful grasps out of twelve, whereas simulation grasping uses distance and contact criteria. There are no physical reach or place columns.",
+      "takeaway": "DexWM reaches 72%/28%/58% on simulation reach/place/grasp and 83% on physical grasping. It exceeds both listed baselines on every column. The results support transfer after human-plus-DROID pretraining and exploratory robot adaptation, while placement remains difficult and the physical evidence is confined to a small grasping study.",
+      "caution": "No uncertainty intervals accompany the table. Removing pretraining removes both data sources, so this ablation does not isolate human videos. The abstract’s “over 50%” phrase should not be read as a greater-than-50-percentage-point mean simulation gain.",
+      "evidenceIds": [
+        "e11",
+        "e15",
+        "e17",
+        "e18",
+        "e22"
+      ],
+      "sourceSha256": "caa494829e49b893346ae4fcedbe462e99f197192c7e84d27405a2776723a390",
+      "sourceUrl": "https://arxiv.org/pdf/2512.13644#page=9"
+    },
+    {
+      "id": "failure-breakdown",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 6",
+      "page": 19,
+      "asset": "report-assets/2512.13644/failure-breakdown.png",
+      "width": 1163,
+      "height": 290,
+      "crop": [
+        0.13,
+        0.182,
+        0.472,
+        0.248
+      ],
+      "alt": "Simulation failure categories by task: reach has 24 last-centimeter and 4 drift points; grasp has 4 contact, 20 last-centimeter and 18 drift points; place has 70 drop and 2 drift points.",
+      "caption": "Different tasks fail at different parts of the manipulation pipeline.",
+      "readingGuide": "Read each task row horizontally before comparing tasks. Appendix C.6 defines Contact as complex interaction failures, Drop as losing the object before its destination, Last cm as small final-position inaccuracies, and State Drift as accumulating world-model error. The row totals are 28, 42 and 72, matching the complements of Table 4’s reach, grasp and place success rates. Accordingly, the entries are best read as contributions in percentage points of evaluated trials, not as percentages normalized within failed trials. Placement’s 70 under Drop is therefore a very different diagnosis from reaching’s 24 under Last cm.",
+      "takeaway": "The dominant placement issue is retaining the object: dropping accounts for 70 of its 72 failure points. Grasping divides much of its failure between final-position accuracy and state drift. Reader interpretation: improving a global prediction score alone may leave the main placement bottleneck untouched.",
+      "caution": "This is a categorized failure analysis, not a causal ablation of fixes. The paper does not provide uncertainty or an independent labeling-reliability analysis for the categories. Their numerical breakdown concerns simulation and should not be assigned to the twelve physical trials.",
+      "evidenceIds": [
+        "e11",
+        "e18",
+        "e19"
+      ],
+      "sourceSha256": "caa494829e49b893346ae4fcedbe462e99f197192c7e84d27405a2776723a390",
+      "sourceUrl": "https://arxiv.org/pdf/2512.13644#page=19"
+    },
+    {
+      "id": "real-robot-examples",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 16",
+      "page": 22,
+      "asset": "report-assets/2512.13644/real-robot-examples.png",
+      "width": 1306,
+      "height": 557,
+      "crop": [
+        0.116,
+        0.545,
+        0.884,
+        0.798
+      ],
+      "alt": "Three successful physical grasp sequences and one failed bowl grasp. Green borders mark start frames, blue reached frames, red goals, and black circles locate the target objects in the starting images.",
+      "caption": "Physical execution examples show both successful grasps and a contact-induced miss.",
+      "readingGuide": "Follow each row from the green start frame through the execution snapshots to the blue reached frame; the red frame at the right is the goal reference. Black circles in the starting frames identify the target objects. The upper three rows are labeled successful, while the bottom row is a failure. The caption explains that the gripper collides with an upside-down bowl and moves it away before securing a grasp. It also notes small object displacements after successful grasps in two examples. These sequences depict actual robot execution, unlike the decoded human-video forecasts elsewhere in the paper.",
+      "takeaway": "The figure makes the transfer result concrete without hiding a failure: a reasonable approach can still miss when contact changes the object’s position. Read alongside Table 4, it illustrates what a successful physical grasp and a contact-induced failure look like in this particular setup.",
+      "caution": "The four pictured trajectories are selected examples, not the full evaluation sample. Success is manually judged secure holding. Since the physical protocol executes an optimized two-step trajectory open loop, the images do not demonstrate recovery through online replanning.",
+      "evidenceIds": [
+        "e20",
+        "e11",
+        "e15",
+        "e18"
+      ],
+      "sourceSha256": "caa494829e49b893346ae4fcedbe462e99f197192c7e84d27405a2776723a390",
+      "sourceUrl": "https://arxiv.org/pdf/2512.13644#page=22"
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Turn motion into a shared action interface",
+      "kind": "source",
+      "text": "DexWM separates what the camera sees from what the hand does. The visual state is a grid of frozen DINOv2 features; the action specifies changes in three-dimensional hand keypoints plus camera motion. Before differencing, future keypoints are transformed into the earlier camera frame, so camera movement is not inadvertently interpreted as finger articulation. This common representation permits training on human video and parallel-gripper robot data, but the compatibility is engineered: DROID receives synthetic hand points, and Allegro repeats one finger to fill the human five-finger layout. The predictor then learns the consequences of supplied actions. During robot planning, forward kinematics converts candidate joint configurations into this same action interface; the model does not generate motor commands directly.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e15",
+        "e17"
+      ]
+    },
+    {
+      "heading": "Keep a small hand region visible to the objective",
+      "kind": "analysis",
+      "text": "The source’s motivation is spatial: hands occupy only a small portion of an image, so minimizing average feature error can leave their configuration inaccurate. HC adds fingertip and wrist heatmap prediction from the future latent state. Reader interpretation: this pressures the representation to retain information useful for localized control, rather than merely improving its overall visual match. Table 2 supports that interpretation with a large PCK gain. Table 3 supplies a complementary warning: PEVA* has lower embedding error than DexWM but worse PCK. Neither result makes heatmap accuracy equivalent to manipulation competence. At deployment, keypoint distance also enters the planning objective, giving the hand head a second role whose causal contribution is not isolated by the training-loss ablation alone.",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "heading": "Read zero-shot transfer through the complete execution chain",
+      "kind": "analysis",
+      "text": "The transfer claim becomes clearer when training, search and execution are traced separately. Human and DROID pretraining is followed by exploratory RoboCasa fine-tuning; no real-world fine-tuning is used. CEM then evaluates candidate joint trajectories using the learned dynamics and a goal cost. The appendix specifies a dummy-grasp initialization, low-level interpolation, simulation replanning and open-loop physical execution. Reader interpretation: the successful transfer belongs to this complete pipeline, not to an unaided predictor. Table 4 shows strong gains under its evaluation, but simulation grasp success uses distance plus contact, whereas physical success is judged secure holding. Table 6 shows why that distinction matters: holding an object through placement remains difficult even when reaching and grasping scores improve substantially.",
+      "evidenceIds": [
+        "e11",
+        "e15",
+        "e16",
+        "e17",
+        "e18",
+        "e19"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate learned hand information from the hand-based planning cost",
+      "text": "Reader-proposed check, not performed: train matched HC-enabled and HC-disabled predictors with the same data, encoder, schedule and random seeds. Fit an identical heatmap readout to detached features of each checkpoint so every condition can use a hand cost without introducing extra predictor supervision. Evaluate both predictors with and without the keypoint planning term, holding CEM budget and initialization fixed. Report EgoDex PCK and feature error plus paired RoboCasa success and drop rates. If HC improves held-out localization but not matched planning success, the claim that its gains explain control performance would weaken; a consistent success gain without the hand cost would support a representation-level effect.",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e09",
+        "e15",
+        "e16",
+        "e18",
+        "e19"
+      ]
+    },
+    {
+      "title": "Measure dependence on the dummy-grasp initializer",
+      "text": "Reader-proposed check, not performed: freeze the pretrained, simulation-adapted model and replay matched RoboCasa grasp scenes under the reported dummy-grasp mean, the starting-joint mean, and a task-independent feasible initialization. Keep covariance, controller, goal cost, sample count and iterations fixed, and repeat CEM seeds. Record success, final-centimeter errors, state drift and planning time; add a dummy-trajectory replay control without model-based refinement. A large collapse under neutral initialization, or little gain over direct replay, would limit attribution to learned dynamics. Comparable success across initializers would strengthen that attribution. Begin in simulation; do not mix these outcomes with the paper’s open-loop physical protocol.",
+      "evidenceIds": [
+        "e07",
+        "e11",
+        "e15",
+        "e18",
+        "e19"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "notes": "Visually inspected the title/author/version page, every main-text figure and table, method equations, limitations, appendix architecture/training/planning/data/success definitions and all appendix figures. This covers Figures 1–17 and Tables 1–6. All six final original crops were separately viewed and retain their labels and table headers; narrow figures/tables were rendered at 400 DPI. Figure 2’s action arrows were checked against the AdaLN description and frozen-encoder caption; Figure 4’s flow was checked against Eq. (6) and Appendix B. The schematic omits physical feedback details, which are supplied in the explanation. Text reading covers the entire PDF; reference-list pages 11–14 were not visually inspected. No separate supplement, code, online project material or original earlier revision was inspected."
+  }
+}
