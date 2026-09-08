@@ -1,0 +1,447 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-ced7109d62bb4514d467",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T21:20:57.959Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://openaccess.thecvf.com/content/CVPR2026/papers/Han_Percept-WAM_Perception-Enhanced_World-Awareness-Action_Model_for_Robust_End-to-End_Autonomous_Driving_CVPR_2026_paper.pdf",
+      "title": "Percept-WAM: Perception-Enhanced World-Awareness-Action Model for Robust End-to-End Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "5b1d5889b4e6e5ed91d99ea09f5ad0478a2fda23804af1c64231a8f6130686df",
+      "wordCount": 9967,
+      "accessedAt": "2026-09-07T14:08:57.483591+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract (PDF p. 1)",
+      "1. Introduction (PDF pp. 1–2)",
+      "2. Related Work (PDF pp. 2–3)",
+      "3. Method, including 3.1.1–3.1.2, 3.2 and 3.3 (PDF pp. 3–6)",
+      "4. Experiments, including 4.1–4.3 (PDF pp. 6–8)",
+      "5. Conclusion (PDF p. 8)",
+      "References [1]–[118] (PDF pp. 9–14)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "All seven supplied text chunks were read individually, covering the complete 14-page artifact. The extraction's image limitation was addressed by inspecting PDF pages 1–8 and 14 and all six final crops.",
+      "Appendices A.1, A.2, A.3, B and C.1 are cited in the body but absent from the supplied PDF, which ends with references on printed p. 10655. No separate supplement was supplied; its availability remains unverified.",
+      "Identity: the observed title and all 19 authors match the catalog. The title-page notice identifies this as the CVPR Open Access version, identical to the accepted version except for its watermark; it distinguishes the final IEEE proceedings version. That other version was not inspected, and no numbered revision or revision date is established.",
+      "Code, checkpoints and external resources were not inspected; experiments were not reproduced. Reference pages 9–13 were read as text, not visually inspected."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (PDF p. 1)",
+      "Figures 2–3 (PDF p. 3)",
+      "Figures 4–5 (PDF p. 5)",
+      "Figures 6–9 (PDF p. 8)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (PDF p. 6)",
+      "Tables 3–5 (PDF p. 7)",
+      "Tables 6–7 (PDF p. 8)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "Percept-WAM strengthens an InternVL2-8B driving model with supervised image-plane and bird's-eye-view perception tokens, then predicts trajectories through action queries. Its strongest planning row reaches 90.2 NAVSIM PDMS; its central evidence concerns perception and trajectory benchmarks, rather than learned future-world rollouts or physical driving execution.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "The authors argue that language-based spatial question answering gives insufficient geometric supervision: localization errors and overconfident detections can compromise driving decisions. They propose reusable spatial features inside a VLM so that trajectory prediction can benefit from explicit perception learning.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e-problem",
+      "e-architecture"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "World-PV and World-BEV place 2D/3D detection and segmentation within a shared VLM, with optional LiDAR initialization for BEV features.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-architecture",
+        "e-pv",
+        "e-bev"
+      ]
+    },
+    {
+      "text": "Grid-conditioned parallel object decoding, localization-sensitive confidence training, and modality-specific trajectory queries address different perception and planning bottlenecks.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-confidence",
+        "e-bev",
+        "e-action"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Multi-view streaming camera images and textual queries",
+      "Optional LiDAR point clouds",
+      "Ego-state features for trajectory decoding"
+    ],
+    "outputs": [
+      "PV 2D/monocular-3D boxes and instance/semantic masks",
+      "BEV 3D boxes and semantic maps",
+      "Predicted ego trajectory; language output through the VLM"
+    ],
+    "steps": [
+      {
+        "name": "Encode and localize image evidence",
+        "detail": "InternVL2-8B provides the backbone. Dynamic tiling encodes high-resolution image tiles with shared ViT weights and aligns their features globally. Interpolated grid queries from World-PV features predict local objects. Boxes are serialized as category, geometry and confidence tokens, with continuous labels discretized for token prediction.",
+        "evidenceIds": [
+          "e-architecture",
+          "e-pv"
+        ]
+      },
+      {
+        "name": "Learn localization-sensitive scores",
+        "detail": "An intermediate model predicts boxes on training images; matched boxes receive IoU targets. Mix these with ground-truth examples: ground-truth samples train category/box tokens while masking confidence loss; prediction-derived samples train confidence while masking category/box loss. Inference multiplies class-token softmax confidence by predicted IoU. Figure 3's loss mask agrees with this text.",
+        "evidenceIds": [
+          "e-confidence"
+        ]
+      },
+      {
+        "name": "Lift into BEV and retrieve masks",
+        "detail": "Ego-centered learnable BEV grid tokens query World-PV features by cross-attention. Camera-only embeddings are learned from random initialization; optional PointPillars features pass through PixelUnshuffle and an MLP to initialize BEV tokens. Bilinearly sampled grid queries decode objects independently. PV/BEV segmentation retrieves masks through dot products with 16 mask tokens; BEV map classes use independent binary masks because regions can overlap.",
+        "evidenceIds": [
+          "e-pv",
+          "e-bev"
+        ]
+      },
+      {
+        "name": "Align action queries with modalities",
+        "detail": "Four point-query sets attend to ego state, PV, BEV, or all features, respectively. An MLP decodes each set into a trajectory. Training supervises all four with Smooth-L1; inference selects the all-feature query output. The output is a predicted waypoint trajectory; the supplied method does not specify a vehicle actuator controller.",
+        "evidenceIds": [
+          "e-action"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The curriculum first consolidates PV/BEV perception, then performs end-to-end VLA fine-tuning. Detection uses token cross-entropy; segmentation combines cross-entropy, sigmoid focal and Dice losses. AdamW uses learning rate 0.0002, weight decay 0.01, cosine decay and 1000 warmup steps, with mixed precision and gradient checkpointing.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-pv",
+          "e-bev",
+          "e-training"
+        ]
+      },
+      {
+        "text": "Table 2 combines driving datasets, general detection/segmentation and grounding datasets, plus driving QA. PV detection/segmentation uses a 10×10 grid; BEV detection uses 40×40 and segmentation 10×10. Further data composition and hyperparameters are deferred to missing Appendix B.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "World features can be computed during prefill; spatial proposals decode in parallel across grids while retaining autoregression within each proposal. Streaming uses a KV cache, longer-clip training and a named dual-recomputation mechanism, whose implementation is deferred to absent Appendix A.2.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-bev",
+          "e-stream"
+        ]
+      },
+      {
+        "text": "Keep benchmark decoders separate: the query-based trajectory head is described in Section 3.3, whereas NAVSIM additionally scores and selects trajectories from a static vocabulary. Table 3 explicitly refers to distinct decoder settings in missing Appendix A.3.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-action",
+          "e-plan-results"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "Q\\in\\mathbb{R}^{N\\times C}",
+        "explanation": "Section 3.3 defines each action-query set with N trajectory points and feature dimension C. Each encoded query produces a point through the MLP; the four sets differ in which modalities they may attend to.",
+        "evidenceIds": [
+          "e-action"
+        ]
+      },
+      {
+        "expression": "\\mathrm{cls},\\langle\\mathrm{box}\\rangle\\,x,y,w,h\\,\\langle/\\mathrm{box}\\rangle,\\langle\\mathrm{conf}\\rangle\\,s\\,\\langle/\\mathrm{conf}\\rangle",
+        "explanation": "The source's 2D serialization uses cls for category, (x,y) for box center, (w,h) for size and s for confidence. This is an output representation, not a dynamics transition equation.",
+        "evidenceIds": [
+          "e-pv"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "NAVSIM v1 trajectory planning",
+      "setting": "Table 3 benchmark comparison; starred model uses two-stage training and NAVSIM-specific trajectory scoring. Exact evaluation partition is not named in the supplied body.",
+      "metric": "PDMS (higher is better)",
+      "value": "90.2, reported",
+      "comparison": "88.6 unstarred; 88.1 DiffusionDrive; differences of 1.6 and 2.1 score points.",
+      "interpretation": "The paper describes NAVSIM as data-driven pseudo-simulation. The result supports benchmark planning, not demonstrated on-road execution. The abstract's PMDS spelling differs from the table's PDMS.",
+      "evidenceIds": [
+        "e-plan-results",
+        "e-problem",
+        "e-architecture"
+      ]
+    },
+    {
+      "task": "nuScenes open-loop trajectory planning",
+      "setting": "Table 3; L2 at 1, 2 and 3 seconds; exact evaluation partition not named there.",
+      "metric": "L2 distance in meters (lower is better)",
+      "value": "0.16 / 0.33 / 0.60; reported average 0.36",
+      "comparison": "Unstarred average 0.38; UniAD 0.46; BEV-Planner 0.35.",
+      "interpretation": "Two-stage training improves the reported average but does not beat every baseline. Open-loop trajectory agreement does not measure interactive driving success.",
+      "evidenceIds": [
+        "e-plan-results"
+      ]
+    },
+    {
+      "task": "COCO 2D object detection",
+      "setting": "Table 1 final AD+Gen model; official split policy in Table 2, but COCO evaluation partition not identified explicitly.",
+      "metric": "mAP (higher is better)",
+      "value": "51.7, reported",
+      "comparison": "LMM-Det 47.5; UFO-InternVL2-8B 48.9.",
+      "interpretation": "A broad generalist result with different backbones and training mixtures across baselines, not a controlled architecture-only comparison.",
+      "evidenceIds": [
+        "e-pv-results",
+        "e-training"
+      ]
+    },
+    {
+      "task": "nuScenes BEV perception",
+      "setting": "Table 4, nuScenes val; no sequential information and 448×796 image input. Table does not annotate each row's sensor configuration.",
+      "metric": "Detection mAP/NDS; map IoU",
+      "value": "0.589 / 0.645; drivable area 87.0, pedestrian crossing 70.9, lane divider 62.7, vehicle 60.2",
+      "comparison": "PointPillars detection 0.523 / 0.613; BEVFusion 0.685 / 0.714 and map IoU 85.5 / 60.5 / 67.7 for the first three classes.",
+      "interpretation": "Percept-WAM leads selected map categories, while BEVFusion remains stronger in detection and lane-divider IoU. Avoid labeling this row camera-only.",
+      "evidenceIds": [
+        "e-bev-results"
+      ]
+    },
+    {
+      "task": "IoU-confidence data ablation",
+      "setting": "Table 5, nuImages val 2D detection.",
+      "metric": "AP / AP50 / AP75",
+      "value": "Real model-prediction distribution: 49.6 / 70.4 / 53.7",
+      "comparison": "Class-only baseline 48.1 / 70.9 / 51.4; random perturbations AP 46.9; uniform model-prediction sampling AP 46.2.",
+      "interpretation": "Realistic sampling improves AP by 1.5 points and AP75 by 2.3, while AP50 decreases by 0.5. Adding an IoU head alone is insufficient.",
+      "evidenceIds": [
+        "e-conf-ablation"
+      ]
+    },
+    {
+      "task": "Streaming trajectory decoding",
+      "setting": "Table 7, nuScenes val; timing hardware and detailed cache settings absent.",
+      "metric": "Average L2 / latency in milliseconds (both lower is better)",
+      "value": "Query decoder: 0.3822 / 1174; with streaming: 0.3839 / 707",
+      "comparison": "Direct AR: 0.3970 / 2700; clustered AR: 0.3919 / 1470.",
+      "interpretation": "Streaming saves 467 ms, approximately 39.8% calculated from the table, with a small L2 increase. This timing result is separate from Table 3's best planning row.",
+      "evidenceIds": [
+        "e-speed",
+        "e-stream"
+      ]
+    },
+    {
+      "task": "BEV component ablation",
+      "setting": "Table 6, nuScenes val, cumulative modifications.",
+      "metric": "mAP / NDS",
+      "value": "Camera baseline 25.0 / 25.7; LiDAR 33.2 / 32.2; augmentation 41.3 / 39.2; denser grids 50.4 / 46.6; MLP decoding 50.4 / 43.7.",
+      "comparison": "The final change reports 16× speedup while maintaining mAP.",
+      "interpretation": "NDS decreases with MLP decoding. The cumulative setup does not isolate interactions, and its 50.4 mAP is distinct from Table 4's 58.9-equivalent result.",
+      "evidenceIds": [
+        "e-bev-ablation"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Qualitative examples support crowded-scene, bird and shopping-cart detection, but provide no quantified long-tail guarantee. Reasoning preservation is asserted without a dedicated reasoning evaluation in the supplied results.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-qualitative",
+        "e-pv-results",
+        "e-plan-results"
+      ]
+    },
+    {
+      "text": "The main tables give point estimates without seed variability or confidence intervals. Architecture, sensor and training differences limit causal interpretations of cross-method rankings; prediction quality does not establish physical deployment safety.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-pv-results",
+        "e-plan-results",
+        "e-bev-results",
+        "e-speed"
+      ]
+    },
+    {
+      "text": "Figure 3 labels confidence bins 0 through 20, whereas Section 3.1.2 says 20 bins. Endpoint/index conventions remain unresolved. Missing appendices also prevent verification of detailed attention masks, cache recomputation and geography-separated evaluation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-confidence",
+        "e-missing"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the InternVL2-8B initialization, optional PointPillars encoder, Table 2 datasets and an intermediate detector checkpoint for confidence examples. Missing Appendix B prevents recovery of exact mixtures, batch size, training duration, freezing policy, hardware and software configuration from this artifact.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-confidence",
+        "e-bev",
+        "e-training",
+        "e-missing"
+      ]
+    },
+    {
+      "text": "Proposed checks: hold detection data and optimization fixed while varying only the confidence-example distribution; separately ablate modality-specific action-query supervision while keeping the all-feature inference head and training budget fixed. Measure calibration, AP and trajectory metrics rather than assuming perception improvements transfer to planning.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-confidence",
+        "e-conf-ablation",
+        "e-action",
+        "e-plan-results"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "VLA",
+      "subcategories": [
+        "Autonomous driving VLA",
+        "Spatially aware VLA"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "b7dce0f8bbff0a5c4ae201cbb034d61ffa3f0f13ac7d6b8ef69f425f732f307c"
+    },
+    "reasoning": {
+      "text": "The VLA and spatial-perception categories fit. Figure 2 and Sections 3.2–3.3 support One Model through a shared VLM carrying perception and action tokens, alongside modality encoders and MLP heads. The method predicts current scene structure and future ego trajectories; it does not describe action-conditioned future-world generation or inverse-dynamics action extraction, supporting the recorded not-applicable prediction quadrant.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-bev",
+        "e-action"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does modality-specific trajectory supervision reduce reliance on ego state when evaluated under controlled sensor degradation?",
+    "Do better localization-sensitive confidence scores improve planning once perception quality and training budget are controlled?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1 (printed p. 10642), title, author block and CVF notice",
+      "detail": "Exact title and all 19 catalog authors are present. Affiliations are Yinwang Intelligent Technology Co. Ltd. and Fudan University. The notice distinguishes the Open Access accepted-version copy from the final IEEE proceedings."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "Spatial localization and confidence weaknesses motivate explicit perception supervision. The abstract spells the NAVSIM metric PMDS."
+    },
+    {
+      "id": "e-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2, Section 3 overall architecture and Section 2 continuation",
+      "detail": "Shared InternVL2-8B backbone, PV/BEV features, optional LiDAR, action head, language branch and KV cache; NAVSIM is described as data-driven pseudo-simulation."
+    },
+    {
+      "id": "e-pv",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1 and 3.1.1",
+      "detail": "Grid queries, dynamic tiling, box serialization and discretization; 16 mask tokens retrieve segmentation masks. Detection uses cross-entropy and segmentation adds focal and Dice losses."
+    },
+    {
+      "id": "e-confidence",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 3(a–b) and caption; PDF p. 4, Section 3.1.2",
+      "detail": "Prediction-derived IoU examples, complementary loss masks and class-confidence times predicted-IoU inference scoring. Text specifies 20 bins while the figure depicts labels 0, 1, 2, …, 20."
+    },
+    {
+      "id": "e-bev",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.2 and Figure 4",
+      "detail": "BEV queries cross-attend to PV features; optional PointPillars initialization uses PixelUnshuffle and MLP. Grid proposals decode independently; attributes are discretized into [0,1024). BEV masks use independent binary class segmentation."
+    },
+    {
+      "id": "e-action",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 5 and Section 3.3; PDF p. 6, Section 3.3 continuation",
+      "detail": "Four query sets have modality-restricted or full access; each is N by C and decoded by MLP. Smooth-L1 supervises all trajectories; Q_full provides the inference output."
+    },
+    {
+      "id": "e-stream",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.3, Streaming Inference",
+      "detail": "Longer-clip training and dual-recomputation KV caching are named, with details deferred to Appendix A.2."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2 and Section 4.1",
+      "detail": "Task datasets, official split default, optimizer settings, grid sizes and two-stage perception-to-VLA curriculum; Appendix B is referenced for further configuration."
+    },
+    {
+      "id": "e-pv-results",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, COCO mAP column and AD/AD+Gen rows; Section 4.2",
+      "detail": "AD+Gen is identified as the final model. COCO detection mAP is 51.7 versus LMM-Det 47.5 and UFO 48.9; the table lists different visual and language backbones."
+    },
+    {
+      "id": "e-plan-results",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3 and Section 4.2 E2E Trajectory Planning Results",
+      "detail": "Starred two-stage row: nuScenes L2 0.16/0.33/0.60, average 0.36; NAVSIM v1 PDMS 90.2 versus 88.6 unstarred and 88.1 DiffusionDrive. Distinct decoder settings are deferred to A.3; NAVSIM uses static-vocabulary scoring and selection."
+    },
+    {
+      "id": "e-bev-results",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 4 and Section 4.2 BEV Perception Results",
+      "detail": "nuScenes val detection and four map IoUs; no sequence input and image resolution 448×796. Percept-WAM detection is below BEVFusion, while selected map IoUs are higher."
+    },
+    {
+      "id": "e-conf-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 5 and Section 4.3; PDF p. 8, Figure 6 and continuation",
+      "detail": "nuImages val comparison of class-only, random perturbation, uniform model-prediction and real model-prediction confidence training. AP/AP50/AP75 are 49.6/70.4/53.7 for real model predictions versus 48.1/70.9/51.4 baseline."
+    },
+    {
+      "id": "e-bev-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 6 and Section 4.3 BEV 3D Detection",
+      "detail": "Cumulative camera, LiDAR, augmentation, 20×20-to-40×40 grid and MLP-decoding settings. Final mAP remains 50.4 but NDS falls from 46.6 to 43.7; 16× speedup is reported."
+    },
+    {
+      "id": "e-speed",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 7 and Section 4.3 E2E training",
+      "detail": "Direct AR, clustered AR and query-based decoding trade accuracy against latency. Query-based streaming changes 0.3822/1174 ms to 0.3839/707 ms on nuScenes val."
+    },
+    {
+      "id": "e-qualitative",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figures 7–9 and Section 5",
+      "detail": "Selected PV, BEV and trajectory examples include bird and shopping-cart detection and a construction-zone scenario. Conclusion proposes future offline/online RL."
+    },
+    {
+      "id": "e-missing",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2 reference to A.1; p. 6, references to A.2 and B; p. 7, references to A.3 and C.1; p. 14 (printed p. 10655), final reference [118]",
+      "detail": "The body delegates attention masks, streaming details, decoder settings, further training configuration and geographical split results to appendices that do not occur in the supplied 14-page artifact."
+    }
+  ]
+}
