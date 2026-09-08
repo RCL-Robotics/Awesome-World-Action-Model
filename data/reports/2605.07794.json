@@ -1,0 +1,461 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2605.07794",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T17:17:30.701Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2605.07794",
+      "title": "NoiseGate: Learning Per-Latent Timestep Schedules as Information Gating in World Action Models",
+      "kind": "pdf",
+      "sha256": "3038cd278120ca8e7978eadf5c0784fe1aed9c463f5b1a2127da2bb59bf986ea",
+      "wordCount": 8559,
+      "accessedAt": "2026-09-07T14:02:05.022344+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "identityVerified": true,
+    "appendix": "reviewed",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3.1 Preliminaries: Video–Action Generation in WAMs",
+      "3.2 Per-Latent Timesteps as Information Gates",
+      "3.3 Learning the Per-Frame Schedule as a Policy",
+      "4.1 World Action Model and MoT Backbone",
+      "4.2 Training Substrate: Independent Per-Latent Timestep Sampling",
+      "4.3 Gating Policy Network (GPN)",
+      "4.4 Training with GRPO",
+      "5.1 Setup",
+      "5.2 Main Results",
+      "5.3 Ablation Studies",
+      "5.4 Qualitative Analysis: Gating, Schedules, and Noise-as-Masking",
+      "5.5 Case Study",
+      "6 Conclusion",
+      "References",
+      "A Limitations",
+      "B Broader applicability",
+      "C GPN Architecture and Inference Details, including Algorithm 1",
+      "D GRPO Hyperparameters",
+      "E Detailed RoboTwin Results",
+      "F.1 Layer-stratified attention",
+      "F.2 Cross-task structure of final-step residual noise"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The complete supplied 17-page text was read. The extraction’s image omission was addressed by direct PDF inspection; all original figures and tables were visually reviewed.",
+      "Identity: the title page shows arXiv:2605.07794v1, 8 May 2026. Title and all eleven authors match the supplied catalog, allowing for name-order formatting. No revision or edition difference was observed; no other version was supplied for comparison.",
+      "No code was inspected and no experiments were reproduced. References were read as bibliography entries, not as independently inspected research sources."
+    ],
+    "figuresReviewed": [
+      "Figure 1, p. 1",
+      "Figure 2, p. 4",
+      "Figures 3–4, p. 8",
+      "Figure 5, p. 9",
+      "Figures 6–7, p. 17"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2, p. 7",
+      "Table 3, p. 14",
+      "Table 4, p. 15",
+      "Table 5, p. 16"
+    ]
+  },
+  "synopsis": "NoiseGate learns how quickly each imagined future video latent becomes clean while a joint video–action model generates robot actions. A reward-trained scheduler changes video timesteps while leaving the action clock fixed. The reported 50-task RoboTwin average rises from 92.58% to 94.28%; controlled ablations support scheduling benefits, but their printed baseline averages and the policy-density notation contain unresolved inconsistencies.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "A shared video timestep exposes all imagined frames at the same nominal noise level, although their usefulness for action generation may differ. The authors propose keeping uncertain futures partially masked while exposing useful ones earlier. The question is whether task reward can learn this allocation inside a joint denoiser, rather than prescribing one ordering across future frames.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "NoiseGate combines independent per-latent noise training, a Gating Policy Network (GPN), and task-success optimization of that scheduler while freezing the video–action backbone.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e06"
+      ]
+    },
+    {
+      "text": "The evaluation separates scaled performance comparisons from controlled schedule ablations, adding attention, timestep-trajectory, and residual-noise diagnostics. These provide complementary behavioral and mechanistic evidence.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e10",
+        "e12",
+        "e13",
+        "e20"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Clean current observation latent v_0 and language instruction l for the joint backbone",
+      "Noised future video latents and action tokens, with per-frame video times and a global action time",
+      "GPN: current video latent stack, clean observation, and video times; action time is excluded"
+    ],
+    "outputs": [
+      "A jointly generated future-video latent chunk and action chunk",
+      "GPN scheduling decrements for future video latents only"
+    ],
+    "steps": [
+      {
+        "name": "Couple video and actions through attention",
+        "detail": "A chunk-bidirectional Wan 2.2-TI2V-5B video DiT and Action-Expert DiT process a joint sequence. They share self-attention while retaining modality-specific feed-forward layers. The current observation stays clean. Future-video tokens participate in action refinement during generation.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Encode the current denoising state",
+        "detail": "The GPN uses two strided 3-D convolutions, combined attention/average/max pooling, and 256-dimensional latent tokens. Observation-conditioned gated fusion precedes a three-layer, eight-head temporal Transformer. Time embeddings and pooled features feed a squashed-Gaussian actor.",
+        "evidenceIds": [
+          "e16"
+        ]
+      },
+      {
+        "name": "Choose relative denoising speeds",
+        "detail": "The actor scales each predicted frame’s nominal decrement within (0,2), then subtracts it with a zero floor. No ordering across frames is imposed. Each frame’s time nevertheless cannot increase across denoising steps.",
+        "evidenceIds": [
+          "e05"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage 1 demonstration-finetunes the backbone on official RoboTwin data, independently sampling video-frame times and a separate action time. The paper describes diffusion-noise or flow-velocity targets without fixing a complete implemented loss or timestep-sampling distribution.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e07"
+        ]
+      },
+      {
+        "text": "Stage 2 freezes both DiT experts and trains only the GPN. GRPO uses binary episodic success, group-normalized advantages, per-latent new/old policy ratios, clipping, and a decaying entropy bonus. There is no learned value network or reference-policy KL term.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Each step encodes the current video state, samples relative scales, updates future-video times, advances the fixed global action clock, and runs the frozen MoT. Observation time remains zero. Appendix D specifies ten denoising steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e18",
+          "e19"
+        ]
+      },
+      {
+        "text": "Generated actions are executed in RoboTwin; imagined frames differ from subsequent observations. Figure 5 contrasts a failed baseline grasp with NoiseGate success, which the authors attribute to uncertainty retained in a critical future frame. The case alone does not establish causality.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e14"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "p_{\\theta}(\\mathbf{v},\\mathbf{a}\\mid v_0,l)",
+        "explanation": "The distribution jointly covers F future latent frames in v and an action chunk a, given observation v_0 and instruction l. A separate inverse-dynamics extraction stage is not specified.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "\\Delta t_f^{(k)}=\\delta t^{(k)}r_f^{(k)},\\qquad t_f^{(k+1)}=\\max\\{0,t_f^{(k)}-\\Delta t_f^{(k)}\\},\\qquad r_f^{(k)}\\in(0,2)",
+        "explanation": "Equations (5)–(6): f indexes future frames, k the denoising step, t the noise time, δt the nominal scalar-schedule decrement, and r the learned relative scale. Larger r cleans that frame faster. Appendix C changes this scale convention.",
+        "evidenceIds": [
+          "e05",
+          "e17"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboTwin random-scene: 50-task average",
+      "setting": "Scaled Fast-WAM-style batch-1024 configuration; 100 evaluation episodes per task, with randomized poses, colors, and backgrounds.",
+      "metric": "Mean task success rate (%)",
+      "value": "94.28% reported",
+      "comparison": "Stage-1 WAM 92.58% (+1.70 percentage points); Fast-WAM 91.78%, LingBot-VA 91.50%, π0.5 76.76%, Motus 87.02%.",
+      "interpretation": "The same-backbone Stage-1 comparison best isolates scheduler training. Table 5 adapts prior-method columns from an earlier detail table, limiting fully controlled external comparisons. No confidence intervals are reported.",
+      "evidenceIds": [
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "task": "Hanging Mug and Open Microwave",
+      "setting": "Scaled random-scene evaluation, 100 episodes per task.",
+      "metric": "Task success rate (%)",
+      "value": "Hanging Mug 69%; Open Microwave 69%",
+      "comparison": "Stage-1 WAM: 60% and 77%, respectively; changes are +9 and −8 percentage points.",
+      "interpretation": "The positive average hides a substantial task regression. Section 5.2 calls regressions small, but the microwave row warrants separate attention.",
+      "evidenceIds": [
+        "e07",
+        "e09"
+      ]
+    },
+    {
+      "task": "Controlled schedule ablation: 15 tasks",
+      "setting": "Motus-derived batch-128 configuration with VLM removed; 100 episodes per task.",
+      "metric": "Reported overall success rate (%)",
+      "value": "NoiseGate 67.5%",
+      "comparison": "Printed baselines: Shared-t 57.5%, Stage-1 WAM 61.3%, hand-crafted monotone schedule 63.4%.",
+      "interpretation": "Printed gains are +10.0, +6.2, and +4.1 percentage points. Shared-t removal changes training and inference. Reader arithmetic over Table 4 gives baseline means 57.07%, 60.93%, and 62.60%, inconsistent with its average row; NoiseGate gives 67.53%, consistent after rounding.",
+      "evidenceIds": [
+        "e07",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "Attention and residual-noise diagnostics",
+      "setting": "Trained NoiseGate probes; controlled configuration; figures show two future frames.",
+      "metric": "Action-to-video attention and final video noise",
+      "value": "Attention generally decreases with noise in early/late layers; middle layers are comparatively flat. Final noise differs across frames and tasks.",
+      "comparison": "Layer groups 0–9, 10–19, and 20–29 are shown separately.",
+      "interpretation": "These are associations, not direct measurements of causal information utility. Figure 7’s success labels differ from the tables, and frame ordering is not universal.",
+      "evidenceIds": [
+        "e07",
+        "e12",
+        "e20"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Simulator rollouts dominate scheduler-training cost; sparse successes slow convergence. A general scheduler scaling across large multi-task suites remains future work. Driving, navigation, and video-generation applications are proposed, not tested here.",
+      "kind": "source",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "text": "Figure 3’s caption describes monotone attenuation, but its mean curve has local increases; Figure 6 shows depth dependence. Attention weight is an incomplete proxy for feature reliability or causal influence.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "text": "Appendix C alternates between scales in (0,1) and (0,2). It pairs r=2σ(u) with u=logit(r) in Eq. (11), whereas Algorithm 1 uses r=σ(u) and doubles the nominal decrement. The updates can agree, but the printed scaled-action density is inconsistent.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "text": "Physical-robot deployment, held-out-task transfer, repeated-seed uncertainty, and latency improvement are not established. Diagnostic success labels and ablation aggregate arithmetic remain unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e11",
+        "e15",
+        "e20"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required ingredients include RoboTwin demonstrations and randomized rollouts, video/action experts, independent-noise Stage-1 training, and the GPN. Table 3 specifies group size 8, four inner epochs, clip 0.2, AdamW at 10^{-4}, gradient clip 1.0, entropy coefficient 0.01 with 0.999 decay, 50 epochs, eight episodes per epoch, eight GPU rollout workers, and seed 42.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e07",
+        "e19"
+      ]
+    },
+    {
+      "text": "Missing details include GPU models, wall-clock costs, full Stage-1 settings, precise handcrafted schedule, action representation/horizon, and the 15-task selection criterion. Resolve the scale/log-density convention before implementing policy ratios; prose does not establish actual code behavior.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e07",
+        "e10",
+        "e16",
+        "e17",
+        "e19"
+      ]
+    },
+    {
+      "text": "Proposed checks compare learned schedules with within-task replayed and cross-task swapped schedules, and verify equivalent actor-scale conventions yield identical decrements and policy ratios. No such experiments were performed here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e10",
+        "e13",
+        "e17",
+        "e18"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Joint video-action modeling",
+        "Policy post-training & WM-RL"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q3 · Dual-system × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "358cfaaffcaccc639a8d3392ddf2e93f25387464c8071513fb8284b5303d9e74"
+    },
+    "reasoning": {
+      "text": "Joint prediction is supported by co-denoising video and actions. Dual-system is defensible at the expert-module level: distinct video and action DiTs retain modality-specific parameters while sharing attention. This is tightly coupled generation, not a sequential planner/controller pipeline. The GPN controls video scheduling during inference; reward post-training updates that scheduler rather than the action expert.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does the GPN require the current chunk, or would a learned task-specific fixed schedule suffice?",
+    "How much of the attention trend survives a controlled intervention on one frame’s noise?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, author/affiliation lines, and arXiv margin",
+      "detail": "Observed title matches the supplied title. Authors are Wen Huang, Haoran Sun, Yongjian Guo, Yunxuan Ma, Haoran Li, Jing Long, Zhouying Mo, Zhong Guan, Yucheng Guo, Shuai Di, and Junwu Xiong. Affiliations are Tsinghua University, Peking University, JDT AI Infra, and Tianjin University. The margin identifies arXiv:2605.07794v1, 8 May 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Introduction and §3.1–3.2",
+      "detail": "The paper motivates heterogeneous noise levels as task-dependent information gates, with clean observation and language conditioning joint future-video/action generation."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and §4.1, Eq. (3); p. 5, opening paragraphs",
+      "detail": "A Wan 2.2-TI2V-5B video DiT and Action-Expert DiT share self-attention in a joint sequence with modality-specific feed-forward layers. Figure 2 separates demonstration training from scheduler-only GRPO and marks both backbone components frozen in Stage 2."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, §4.2",
+      "detail": "Stage 1 samples video times independently and a separate action time; it trains with a diffusion noise or flow-matching velocity target. A specific timestep distribution and complete implemented objective are not supplied here."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, §3.3 Eq. (2) and §4.3 Eqs. (4)–(6)",
+      "detail": "The GPN observes video latents, observation, and current video times, controls only future-video decrements, and leaves a fixed global action schedule. Main-text scales lie in (0,2); positive decrements are subtracted and times floored at zero, without an ordering constraint across frames."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, §4.4, Eqs. (7)–(9)",
+      "detail": "Only scheduler parameters are optimized. GRPO uses binary episodic success, group-relative standardized advantages, per-latent importance ratios, a clipped surrogate and decaying entropy bonus, without a KL term or learned value network."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, §5.1; p. 14, Appendix E",
+      "detail": "RoboTwin random-scene evaluation randomizes poses, colors, and backgrounds, using 100 episodes per task. Controlled studies use a Motus-derived, VLM-removed batch-128 configuration; main results use a scaled Fast-WAM-style batch-1024 configuration. Official RoboTwin data train Stage 1."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, Average row; p. 16, Table 5, caption and Average row",
+      "detail": "Reported 50-task means are Stage-1 WAM 92.58 and NoiseGate 94.28 percent. Fast-WAM, LingBot-VA, π0.5, and Motus are 91.78, 91.50, 76.76, and 87.02. Table 5 says prior-method columns are adapted from the corresponding RoboTwin detail table; it reports no uncertainty intervals."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Table 5, Hanging Mug, Open Microwave, and Place Object Scale rows; p. 7, §5.2 continuation",
+      "detail": "Stage-1/NoiseGate scores are 60/69 for Hanging Mug, 77/69 for Open Microwave, and 99/98 for Place Object Scale. The main text describes regressions as small."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2 and §5.3; p. 15, Table 4 caption and Average row",
+      "detail": "Printed controlled-study means are Shared-t 57.5%, Stage-1 WAM 61.3%, hand-crafted 63.4%, and NoiseGate 67.5%. Table 4 lists 15 tasks; Stage-1 uses independent noise training with shared-scalar inference, while the hand-crafted variant uses a fixed monotone per-latent schedule."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Table 4, all 15 task rows versus Average row",
+      "detail": "Reader arithmetic on the displayed fractional rows gives sums 8.56, 9.14, 9.39, and 10.13 for Shared-t, Stage-1, hand-crafted, and NoiseGate. Dividing each by 15 yields 0.570667, 0.609333, 0.626000, and 0.675333. The first three differ from the printed 0.575, 0.613, and 0.634."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 3 and §5.4; p. 15, §F.1; p. 17, Figure 6 and caption",
+      "detail": "Action-to-video attention is binned against video noise. Figure 3’s caption calls the decay monotone, although its mean curve has local increases. Figure 6 separates early 0–9, middle 10–19, and late 20–29 layers, with mean ±1 standard deviation. Early/late trends decrease overall; middle layers are comparatively flat."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 4, caption and §5.4",
+      "detail": "The two panels, named only Task A and Task B, show single-chunk trajectories for conditioning latent 0 and predicted latents 1 and 2. Observation noise stays zero; future-frame trajectories and ordering differ between panels."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 5, caption and §5.5",
+      "detail": "The case study distinguishes actual observations following action execution from predicted frames. The authors attribute a baseline grasp failure and NoiseGate success to uncertainty in the critical predicted grasp frame; the shown case is qualitative."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendices A–B",
+      "detail": "Sparse simulator rewards make rollout collection the dominant training cost. General large-scale multi-task schedule learning is left to future work; video prediction, driving, and navigation are suggested broader applications."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix C, Interface and Network architecture",
+      "detail": "The GPN excludes action time, uses two strided 3-D convolutions with GroupNorm/SiLU, three pooling summaries, D=256 tokens, observation-conditioned gated residual fusion, and a three-layer eight-head temporal Transformer. Time embeddings, attention pooling, and a three-layer actor MLP parameterize a squashed Gaussian."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 5, §4.3 Eq. (5); p. 13, Appendix C interface and Eq. (11); p. 14, Algorithm 1 lines 2–3 and 7",
+      "detail": "The main text uses r in (0,2) with Δt=δt r. Appendix C first states (0,1), then defines r=2σ(u) but writes u=logit(r) and an unscaled sigmoid log-Jacobian. Algorithm 1 instead uses r=σ(u), Δt=2δt r. These notational and density differences are present in the PDF."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Algorithm 1 and immediately following paragraph",
+      "detail": "Each step encodes the current state, samples scales, updates video times with a zero floor, advances the fixed action clock, and invokes the frozen MoT. It stores the sum of per-latent log-probabilities for GRPO; both DiT backbones remain frozen."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix D, Table 3",
+      "detail": "GRPO settings: group 8; clip 0.2; inner epochs 4; AdamW; learning rate 10^{-4}; gradient clip 1.0; initial entropy coefficient 0.01; entropy decay 0.999 per step, floored at 0; ten denoising steps; 50 epochs; eight episodes per epoch; eight GPU rollout workers; seed 42. GPU models and wall-clock costs are not provided."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 15, §F.2 and Table 4; p. 17, Figure 7 and caption; p. 16, Table 5",
+      "detail": "Figure 7 gives per-task final-noise means and ±1 standard deviation for two future frames. Place A2B Right has frame 1 farther right than frame 2, despite being a prose example of retaining more farther-future noise. Its SR 90% label differs from Table 4’s 78% and Table 5’s 98%; Blocks Ranking RGB is labeled 100%, versus 82% and 99% respectively. The diagnostic evaluation subset is not reconciled with the tables."
+    }
+  ]
+}

@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2605.06481",
+  "shortTitle": "OA-WAM",
+  "thesis": "Persistent object addresses help the shared world/action model withstand geometric scene shifts, but the benefit depends on perception and does not establish universally robust control.",
+  "standfirst": "Consider a robot asked to move one mug while another sits nearby. OA-WAM gives each detected object an episode-long address and a changing description of its current state. Its transformer restricts slot keys to an address channel, then predicts future object states and an action chunk from shared hidden representations. The useful question is whether this interface improves target binding when the camera or scene moves. The internal ablations support that hypothesis in simulation. They also expose a boundary: future prediction does not improve every reported metric, perception can still fail, and inconsistencies in aggregate scores and implementation details prevent a clean reproduction from the PDF alone.",
+  "evidenceIds": [
+    "e-problem",
+    "e-architecture",
+    "e-routing",
+    "e-oa-ablation",
+    "e-world-ablation",
+    "e-reporting-gaps"
+  ],
+  "featuredResultTask": "LIBERO-Plus geometric robustness",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2605.06481/architecture.png",
+      "width": 1478,
+      "height": 1171,
+      "sourceSha256": "83df65b170d50640dbaf0e23dad5c37f324ef22e26dfc022167baedc4790ca7d",
+      "sourceUrl": "https://arxiv.org/pdf/2605.06481#page=3",
+      "crop": [
+        0.21,
+        0.095,
+        0.79,
+        0.45
+      ],
+      "alt": "Multimodal inputs become image, object-slot, text, state and past-action tokens in a shared backbone, which branches into image-VQ, world and action heads.",
+      "caption": "One shared representation supplies future-state supervision and action generation.",
+      "readingGuide": "Follow the downward arrows from observations and instruction. The Qwen3VL branch supplies noun phrases for SAM3; DINOv3 contributes masked appearance features. The blue slot stream passes through its own adapter, while the other streams use the existing token embeddings. Sequence assembly ends with the starred action query. At the bottom, blue slot hiddens feed content and pose prediction; the pink query feeds the action head. The yellow image-VQ branch is an additional training objective. Appendix B clarifies that only third-person VQ codes enter the default sequence, although wrist observations also contribute to object slots.",
+      "takeaway": "The diagram supports a shared-backbone interpretation of joint world/action prediction. It does not show predicted future states feeding into the action head or a planning loop. Algorithm 1 instead returns both outputs; the action chunk is obtained with four flow-head Euler evaluations after the shared trunk pass.",
+      "caution": "The world panel depicts objects, but its output is content and pose regression, not a rendered rollout. The VQ branch is disabled at inference. Simulator object poses and frozen perception remain substantive dependencies.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-preprocessing",
+        "e-heads",
+        "e-inference"
+      ]
+    },
+    {
+      "id": "attention-mask",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 5,
+      "asset": "report-assets/2605.06481/attention-mask.png",
+      "width": 1017,
+      "height": 926,
+      "sourceSha256": "83df65b170d50640dbaf0e23dad5c37f324ef22e26dfc022167baedc4790ca7d",
+      "sourceUrl": "https://arxiv.org/pdf/2605.06481#page=5",
+      "crop": [
+        0.56,
+        0.63,
+        0.826,
+        0.817
+      ],
+      "alt": "Query rows descend and key columns run rightward through text, state, two frame groups and ACT_Q; red slot blocks are bidirectional and the final row reads preceding tokens.",
+      "caption": "Temporal visibility and address-only key projection are distinct constraints.",
+      "readingGuide": "Read Q down the left edge and K across the top: a colored cell indicates an allowed query-to-key connection. The lower-triangular layout prevents later frame groups from leaking into earlier ones. Within each frame, the red slot block permits mutual slot attention. Action rows can read preceding visual and slot tokens, while same-frame slots cannot read those actions. The final yellow ACT_Q row pools accessible history. This is the visibility mask; Equation (3) adds a separate operation inside key projection, retaining only the first 32 residual coordinates at slot positions. The reset hook is specified in the accompanying text, not drawn here.",
+      "takeaway": "The architecture separates what a token may read from which part of a slot defines its key. Shared within-frame RoPE positions support permutation equivariance when masks and geometry are permuted consistently. That property concerns reordering the same slots; it is not a theorem that arbitrary visual perturbations leave actions unchanged.",
+      "caution": "Full queries and the default geometry bias still affect attention logits. The source also leaves unclear how the unrestricted slot adapter establishes raw address coordinates before the first block. Address-only keys are narrower than context-independent routing.",
+      "evidenceIds": [
+        "e-routing",
+        "e-adapter",
+        "e-theory"
+      ]
+    },
+    {
+      "id": "benchmark-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 7,
+      "asset": "report-assets/2605.06481/benchmark-results.png",
+      "width": 1665,
+      "height": 950,
+      "sourceSha256": "83df65b170d50640dbaf0e23dad5c37f324ef22e26dfc022167baedc4790ca7d",
+      "sourceUrl": "https://arxiv.org/pdf/2605.06481#page=7",
+      "crop": [
+        0.173,
+        0.126,
+        0.826,
+        0.414
+      ],
+      "alt": "Success-rate table comparing VLA and WAM methods on four LIBERO suites and four SimplerEnv WidowX visual-matching tasks; OA-WAM's bottom row is highlighted.",
+      "caption": "OA-WAM has the highest listed averages on these two standard benchmarks.",
+      "readingGuide": "Separate the LIBERO columns on the left from the WidowX visual-matching tasks on the right. Each block has its own Avg column and should be read under its own evaluation protocol. The highlighted row reports OA-WAM; compare its LIBERO average with VLA-JEPA and its SimplerEnv average with CoWVLA. Appendix H specifies 100 episodes per LIBERO suite and 25 per SimplerEnv cell, each with three seeds for OA-WAM. Comparator rows mostly come from the cited papers. Dashes preserve unavailable results; F1-VLA's missing SimplerEnv average reflects a different original aggregation, so it should not be filled by assumption.",
+      "takeaway": "OA-WAM reports 97.8% on LIBERO versus VLA-JEPA's 97.2%, and 79.3% on SimplerEnv versus CoWVLA's 76.0%. These are differences of 0.6 and 3.3 percentage points. Individual tasks remain uneven: the highest average does not mean OA-WAM wins every suite or task.",
+      "caution": "These are simulated task-completion scores, including SimplerEnv's visual matching. Baseline training and uncertainty are not standardized by importing table rows; no supplied confidence intervals establish the significance of small differences.",
+      "evidenceIds": [
+        "e-standard",
+        "e-evaluation"
+      ]
+    },
+    {
+      "id": "robustness-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 8,
+      "asset": "report-assets/2605.06481/robustness-results.png",
+      "width": 1665,
+      "height": 954,
+      "sourceSha256": "83df65b170d50640dbaf0e23dad5c37f324ef22e26dfc022167baedc4790ca7d",
+      "sourceUrl": "https://arxiv.org/pdf/2605.06481#page=8",
+      "crop": [
+        0.173,
+        0.168,
+        0.826,
+        0.457
+      ],
+      "alt": "Seven-axis LIBERO-Plus success rates, a Camera/Robot/Layout Geo Avg column, a reported overall Avg column and a delta-versus-prior-best row.",
+      "caption": "The camera and geometric-average gains are clearer than the aggregate claim.",
+      "readingGuide": "Start with Camera, Robot and Layout, the three columns summarized by Geo Avg. OA-WAM reaches 80.5, 89.6 and 82.8, giving the displayed geometric average of 84.3. Camera improves over Cosmos-Policy, but X-VLA remains slightly higher on Robot and pi0.5 higher on Layout. Next inspect the photometric and language columns rather than assuming geometry gains transfer to them. Sensor Noise is especially weak relative to Cosmos-Policy. The final delta row compares each column with that column's prior best, not with one common baseline. All differences between success percentages should be read as percentage points.",
+      "takeaway": "The table supports an addressability advantage on camera shifts and on the geometric average among the listed methods: +4.7 and +4.8 points respectively. The noise score is 75.6 versus Cosmos-Policy's 92.7. The authors print overall scores of 83.9 for OA-WAM and 85.7 for pi0.5, but their aggregation remains unresolved.",
+      "caution": "The displayed seven axes average 86.6 for OA-WAM and approximately 86.49 for pi0.5, not the printed 83.9 and 85.7. No alternative weighting is specified. Preserve the original cells, but do not treat the printed aggregate ranking as verified arithmetic.",
+      "evidenceIds": [
+        "e-robustness",
+        "e-evaluation",
+        "e-reporting-gaps"
+      ]
+    },
+    {
+      "id": "routing-factorial",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 6",
+      "page": 25,
+      "asset": "report-assets/2605.06481/routing-factorial.png",
+      "width": 1655,
+      "height": 534,
+      "sourceSha256": "83df65b170d50640dbaf0e23dad5c37f324ef22e26dfc022167baedc4790ca7d",
+      "sourceUrl": "https://arxiv.org/pdf/2605.06481#page=25",
+      "crop": [
+        0.175,
+        0.519,
+        0.824,
+        0.681
+      ],
+      "alt": "Four mask/reset variants are compared using grouped success bars and swap-binding cosine bars; full OA reaches 80.5 camera success and 0.87 binding.",
+      "caption": "The two routing operations matter beyond supplying object slots alone.",
+      "readingGuide": "Read the variant labels before comparing bars. V2 has neither mask nor reset; V1 keeps only the reset; V3 keeps only the mask; V0 enables both. All retain the paper's slot/perception setup. In panel (a), the medium-blue camera bars separate much more than the light-blue standard-LIBERO bars. The curved arrow points from V2's camera result to V0's and labels a 20.0-point increase; it is an annotation, not a fitted trajectory. Panel (b) uses a different metric, the cosine of intervention-induced motion toward the swapped target. The dotted line marks the largest reported holistic-baseline cosine.",
+      "takeaway": "Camera success rises from 60.5 without OA to 80.5 with both operations, while standard LIBERO changes from 95.4 to 97.8. Swap binding rises from 0.06 to 0.87. The two partial variants sit between those endpoints, supporting the usefulness of both mask and reset within this controlled design space.",
+      "caution": "The success axis begins at 50%, so bar heights exaggerate proportional differences. Binding measures response to an artificial address swap, not successful manipulation. Shared OA-pretrained weights and an unspecified equivalent holistic intervention limit broader causal conclusions.",
+      "evidenceIds": [
+        "e-oa-ablation",
+        "e-swap",
+        "e-training"
+      ]
+    },
+    {
+      "id": "world-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 5",
+      "page": 24,
+      "asset": "report-assets/2605.06481/world-ablation.png",
+      "width": 1047,
+      "height": 242,
+      "sourceSha256": "83df65b170d50640dbaf0e23dad5c37f324ef22e26dfc022167baedc4790ca7d",
+      "sourceUrl": "https://arxiv.org/pdf/2605.06481#page=24",
+      "crop": [
+        0.177,
+        0.848,
+        0.485,
+        0.903
+      ],
+      "alt": "Two-row world-loss ablation: action-only yields 95.6 LIBERO, 73.4 camera and 84.5 LP average; with-world yields 97.8, 80.5 and 83.9.",
+      "caption": "Future-state supervision helps the camera axis without improving the printed aggregate.",
+      "readingGuide": "Read this as an ablation of training supervision. The upper row removes the slot-world objective; the lower row retains it. The three columns measure standard LIBERO, the LIBERO-Plus camera axis and the printed LIBERO-Plus aggregate. The crop excludes the long caption, whose crucial qualification is that 'Action only' still keeps auxiliary VQ prediction. It therefore does not isolate all future prediction from action learning. The main method defines next-frame slot regression, although this caption calls the removed loss multi-step. That horizon mismatch remains unresolved, so the tutorial follows the explicit next-frame equations.",
+      "takeaway": "With world supervision, standard LIBERO improves by 2.2 points and camera success by 7.1 points. The printed aggregate instead decreases by 0.6 points. This supports a specific camera-robustness contribution; it does not establish a universal benefit from adding a world head or a need for inference-time future imagination.",
+      "caution": "The caption calls the aggregate difference statistically flat without providing intervals. Table 2 already leaves aggregate computation unresolved. No independent world-prediction quality metric here explains whether improved content prediction, pose prediction or shared representation learning causes the camera gain.",
+      "evidenceIds": [
+        "e-world-ablation",
+        "e-heads",
+        "e-reporting-gaps"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Separate an object's address from its changing state",
+      "kind": "source",
+      "text": "Start at the beginning of an episode. Qwen3-VL interprets the instruction with the initial observation, and its noun phrases prompt SAM 3. DINOv3 supplies appearance information for the resulting masks. A learned address function combines the label with initial appearance, then caches that identity for the episode. Another function updates content as observations change. The same object can therefore move while retaining its address. The 320-dimensional slot also contains temporal and role information before projection into the trunk. This construction still needs correct initialization and tracking: two ambiguous candidates or a missed mask cannot be repaired simply by freezing a key. Appendix B's simulator-derived pose is another input dependency. The architecture makes an extracted object easier to address; it does not solve perception or prove end-to-end semantic grounding.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-preprocessing",
+        "e-adapter",
+        "e-problem"
+      ]
+    },
+    {
+      "heading": "Understand why the mask also needs a reset",
+      "kind": "analysis",
+      "text": "A key mask alone selects coordinates, not their meaning. After a transformer block, residual updates could mix changing content into those selected coordinates. OA-WAM therefore restores the cached address after every block. This explains why the mask and reset are tested separately in the factorial: V3 keeps the mask but allows drift, whereas V1 keeps the reset but lets keys read all coordinates. The source's mechanistic claim is strongest at this tensor-level distinction. Reader analysis adds two qualifications. First, a fixed key does not fix an attention weight when queries or relative-geometry biases change. Second, the input adapter mixes all slot components, and the text does not specify an initial overwrite before the first block. A reproduction should verify that invariant directly instead of assuming the post-block hook establishes it retroactively.",
+      "evidenceIds": [
+        "e-routing",
+        "e-adapter",
+        "e-oa-ablation"
+      ]
+    },
+    {
+      "heading": "Use future prediction as supervision, then test executed behavior",
+      "kind": "source",
+      "text": "The final slot hiddens predict next-frame content and pose, while the action query conditions a flow head over a whole action chunk. During training, Gaussian noise is interpolated toward demonstrated actions and the flow head learns the corresponding velocity. At inference, four Euler evaluations sample the chunk after one shared trunk pass; the auxiliary VQ head is disabled. No documented step feeds a generated future back into action selection. Table 5 tests whether world supervision improves the learned policy and finds a camera benefit, even though its printed aggregate does not improve. Table 7 tests the address operations while retaining the perception stack. Read these results as complementary: one probes the training objective, the other the routing interface. Neither substitutes for real-robot validation or an independently measured planning capability.",
+      "evidenceIds": [
+        "e-heads",
+        "e-inference",
+        "e-world-ablation",
+        "e-oa-ablation",
+        "e-limitations"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate training adaptation from test-time routing damage",
+      "text": "Reader-proposed check, not performed: starting from the same verified Stage-0 checkpoint, train all four mask/reset configurations with identical Stage-II data, seeds, budgets, role losses and cached perception. Also toggle each switch only at evaluation in the fully trained V0 model. Pair initial scenes and action-sampling noise across conditions, and measure camera-angle success, standard LIBERO success, swap-binding cosine and first-32-coordinate drift at every layer, including layer zero. A persistent camera advantage after matched retraining would support the routing bias; a gap confined to abrupt evaluation toggles would suggest distribution-shift damage. Record the shared checkpoint's OA pretraining as a remaining confound rather than claiming a from-scratch architecture comparison.",
+      "evidenceIds": [
+        "e-training",
+        "e-adapter",
+        "e-routing",
+        "e-oa-ablation",
+        "e-evaluation"
+      ]
+    },
+    {
+      "title": "Test whether perception repair closes the sensor-noise gap",
+      "text": "Reader-proposed check, not performed: hold a trained policy, initial states, instructions and action-noise seeds fixed across clean and sensor-corrupted observations. Compare ordinary perception, oracle object masks with estimated poses, oracle poses with ordinary masks, and both oracle components together. Cache the same initial addresses before corruption; separately test corruption at episode initialization. Report per-axis task success, target tracking errors and denominators, and time perception separately so latency does not masquerade as binding failure. If oracle repair restores most lost success, the perception explanation gains support; persistent failures would implicate the remaining VQ/content pathway or policy. First resolve whether the published evaluation actually used simulator or estimated poses.",
+      "evidenceIds": [
+        "e-preprocessing",
+        "e-robustness",
+        "e-limitations",
+        "e-pose-gap",
+        "e-runtime-gaps"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28
+    ],
+    "notes": "Visually inspected the title/author/version block; Figures 1–9; Tables 1–8; Algorithms 1–2; method equations; and appendix preprocessing, architecture, objectives, hardware, evaluation and failure details. Every final crop was viewed, including the revised architecture crop. Figure 2's branch directions and Figure 3's Q/K orientation and slot blocks were checked against the equations and Appendix C; Figure 6's arrow was checked against Table 7. All claim-supporting non-reference pages are included. Reference pages 10–15 were read as text only. No separate supplement, executable implementation or external baseline source was inspected; aggregate, latency, pose-source and training-description inconsistencies remain explicit."
+  }
+}
