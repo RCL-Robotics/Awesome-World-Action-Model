@@ -1,0 +1,503 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.20175",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T11:06:38.962Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2607.20175",
+      "title": "PerceptDrive: Perception Prior World-Action Modeling with Adaptive Expert Routing for End-to-End Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "ad2e5d93829e49e7d6d985742329be3c927f2d75b1c72aa45fc370ee6e18339e",
+      "wordCount": 10629,
+      "accessedAt": "2026-09-07T13:55:33.397574+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method, including 3.1–3.4",
+      "4 Experiments, including 4.1–4.3 and Discussion",
+      "5 Conclusion",
+      "References",
+      "Appendix A Evaluation Protocols",
+      "Appendix B Implementation Details",
+      "Appendix C Staged Optimization and Gradient Routing",
+      "Appendix D Ablation Protocol and Interpretation",
+      "Appendix E Results on the navhard Split",
+      "Appendix F Statistical Stability and Extended Diagnostics",
+      "Appendix G Computational Cost and Parameters",
+      "Appendix H Additional Visualization"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity/version: the inspected title and all 14 authors match the catalog after name-order normalization. The title page identifies arXiv:2607.20175v1, 22 July 2026, while the manuscript's internal date is July 20, 2026. No alternative revision was supplied or compared.",
+      "The acquisition notes that text extraction does not reconstruct figure images. This limitation was addressed by visually inspecting the retained PDF's figures, tables, and all pages supporting retained scientific claims.",
+      "Separate supplemental material availability has not been fully verified; no separate supplement was supplied.",
+      "All seven supplied text chunks were read individually, covering all 24 pages. Reference pages 11–14 were read as text; visual inspection covered pages 1–10 and 15–24.",
+      "Code, external sources, and model artifacts were not inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, p. 2",
+      "Figure 2, p. 4",
+      "Figure 3, p. 7",
+      "Figure 4, p. 9",
+      "Figure A1, p. 23",
+      "Figure A2, p. 24"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2, p. 8",
+      "Table 3, p. 10",
+      "Table A1, p. 17",
+      "Tables A2–A3, p. 19",
+      "Tables A4–A5, p. 20",
+      "Tables A6–A9, p. 21",
+      "Table A10, p. 22"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "PerceptDrive converts frozen geometric, semantic, and dynamic perception priors into driving trajectories. Branch-specific reconstruction preserves these priors through query compression; scene-dependent gates combine their conditions before a predicted latent future guides a flow actor. Its strongest evidence concerns NAVSIM planning scores and internal controls; interactive driving and transfer beyond the training evaluator remain open.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "The authors identify a prior-to-plan transfer problem: imitation may discard source-specific knowledge when queries compress rich perception features, while static fusion cannot change each prior's importance with the scene. They target the provider-to-planner interface.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e-problem"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Retention probes anchor each compressed expert branch to a distinct frozen prior; a dense router combines expert conditions before action generation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-interface"
+      ]
+    },
+    {
+      "text": "Privileged trajectory sub-scores supervise the representation and router during training, allowing single-trajectory deployment without evaluator-based selection.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-supervision",
+        "e-gradient",
+        "e-inference"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Four front-camera frames at 2 Hz",
+      "Aligned ego history: position, heading, velocity, acceleration, yaw rate",
+      "High-level navigation command"
+    ],
+    "outputs": [
+      "Eight ego-centric BEV waypoints (x, y, heading), spanning 4 seconds at 0.5-second intervals",
+      "An internal predicted 2-second future latent used to condition trajectory generation"
+    ],
+    "steps": [
+      {
+        "name": "Acquire stationary priors",
+        "detail": "InternVL3-2B is fully fine-tuned on 1,398,858 cleaned driving-QA samples from DriveLM, LingoQA, DriveQA, NuScenes-QA, and Reason2Drive. Registered GEO, SEM, and DYN slots then receive VGGT geometry alignment, V-JEPA 2 ViT-g masked-feature prediction, and Wan 2.1 velocity-field supervision. Teachers stay frozen; slots, projection heads, a dynamic bridge, and LoRA adapters learn, with QA replay. Merged LoRA weights are frozen for planning.",
+        "evidenceIds": [
+          "e-provider"
+        ]
+      },
+      {
+        "name": "Compress complementary streams",
+        "detail": "The provider supplies high-level features; a separate frozen V-JEPA 2-L supplies dense observation latents and future targets. Width-1024 projections form a shared pool. Context, action, video, and three expert query banks read this pool; their outputs join ego and command embeddings in a bidirectional Transformer. The backbone cannot revisit the original pool after compression.",
+        "evidenceIds": [
+          "e-interface",
+          "e-inputs",
+          "e-capacity"
+        ]
+      },
+      {
+        "name": "Retain, route, and predict",
+        "detail": "Train-only probes reconstruct detached mean expert-slot targets from mean branch readouts. A scene-vector MLP predicts three soft gates; every expert remains active. Their weighted conditions accompany the action condition. A future head predicts an action-free latent for the actor and an action-conditioned latent for auxiliary training, both supervised against frozen-encoder future targets.",
+        "evidenceIds": [
+          "e-interface",
+          "e-future"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "WAM training uses navtrain only: 30,000 AdamW steps, effective batch 128, bf16, peak learning rate 0.0001, and 1,000 learning-rate warmup steps. A separate 3,000-step objective warmup disables action and routing losses and keeps gates uniform. Joint training weights future, retention, and routing losses by 0.2, 0.1, and 0.1; action and auxiliary losses have unit weight.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-capacity",
+          "e-supervision",
+          "e-optimization",
+          "e-protocol"
+        ]
+      },
+      {
+        "text": "Each navtrain scene supplies a demonstration, 16 smooth perturbations, and a constant-velocity trajectory with eight privileged sub-scores. History comfort is excluded because it depends on executed history. Five-neighbor interpolation scores training predictions. Three detached one-step branch drafts yield mean-quality scores and temperature-0.5 soft gate targets. Auxiliary and routing losses reach the backbone through scene state; detached futures prevent the action loss from updating the future head.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-supervision",
+          "e-gradient"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Encode the observation once, predict gates and the action-free future once, then integrate the flow actor for 25 Euler steps from Gaussian noise to one trajectory. Retention probes, auxiliary regression, branch drafts, and action-conditioned prediction are absent. Single-trajectory generation still requires repeated integration; these evaluations do not establish physical action execution.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-inference",
+          "e-capacity",
+          "e-protocol"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{ret}}=\\sum_c\\left[1-\\cos\\!\\left(\\rho_c(\\bar C_c),\\bar h^{c}\\right)+\\frac12\\left\\|\\rho_c(\\bar C_c)-\\bar h^{c}\\right\\|_2^2\\right]",
+        "explanation": "Equation (6): c indexes geometry, semantics, and dynamics. Probe rho_c reconstructs detached pooled slot target h-bar from pooled branch readout C-bar. Direction and magnitude alignment assigns each branch a specific retention target.",
+        "evidenceIds": [
+          "e-interface",
+          "e-capacity"
+        ]
+      },
+      {
+        "expression": "\\alpha=\\operatorname{softmax}(g_r(s_t)),\\qquad \\hat c_{\\mathrm{exp}}=\\sum_c\\alpha_c\\hat c_c",
+        "explanation": "Equation (7): router g_r maps pooled scene state s_t to expert weights alpha, mixing expert conditions c-hat before trajectory generation.",
+        "evidenceIds": [
+          "e-interface"
+        ]
+      },
+      {
+        "expression": "x_\\tau=(1-\\tau)x_0+\\tau a_{\\mathrm{gt}},\\qquad \\mathcal{L}_{\\mathrm{act}}=\\left\\|v_\\theta(x_\\tau,\\tau,[\\hat c_{\\mathrm{act}};\\hat c_{\\mathrm{exp}}],\\hat v_{\\mathrm{free}})-(a_{\\mathrm{gt}}-x_0)\\right\\|_2^2",
+        "explanation": "Equation (A5): flow time tau interpolates base noise x_0 and demonstration a_gt. Velocity network v_theta learns their displacement, conditioned on action/expert features and detached predicted future v_free. Flow time differs from planning index t.",
+        "evidenceIds": [
+          "e-supervision",
+          "e-gradient"
+        ]
+      },
+      {
+        "expression": "\\alpha^{*}=\\operatorname{softmax}(q/T_r),\\qquad \\mathcal{L}_{\\mathrm{route}}=-\\sum_c\\alpha_c^{*}\\log\\alpha_c",
+        "explanation": "Equation (A7): q contains the mean of eight interpolated sub-scores for each detached expert draft; T_r is routing temperature. Cross-entropy teaches predicted gates alpha to match target gates alpha*. This sub-score mean differs from the official EPDMS aggregation.",
+        "evidenceIds": [
+          "e-supervision",
+          "e-protocol"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "NAVSIM v1 navtest planning",
+      "setting": "Official non-reactive evaluation; one front camera; default 25-step actor.",
+      "metric": "PDMS, higher is better",
+      "value": "90.4; training-seed mean ± standard deviation 90.4 ± 0.05.",
+      "comparison": "DriveVLA-W0 90.2; DriveWAM 90.1; human reference 94.8.",
+      "interpretation": "Highest listed non-human aggregate, with a 0.2-point margin over DriveVLA-W0. External systems differ in sensors, pretraining, and inference budget; their uncertainty is not reported here.",
+      "evidenceIds": [
+        "e-v1",
+        "e-stability",
+        "e-protocol",
+        "e-inference"
+      ]
+    },
+    {
+      "task": "NAVSIM v2 navtest planning",
+      "setting": "Official EPDMS evaluation; three training seeds, each evaluated with three fixed base-noise seeds.",
+      "metric": "EPDMS, higher is better",
+      "value": "90.2 ± 0.11 across training seeds.",
+      "comparison": "DriveFuture 89.9; IDOL 89.6; Latent-WAM 89.3.",
+      "interpretation": "A 0.3-point aggregate lead does not imply superiority on every sub-metric. Reported bootstrap separation concerns internal ablations, not external baselines.",
+      "evidenceIds": [
+        "e-v2",
+        "e-stability",
+        "e-protocol"
+      ]
+    },
+    {
+      "task": "NAVSIM v2 navhard two-stage planning",
+      "setting": "Public two-stage pseudo-simulation with pre-generated follow-up observations.",
+      "metric": "Combined EPDMS, higher is better",
+      "value": "34.5.",
+      "comparison": "DriveLaW 30.6; MindDrive 30.5; DiffusionDrive 27.5.",
+      "interpretation": "The 3.9-point lead over DriveLaW belongs to a distinct protocol. Stage-2 lane keeping falls to 48.7 from 96.4; this is not an interactive closed loop.",
+      "evidenceIds": [
+        "e-navhard",
+        "e-protocol"
+      ]
+    },
+    {
+      "task": "Nested WAM mechanism ablation",
+      "setting": "NAVSIM v2 navtest; components added in construction order; uniform gates until routing is enabled.",
+      "metric": "EPDMS, higher is better",
+      "value": "84.6 → 85.4 → 87.1 → 88.7 → 90.2.",
+      "comparison": "Imitation → future conditioning → metric supervision → prior retention → metric-distilled routing.",
+      "interpretation": "Gains depend on this ordering. Separately, removing retention from the full system yields 88.8, and disabling routing distillation yields 89.5, supporting both mechanisms outside the nested progression.",
+      "evidenceIds": [
+        "e-nested",
+        "e-controls",
+        "e-ablation-scope"
+      ]
+    },
+    {
+      "task": "Inference solver trade-off",
+      "setting": "Same trained model; end-to-end latency on one AMD MI308X; no retraining.",
+      "metric": "EPDMS and latency",
+      "value": "25 steps: 90.2 at 68 ms; 10 steps: 90.1 at 53 ms.",
+      "comparison": "One step: 87.5 EPDMS at 44 ms.",
+      "interpretation": "Fewer integration steps offer a measured accuracy/latency trade-off on the stated hardware, without establishing deployment-hardware latency.",
+      "evidenceIds": [
+        "e-cost"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors leave interactive closed-loop evaluation and transfer to differently weighted evaluators untested. The future predictor is deterministic; predictions under unobserved actions extrapolate beyond demonstrated-action supervision.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-limits",
+        "e-future"
+      ]
+    },
+    {
+      "text": "Token masking measures reliance and changes inputs; only dynamic-teacher removal is verified by provider and WAM retraining. That retrained variant reaches 88.6 EPDMS versus 90.2 full.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-prior-ablation",
+        "e-ablation-scope"
+      ]
+    },
+    {
+      "text": "Router supervision is approximate: interpolated sub-scores reach overall Spearman correlation 0.91, and one-step versus full-rollout expert choices agree in 86.2% of tested dev scenes. These diagnostics support useful approximations, not exact evaluator equivalence.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-surrogates"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the driving-QA mixture, frozen teacher checkpoints, NAVSIM splits/evaluators, and navtrain-only privileged pools. Appendix C gives spline perturbation scales and the five-neighbor distance/fallback rule. Reported training costs 409.6 MI308X GPU-hours, using eight GPUs per provider stage and two for WAM training; the WAM has 421M trainable parameters.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-provider",
+        "e-supervision",
+        "e-protocol",
+        "e-capacity",
+        "e-cost"
+      ]
+    },
+    {
+      "text": "The supplied description does not fix LoRA rank, numeric provider-loss weights, the complete teacher-distillation schedule, exact checkpoint revisions, or software versions. These omissions prevent an exact build from the paper alone despite detailed WAM settings.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-provider",
+        "e-inputs",
+        "e-capacity",
+        "e-cost"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The frozen provider and separate trainable WAM support a functional Dual-system reading. Predicted action-free futures condition action generation, supporting an IDM-style future-to-action interpretation of Q4. This is not explicit inverse-dynamics regression on observed state pairs: future and actor heads share a backbone, and action-conditioned future prediction serves training only. The classification describes information flow rather than wholly independent world/action networks.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-interface",
+        "e-future",
+        "e-inference"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Latent prediction & JEPA",
+        "Visual planning & IDM"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "4a7d193548acc6e4b3f50cea62a86343c1a0b2da3a2140b851622c6f2de46b4c"
+    }
+  },
+  "discussionQuestions": [
+    "Would routing gains persist under different evaluator weights?",
+    "Do retention-induced representation differences predict robustness beyond NAVSIM?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block, date and arXiv margin",
+      "detail": "Exact title and 14-author sequence match the catalog. Affiliations are Tsinghua University and AMap, Alibaba Group. The margin identifies v1 dated 22 July 2026; the manuscript date is July 20, 2026."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Section 1 and Figure 1 caption",
+      "detail": "The authors separate query-compression losses of prior information from scene-invariant allocation, motivating retention and scene-conditioned fusion."
+    },
+    {
+      "id": "e-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and Section 3",
+      "detail": "Stages 1a/1b construct a frozen provider; Stage 2 joins its features and frozen video latents in a shared Transformer with expert routing, a future head, and an action head."
+    },
+    {
+      "id": "e-provider",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Equations (1)–(5)",
+      "detail": "QA adaptation uses 1,398,858 samples. Frozen VGGT, V-JEPA 2 ViT-g, and Wan 2.1 supervise geometric, semantic, and dynamic slots. Only slots, lightweight heads/bridge, and LoRA learn during distillation, with replay; numeric provider-loss coefficients are not supplied."
+    },
+    {
+      "id": "e-interface",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.3, Equations (6)–(7)",
+      "detail": "All query banks read a shared perception pool. Retention reconstructs detached pooled prior targets. Scene-state softmax gates densely mix three expert conditions before generation; the predicted action-free future conditions the actor."
+    },
+    {
+      "id": "e-inputs",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1; p. 15, Appendix B, Inputs and frozen provider",
+      "detail": "Four frames at 2 Hz and ego/command inputs predict eight 4-second waypoints, normalized by (50,50,pi). Provider features have 1,048 tokens of width 1,536; dense video features have shape 256 by 2 by 1,024."
+    },
+    {
+      "id": "e-capacity",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix B, WAM capacity and optimization",
+      "detail": "The 421,481,483-parameter WAM uses width 1,024; context/action/video query counts are 64/8/32, with eight queries per expert. It trains 30k AdamW steps at batch 128, bf16, peak 1e-4, 1k learning-rate warmup and cosine decay. The flow loss samples uniform time and Gaussian base noise."
+    },
+    {
+      "id": "e-future",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix C, Equations (A1)–(A4); p. 17, extrapolation paragraph",
+      "detail": "Action-free and demonstrated-action-conditioned futures receive L1 supervision against the same target. Auxiliary regression consumes scene, trajectory, and pooled imagined outcome; futures for unobserved actions are extrapolations."
+    },
+    {
+      "id": "e-optimization",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 3.4, Equation (8); p. 16, Appendix C, Two-phase WAM training",
+      "detail": "Objective warmup disables action/routing losses and keeps gates uniform; joint optimization activates all five losses. Future-conditioning output projection starts at zero."
+    },
+    {
+      "id": "e-supervision",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Appendix C, Equations (A5)–(A7), Offline supervision pool; p. 18, opening paragraph",
+      "detail": "Flow matching uses noise-to-demonstration interpolation. Detached one-step branch drafts are scored with five-neighbor interpolation over demonstration, 16 perturbations, and constant-velocity pools. Eight score components exclude HC; routing uses mean score and temperature 0.5. Objective warmup is 3,000 steps; future/retention/routing weights are 0.2/0.1/0.1. Spline noise scales and distance/fallback rules are specified."
+    },
+    {
+      "id": "e-gradient",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix C, Gradient routes",
+      "detail": "Detached future input blocks action-loss gradients into the future head; auxiliary/routing gradients reach the backbone through scene state only. Retention updates probes/readouts; detached draft targets do not update action/future heads."
+    },
+    {
+      "id": "e-inference",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix B, Inference",
+      "detail": "Provider, router and action-free future run once, followed by 25 Euler integration steps to one trajectory. Auxiliary metric branch, retention probes, drafts, and action-conditioned future prediction are removed."
+    },
+    {
+      "id": "e-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Discussion; p. 15, Appendix A, all evaluation protocols",
+      "detail": "All evaluations are non-reactive. Privileged pools contain navtrain only. Cross-paper configurations differ. EPDMS combines four multiplier metrics and five weighted metrics with false-positive filtering; navhard uses pre-generated second-stage observations rather than interactive feedback."
+    },
+    {
+      "id": "e-v1",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1, PDMS column and sensor column",
+      "detail": "PerceptDrive uses one camera and scores 90.4; DriveVLA-W0 90.2, DriveWAM 90.1, and human 94.8. Comfort is saturated among listed systems."
+    },
+    {
+      "id": "e-v2",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2, EPDMS and sub-metric columns",
+      "detail": "PerceptDrive scores 90.2 EPDMS versus DriveFuture 89.9, IDOL 89.6, and Latent-WAM 89.3; its EC is 86.3 versus Latent-WAM 87.3 and its HC is 98.5."
+    },
+    {
+      "id": "e-nested",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 3, all rows",
+      "detail": "EPDMS increases 84.6, 85.4, 87.1, 88.7, 90.2 through imitation, future conditioning, metric supervision, retention, and routing. EC changes 78.9 to 84.0 with future conditioning and reaches 86.3 full."
+    },
+    {
+      "id": "e-controls",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Table A2, all rows",
+      "detail": "EPDMS is 88.8 for static weights, 88.3 for trajectory averaging, 89.5 without routing distillation, 89.0 command-only, 89.9 without command, 88.8 without retention, 88.6 shuffled targets, 89.5 shared targets, 90.1 token-level targets, and 89.7 source-masked reads, versus 90.2 full."
+    },
+    {
+      "id": "e-ablation-scope",
+      "sourceId": "primary",
+      "location": "PDF pp. 18–19, Appendix D",
+      "detail": "Provider-composition variants are retrained; token removal is inference-only. Nested effects are conditional on ordering. Design controls alter one choice, while trajectory averaging uniquely generates three trajectories. Source-masked reads retain observation latents but restrict prior-slot access."
+    },
+    {
+      "id": "e-prior-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Table A1, provider and token-removal blocks",
+      "detail": "Full EPDMS is 90.2; removing dynamic distillation with retraining yields 88.6, no prior distillation 85.5, no VLM 81.9. Inference GEO/SEM/DYN removal yields 88.1/88.5/88.3 with different sub-metric deficits."
+    },
+    {
+      "id": "e-routing-visual",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 4 and caption; p. 21, Routing dispersion within commands",
+      "detail": "Geometry has highest mean gate weight during turns, dynamics during straight travel. Whiskers show within-command standard deviations. Radar axes span seven points below each full score, with 95% bootstrap shading. Mean within-command gate standard deviation is 0.11; command-only prediction explains 38% of gate variance."
+    },
+    {
+      "id": "e-navhard",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Table A3 and Appendix E",
+      "detail": "Combined navhard EPDMS is 34.5 versus DriveLaW 30.6, MindDrive 30.5, DiffusionDrive 27.5. PerceptDrive LK changes from 96.4 in stage 1 to 48.7 in stage 2."
+    },
+    {
+      "id": "e-stability",
+      "sourceId": "primary",
+      "location": "PDF pp. 19–20, Appendix F, Table A4 and Multi-seed stability",
+      "detail": "Three training seeds, each with three fixed base-noise seeds, yield full-model 90.4 ± 0.05 PDMS and 90.2 ± 0.11 EPDMS. Evaluation-seed standard deviations are at most 0.05. A seed-0 paired bootstrap with 10k resamples reports separation from internal ablations at 95%."
+    },
+    {
+      "id": "e-provider-generality",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Table A5",
+      "detail": "Retention plus routing improve QA-only EPDMS from 83.7 to 85.5 and distilled-provider EPDMS from 87.1 to 90.2."
+    },
+    {
+      "id": "e-surrogates",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Validity of routing supervision; p. 21, Table A6",
+      "detail": "Four held-out perturbations per 2,048 navtrain-dev scenes yield overall sub-score Spearman 0.91. On 500 dev scenes, one-step drafts and 25-step rollouts agree on the best expert 86.2% of the time, with mean target-gate L1 gap 0.06."
+    },
+    {
+      "id": "e-retention-diagnostic",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Retention diagnostics; p. 21, Table A7 and caption",
+      "detail": "Retention changes mean pairwise CKA from 0.76 to 0.52, matched/mismatched reconstruction cosines from 0.69/0.61 to 0.83/0.41, selectivity from 0.08 to 0.42, and designated-slot attention share from 0.09 to 0.31."
+    },
+    {
+      "id": "e-cost",
+      "sourceId": "primary",
+      "location": "PDF p. 21, Table A9; p. 22, Appendix G and Table A10",
+      "detail": "Provider stages use eight MI308X GPUs for 30.4 and 152.0 GPU-hours; WAM uses two for 227.2, totaling 409.6. Inference retains 2.82B active parameters. One/10/25 Euler steps yield EPDMS 87.5/90.1/90.2 at 44/53/68 ms on one MI308X."
+    },
+    {
+      "id": "e-limits",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Discussion and Section 5",
+      "detail": "The authors acknowledge evaluator alignment, untested transfer to other objectives, non-reactive evaluation, deterministic futures, extrapolated action-conditioned predictions, and masking's limited causal interpretation."
+    }
+  ]
+}
