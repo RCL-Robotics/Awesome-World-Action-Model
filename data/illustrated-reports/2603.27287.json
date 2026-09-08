@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.27287",
+  "shortTitle": "Uni-World VLA",
+  "thesis": "Uni-World VLA alternates imagined frames and waypoint predictions in a shared backbone, improving reported NAVSIM planning while leaving the causal contribution of feedback and deployment behavior unresolved.",
+  "standfirst": "A driving world model is useful to planning only if its imagined future informs decisions at the right time. Uni-World VLA makes that timing explicit: predict a frame, request a waypoint for the same timestamp, and continue the sequence using the growing context. Estimated depth enriches the historical visual embeddings. This reading follows the token flow, distinguishes joint training from inference, and uses the ablations to separate large pretraining gains from smaller scheduling and depth gains. The supplied v1 paper reports strong NAVSIM scores and competitive video FVD, but contains unresolved implementation and numerical inconsistencies. Its internal prediction loop should not be confused with a demonstrated physical driving system.",
+  "evidenceIds": [
+    "ev-identity",
+    "ev-inputs",
+    "ev-interleaving",
+    "ev-depth",
+    "ev-components",
+    "ev-schemes",
+    "ev-planning",
+    "ev-video",
+    "ev-training"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/2603.27287/architecture.png",
+      "width": 1140,
+      "height": 1063,
+      "sourceSha256": "09aa65ced8445e87e0d93dd8d9d88fdcfbe335ec30579e47579e5ddfe801d41e",
+      "sourceUrl": "https://arxiv.org/pdf/2603.27287#page=5",
+      "crop": [
+        0.278,
+        0.148,
+        0.725,
+        0.47
+      ],
+      "alt": "Two-panel architecture showing history, ego and prompts converted to depth-fused embeddings, followed by alternating future-frame outputs and action queries through Uni-World VLA.",
+      "caption": "Historical geometry conditions a shared sequence of imagined frames and waypoint queries.",
+      "readingGuide": "Start with panel (a): orange blocks carry prompts, green and olive blocks represent dynamic and contextual imagery, and blue represents ego information. The depth-fusion arrow summarizes a more specific operation in Equations (10)–(11): visual embeddings query depth-encoder features. Then follow panel (b) from left to right. The current frame precedes the first predicted frame; an action query requests the waypoint at that predicted frame's timestamp. Dashed links carry generated visual tokens into subsequent context. Equations (2)–(3) additionally condition later generation on earlier actions. This is a recurrent use of one backbone, not evidence of multiple independent planners.",
+      "takeaway": "The architectural change is when planning receives visual information: it can use each newly imagined frame before the next frame is produced. Historical depth supplies geometric conditioning, while action-query hidden states produce waypoints. The diagram supports shared computation and interleaved prediction; its practical value still needs the ablations.",
+      "caution": "Figure 2(a) places ego before the user prompt, whereas the p. 6 input list reverses them. Preserve this packing ambiguity. The text also leaves the exact predicted-action feedback representation unclear; arrows alone do not resolve its implementation.",
+      "evidenceIds": [
+        "ev-inputs",
+        "ev-depth",
+        "ev-interleaving",
+        "ev-objective"
+      ]
+    },
+    {
+      "id": "training-inference",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 8,
+      "asset": "report-assets/2603.27287/training-inference.png",
+      "width": 1415,
+      "height": 776,
+      "sourceSha256": "09aa65ced8445e87e0d93dd8d9d88fdcfbe335ec30579e47579e5ddfe801d41e",
+      "sourceUrl": "https://arxiv.org/pdf/2603.27287#page=8",
+      "crop": [
+        0.22,
+        0.147,
+        0.775,
+        0.382
+      ],
+      "alt": "Training sequence and supervision targets in panel (a) at upper left, beside the attention matrix in panel (b) at upper right. Below both, inference panel (c) shows four successive backbone calls that generate a frame, query an action, reuse generated tokens and repeat.",
+      "caption": "Joint supervision and cached inference share a blockwise temporal attention structure.",
+      "readingGuide": "At upper left, panel (a) aligns the interleaved inputs with two supervised outputs: visual-token logits and trajectories. Beside it at upper right, panel (b) explains how information can flow. The solid green squares form fully connected within-frame blocks; the colored area expands toward earlier blocks as time advances, while gray cells exclude future information. Action rows can access the corresponding frame. This agrees with the p. 7 description of bidirectional intra-frame and causal inter-frame attention. Below both panels, read panel (c)'s four backbone calls as successive stages: generate the next frame, query its action, extend the visual context, and query again. The caption and inference text specify KV-cache reuse.",
+      "takeaway": "World prediction is present during inference, rather than serving only as an auxiliary training target. A waypoint can depend on the current imagined frame. The block mask preserves temporal ordering while allowing spatial dependencies within each frame, and the cache avoids recomputing all preceding key/value representations.",
+      "caution": "The figure does not specify how a frame is sampled under bidirectional attention, nor provide measured latency. It depicts joint supervision; the separate depth-pretraining and freezing schedule must be taken from p. 10.",
+      "evidenceIds": [
+        "ev-mask",
+        "ev-interleaving",
+        "ev-objective",
+        "ev-training"
+      ]
+    },
+    {
+      "id": "planning-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 11,
+      "asset": "report-assets/2603.27287/planning-results.png",
+      "width": 1446,
+      "height": 852,
+      "sourceSha256": "09aa65ced8445e87e0d93dd8d9d88fdcfbe335ec30579e47579e5ddfe801d41e",
+      "sourceUrl": "https://arxiv.org/pdf/2603.27287#page=11",
+      "crop": [
+        0.22,
+        0.228,
+        0.787,
+        0.486
+      ],
+      "alt": "NAVSIM planning table with traditional and world-model methods, input modalities, five driving subscores and PDMS; Uni-World VLA has PDMS 89.4.",
+      "caption": "The full model leads this table in aggregate planning score, with a single front-camera input.",
+      "readingGuide": "Read the Input column before comparing scores: SC means single-view camera, C means multi-view cameras, and C&L adds LiDAR to multi-view cameras. The five submetrics are no-at-fault collisions (NC), drivable-area compliance (DAC), ego progress (EP), time-to-collision (TTC), and comfort; larger scores are preferred throughout. The shaded rightmost column is aggregate PDMS. Compare Uni-World VLA first with the single-camera PWM row, then with multi-sensor ResWorld. Finally scan individual subscores: the best aggregate score does not imply that every safety or compliance component is maximal. The paper evaluates NAVSIM test trajectories over its four-second prediction setup.",
+      "takeaway": "Uni-World VLA reports PDMS 89.4 against PWM's 88.1 and ResWorld's 89.0. Its EP is 83.2, TTC 96.1 and comfort 100.0. These are the strongest listed aggregate results, but the mixed sensor inputs and inherited training pipelines make this a benchmark comparison rather than a controlled mechanism test.",
+      "caution": "The p. 10 prose reports TTC 96.4; this table and Table 3's full-model row report 96.1. No uncertainty is supplied. The scores concern the supplied NAVSIM evaluation and do not document physical vehicle deployment.",
+      "evidenceIds": [
+        "ev-evaluation",
+        "ev-planning",
+        "ev-components",
+        "ev-training"
+      ]
+    },
+    {
+      "id": "component-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 13,
+      "asset": "report-assets/2603.27287/component-ablation.png",
+      "width": 1669,
+      "height": 293,
+      "sourceSha256": "09aa65ced8445e87e0d93dd8d9d88fdcfbe335ec30579e47579e5ddfe801d41e",
+      "sourceUrl": "https://arxiv.org/pdf/2603.27287#page=13",
+      "crop": [
+        0.222,
+        0.2,
+        0.783,
+        0.276
+      ],
+      "alt": "Four-row cumulative ablation toggling pretraining, future frames and depth, with PDMS increasing from 82.1 to 89.4 and video FVD reported only for frame-generating rows.",
+      "caption": "Pretraining dominates the planning gain; depth mainly improves the reported video metric.",
+      "readingGuide": "Read the first three columns as a cumulative ladder. The first row excludes all three components; the second adds pretraining; the third also predicts future frames; and the fourth adds depth. Compare adjacent rows for the reported incremental change, while remembering that this is not a complete factorial experiment. PDMS increases to the right's preferred direction, whereas FVD decreases. The dashes in the first two FVD cells mean no video score is reported for those non-frame-generating configurations. After reading the aggregate columns, inspect NC and TTC: their maxima occur before depth is enabled, so the full configuration does not dominate every submetric.",
+      "takeaway": "The PDMS ladder is 82.1, 88.2, 89.2 and 89.4: increments of 6.1, 1.0 and 0.2 score points. Adding depth reduces FVD from 164.2 to 141.8, a 22.4-point decrease. Its planning gain is much smaller, and TTC decreases from 96.4 to 96.1.",
+      "caution": "No repeated-run variability or compute-matched controls are shown. The depth model uses a staged training procedure, so the table alone does not isolate geometric information from all extra training and module effects.",
+      "evidenceIds": [
+        "ev-components",
+        "ev-training"
+      ]
+    },
+    {
+      "id": "timing-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 14,
+      "asset": "report-assets/2603.27287/timing-ablation.png",
+      "width": 1443,
+      "height": 359,
+      "sourceSha256": "09aa65ced8445e87e0d93dd8d9d88fdcfbe335ec30579e47579e5ddfe801d41e",
+      "sourceUrl": "https://arxiv.org/pdf/2603.27287#page=14",
+      "crop": [
+        0.22,
+        0.172,
+        0.786,
+        0.281
+      ],
+      "alt": "Table comparing five depth-free frame-action schedules A through E; aligned 2-Hz interleaving has the highest PDMS, 89.2.",
+      "caption": "Alignment with the evaluation frequency matters more than simply increasing prediction frequency.",
+      "readingGuide": "All rows omit depth fusion. Read Scheme E as the paper's chosen order: a frame at 0.5 seconds, its action, then a frame at 1.0 seconds and its action, continuing to four seconds. The token-order formulas on p. 14 clarify the alternatives. A pairs dense early frames with more distant action timestamps. B uses dense frame/action alternation in the first second followed by dense action outputs; C changes the later action outputs to a coarser schedule. D inserts overlapping one-second action windows. Compare their PDMS and progress columns, rather than assuming more frequent queries necessarily improve planning.",
+      "takeaway": "Aligned Scheme E scores 89.2 PDMS, compared with A's 88.3, B's 86.1, C's 87.8 and D's 85.7. It also leads EP at 82.9 in this table. The result favors the particular aligned schedule over these alternatives under the shared NAVSIM evaluation.",
+      "caution": "The schemes change timing, output horizons and supervision together; some require nuPlan-derived 10-Hz targets. Frequency mismatch and conflicting-window explanations are author interpretations, not separately measured causes. The table cannot isolate a pure benefit from interleaving.",
+      "evidenceIds": [
+        "ev-schemes",
+        "ev-evaluation"
+      ]
+    },
+    {
+      "id": "depth-comparison",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 5",
+      "page": 13,
+      "asset": "report-assets/2603.27287/depth-comparison.png",
+      "width": 1303,
+      "height": 776,
+      "sourceSha256": "09aa65ced8445e87e0d93dd8d9d88fdcfbe335ec30579e47579e5ddfe801d41e",
+      "sourceUrl": "https://arxiv.org/pdf/2603.27287#page=13",
+      "crop": [
+        0.248,
+        0.298,
+        0.759,
+        0.533
+      ],
+      "alt": "Three columns labeled Origin, without depth fusion and Depth fused, with different road-scene examples at future horizons of two, three and four seconds.",
+      "caption": "Selected depth-fused predictions retain sharper scene structure at the displayed horizons.",
+      "readingGuide": "Compare each row horizontally: the left column is the reference image, the center is the prediction without depth fusion, and the right is the prediction with depth. The rows are labeled +2.0, +3.0 and +4.0 seconds, but depict different road scenes; do not read them as successive frames of one trip. In the middle row, examine vehicles and building edges. In the bottom row, compare the skyline, building facades and roadside barrier. The depth-fused images preserve more of this visible structure than the blurred center-column examples. The actual depth maps are absent here; the figure shows their downstream effect on RGB generation.",
+      "takeaway": "The selected examples make the reported FVD improvement visually plausible: depth-conditioned predictions look clearer in the displayed scenes, especially the later-horizon examples. They complement Table 3's FVD change from 164.2 to 141.8, but neither this crop nor distributional FVD measures the metric accuracy of inferred depth.",
+      "caution": "These are selected qualitative examples without a stated sampling rule or failure count. Crisper pixels do not establish collision avoidance, calibrated geometry or reliable prediction of other road users. Different scenes across rows also prevent a controlled temporal-error comparison.",
+      "evidenceIds": [
+        "ev-qualitative",
+        "ev-components",
+        "ev-depth"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "1. Compress what stays stable and what changes",
+      "text": "The information bottleneck starts before the shared backbone. A high-resolution MagVIT-v2 branch supplies 448 contextual tokens per frame, while a lower-resolution branch supplies only 28 dynamic tokens. The historical dynamic stream captures fine temporal changes, and context supplies scene structure. Depth Anything 3 estimates geometry from the input RGB images; two depth encoders produce features at the matching resolutions. In cross-attention, the visual embeddings are queries and the depth features are keys and values, so the resulting conditioning remains attached to the visual representation. Appendix A also matters: ego status is projected through an MLP at inference rather than quantized like imagery. These distinctions prevent the phrase 'unified tokens' from hiding differences in how images, ego state and action queries enter the backbone.",
+      "kind": "source",
+      "evidenceIds": [
+        "ev-tokenizer",
+        "ev-inputs",
+        "ev-depth"
+      ]
+    },
+    {
+      "heading": "2. Trace the same-timestamp frame-to-action dependency",
+      "text": "Let the model reach the first future timestamp. Equation (2) predicts its dynamic visual tokens from the preceding visual and action context. Equation (3) then predicts the corresponding action representation with access to that newly predicted frame; an MLP converts the action hidden state to an ego position. Repeating this order gives eight frame/waypoint pairs over four seconds. Training supervises visual logits and positions together, with increased visual-loss weight on changing tokens. Inference instead extends a generated context and reuses cached keys and values. The paper calls this a closed loop, but the loop is between imagined representations. Fresh sensor feedback, vehicle dynamics during execution and the reaction of surrounding agents are separate questions not settled by the described autoregressive sequence.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-interleaving",
+        "ev-objective",
+        "ev-mask",
+        "ev-evaluation"
+      ]
+    },
+    {
+      "heading": "3. Separate benchmark gains from a causal explanation",
+      "text": "Start with the internal component ladder rather than the leaderboard. Pretraining increases PDMS from 82.1 to 88.2, future-frame modeling raises it to 89.2, and depth raises it to 89.4. This identifies pretraining as the largest reported contributor, while depth's more pronounced benefit is in FVD. Next compare the five depth-free schedules: aligned 2-Hz interleaving leads, but timing, supervision density and action horizons vary together. Finally check the historical-input ablation: context-only nearly matches the full representation, while dynamic-only is much weaker. My interpretation is that the evidence supports a useful combined recipe, but leaves multiple explanations for its gains. A decisive follow-up would hold temporal frequency, training budget and initialization constant while changing only whether planning can access generated frames.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-components",
+        "ev-schemes",
+        "ev-history"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Hold timing fixed and remove access to imagined frames",
+      "text": "Reader-proposed check, not performed: initialize matched models from the same PWM checkpoint and train on the same NAVSIM split with two-second history, eight aligned 2-Hz outputs, no depth, identical loss weights and training budget. In the control, block action-query attention to predicted future-frame tokens while retaining historical context and the visual-generation objective; keep the original mask in the treatment. Evaluate paired scenes for PDMS and all subscores across multiple seeds, and measure latency. A reproducible planning decrease in the masked control would support an inference-time benefit from imagined visual evidence. Little or no difference would weaken that explanation even if visual prediction remains a useful shared-training task.",
+      "evidenceIds": [
+        "ev-mask",
+        "ev-objective",
+        "ev-training",
+        "ev-components",
+        "ev-schemes",
+        "ev-evaluation"
+      ]
+    },
+    {
+      "title": "Test whether depth contributes aligned geometry",
+      "text": "Reader-proposed check, not performed: reproduce the final two Table 3 configurations with identical initialization and stage budgets, then add a parameter-matched control whose depth maps are shuffled across scenes before depth-encoder training. Preserve each map's value distribution and record the preprocessing. Use the same NAVSIM evaluation scenes and FVD sample set, report multiple seeds and paired confidence intervals, and stratify qualitative errors by horizon and turns. Compare valid-depth, shuffled-depth and no-depth runs on FVD, PDMS, NC and TTC. A reliable advantage confined to correctly aligned depth would support the geometric-conditioning account; equal gains from shuffled depth would suggest capacity or training effects. Explicitly test whether the reported TTC decline persists.",
+      "evidenceIds": [
+        "ev-depth",
+        "ev-training",
+        "ev-components",
+        "ev-qualitative",
+        "ev-video",
+        "ev-evaluation"
+      ]
+    }
+  ],
+  "featuredResultTask": "NAVSIM test-set trajectory planning",
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      20,
+      21,
+      22
+    ],
+    "notes": "Visually inspected the title/author/version block; all method equations and training/setup pages; Figures 1–8; and Tables 1–5. All six final original crops were separately viewed. Figure 2's prompt/ego ordering differs from the p. 6 sequence; Figure 3's mask agrees with the p. 7 blockwise attention description. The TTC discrepancy and the p. 10 training-schedule ambiguity are retained. Appendix A's token representations and Appendix B's selected examples were included in the visual pass. Reference-only pages 16–19 were read as text, not visually inspected. No external supplements or linked code were inspected, and no experiment was run."
+  }
+}

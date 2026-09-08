@@ -1,0 +1,259 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2604.02190",
+  "shortTitle": "UniDriveVLA",
+  "thesis": "UniDriveVLA lets three specialized experts exchange information inside one model, improving selected driving and understanding metrics while leaving comfort, motion forecasting and full semantic retention unresolved.",
+  "standfirst": "A driving model must interpret a scene, locate its geometry and generate a trajectory. UniDriveVLA assigns those jobs to separate transformer experts, then controls what each expert can read. The central idea is to protect the language pathway while making its semantic context useful to spatial perception and action generation. Read the architecture together with its attention mask: the shared attention bar alone hides this directionality. Then separate three experimental questions: whether the model drives well in simulation, whether it predicts logged trajectories accurately, and whether expert decoupling preserves understanding. The tables support qualified gains, with different winners across metrics and several unresolved reporting discrepancies.",
+  "evidenceIds": [
+    "e-architecture",
+    "e-attention",
+    "e-bench",
+    "e-planning",
+    "e-decoupling",
+    "e-general",
+    "e-diagnostic"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 5,
+      "asset": "report-assets/2604.02190/architecture.png",
+      "width": 1317,
+      "height": 755,
+      "sourceSha256": "8f66f7ce0c13bfc01898edcabb7d7c30e9c2b0f5c1fd43e6ba97823e33019249",
+      "sourceUrl": "https://arxiv.org/pdf/2604.02190#page=5",
+      "crop": [
+        0.115,
+        0.08,
+        0.89,
+        0.423
+      ],
+      "alt": "Three parallel understanding, perception and action pathways connect separate QKV and FFN blocks through masked joint attention. Inputs include a prompt, camera views, sparse anchors and noised actions; outputs include language, perception and trajectories.",
+      "caption": "Separate expert parameters exchange information through one controlled attention operation.",
+      "readingGuide": "Read from the bottom upward. Camera features enter the vision encoder, whose rightward arrow feeds the sparse encoder; detection and map anchors and occupancy queries identify the spatial branch. The language prompt enters a tokenizer, while a noised trajectory enters the action encoder. Purple, green and orange blocks retain separate QKV projections and feed-forward networks. The horizontal attention band joins their information, but Figure 4 specifies which directions are allowed. At the top, the LM head produces a driving-language output, the sparse decoder produces scene estimates, and the action decoder produces a trajectory. Section 3.3 further explains that spatial features are refined after semantic interaction.",
+      "takeaway": "The figure supports an integrated model with specialized pathways. Perception is available as an intermediate, interpretable representation, and the action expert can use both semantic and spatial context. This architecture underlies the report's disagreement with the catalog's Dual-system label; the evidence is the shared layer computation, not merely a common training objective.",
+      "caution": "The attention band does not imply unrestricted communication. The displayed planning-language example does not establish that a complete verbal chain must be generated before each action. Sampling order and the downstream actuator controller are unspecified.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-attention",
+        "e-sparse",
+        "e-inputs"
+      ]
+    },
+    {
+      "id": "attention-mask",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 6,
+      "asset": "report-assets/2604.02190/attention-mask.png",
+      "width": 1204,
+      "height": 1359,
+      "sourceSha256": "8f66f7ce0c13bfc01898edcabb7d7c30e9c2b0f5c1fd43e6ba97823e33019249",
+      "sourceUrl": "https://arxiv.org/pdf/2604.02190#page=6",
+      "crop": [
+        0.652,
+        0.408,
+        0.888,
+        0.614
+      ],
+      "alt": "A block attention matrix with a causal purple/gray prefix, green perception rows attending prefix and perception columns, and orange suffix rows attending all three groups. The legend distinguishes vision, text, perception, status and action tokens.",
+      "caption": "The mask sends semantic context toward perception and action while restricting the understanding prefix.",
+      "readingGuide": "Use the column groups as the tokens available to each row, consistent with the query–key attention formulation in Section 3.2. The upper-left prefix is triangular: later tokens can use earlier context, while empty regions prevent the prefix from reading perception or suffix tokens. Green perception rows cover the prefix and the full perception block. Orange suffix rows cover prefix, perception and suffix columns, including status and action tokens. The legend separates token types from their visibility. This schematic agrees with the accompanying prose's main direction: understanding supplies semantic context to perception, and actions aggregate semantic and spatial information. The figure does not provide token counts for an actual implementation.",
+      "takeaway": "The architecture combines causal language processing with denser interactions inside spatial and continuous-action groups. It explains how a shared attention operation can remain directional: integrating information for planning does not require feeding every spatial or action token back into the language prefix. The intended protection concerns the structure of forward information flow.",
+      "caution": "A forward attention mask is not a stop-gradient operation or a proof that optimization interference disappears. The paper specifies VLM freezing only in the final training stage; earlier joint optimization still requires careful empirical assessment.",
+      "evidenceIds": [
+        "e-attention",
+        "e-training"
+      ]
+    },
+    {
+      "id": "bench2drive",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 8,
+      "asset": "report-assets/2604.02190/bench2drive.png",
+      "width": 1455,
+      "height": 740,
+      "sourceSha256": "8f66f7ce0c13bfc01898edcabb7d7c30e9c2b0f5c1fd43e6ba97823e33019249",
+      "sourceUrl": "https://arxiv.org/pdf/2604.02190#page=8",
+      "crop": [
+        0.112,
+        0.078,
+        0.89,
+        0.384
+      ],
+      "alt": "Bench2Drive table separating open-loop L2 from four closed-loop metrics. Gray dagger-marked rows use PDM-Lite; UniDriveVLA reports 78.37 Driving Score, 51.82% success, 198.86 efficiency and 11.78 comfort.",
+      "caption": "Driving Score and efficiency lead the non-PDM-Lite group, with weaker success and comfort.",
+      "readingGuide": "Start with the notes above the columns: dagger-marked models use PDM-Lite demonstrations, and the paper limits its bold best-result claims to models without that source. The left metric evaluates logged trajectory error over a two-second horizon at two hertz; the four columns to its right evaluate closed-loop behavior. Follow UniDriveVLA's bottom row, then compare it with Orion immediately above. Higher is marked as better for Driving Score, success, efficiency and comfort. A model can lead one column and trail another. In particular, the smallest open-loop L2 belongs to DriveMOE, while the best listed comfort in the comparison group belongs to MomAD.",
+      "takeaway": "UniDriveVLA's Driving Score is 78.37 versus Orion's 77.74, and efficiency is 198.86 versus 151.48. However, its success is 51.82% versus 54.62%, and comfort is 11.78 versus 17.38. These results support a specific driving-quality/efficiency gain within the stated demonstration group, not dominance across all behavior measures.",
+      "caution": "Bench2Drive is CARLA simulation. The table reports neither repeated-run uncertainty nor the full controller and route configuration. Its efficiency metric is a driving metric, not a measurement of neural-network inference speed.",
+      "evidenceIds": [
+        "e-bench",
+        "e-evaluation"
+      ]
+    },
+    {
+      "id": "nuscenes-planning",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 9,
+      "asset": "report-assets/2604.02190/nuscenes-planning.png",
+      "width": 1719,
+      "height": 1107,
+      "sourceSha256": "8f66f7ce0c13bfc01898edcabb7d7c30e9c2b0f5c1fd43e6ba97823e33019249",
+      "sourceUrl": "https://arxiv.org/pdf/2604.02190#page=9",
+      "crop": [
+        0.112,
+        0.078,
+        0.89,
+        0.465
+      ],
+      "alt": "A nuScenes planning table divided into methods with and without ego status, each showing ST-P3 and UniAD L2 and collision metrics at one, two and three seconds and their averages.",
+      "caption": "Trajectory accuracy and collision rate tell different stories across the two protocols.",
+      "readingGuide": "Choose an ego-status group before comparing methods, then stay inside either the ST-P3 or UniAD metric block. Each block separately lists displacement error in meters and collisions in percent at three horizons and as an average. The bottom group evaluates models without ego status. Within it, UniDriveVLA-Large uses Qwen3-VL-8B; Base uses the 2B backbone. Read the Large and SparseDrive rows across both average columns. The retained notes matter: SparseDrive's double-dagger indicates re-evaluation under the GPT-Driver protocol. Asterisks mark ego-state access, so the upper and lower halves are different input settings and cannot be merged into one ranking.",
+      "takeaway": "Without ego status, Large has the lowest listed average L2: 0.51 m under ST-P3 and 0.90 m under UniAD. Its collision averages, 0.11% and 0.27%, exceed SparseDrive's 0.08% and 0.21%. With ego status, Large's average L2 of 0.42/0.74 m trails FSDrive's 0.28/0.45 m.",
+      "caution": "These are open-loop comparisons against logged trajectories, not executed-drive safety rates. The two metric protocols should remain separate. The source explains the asterisk and SparseDrive marker, but does not explain the additional dagger on FSDrive's ego-status row.",
+      "evidenceIds": [
+        "e-planning",
+        "e-evaluation"
+      ]
+    },
+    {
+      "id": "component-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 5",
+      "page": 10,
+      "asset": "report-assets/2604.02190/component-ablation.png",
+      "width": 1042,
+      "height": 405,
+      "sourceSha256": "8f66f7ce0c13bfc01898edcabb7d7c30e9c2b0f5c1fd43e6ba97823e33019249",
+      "sourceUrl": "https://arxiv.org/pdf/2604.02190#page=10",
+      "crop": [
+        0.118,
+        0.118,
+        0.501,
+        0.233
+      ],
+      "alt": "Six cumulative configurations add ego status, detection, mapping, occupancy and motion to a baseline. L2 falls from 0.75 to 0.53 before rising to 0.54; the minimum collision rate is 0.10% after detection.",
+      "caption": "More supervised components do not produce monotonic planning gains.",
+      "readingGuide": "Read the checkmarks before the numbers. Each row retains the preceding components and adds the next one: ego status, detection, mapping, occupancy, then motion. Compare adjacent rows to understand the reported incremental changes. Detection takes collision rate from 0.21% to 0.10%; mapping leaves L2 at 0.58 and raises collision to 0.14%. Occupancy improves L2 to 0.53 at the same collision rate. Finally, the motion row moves to 0.54 and 0.17%. The bold entries therefore occur in different rows. This is a cumulative sequence, so it does not measure every component independently or reveal all interactions among tasks.",
+      "takeaway": "The strongest collision result uses ego status and detection. The strongest L2 result also includes mapping and occupancy, but excludes motion. The reported motion addition worsens both metrics relative to that row. The table supports testing which spatial information helps planning, rather than assuming that every additional prediction objective is beneficial.",
+      "caution": "The caption does not name the ST-P3/UniAD protocol or explicitly state the L2 unit. No uncertainty is reported. The authors' limited-headroom explanation for weak mapping/motion gains is an interpretation, not an isolated causal result.",
+      "evidenceIds": [
+        "e-components"
+      ]
+    },
+    {
+      "id": "expert-comparison",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 7",
+      "page": 10,
+      "asset": "report-assets/2604.02190/expert-comparison.png",
+      "width": 1428,
+      "height": 174,
+      "sourceSha256": "8f66f7ce0c13bfc01898edcabb7d7c30e9c2b0f5c1fd43e6ba97823e33019249",
+      "sourceUrl": "https://arxiv.org/pdf/2604.02190#page=10",
+      "crop": [
+        0.118,
+        0.299,
+        0.882,
+        0.371
+      ],
+      "alt": "Shared-weight decoder and Mixture-of-Transformers rows compare general VQA, DriveBench, detection NDS, map mAP, planning L2 and collision rate. MoT improves most columns while map mAP ties at 0.516.",
+      "caption": "Decoupling helps the tested understanding and planning metrics; mapping remains tied.",
+      "readingGuide": "Read the table in three groups: understanding, perception and planning. General VQA summarizes several multimodal benchmarks, DriveBench measures driving-oriented understanding, and perception/planning are evaluated on nuScenes. Compare each column vertically. The largest visible understanding difference is general VQA, from 31.1% to 45.5%; DriveBench rises from 50.8% to 54.9%. Detection changes only from 0.437 to 0.439 NDS, and map mAP is exactly tied at 0.516. The last two columns decrease, which is favorable for L2 and collision. This is the most direct reported comparison for the expert-decoupling claim, but its configuration details need to be separated from the main benchmark tables.",
+      "takeaway": "MoT reduces reported L2 from 0.641 to 0.533 m and collision from 0.175% to 0.140%, while improving the two understanding scores. These results support the architecture in the tested setup. They do not show complete preservation of the original VLM: Table 8 still reports lower general-benchmark scores than the listed Qwen3-VL model.",
+      "caution": "Figure 2 instead labels collision 15.6% and L2 0.532; Table 6 reports DriveBench 51.97 rather than 54.9. These discrepancies remain unresolved. Parameter/compute matching and repeated-run uncertainty are not supplied, so the table alone cannot isolate reduced interference from added capacity.",
+      "evidenceIds": [
+        "e-decoupling",
+        "e-general",
+        "e-diagnostic",
+        "e-vqa"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Separate parameter pathways while sharing relevant evidence",
+      "text": "Begin with the distinction between representation and communication. UniDriveVLA constructs understanding tokens from images and instructions, spatial tokens from sparse perception, and action tokens from a noised velocity sequence. Each group receives its own projections and feed-forward transformations, but the attention operation uses concatenated queries, keys and values. The mask then determines what can be read: semantics can inform spatial estimates, and both can inform actions, while the understanding prefix cannot read later spatial/action tokens. The source describes this as decoupling heterogeneous objectives within one framework. Reader interpretation: the useful design principle is selective sharing, because fully isolated experts would lose cross-task context. The experiments must still establish whether this structural choice improves learning; the presence of separate expert names is insufficient evidence by itself.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-inputs",
+        "e-architecture",
+        "e-attention",
+        "e-decoupling"
+      ]
+    },
+    {
+      "heading": "Follow spatial information through both refinement passes",
+      "text": "The spatial branch begins with multi-scale image features and sparse queries initialized from dataset-level K-Means instance banks. Temporal interaction carries scene context across observations, while intra-task reasoning and inter-task communication let the query groups use task structure and each other's evidence. Deformable aggregation retrieves visual information, followed by task-wise refinement. Occupancy is an auxiliary latent branch alongside detection, mapping, ego-status and motion representations. The important next step is that first-pass outputs are projected into the expert hidden space. There they receive semantic context through the masked attention mechanism and provide spatial context for the action expert. The resulting perception features are projected back into the sparse space and refined by another decoder. Thus the source describes a semantically enriched spatial pathway, rather than a single geometric feature extraction step.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-sparse",
+        "e-attention"
+      ]
+    },
+    {
+      "heading": "Distinguish staged learning from the incomplete execution recipe",
+      "text": "The training schedule gradually changes which pathways can adapt. Stage one fully fine-tunes the VLM on a mixture dominated by general multimodal data. Stage two adds structured perception and flow-matching action objectives, uses language-model LoRA, and applies a lower learning-rate multiplier to the VLM than to the rest of the model. Stage three freezes the VLM and specializes the perception/action experts while adding motion forecasting. This is a training prescription, not a complete inference algorithm: the PDF does not specify the flow solver, sampling steps, language-output schedule or actuator controller. Reader interpretation: Table 5 makes the final motion addition especially worth investigating, because its intended dynamic prior does not improve the displayed open-loop planning metrics. Closed-loop effects would require a controlled comparison rather than extrapolation from that table.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-training",
+        "e-inputs",
+        "e-attention",
+        "e-components",
+        "e-evaluation"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does expert separation help after matching capacity and training?",
+      "text": "Reader-proposed, not run: initialize from the same VLM checkpoint and use identical data order, sparse queries, supervision, mask and three-stage schedule. Compare separate experts against a shared decoder, adding a shared-decoder control matched as closely as possible for trainable parameters and compute; disclose residual mismatches. Across repeated seeds, measure Table 7's VQA, DriveBench, detection, mapping, L2 and collision metrics, and the Figure 2 token-similarity diagnostic. The decoupling interpretation predicts better understanding retention and planning beyond the capacity-matched control. If those gains disappear after matching, the reported architecture advantage would not independently establish reduced interference.",
+      "evidenceIds": [
+        "e-training",
+        "e-sparse",
+        "e-attention",
+        "e-decoupling",
+        "e-diagnostic"
+      ]
+    },
+    {
+      "title": "Separate the effect of motion supervision from motion-token access",
+      "text": "Reader-proposed, not run: hold the stage-two checkpoint, frozen VLM, final-stage duration, occupancy and other spatial tasks fixed. Run a two-by-two comparison that independently enables motion supervision and lets the action expert attend to motion tokens. Keep query slots and computation present when masking their access, and report multiple seeds. First reproduce the adjacent occupancy-only and motion-added planning rows under an explicitly named nuScenes protocol. Then test the same variants on fixed Bench2Drive interactive scenarios, including merging and overtaking. Improved forecasting without improved planning would weaken the proposed dynamic-prior explanation; closed-loop gains despite worse open-loop error would expose a limitation of the open-loop proxy.",
+      "evidenceIds": [
+        "e-training",
+        "e-attention",
+        "e-components",
+        "e-perception",
+        "e-abilities",
+        "e-evaluation"
+      ]
+    }
+  ],
+  "featuredResultTask": "Bench2Drive closed-loop driving",
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "notes": "Visually inspected the title/authors/version on p. 1; paradigm and representation diagnostics on pp. 2 and 4; the system distinction on p. 3; architecture, equations, attention visibility and sparse perception on pp. 4–7; training configuration on p. 7; all eight result/ablation tables on pp. 8–10; and concluding qualifications on p. 11. All six final original-PDF crops were separately viewed. Figure 3's image-feature arrow and Figure 4's block visibility were checked against Sections 3.2–3.3 and Eqs. (3)–(8). No claim-relevant direction conflict was found; numerical discrepancies between Figure 2 and Tables 6–7 are disclosed in the report and relevant caution. Table 1 and Table 3 crops retain their compact protocol/marker notes because these are necessary to interpret the comparisons. Other crops omit captions and surrounding prose. The full text, including references on pp. 12–18, was read in all seven chunks; the references-only pages were not visually inspected. No appendix is present and separate supplements remain unverified."
+  }
+}
