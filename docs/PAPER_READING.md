@@ -67,8 +67,8 @@ node scripts/reading/run-illustrated.mjs --ids 2302.13971 --limit 1
 # Read all remaining prepared sources, one at a time.
 node scripts/reading/run-illustrated.mjs
 
-# Process two independent prepared sources concurrently.
-node scripts/reading/run-illustrated.mjs --concurrency 2
+# Process four independent prepared sources concurrently.
+node scripts/reading/run-illustrated.mjs --concurrency 4
 
 # Retry failed readings after correcting their input or execution problem.
 node scripts/reading/run-illustrated.mjs --retry-errors
@@ -77,9 +77,9 @@ node scripts/reading/run-illustrated.mjs --retry-errors
 node scripts/reading/run-illustrated.mjs --retry-errors --resume-drafts --concurrency 2
 ```
 
-`--work-dir` selects another external cache (default `../reading_work`). `--concurrency` accepts 1 or 2; the default is 1. `--limit` bounds scheduled entries. `--timeout-minutes` bounds each writer or independent reviewer (default 40). Completed bundles are checked before being skipped; a base JSON alone is not illustrated completion. `--recover-stale-lock` is for a stale coordinator lock after confirming its process has ended. Failed drafts remain private for inspection. `--resume-drafts` verifies the retained runtime paths, source identity, complete text-chunk inventory and catalog snapshot before reusing a draft; it still requires original-pixel verification and independent visual review.
+`--work-dir` selects another external cache (default `../reading_work`). `--concurrency` accepts 1, 2, 3 or 4; the default is 1. `--limit` bounds scheduled entries. `--timeout-minutes` bounds each writer or independent reviewer (default 40). Completed bundles are checked before being skipped; a base JSON alone is not illustrated completion. `--recover-stale-lock` is for a stale coordinator lock after confirming its process has ended. Failed drafts remain private for inspection. `--resume-drafts` verifies the retained runtime paths, source identity, complete text-chunk inventory and catalog snapshot before reusing a draft; it still requires original-pixel verification and independent visual review.
 
-With concurrency 2, each completed entry frees a slot for the next paper while the other entry continues. A slot covers reading, validation, visual review and acceptance. Bundle publication and its reading-index update run serially, including interrupted-publication recovery, so refilling the pool cannot overlap repository writes. Completion is recorded after the index update succeeds; a failed update retains the accepted bundle for recovery without another reader.
+With concurrency 2–4, each completed entry frees a slot for the next paper while the other entries continue. A slot covers reading, validation, visual review and acceptance, keeping active entry writers/reviewers within the configured cap. Bundle publication and its reading-index update run serially, including interrupted-publication recovery, so refilling the pool cannot overlap repository writes. Completion is recorded after the index update succeeds; a failed update retains the accepted bundle for recovery without another reader.
 
 A validation failure receives one corrective writing pass with the exact diagnostic and any rejected visual-review details. Previous prompts, logs and receipts are retained in `worker-history/`; a second failure remains private. Three consecutive failures stop new scheduling while already-running entries finish normally. Explicit interrupts and per-reader timeouts still stop the affected processes. A stopped batch needs attention; it is not ongoing progress.
 
@@ -90,6 +90,8 @@ To finish the active entries before stopping, send `SIGUSR1` to the illustrated 
 The earlier `npm run reading:run` command remains a preliminary text-note workflow. It supplies prepared text, explicitly marks truncation beyond 500,000 characters, and does not inspect images. It cannot complete the approved illustrated format. In either workflow, the source's word count describes the source, not a claim that every word was read in a partial pass.
 
 Each new illustrated bundle receives a separate visual review before acceptance. The coordinator independently renders the declared PDF pages and verifies crop pixels, then attaches the source pages and final crops to a read-only reviewer. The reviewer checks identity, legibility, figure/table labels and the claims made about each visual. A failed check leaves the draft private; the website receives only accepted bundles. Review context, image fingerprints and receipts are retained in the external work directory for inspection and interrupted-run recovery.
+
+The versioned review policy distinguishes supporting source pages from selected final crops. On a full source page, the title/identity block and regions required for actual claims or selected-crop verification must be readable; unrelated unused defects are disclosed but do not alone disqualify the page. A selected final crop must retain legible important labels, axes, legends, table headers and relevant footnotes. Unreadable used evidence and unsupported claims still fail, and hidden labels or values must never be inferred. The policy and image roles are included in the hashed review context; resuming a draft under a changed policy requires a fresh independent review, while any false legibility or claim-support receipt remains rejected.
 
 ## What the status means
 

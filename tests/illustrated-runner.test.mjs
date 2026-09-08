@@ -143,8 +143,16 @@ test('missing native image events require independently delivered and approved i
     const review = { schemaVersion: 1, paperId: f.context.paper.id, sourceSha256: f.manifest.sha256, approved: true, identityMatches: true, identityNotes: 'Fixture title page matches.', images: packet.images.map(image => ({ imageId: image.imageId, sha256: image.sha256, legible: true, matchesDescription: true, claimsSupported: true, observedDetail: 'The original diagram contains a rectangle and diagonal line.' })) };
     const expected = { paperId: f.context.paper.id, sourceSha256: f.manifest.sha256, images: packet.images };
     assert.equal(validateVisualReview(review, expected), true);
-    for (const change of [r => r.approved = false, r => r.images.pop(), r => r.images[0].sha256 = '0'.repeat(64), r => r.images[0].legible = false, r => r.images[0].claimsSupported = false, r => r.identityMatches = false]) {
+    for (const change of [r => r.approved = false, r => r.images.pop(), r => r.images[0].sha256 = '0'.repeat(64), r => r.identityMatches = false]) {
       const bad = structuredClone(review); change(bad); assert.throws(() => validateVisualReview(bad, expected), /reviewer rejected/);
+    }
+    for (const kind of ['source-page', 'crop']) {
+      const index = packet.images.findIndex(image => image.kind === kind);
+      assert.notEqual(index, -1, `The review must contain a ${kind}.`);
+      for (const field of ['legible', 'matchesDescription', 'claimsSupported']) {
+        const bad = structuredClone(review); bad.images[index][field] = false;
+        assert.throws(() => validateVisualReview(bad, expected), /reviewer rejected/, `${kind} ${field}=false must never be waived.`);
+      }
     }
     reviewed++; return true;
   } });
@@ -174,8 +182,20 @@ async function runnerFixture(t, ids = ['fixture-a', 'fixture-b', 'fixture-c']) {
   await writeFile(fake, `#!${process.execPath}
 import fs from 'node:fs/promises';
 import path from 'node:path';
-const c = JSON.parse(await fs.readFile('context.json', 'utf8')), d = process.env.ILLUSTRATED_CONTROL;
+const d = process.env.ILLUSTRATED_CONTROL;
 let prompt = ''; for await (const chunk of process.stdin) prompt += chunk;
+let review; try { review = JSON.parse(await fs.readFile('review-context.json', 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+if (review) {
+  let calls = 0; try { calls = Number(await fs.readFile(path.join(d, review.paperId + '.review-calls'), 'utf8')); } catch {}
+  calls++;
+  await fs.writeFile(path.join(d, review.paperId + '.review-calls'), String(calls));
+  await fs.writeFile(path.join(d, review.paperId + '.review-prompt-' + calls), prompt);
+  await fs.writeFile(path.join(d, review.paperId + '.review-args-' + calls), JSON.stringify(process.argv));
+  await fs.writeFile('receipt.json', JSON.stringify({ schemaVersion: 1, paperId: review.paperId, sourceSha256: review.sourceSha256, approved: true, identityMatches: true, identityNotes: 'Synthetic fixture title page matches.', images: review.images.map(image => ({ imageId: image.imageId, sha256: image.sha256, legible: true, matchesDescription: true, claimsSupported: true, observedDetail: 'The synthetic diagram contains a rectangle and diagonal line.' })) }));
+  console.log(JSON.stringify({ type: 'turn.completed' }));
+  process.exit(0);
+}
+const c = JSON.parse(await fs.readFile('context.json', 'utf8'));
 let calls = 0; try { calls = Number(await fs.readFile(path.join(d, c.paper.id + '.calls'), 'utf8')); } catch {}
 calls++;
 await fs.writeFile(path.join(d, c.paper.id + '.calls'), String(calls));
@@ -228,7 +248,100 @@ async function retainedDraft(f, id, complete = true) {
   await writeJSON(join(f.work, 'illustrated-runs', id, 'status.json'), { schemaVersion: 1, paperId: id, state: 'error', phase: 'validation', attempt, generatedAt: date, sourceSha256: manifest.sha256, textSha256: manifest.textSha256, error: 'Retained test draft awaits validation.', validationRepairs: 0 });
   return { attempt, context, report, manifest };
 }
+async function retainedPdfDraft(t, f) {
+  const pdf = await fixture(t, true), id = pdf.context.paper.id;
+  const sourceDirectory = join(await realpath(f.work), 'sources', id);
+  const manifest = { ...pdf.manifest, sourcePath: join(sourceDirectory, 'original.pdf'), textPath: join(sourceDirectory, 'text.txt') };
+  await cp(pdf.manifest.sourcePath, manifest.sourcePath);
+  await cp(pdf.manifest.textPath, manifest.textPath);
+  await writeJSON(join(sourceDirectory, 'manifest.json'), manifest);
+  const attempt = join(await realpath(f.work), 'illustrated-runs', id, 'attempts', 'retained-pdf-fixture');
+  const config = await snapshotSource({ attempt, manifest, repository: f.repo });
+  const paper = (await readJSON(join(f.repo, 'data/papers.json'))).find(paper => paper.id === id);
+  const context = { paper, manifest, config, primary: pdf.report.sources[0], classification: classificationSnapshot(paper, date), generatedAt: date, repository: f.repo };
+  for (const name of ['report.json', 'edition.json', 'metadata.json', 'receipt.json', 'source-audit.jsonl', 'events.jsonl', 'renders', 'assets']) await cp(join(pdf.attempt, name), join(attempt, name), { recursive: true });
+  await writeJSON(join(attempt, 'context.json'), context);
+  await writeJSON(join(f.work, 'illustrated-runs', id, 'status.json'), { schemaVersion: 1, paperId: id, state: 'error', phase: 'validation', attempt, generatedAt: date, sourceSha256: manifest.sha256, textSha256: manifest.textSha256, error: 'Retained synthetic PDF awaits independent review.', validationRepairs: 0 });
+  return { attempt, context, manifest };
+}
 async function until(predicate) { const start = Date.now(); while (!await predicate()) { if (Date.now() - start > 15_000) throw new Error('Timed out waiting for fixture worker'); await new Promise(resolve => setTimeout(resolve, 30)); } }
+test('review policy reaches the independent reviewer with distinct page and crop roles and invalidates older cached policy', async t => {
+  const f = await runnerFixture(t, ['fixture']);
+  const draft = await retainedPdfDraft(t, f);
+  const result = await f.run(['--retry-errors', '--resume-drafts']).completion;
+  assert.equal(result.code, 0, result.output);
+  assert.equal(await exists(join(f.control, 'fixture.calls')), false, 'The supplied PDF draft must not invoke a new writer.');
+  assert.equal(await readFile(join(f.control, 'fixture.review-calls'), 'utf8'), '1');
+  const referencePath = join(draft.attempt, 'visual-review-reference.json');
+  const reference = await readJSON(referencePath);
+  const contextPath = join(reference.directory, 'review-context.json');
+  const context = await readJSON(contextPath);
+  assert.equal(reference.policyVersion, 'wam-visual-evidence-v2');
+  assert.equal(reference.reviewContextSha256, await fileHash(contextPath));
+  assert.deepEqual(context.policy, {
+    version: 'wam-visual-evidence-v2',
+    reviewerRole: 'independent-visual-evidence-reviewer',
+    sourcePageLegibility: 'Relevant title/identity and evidence regions needed for the report claims or selected-crop verification must be readable. Disclose unrelated unused source defects; those defects alone do not make the page insufficient.',
+    finalCropLegibility: 'Important labels, axes, legends, table headers and relevant footnotes needed to interpret the selected final crop must be readable. Never infer hidden values or waive unsupported claims.'
+  });
+  assert.deepEqual(context.images.map(({ kind, reviewRole }) => ({ kind, reviewRole })), [
+    { kind: 'source-page', reviewRole: 'supporting-source-page' },
+    { kind: 'crop', reviewRole: 'selected-final-crop' }
+  ]);
+  const prompt = await readFile(join(f.control, 'fixture.review-prompt-1'), 'utf8');
+  assert.ok(prompt.includes(JSON.stringify(context)), 'The actual reviewer prompt must receive the versioned policy and image roles.');
+  const args = JSON.parse(await readFile(join(f.control, 'fixture.review-args-1'), 'utf8'));
+  assert.ok(args.includes('read-only'));
+  const attachments = args.flatMap((value, index) => value === '--image' ? [args[index + 1]] : []);
+  assert.equal(attachments.length, context.images.length);
+  for (const [index, path] of attachments.entries()) assert.equal(await fileHash(path), context.images[index].sha256);
+  const statusPath = join(f.work, 'illustrated-runs/fixture/status.json');
+  const status = await readJSON(statusPath);
+  assert.equal(status.state, 'complete');
+
+  // A receipt accepted under an earlier scope policy must not silently satisfy
+  // the new policy, even when all source and crop hashes remain unchanged.
+  const oldContext = structuredClone(context); oldContext.policy.version = 'wam-visual-evidence-v1';
+  await writeJSON(contextPath, oldContext);
+  await writeJSON(referencePath, { ...reference, policyVersion: oldContext.policy.version, reviewContextSha256: await fileHash(contextPath) });
+  await writeJSON(statusPath, { ...status, state: 'publishing', phase: 'publishing' });
+  const recovered = await f.run().completion;
+  assert.equal(recovered.code, 0, recovered.output);
+  assert.equal(await readFile(join(f.control, 'fixture.review-calls'), 'utf8'), '2');
+  assert.equal(await exists(join(f.control, 'fixture.calls')), false);
+  const fresh = await readJSON(referencePath);
+  assert.notEqual(fresh.directory, reference.directory);
+  const freshContextPath = join(fresh.directory, 'review-context.json');
+  const freshContext = await readJSON(freshContextPath);
+  assert.deepEqual(freshContext.policy, context.policy);
+  assert.equal(fresh.policyVersion, context.policy.version);
+  assert.equal(fresh.reviewContextSha256, await fileHash(freshContextPath));
+  assert.equal((await readJSON(contextPath)).policy.version, 'wam-visual-evidence-v1', 'The previous review evidence must remain intact.');
+  assert.equal((await readJSON(statusPath)).state, 'complete');
+
+  // Unlike an intact older policy, a changed hashed context is an integrity
+  // failure; it cannot launch either a new reviewer or a corrective writer.
+  await writeJSON(freshContextPath, { ...freshContext, title: 'Tampered reviewer identity' });
+  await writeJSON(statusPath, { ...await readJSON(statusPath), state: 'publishing', phase: 'publishing' });
+  const tampered = await f.run().completion;
+  assert.equal(tampered.code, 1, tampered.output);
+  assert.match((await readJSON(statusPath)).error, /Cached visual-review context fingerprint changed/);
+  assert.equal(await readFile(join(f.control, 'fixture.review-calls'), 'utf8'), '2');
+  assert.equal(await exists(join(f.control, 'fixture.calls')), false);
+});
+test('concurrency defaults to one and accepts only one through four slots', async t => {
+  const f = await runnerFixture(t, ['fixture-a']);
+  for (const concurrency of [undefined, 1, 2, 3, 4]) {
+    const result = await f.run(['--dry-run', ...(concurrency === undefined ? [] : ['--concurrency', String(concurrency)])]).completion;
+    assert.equal(result.code, 0, result.output);
+    assert.equal(JSON.parse(result.output).concurrency, concurrency ?? 1);
+  }
+  for (const concurrency of [0, 5, 1.5]) {
+    const result = await f.run(['--dry-run', '--concurrency', String(concurrency)]).completion;
+    assert.equal(result.code, 1, result.output);
+  }
+  assert.equal(await exists(join(f.control, 'fixture-a.started')), false);
+});
 test('complete failed drafts resume validation without another writer or changed provenance', async t => {
   const f = await runnerFixture(t, ['fixture-a']);
   const draft = await retainedDraft(f, 'fixture-a');
@@ -411,35 +524,55 @@ test('mock workers drain, resume and preserve unavailable outcomes without repea
   const argumentsUsed = JSON.parse(await readFile(join(f.control, 'fixture-a.started'), 'utf8'));
   assert.ok(argumentsUsed.includes('workspace-write')); assert.ok(!argumentsUsed.includes('--model')); assert.ok(argumentsUsed.includes('sandbox_workspace_write.network_access=false'));
 });
-test('a free slot starts paper three while paper two remains busy, without exceeding the cap or limit', async t => {
-  const f = await runnerFixture(t, ['fixture-a', 'fixture-b', 'fixture-c', 'fixture-d']);
-  const running = f.run(['--concurrency', '2', '--limit', '3'], true);
-  await until(async () => await exists(join(f.control, 'fixture-a.started')) && await exists(join(f.control, 'fixture-b.started')));
-  assert.equal(await exists(join(f.control, 'fixture-c.started')), false);
-  await writeFile(join(f.control, 'fixture-a.release'), '');
-  await until(() => exists(join(f.control, 'fixture-c.started')));
-  assert.equal((await readJSON(join(f.work, 'illustrated-runs/fixture-b/status.json'))).state, 'running');
-  const index = await readJSON(join(f.repo, 'data/reading-index.json'));
-  assert.equal(index.entries.find(entry => entry.paperId === 'fixture-a').readingStatus, 'partial');
-  assert.equal(index.entries.find(entry => entry.paperId === 'fixture-b').readingStatus, 'queued');
-  await writeFile(join(f.control, 'fixture-c.release'), '');
-  await until(async () => (await readJSON(join(f.work, 'illustrated-runs/fixture-c/status.json'))).state === 'illustration-unavailable');
-  assert.equal(await exists(join(f.control, 'fixture-d.started')), false);
-  await writeFile(join(f.control, 'fixture-b.release'), '');
-  const result = await running.completion;
-  assert.equal(result.code, 0, result.output);
-  assert.match(result.output, /"scheduled":3/);
-  assert.equal(await exists(join(f.control, 'fixture-d.started')), false);
-  const live = new Set(); let peak = 0;
-  for (const event of (await readFile(join(f.control, 'worker-lifecycle.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse)) {
-    if (event.event === 'start') { live.add(event.paperId); peak = Math.max(peak, live.size); }
-    else assert.equal(live.delete(event.paperId), true);
-  }
-  assert.equal(peak, 2);
-  assert.equal(live.size, 0);
-  const metadata = await readJSON(join(f.repo, 'data/illustrated-report-metadata.json'));
-  assert.deepEqual(Object.keys(metadata).sort(), ['fixture-a', 'fixture-b', 'fixture-c']);
-});
+for (const concurrency of [2, 4]) {
+  test(`${concurrency} slots refill after accepted publication while other readers stay busy and respect the limit`, async t => {
+    const ids = Array.from({ length: concurrency + 2 }, (_, index) => `fixture-${index + 1}`);
+    const initialIds = ids.slice(0, concurrency), nextId = ids[concurrency], excludedId = ids[concurrency + 1];
+    const f = await runnerFixture(t, ids);
+    const reportsPath = join(f.repo, 'scripts/lib/reports.mjs');
+    const source = await readFile(reportsPath, 'utf8');
+    await writeFile(reportsPath, source.replace('export async function updateReadingIndex({ repository, workDir }) {', `export async function updateReadingIndex({ repository, workDir }) {
+      await writeFile(join(process.env.ILLUSTRATED_CONTROL, 'index-started'), '');
+      while (true) {
+        try { await readFile(join(process.env.ILLUSTRATED_CONTROL, 'release-index')); break; }
+        catch { await new Promise(resolve => setTimeout(resolve, 20)); }
+      }
+    `));
+    const running = f.run(['--concurrency', String(concurrency), '--limit', String(concurrency + 1)], true);
+    await until(async () => (await Promise.all(initialIds.map(id => exists(join(f.control, `${id}.started`))))).every(Boolean));
+    assert.equal(await exists(join(f.control, `${nextId}.started`)), false);
+    await writeFile(join(f.control, `${initialIds[0]}.release`), '');
+    await until(() => exists(join(f.control, 'index-started')));
+    assert.equal((await readJSON(join(f.work, 'illustrated-runs', initialIds[0], 'status.json'))).state, 'publishing');
+    assert.equal(await exists(join(f.control, `${nextId}.started`)), false, 'A finished writer still occupies its slot until accepted publication and index refresh finish.');
+    await writeFile(join(f.control, 'release-index'), '');
+    await until(() => exists(join(f.control, `${nextId}.started`)));
+    assert.equal((await readJSON(join(f.work, 'illustrated-runs', initialIds[0], 'status.json'))).state, 'illustration-unavailable');
+    const index = await readJSON(join(f.repo, 'data/reading-index.json'));
+    assert.equal(index.entries.find(entry => entry.paperId === initialIds[0]).readingStatus, 'partial');
+    for (const id of initialIds.slice(1)) {
+      assert.equal((await readJSON(join(f.work, 'illustrated-runs', id, 'status.json'))).state, 'running');
+      assert.equal(index.entries.find(entry => entry.paperId === id).readingStatus, 'queued');
+    }
+    await writeFile(join(f.control, `${nextId}.release`), '');
+    await until(async () => (await readJSON(join(f.work, 'illustrated-runs', nextId, 'status.json'))).state === 'illustration-unavailable');
+    assert.equal(await exists(join(f.control, `${excludedId}.started`)), false);
+    await Promise.all(initialIds.slice(1).map(id => writeFile(join(f.control, `${id}.release`), '')));
+    const result = await running.completion;
+    assert.equal(result.code, 0, result.output);
+    assert.match(result.output, new RegExp(`"scheduled":${concurrency + 1}`));
+    assert.equal(await exists(join(f.control, `${excludedId}.started`)), false);
+    const live = new Set(); let peak = 0;
+    for (const event of (await readFile(join(f.control, 'worker-lifecycle.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse)) {
+      if (event.event === 'start') { live.add(event.paperId); peak = Math.max(peak, live.size); }
+      else assert.equal(live.delete(event.paperId), true);
+    }
+    assert.equal(peak, concurrency);
+    assert.equal(live.size, 0);
+    const metadata = await readJSON(join(f.repo, 'data/illustrated-report-metadata.json'));
+    assert.deepEqual(Object.keys(metadata).sort(), ids.slice(0, concurrency + 1).sort());
+  });
+}
 test('new and recovered publications serialize the whole bundle with reading-index updates', async t => {
   const f = await runnerFixture(t, ['fixture-a', 'fixture-b', 'fixture-c']);
   const draft = await retainedDraft(f, 'fixture-b');
