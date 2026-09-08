@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.15869",
+  "shortTitle": "Metis",
+  "thesis": "Metis uses action-conditioned video prediction to train a trajectory policy, then removes future-video synthesis from inference to reduce latency.",
+  "standfirst": "Metis makes an unusual division of labor: video prediction helps train the policy, but the deployed planner does not have to render an imagined future. Its two transformer experts exchange information through an asymmetric attention rule, preserving a route for video supervision to shape actions. Reading the paper therefore requires separating forward information flow, backward training gradients and runtime computation. The six visuals below follow that chain into driving scores, urban trajectory errors and latency measurements. They also expose important evidence boundaries: a contradictory mask drawing, differently selected result rows and a speedup comparison that changes the denoising budget.",
+  "evidenceIds": [
+    "e-architecture",
+    "e-mask",
+    "e-gradients",
+    "e-navtest",
+    "e-city",
+    "e-latency"
+  ],
+  "featuredResultTask": "NAVSIM-v2 navtest trajectory planning",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2606.15869/architecture.png",
+      "width": 1104,
+      "height": 553,
+      "sourceSha256": "34870523248f06c752b4639be40d1397ab63ec04f8487c6569315a6ce1508c6c",
+      "sourceUrl": "https://arxiv.org/pdf/2606.15869#page=4",
+      "crop": [
+        0.175,
+        0.087,
+        0.825,
+        0.338
+      ],
+      "alt": "Two specialist transformer branches receive encoded video and action tokens; text and ego-state conditioning enters from the left. Training and inference insets distinguish current-frame, future-frame and action paths.",
+      "caption": "Two expert branches share controlled attention while retaining their own transformations.",
+      "readingGuide": "Start at the bottom: the current frame and future training frames enter the VAE encoder, while the action chunk enters a separate encoder. Noise is added on the future/action paths. At left, the text encoder and ego-state encoder provide conditioning through the connection marked C and cross-attention. Inside the dashed boundary, each expert has its own QKV and feed-forward blocks; the horizontal attention block regulates exchange. Finally compare the right-hand insets and their legend: future-frame processing appears during training, whereas the inference inset retains current-frame context and the action path. This visual does not say that the entire video backbone disappears.",
+      "takeaway": "The architectural distinction is between specialized representations and controlled communication. Metis still extracts visual context at inference, but future-video generation is removed from the action-producing path. The method text describes current-context extraction in one backbone pass, followed by action denoising; a single context pass does not mean a single-step policy.",
+      "caution": "The overview supports two interacting experts, not two independently executing controllers. Implementation text names a 5B video expert, but Table 6 names 14B variants; the exact backbone configuration needs clarification before reproduction.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-inference",
+        "e-config",
+        "e-backbone"
+      ]
+    },
+    {
+      "id": "attention-mask",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 5,
+      "asset": "report-assets/2606.15869/attention-mask.png",
+      "width": 1017,
+      "height": 933,
+      "sourceSha256": "34870523248f06c752b4639be40d1397ab63ec04f8487c6569315a6ce1508c6c",
+      "sourceUrl": "https://arxiv.org/pdf/2606.15869#page=5",
+      "crop": [
+        0.515,
+        0.256,
+        0.814,
+        0.468
+      ],
+      "alt": "Matrix over current visual token z_t, future visual tokens and action tokens, with orange training-and-inference cells and blue training-only cells; action rows have empty cells under current visual context.",
+      "caption": "The stated asymmetric rule and the printed matrix disagree on current-image access.",
+      "readingGuide": "Read a row as the querying token and a column as the token it can access, consistent with the caption's video-to-action visibility statement. Blue future-video rows can access action columns; action rows have empty future-video columns. Orange marks computation retained for training and inference, while blue denotes training only. Crucially, the action rows also show empty cells in the current-observation column z_t. This conflicts with Section 3.3 and the caption, which explicitly give actions access to the current observation. Equation (4) and Figure 2 likewise condition action prediction on current visual context. The faithful crop preserves that unresolved graphical discrepancy.",
+      "takeaway": "The source consistently states that actions must not depend on generated future video. Appendix A.1 explains how video supervision can nevertheless help: gradients from generation backpropagate into the action expert during training. That backward learning signal is different from permitting actions to read future-video tokens in the forward pass.",
+      "caution": "The intended current-context dependency is supported by the equations and prose, but the exact mask cannot be reconstructed unambiguously from this matrix alone. No stop-gradient symbol appears here; gradient transfer is specified in Appendix A.1.",
+      "evidenceIds": [
+        "e-mask",
+        "e-inference",
+        "e-architecture",
+        "e-gradients"
+      ]
+    },
+    {
+      "id": "navtest-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "asset": "report-assets/2606.15869/navtest-results.png",
+      "width": 1381,
+      "height": 849,
+      "sourceSha256": "34870523248f06c752b4639be40d1397ab63ec04f8487c6569315a6ce1508c6c",
+      "sourceUrl": "https://arxiv.org/pdf/2606.15869#page=7",
+      "crop": [
+        0.175,
+        0.089,
+        0.825,
+        0.398
+      ],
+      "alt": "NAVSIM-v2 navtest leaderboard grouped into traditional, VLA and WAM planners, with sensors, nine submetrics and EPDMS; ordinary and best-of-six Metis occupy the bottom two rows.",
+      "caption": "Separate the 89.5 ordinary score from the 90.3 best-of-six result.",
+      "readingGuide": "Begin with the rightmost EPDMS column, then inspect the two Metis rows separately. The unmarked row reports 89.5; the double-dagger row reports 90.3 and uses best-of-six selection. The caption retained above the table also marks reinforcement learning and full-navtrain training, while the Sensors column shows different observation budgets. Then look across individual submetrics: the best aggregate does not imply leading every component. In particular, ordinary Metis has DAC 97.2 and LK 97.8. Appendix F defines EPDMS through penalty terms and a weighted average of other submetrics, so its aggregate cannot be read as a direct collision-free success percentage.",
+      "takeaway": "Ordinary Metis scores above the listed learned planners, including DriveFine at 87.1 and Epona at 85.1. Its best-of-six variant reaches the human-agent aggregate of 90.3. This is a benchmark-score comparison under the table's specified protocols, not evidence that ordinary inference achieves human driving performance.",
+      "caution": "Baseline training and sensor regimes differ. The paper reports no confidence intervals here, and best-of-six selection adds an evaluation condition. Table 4 also mixes the selected row's DAC/LK values with the ordinary aggregate.",
+      "evidenceIds": [
+        "e-navtest",
+        "e-data",
+        "e-metric",
+        "e-ablations"
+      ]
+    },
+    {
+      "id": "citywalker-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 7,
+      "asset": "report-assets/2606.15869/citywalker-results.png",
+      "width": 1241,
+      "height": 556,
+      "sourceSha256": "34870523248f06c752b4639be40d1397ab63ec04f8487c6569315a6ce1508c6c",
+      "sourceUrl": "https://arxiv.org/pdf/2606.15869#page=7",
+      "crop": [
+        0.207,
+        0.467,
+        0.791,
+        0.669
+      ],
+      "alt": "Trajectory L2 and maximum average orientation error across six CityWalker scenario categories, with separate Mean and All columns and pretrained versus fine-tuned method groups.",
+      "caption": "Read scenario balance before comparing navigation errors.",
+      "readingGuide": "Each method has an L2 row in meters and an MAOE row in degrees; lower is better for both. The source caption defines Mean as the average across the six scenario categories, whereas All averages over all samples. The percentages show why these answer different questions: Other contributes 55% of samples, while individual difficult categories are smaller. Read the upper pretrained ABot-N0 block separately from the fine-tuned methods; its asterisk denotes large-scale navigation pretraining, and dashes mean L2 was not reported. Metis improves several challenging scenario errors, but the upper block prevents a blanket claim of superiority on aggregate orientation.",
+      "takeaway": "Metis reports 0.64 m L2 and 9.8° MAOE over all samples, versus 1.07 m and 11.5° for the CityWalker baseline. ABot-N0 remains better on All MAOE at 7.6°. The table supports strong trajectory imitation among fine-tuned comparisons, with a narrower claim against the pretrained navigation model.",
+      "caution": "L2 and orientation alignment are offline imitation metrics. They neither count successful obstacle avoidance nor measure robot interventions. Missing ABot-N0 L2 values must remain missing; they cannot be inferred from its orientation results.",
+      "evidenceIds": [
+        "e-city",
+        "e-data",
+        "e-real"
+      ]
+    },
+    {
+      "id": "mask-and-step-ablations",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Tables 4–5",
+      "page": 8,
+      "asset": "report-assets/2606.15869/mask-and-step-ablations.png",
+      "width": 1334,
+      "height": 286,
+      "sourceSha256": "34870523248f06c752b4639be40d1397ab63ec04f8487c6569315a6ce1508c6c",
+      "sourceUrl": "https://arxiv.org/pdf/2606.15869#page=8",
+      "crop": [
+        0.175,
+        0.265,
+        0.803,
+        0.369
+      ],
+      "alt": "Side-by-side ablations compare joint, isolated and asymmetric masks at fixed resolution, increased resolution, and one, two, five or ten denoising steps.",
+      "caption": "Use matched-resolution rows to assess masking, then examine the sampling budget separately.",
+      "readingGuide": "On the left, compare the first three rows, all at 320×384, before looking at the higher-resolution row. Joint attention couples future video and actions; isolated attention makes those future token groups mutually invisible; Ours uses the asymmetric rule. This is the appropriate block for comparing mask designs without changing image resolution. On the right, inspect the denoising-step sweep independently: navtest and overall navhard scores rise as steps increase, but the Stage-1 column is not monotonic. These are distinct experiments, so a mask improvement should not be explained by borrowing gains from higher resolution or a larger sampling budget.",
+      "takeaway": "At matched resolution, asymmetric attention reaches navhard EPDMS 31.6 versus 28.0 for joint and 29.4 for isolated attention; navtest also improves. Separately, two action-denoising steps retain navtest EPDMS 89.2 versus 89.5 at ten, while navhard changes from 31.2 to 32.2. Harder scenarios retain more sensitivity to the sampling budget.",
+      "caution": "Table 4's high-resolution DAC/LK pair is 97.5/98.0, matching Table 2's selected-sampling row despite ordinary EPDMS 89.5. Table 8 also disagrees on isolated-mask DAC. These discrepancies do not resolve the causal gradient-transfer question.",
+      "evidenceIds": [
+        "e-ablations",
+        "e-mask-detail",
+        "e-navtest",
+        "e-gradients"
+      ]
+    },
+    {
+      "id": "latency-sweep",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 12",
+      "page": 21,
+      "asset": "report-assets/2606.15869/latency-sweep.png",
+      "width": 1155,
+      "height": 363,
+      "sourceSha256": "34870523248f06c752b4639be40d1397ab63ec04f8487c6569315a6ce1508c6c",
+      "sourceUrl": "https://arxiv.org/pdf/2606.15869#page=21",
+      "crop": [
+        0.273,
+        0.619,
+        0.726,
+        0.729
+      ],
+      "alt": "One-, two-, five- and ten-step sampling rows list navtest PDMS and EPDMS, navhard EPDMS, and separate RTX 4090 and H200 latencies in milliseconds.",
+      "caption": "Latency and planning quality change together as action sampling becomes shorter.",
+      "readingGuide": "Read down one hardware column to compare step counts without mixing devices, then move left to the associated planning scores. On RTX 4090, the two-step row reports 147 ms, navtest EPDMS 89.2 and navhard EPDMS 31.2. Ten steps take 480 ms with scores 89.5 and 32.2. The H200 column provides a separate hardware measurement, not an additional training configuration. Keep PDMS and EPDMS distinct: Appendix F defines different NAVSIM-v1 and v2 scoring rules. Finally cross-check Table 7 on page 9, which uses a different two-step timing and compares action-only inference with a ten-step video-generation configuration.",
+      "takeaway": "The sweep makes the accuracy/latency tradeoff concrete. Much of the navtest score is retained with two steps, while the navhard aggregate benefits more from ten. Table 12 supports choosing a sampling budget; it does not by itself measure the speedup caused specifically by removing future-video generation.",
+      "caution": "Table 7 reports 170 ms rather than 147 ms for two-step action-only inference. Its roughly eightfold speedup also changes denoising steps. Timing boundaries, repetitions and uncertainty are insufficiently specified to reconcile these values.",
+      "evidenceIds": [
+        "e-sweep",
+        "e-latency",
+        "e-metric"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Why a one-way forward connection can still teach the action expert",
+      "kind": "analysis",
+      "text": "The main puzzle is how video prediction can improve a policy that never reads predicted video. Separate forward information flow from backward optimization. During training, the video expert predicts future visual latents conditioned on action tokens, so its prediction error can differentiate through the action-side representations it uses. Appendix A.1 explicitly identifies this backward route. Section 3.3 blocks the opposite forward dependency: actions must not need future-video tokens. Reader interpretation: the arrangement lets video supervision shape useful action representations without creating a future-generation requirement at deployment. Table 11 is consistent with this explanation, showing higher scores with co-training, but it does not uniquely identify gradient transfer as the cause. A gradient-stop control would distinguish that explanation from benefits of shared training or other implementation differences.",
+      "evidenceIds": [
+        "e-mask",
+        "e-loss",
+        "e-gradients",
+        "e-cotrain"
+      ]
+    },
+    {
+      "heading": "What remains after future-video synthesis is removed",
+      "kind": "source",
+      "text": "Action-only inference still begins with perception and conditioning. The current image is encoded through the video-model components, language and ego state provide context, and the action expert denoises a low-dimensional trajectory chunk. Equation (4) expresses this as actions conditioned on the backbone representation of the current observation and instruction. The paper's single-forward-pass statement applies to extracting that context; the action sampler still has a configurable number of steps. For driving, the output consists of eight waypoints across four seconds, whereas CityWalker uses five planar waypoints. Physical Go2 deployment adds an adapted PD controller that produces velocity commands. Thus the learned prediction, action sampling and controller are separate parts of the runtime account. Neither the architecture drawing nor the qualitative deployment panels specify a complete feedback schedule or end-to-end control latency.",
+      "evidenceIds": [
+        "e-inference",
+        "e-architecture",
+        "e-config",
+        "e-real",
+        "e-latency"
+      ]
+    },
+    {
+      "heading": "Follow each result back to its evaluation contract",
+      "kind": "analysis",
+      "text": "The driving leaderboards, CityWalker errors and robot panels establish different things. NAVSIM-v2 navtest summarizes rule-based planning over a broad scenario set, while navhard adds staged synthetic evaluation and different aggregation details. Their EPDMS values are not interchangeable success rates. The ordinary navtest Metis row should be compared before considering its best-of-six variant; the latter changes the selection protocol. CityWalker instead measures geometric and angular agreement with reference trajectories, with scenario-balanced Mean and sample-level All summaries. The Go2 sequences show physical obstacle-avoidance examples but supply no trial denominator. Reader interpretation: taken together these results motivate the method across driving and navigation, while leaving deployment reliability and extreme-case behavior unresolved. The strongest mechanism evidence comes from controlled ablation rows, not from turning qualitative plausibility into a numerical safety claim.",
+      "evidenceIds": [
+        "e-data",
+        "e-navtest",
+        "e-navhard",
+        "e-city",
+        "e-metric",
+        "e-real",
+        "e-ablations",
+        "e-limits"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Stop only the video-loss gradient into actions",
+      "text": "Reader-proposed check, not performed: at the 320×384 mask-ablation setting, train otherwise identical asymmetric models with the video-loss gradient into action-side representations enabled or stopped. Keep the video objective, action objective, current-image access, initialization, data order and training budget fixed. Add an action-only training control corresponding to Table 11. First verify that changing future-video noise cannot affect the action output under the intended mask. Then compare navtest/navhard EPDMS across multiple seeds, particularly the hard split. If the gradient-stopped model retains the full gain over action-only training, the claim that transfer through this gradient path explains the improvement would be weakened. Resolve Figure 3's missing current-context cells before treating either implementation as a faithful reproduction.",
+      "evidenceIds": [
+        "e-mask",
+        "e-gradients",
+        "e-ablations",
+        "e-cotrain",
+        "e-mask-detail"
+      ]
+    },
+    {
+      "title": "Factor video bypass apart from denoising-step reduction",
+      "text": "Reader-proposed check, not performed: on the same RTX 4090 and checkpoint, evaluate a factorial comparison of future-video synthesis enabled/bypassed and two/ten action-denoising steps. Fix inputs, precision, batch size, conditioning, action noise and selection protocol; explicitly record any separate video-step count. Time both model computation and the full input-to-trajectory pipeline after warmup, reporting median and tail latency over repeated scenes. Score every configuration on the same navtest and navhard splits. A substantial bypass benefit at matched action steps would support the architectural efficiency claim. If most of the reported reduction appears only when action steps also fall, the headline eightfold comparison would primarily reflect a combined configuration change. This also creates a documented basis for investigating 170 versus 147 ms.",
+      "evidenceIds": [
+        "e-latency",
+        "e-sweep",
+        "e-config",
+        "e-data"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "notes": "The title/author page, Figures 1–10, Tables 1–12, method equations, training configuration, metric definitions and limitation pages were visually inspected. All six final original crops were inspected, including the mask legend and table headers. Table 2 retains its essential protocol notes; Table 3's aggregation and pretraining definitions are explained in its reading guide. The mask discrepancy, backbone-label conflict, inconsistent submetrics, deployment-caption mismatch and differing latency reports are disclosed without changing the source graphics. Complete text reading also covered the conclusion and references. Separate supplements, deployment videos and code remain outside this review; no reproduction was performed."
+  }
+}
