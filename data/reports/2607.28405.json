@@ -1,0 +1,478 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.28405",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T10:39:04.424Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2607.28405",
+      "title": "QuantWAMs: Calibrating at the Right Granularity for World Action Models",
+      "kind": "pdf",
+      "sha256": "a8637182b1566d8f4470055bb4d42d66770351fad4f08785cece65382d5d8fb1",
+      "wordCount": 6408,
+      "accessedAt": "2026-09-07T13:55:00.712486+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method",
+      "3.1 Shared-Basis Outlier Calibration",
+      "3.2 The Weight Axis: Co-Training-Objective Saliency",
+      "3.3 Fixed-Intervention Real-Rollout Auditing",
+      "4.1 Experimental Settings",
+      "4.2 Experimental Details",
+      "4.3 Results in RoboTwin 2.0 and LIBERO",
+      "4.4 Controlled Ablations (4.4.1–4.4.4)",
+      "4.5 Performance on Real-World Robot Tasks",
+      "5 Conclusion",
+      "6 Limitations",
+      "References"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "All four supplied text chunks and all 13 PDF pages were read. The supplied artifact contains the complete main body and references, but the repeatedly referenced Appendices A–E are absent. Their proofs, estimators, grouping rules, replay procedures and measurement details could not be reviewed.",
+      "Separate supplemental material availability has not been fully verified; no supplements were supplied.",
+      "Text extraction does not reconstruct figure images; this limitation was addressed by inspecting all PDF pages, all six figures and all six tables, plus every final crop.",
+      "Identity notes: the observed title matches the catalog exactly. The title page identifies arXiv:2607.28405v1 [cs.AI], 30 July 2026. All seven catalog authors match; the PDF places Yan Wang before Longtai Zhang, reversing their catalog order. Metadata follows the observed order. No other edition or revision history was supplied.",
+      "Code and project links were not inspected, and no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 3)",
+      "Figure 3 (p. 8)",
+      "Figure 4 (p. 9)",
+      "Figure 5 (p. 9)",
+      "Figure 6 (p. 11)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 7)",
+      "Table 2 (p. 7)",
+      "Table 3 (p. 9)",
+      "Table 4 (p. 10)",
+      "Table 5 (p. 10)",
+      "Table 6 (p. 11)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "QuantWAMs compresses existing world action models by matching activation pooling, weight precision and denoising-step protection to calibration evidence. On two WAMs, its mixed W4A4-dominant configurations report simulation means 0.2–0.7 percentage points below FP16, with lower block memory and latency. Additional gradients and FP16 rollouts are required; neither end-to-end acceleration nor statistical equivalence is established.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A WAM's action errors change subsequent observations, so low reconstruction error on fixed inputs can conceal harmful closed-loop drift. Coupled video and action pathways also need compatible coordinates before sharing channel statistics. The paper frames PTQ decisions around pooling scope, state distribution and scoring objective, each estimated from limited calibration data.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e04",
+      "e07"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Shared-basis calibration combines channel-energy evidence only when coordinates agree and estimated sampling variance justifies pooling.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "Joint video–action gradients score weight upgrades; layer-level allocation avoids the instability of finer allocation units.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e14"
+      ]
+    },
+    {
+      "text": "Fixed-intervention replay proposes a budget-neutral protection schedule, accepted through separate closed-loop validation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07",
+        "e09"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Pretrained Fast-WAM or LingBot-VA checkpoint and its original video–action loss targets.",
+      "32 benchmark-training trajectories for PTQ; snapshots from 32 separate FP16 closed-loop rollouts; separate schedule-validation trajectories.",
+      "At deployment, the underlying WAM's observations/history and persistent state."
+    ],
+    "outputs": [
+      "Static activation masks, quantized weights, upgraded Linears and a frozen denoising-step schedule.",
+      "The existing WAM's action chunks used in closed-loop execution; QuantWAMs adds no new action decoder."
+    ],
+    "steps": [
+      {
+        "name": "Establish compatible activation coordinates",
+        "detail": "Compute channel squared energy after a common Hadamard rotation and context-specific diagonal smoothing. Fast-WAM's shared-value output projections can align; expert-private Q/K/V streams cannot share literal channel indices. LingBot-VA modes reuse physical Linear columns. Depth pooling requires a separate exchangeability assumption.",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e08"
+        ]
+      },
+      {
+        "name": "Screen and fit the shared mask",
+        "detail": "Weight contexts by deployment exposure, not token count. Pool admissible groups only below the estimated variance/heterogeneity crossover and without degrading trajectory-bootstrap mask stability. All screening and final Top-K fitting reuse the same 32 trajectories; bootstrap draws are not extra data.",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "name": "Allocate weight precision",
+        "detail": "Construct diagonal empirical-Fisher factors from the combined co-training gradient. Rank Linears by predicted distortion reduction from higher bits; upgrade the top 20% by Linear count. Column scores order GPTQ compensation, which remains governed by input covariance; elements are not allocation units.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "name": "Repair a denoising schedule",
+        "detail": "Restore each immutable FP16 snapshot, including history, chunk position and cache, before paired FP16/all-low-bit calls with matched randomness. Rank their local discrepancies, propose the same number of protected steps, validate one candidate against the incumbent, then freeze it before testing.",
+        "evidenceIds": [
+          "e07",
+          "e09"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "This is gradient-assisted PTQ: pretrained weights receive no training update. Original loss weights and normalizers are retained, and labeled co-training targets support a backward pass. Calibration, FP16 profiling, validation and testing are trajectory- and initial-seed-disjoint, though task identities may overlap.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e09"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The default backend uses NVFP4 W4A4, FP8 W8A8 for upgraded Linears and a BF16 bypass for 2% of activation channels. A8 protection covers Fast-WAM's 1/10 action steps, and LingBot-VA's 2/20 video and 6/50 action steps. Schedules are benchmark-specific and fixed; action execution changes later inputs to the existing policy.",
+        "kind": "source",
+        "evidenceIds": [
+          "e02",
+          "e10"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\widetilde A_i^{(n)}=(A_i^{(n)}R)S_i^{-1}",
+        "explanation": "Equation (1): A is context i's trajectory-n activation, R the group's common Hadamard rotation, and S_i its diagonal smoothing matrix. Statistics must describe the transformed quantizer input.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "N<N_c^\\star=\\frac{\\sigma_c^2}{\\tau_c^2}",
+        "explanation": "Equation (7): for positive cross-member heterogeneity τ_c², pooling lowers member-energy risk under the balanced independent-error model when trajectory count N is below sampling variance σ_c² divided by τ_c². With zero heterogeneity, pooling dominates for every finite N. This surrogate result does not guarantee task success.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "\\operatorname{diag}(G_L^{\\mathrm{joint}}-G_L^{\\mathrm{fusion}})=2\\lambda_v\\lambda_a\\,\\mathbb E[g_{v,L}\\odot g_{a,L}]",
+        "explanation": "Equation (13): G contains gradient second moments, g is a loss gradient at Linear L's output, and λ gives original video/action loss weights. Combining gradients before squaring retains coordinatewise interaction that post-hoc fusion omits.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "expression": "D_L(b)=\\frac12\\operatorname{tr}\\!\\left[G_L\\epsilon_L^{(b)}\\Sigma_L(\\epsilon_L^{(b)})^\\top\\right],\\qquad B_L=D_L(b_{\\mathrm{lo}})-D_L(b_{\\mathrm{hi}})",
+        "explanation": "Equations (14–15): ε is quantized-minus-original weight error, Σ input second moment, and B_L the predicted upgrade benefit. The score includes quantization error, not merely gradient magnitude.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Fast-WAM closed-loop benchmark success",
+      "setting": "Benchmark-specific calibration; RoboTwin 2.0 and four LIBERO suites; three protocol seeds, 15,000 and 6,000 total test episodes respectively.",
+      "metric": "Success %, mean ± sample SD across protocol seeds",
+      "value": "RoboTwin average 91.7 ± 0.3; LIBERO average 97.4 ± 0.2.",
+      "comparison": "FP16: 91.9 ± 0.3 and 97.6 ± 0.2. Matched-budget Atom*: 77.2 ± 0.6 and 82.1 ± 0.5.",
+      "interpretation": "Both means are 0.2 percentage points below FP16; this is not an equivalence test.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "LingBot-VA closed-loop benchmark success",
+      "setting": "RoboTwin 2.0 and LIBERO-Long only; three protocol seeds; 15,000 and 1,500 total episodes.",
+      "metric": "Success %, mean ± sample SD",
+      "value": "91.6 ± 0.3 on RoboTwin; 98.0 ± 0.3 on LIBERO-Long.",
+      "comparison": "FP16: 92.3 ± 0.3 and 98.5 ± 0.2; Atom*: 76.3 ± 0.6 and 81.5 ± 0.7.",
+      "interpretation": "Deficits are 0.7 and 0.5 percentage points. Other LIBERO suites remain N/A because the released checkpoint lacks them.",
+      "evidenceIds": [
+        "e09",
+        "e12"
+      ]
+    },
+    {
+      "task": "Targeted-block efficiency",
+      "setting": "RTX PRO 5000 Blackwell; selected video/action blocks per model call.",
+      "metric": "Peak weight-plus-activation memory; block latency ratio",
+      "value": "Fast-WAM: 4.2 GB, 1.4× RoboTwin/1.6× LIBERO. LingBot-VA: 3.9 GB, 1.4×/1.6×.",
+      "comparison": "FP16 memory: 14.4 GB and 13.5 GB; latency reference 1.0×.",
+      "interpretation": "Roughly 29% of FP16 block memory remains. Embeddings, projections, VAE and the rest of the control pipeline are excluded.",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "task": "LIBERO-Long structural allocation ablation",
+      "setting": "Matched calibration and precision budgets; 1,500 episodes per configuration.",
+      "metric": "Success %, mean ± sample SD; Fast-WAM / LingBot-VA",
+      "value": "Screened groups with layer allocation: 95.0 ± 0.4 / 98.0 ± 0.3.",
+      "comparison": "No pooling: 82.7 ± 0.7 / 82.1 ± 0.8. Element allocation: 72.1 ± 0.9 / 69.8 ± 1.0.",
+      "interpretation": "Grouping and allocation granularity are separate controlled comparisons, not additive independent effects.",
+      "evidenceIds": [
+        "e09",
+        "e14"
+      ]
+    },
+    {
+      "task": "LIBERO-Long saliency and schedule ablation",
+      "setting": "Fixed checkpoint, calibration, quantizer and budget; schedules change protected indices only.",
+      "metric": "Success %, mean ± sample SD; Fast-WAM / LingBot-VA",
+      "value": "Joint plus fixed-intervention replay: 95.0 ± 0.4 / 98.0 ± 0.3.",
+      "comparison": "Fusion: 91.4 ± 0.5 / 92.8 ± 0.6; synthetic scheduling: 90.9 ± 0.7 / 91.8 ± 0.8; observational scheduling: 93.5 ± 0.5 / 93.7 ± 0.6.",
+      "interpretation": "These support the design choices, but do not uniquely attribute gains to the gradient cross-term or local sensitivity magnitude.",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e15"
+      ]
+    },
+    {
+      "task": "AgiBot G2 real-robot manipulation",
+      "setting": "Fast-WAM; ten final trials each for apple placement, block stacking and towel folding, separate from calibration/profiling/validation.",
+      "metric": "Successful trials and aggregate success",
+      "value": "8/10, 5/10, 4/10; 17/30 overall (56.7%).",
+      "comparison": "FP16: 8/10, 6/10, 5/10 (63.3%); Atom*: 5/10, 4/10, 3/10 (40.0%).",
+      "interpretation": "Demonstrates physical execution on all three tasks; the small study cannot establish non-inferiority.",
+      "evidenceIds": [
+        "e17"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Local energy and Fisher surrogates, and one-call replay discrepancies, do not optimize downstream success directly. Evidence covers two architectures, benchmark-specific calibration and Blackwell kernels, without unseen-task transfer or end-to-end gains.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e07",
+        "e18"
+      ]
+    },
+    {
+      "text": "Matched-budget baselines share nominal precision allocations but lack QuantWAMs' additional loss gradients, FP16 rollouts and schedule validation. The cumulative ladder is order-dependent and does not isolate interactions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e16"
+      ]
+    },
+    {
+      "text": "Source inconsistencies remain: Figure 2 repeats misleading state labels beneath replay; Figure 1 says FP16 outliers while the implementation uses BF16. Figure 5 labels an activation-times-gradient score without the distortion factor of Equations (14–17). The latter mapping is unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e07",
+        "e10",
+        "e20"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction needs original checkpoints and loss targets, compatible channel grouping, trajectory bootstrap, GPTQ integration and the specified Blackwell mixed-precision kernels. Use seeds 42/43/44, rerun the entire calibration/selection pipeline, and pair methods on identical test initial states.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e08",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "text": "Missing Appendices A–E prevent verification of exact estimators/grouping rules and detailed replay/memory procedures. The supplied body does not give numerical screening hyperparameters, loss weights, validation-set size/acceptance threshold, final protected indices, precise checkpoint revisions or software versions. Count-based default allocation and scalar-bit-matched granularity ablations also need reconciliation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e09",
+        "e10",
+        "e14",
+        "e19"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded efficient-inference classification fits a PTQ framework spanning different WAM architectures. Fast-WAM has coupled streams; LingBot-VA shares a backbone. These are target-model properties, so the framework itself need not occupy a One Model or Multiple Models prediction quadrant. Joint gradients are an offline calibration signal, not a new future/action prediction or inverse-dynamics mechanism.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e08",
+        "e18"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "22a3a4d5904572c3d01adff48d773fad5f0ac0355dee9a4cc7eec814278a24a5"
+    }
+  },
+  "discussionQuestions": [
+    "Would the replay schedule transfer to held-out tasks or quantized-policy state distributions?",
+    "How much benefit survives when baselines receive identical gradients and rollout information?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin",
+      "detail": "Title matches QuantWAMs: Calibrating at the Right Granularity for World Action Models. Credits in reading order: Jiacheng Zhou; Jinfan Lv; Ruixuan Li; Yan Wang; Longtai Zhang; Wenqiang Zhang; Lizhe Qi. Margin specifies arXiv:2607.28405v1 [cs.AI], 30 Jul 2026. Fudan University and East China Normal University affiliations are printed."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 1, paragraphs 1–4 and contribution bullets",
+      "detail": "Actions change later observations in a closed loop. The paper distinguishes structural, distributional and objective mismatch in finite-sample PTQ calibration."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2, all three top panels and caption; compare p. 6, Section 3.3, Equations (18–22)",
+      "detail": "Overview links common-basis pooling, joint saliency, and replay schedule auditing to existing video/action DiT blocks and an action decoder. The counterfactual panel shows Dref + q0 and a green check but repeats 'wrong states / phantom peaks'; Section 3.3 instead defines FP16 reference states under a fixed low-bit intervention."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1, Equations (1–4) and Coordinate admissibility",
+      "detail": "Activation statistics follow common rotation and context-specific diagonal smoothing. Context weights represent deployment exposure. Literal channel sharing requires a common ordered quantizer-input basis; Fast-WAM output projections and shared-backbone modes have distinct admissibility rules. Depth exchangeability is separate."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.1, Equations (5–9), Proposition 1 and screening paragraph",
+      "detail": "Balanced independent-error model gives crossover N < σ²/τ², with additional mask-margin restrictions. Screening estimates the crossover near the Top-K boundary and checks paired trajectory-bootstrap stability using the same 32 trajectories later used for final fitting."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Equations (10–17) and following paragraphs",
+      "detail": "Joint loss gradients retain a cross-objective diagonal Fisher term absent from post-hoc fusion. Quantization-error-aware distortion reductions determine upgrades under a top-20%-of-Linears count budget. Original loss targets and backward passes are needed without pretrained-weight training updates; column scores only order GPTQ."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.3, Equations (18–22) and replay procedure",
+      "detail": "Synthetic, active-schedule observational and fixed-intervention FP16-state replay profiles differ. Snapshot restoration, deep copies and paired randomness control replay. Profiling uses snapshots from 32 FP16 closed-loop rollouts disjoint from PTQ fitting; the supplied text does not specify the total snapshot count. Top-K proposes a same-count schedule; local discrepancy is not marginal task gain. Separate validation precedes schedule freezing."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1",
+      "detail": "Fast-WAM uses dual-stream Mixture-of-Transformers shared attention; the released LingBot-VA checkpoint routes video/action tokens through shared DiT weights. Official checkpoint task definitions and evaluation procedures are retained."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4.2, Data separation and episode-count continuation; p. 8, Section 4.3, final paragraph",
+      "detail": "Calibration uses 32 training trajectories; profiling uses 32 separate FP16 rollouts. Validation performs a prespecified accept/reject comparison for one candidate per protocol seed. Roles and initial-state seeds are disjoint, while tasks may recur. Seeds 42/43/44 rerun all fitting and selection; 15,000 RoboTwin, 6,000 Fast-WAM LIBERO and 1,500 LingBot-VA Long episodes are totals across seeds; each Long ablation has 1,500 episodes. Success uncertainty is sample SD across three protocol seeds."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.2, Quantization configuration, Baselines and calibration information, Backend and measurement scope",
+      "detail": "W4A4 defaults, 2% BF16 channel bypass and top-20% W8A8 Linears combine with A8 step counts 1/10, 2/20 and 6/50. The nominal 4.8 weight-bit descriptor averages Linears by count. SVDQuant* and Atom* match nominal allocations but lack additional gradients and rollout signals. SM120 Blackwell NVFP4/FP8 kernels run on RTX PRO 5000 GPUs. Memory and latency concern targeted blocks only."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, all method row labels; Full Precision, Atom* and QuantWAMs rows, RoboTwin/LIBERO average, speedup and memory columns",
+      "detail": "The eight rows comprise FP16, six quantization baselines (GPTQ, SmoothQuant, SVDQuant, SVDQuant*, Atom, Atom*) and QuantWAMs: seven quantized variants overall. Fast-WAM QuantWAMs means are 91.7±0.3 and 97.4±0.2 versus FP16 91.9±0.3 and 97.6±0.2, and Atom* 77.2±0.6 and 82.1±0.5. QuantWAMs speedups are 1.4×/1.6×, memory 4.2 GB versus 14.4 GB FP16. LIBERO-Long alone is 95.0±0.4 versus FP16 95.2±0.4."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2, caption and Full Precision, Atom*, QuantWAMs rows",
+      "detail": "LingBot-VA QuantWAMs RoboTwin/Long success is 91.6±0.3/98.0±0.3; FP16 92.3±0.3/98.5±0.2; Atom* 76.3±0.6/81.5±0.7. Speedups are 1.4×/1.6×, memory 3.9 versus 13.5 GB. Goal, Spatial and Object suites are N/A because the released weights support only LIBERO-Long."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 3, both panels and legends; p. 9, Section 4.4.1, first two paragraphs",
+      "detail": "Bootstrap risk-ratio curves label crossover estimates 64 for Fast-WAM attn.o, 56 for LingBot-VA attn.o and 8 for LingBot-VA Q/K/V. Recovered-energy curves show low-N pooling advantage and saturation. All curves resample a fixed calibration set; they are not independent validation trajectories."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 4, all rows and Section 4.4.2, first paragraph; p. 9, Section 4.4.1, last paragraph",
+      "detail": "Grouping controls fix trajectories, quantizer, mask size, budget and schedule. Fast-WAM/LingBot-VA success: per-context 82.7±0.7/82.1±0.8, paired attn.o 84.5±0.6/81.3±0.8, unscreened global 86.2±0.8/85.8±0.7; element allocation 72.1±0.9/69.8±1.0, column 82.1±0.7/81.9±0.6; full screened/layer method 95.0±0.4/98.0±0.3. Granularity text specifies matched scalar-bit budgets."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 5, all rows and Sections 4.4.2–4.4.3",
+      "detail": "Fast-WAM/LingBot-VA success: video-only 85.4±0.7/83.1±0.8, action-only 87.1±0.6/86.5±0.7, fusion 91.4±0.5/92.8±0.6, synthetic Top-K 90.9±0.7/91.8±0.8, observational Top-K 93.5±0.5/93.7±0.6, joint/fixed-intervention 95.0±0.4/98.0±0.3. Saliency controls fix marginal objectives; scheduling changes indices at fixed precision counts. Authors do not claim causal attribution solely from closed-loop results."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 3; p. 10, Section 4.4.4",
+      "detail": "The fixed-order ladder adds shared-basis masks, then joint saliency, then replay. Base uses per-context masks, post-hoc fusion and synthetic Top-K. Success progresses 80.8/80.2, 89.1/89.6, 90.9/91.8, 95.0/98.0 for Fast-WAM/LingBot-VA, with paired initial states."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Figure 6, Table 6 and Section 4.5",
+      "detail": "AgiBot G2 study uses three cameras and dual 7-DoF arms. Apple, block and towel training collections have 200/500/700 trajectories; PTQ uses 32 training trajectories, profiling 32 separate FP16 rollouts, followed by separate validation and ten final trials/task. FP16 succeeds 8/6/5, QuantWAMs 8/5/4, Atom* 5/4/3. The 1.4× speedup is for targeted blocks only."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Sections 5–6",
+      "detail": "Authors restrict conclusions to local surrogates, two WAMs, benchmark-specific calibration, a Blackwell backend, block efficiency and a small feasibility robot study. Labels, backward computation, FP16 rollouts and validation are required; task transfer and end-to-end gains are not established."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.1 final paragraph and Section 3.2 final paragraph; p. 6, Section 3.3 final paragraph; p. 8, Section 4.2; pp. 12–13, References and document end",
+      "detail": "Main text promises Appendices A–E for proofs, estimators, grouping, ranking, split/replay and memory procedures. The supplied 13-page PDF instead ends with references and contains none of those appendices. Screening h/ε, numerical loss weights and validation acceptance details are not instantiated in the supplied formulation."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Figure 1 caption; p. 9, Figure 5 title, legend and caption; compare p. 5, Equations (14–17), and p. 8, Quantization configuration",
+      "detail": "Figure 1 describes FP16 channel preservation whereas the implementation specifies BF16. Figure 5 labels its heatmap and W8 overlay with a gradient-squared-times-activation-squared score; its printed score omits the low/high quantization-error difference present in the method equations."
+    }
+  ]
+}
