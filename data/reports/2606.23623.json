@@ -1,0 +1,467 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.23623",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T14:03:34.470Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.23623",
+      "title": "dVLA-RL: Reinforcement Learning over Denoising Trajectories for Discrete Diffusion Vision-Language-Action Models",
+      "kind": "pdf",
+      "sha256": "6adbb32de48e8da17c5a5c50fad57a47c5a2ba55c6abaae80fcb8e42f69830b8",
+      "wordCount": 10107,
+      "accessedAt": "2026-09-07T13:58:40.029002+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "identityVerified": true,
+    "sectionsRead": [
+      "Abstract and Section 1: Introduction",
+      "Sections 2.1–2.3: Related work",
+      "Sections 3.1–3.2: Discrete diffusion and PPO preliminaries",
+      "Sections 4.1–4.2: Path probabilities and implicit unmasking optimization",
+      "Sections 5.1–5.5: Setup, main results, objective ablation, denoising horizons and efficiency",
+      "Section 6: Conclusion; acknowledgments; references",
+      "Appendix A: Algorithm 1",
+      "Appendix B.1–B.4: SFT implementation, checkpoint selection and evaluation",
+      "Appendix C: LIBERO RL configuration and curves",
+      "Appendix D and D.1: RoboTwin configuration, task schedules and curves"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Version scope: the inspected title page identifies arXiv:2606.23623v1, 22 June 2026. Title and all sixteen author identities agree with the supplied catalog; no different revision or edition was supplied or compared.",
+      "All seven supplied text chunks were read individually, covering all 22 PDF pages. The extraction does not reconstruct figure images; this gap was addressed by inspecting the retained PDF's Figures 1–7 and Tables 1–7.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Code, external references and implementation dependencies were not inspected. No experiments were reproduced. Reference-list and acknowledgment pages 13–16 were read as text, without a separate visual pass."
+    ],
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 6)",
+      "Figure 3 (p. 10)",
+      "Figure 4 (p. 12)",
+      "Figure 5 (p. 20)",
+      "Figures 6–7 (p. 22)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (p. 9)",
+      "Table 3 (p. 12)",
+      "Tables 4–5 (p. 19)",
+      "Tables 6–7 (p. 21)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "dVLA-RL applies online PPO to MM-ACT's discrete action denoising, scoring newly unmasked tokens across the sampled path. Its Hybrid variant assigns denoising budgets by task. Large reported simulation gains are peak online training-rollout results, and the practical likelihood drops scheduler probabilities (e-surrogate, e-hybrid, e-evaluation).",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A final action chunk can arise through many intermediate masked sequences. Summing their probabilities is combinatorial, while using only the final denoising pass ignores how the action was generated. The paper seeks a usable PPO objective for this short internal generation chain, whose intermediate states receive no direct environmental reward.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Factorize the sampled denoising path, then optimize a token-only surrogate that excludes already decoded positions and explicit scheduler gradients.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-path",
+        "e-surrogate"
+      ]
+    },
+    {
+      "text": "Use the same objective for one-, two- and four-step decoding; select task-specific horizons from SFT performance to trade refinement against computation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-hybrid",
+        "e-task-schedule"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Visual observations and wrist-camera input",
+      "Language task instruction",
+      "Robot proprioception",
+      "A fully masked discrete action chunk"
+    ],
+    "outputs": [
+      "A fully decoded action chunk executed in simulation",
+      "During training, retained denoising states/masks and a chunk-level value estimate"
+    ],
+    "steps": [
+      {
+        "name": "Initialize the action policy",
+        "detail": "MM-ACT* jointly learns tasks with action-only SFT. It changes the original MM-ACT recipe to chunk size 16 and omits its additional multimodal generation objectives. This initializer must be distinguished from the original MM-ACT baseline.",
+        "evidenceIds": [
+          "e-sft"
+        ]
+      },
+      {
+        "name": "Generate and retain an internal path",
+        "detail": "Condition on state s_t; begin with fully masked x_K. At each descending denoising step k, predict categorical token distributions and select update indices U_k through confidence-dependent Gumbel-TopK. Retain the path and newly unmasked subset M_k. Only the completed x_0 is executed.",
+        "evidenceIds": [
+          "e-problem",
+          "e-path",
+          "e-algorithm"
+        ]
+      },
+      {
+        "name": "Assign environmental credit",
+        "detail": "Collect binary task-outcome rewards and estimate values from first-step hidden states. GAE supplies an advantage shared across the chunk's denoising transitions; there is no separately rewarded physical decision at each internal denoising step.",
+        "evidenceIds": [
+          "e-evaluation",
+          "e-algorithm",
+          "e-problem"
+        ]
+      },
+      {
+        "name": "Update the surrogate policy",
+        "detail": "Sum log-probabilities over newly unmasked tokens across the chain. Algorithm 1 compares current and old sums in a clipped PPO ratio and fits value targets. Because scheduler probabilities depend on network confidence yet are omitted, the implemented score is a surrogate for the complete path probability.",
+        "evidenceIds": [
+          "e-path",
+          "e-surrogate",
+          "e-algorithm"
+        ]
+      },
+      {
+        "name": "Assign refinement budgets",
+        "detail": "Hybrid selects the smallest horizon whose SFT success is comparable to longer decoding. It assigns one step to three tasks, two to three tasks and four to two tasks; the paper gives a fixed task lookup, not a learned per-observation stopping policy.",
+        "evidenceIds": [
+          "e-hybrid",
+          "e-task-schedule"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "SFT uses 500 demonstrations per LIBERO suite and 1,000 per RoboTwin task, with batches 128 and 96. Appendix B selects epoch 1 for LIBERO-Object and epoch 4 for other suites and RoboTwin; Appendix C's generic same-checkpoint wording does not erase this distinction.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-sft",
+          "e-libero-config"
+        ]
+      },
+      {
+        "text": "RLinf supplies online PPO. Both benchmark configurations use bf16, global/micro batches 512/8, actor/value learning rates 3×10⁻⁵/2×10⁻³, PPO clip 0.2, discount 0.99 and GAE parameter 0.95. The source does not specify which backbone components, if any, remain frozen.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-evaluation",
+          "e-libero-config",
+          "e-robotwin-config"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Run the assigned denoising chain, execute the completed action chunk, then condition subsequent control on environmental feedback. LIBERO uses two denoising steps; RoboTwin Hybrid uses the task lookup. These are action predictions, without a reported future-observation imagination or inverse-dynamics stage.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-problem",
+          "e-algorithm",
+          "e-libero-config",
+          "e-task-schedule"
+        ]
+      },
+      {
+        "text": "Decoding details remain ambiguous: Section 5.3 calls the path greedy, whereas Algorithm 1 samples tokens and scheduler choices. Do not infer a fully specified stochastic-versus-greedy deployment protocol.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-decoding-ambiguity"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "P_\\theta(x_{k-1}\\mid x_k,s_t)=P_{\\mathrm{unmask}}(U_k\\mid p_\\theta,k)\\prod_{i\\in U_k}p_\\theta(x_{k-1}^{i}\\mid x_k,s_t)",
+        "explanation": "Equation (4): x_k is the discrete action sequence at denoising step k; s_t is the observed control state; theta parameterizes categorical token probabilities p_theta. U_k contains scheduler-selected token indices. The selection factor belongs to the full transition; unselected tokens contribute probability one.",
+        "evidenceIds": [
+          "e-path",
+          "e-problem"
+        ]
+      },
+      {
+        "expression": "\\log\\pi_\\theta(\\tau\\mid s_t)\\approx\\sum_{k=1}^{K}\\sum_{i\\in M_k}\\log p_\\theta(x_{k-1}^{i}\\mid x_k,s_t)",
+        "explanation": "Figure 2's approximate score, with the finite sum written in ascending order: tau is the path (x_K,...,x_0), K its denoising length, and M_k the newly unmasked subset. Eq. (6) weights these terms by the chunk advantage A_t. The approximation omits the scheduler term present in Eq. (5).",
+        "evidenceIds": [
+          "e-pipeline",
+          "e-path",
+          "e-surrogate"
+        ]
+      },
+      {
+        "expression": "r_t(\\theta)=\\exp\\!\\left(\\log\\pi_\\theta(\\tau\\mid s_t)-\\log\\pi_{\\theta_{\\mathrm{old}}}(\\tau\\mid s_t)\\right),\\qquad L^{\\mathrm{dVLA\\text{-}RL}}=\\mathbb{E}_{\\tau}\\!\\left[\\min\\!\\left(r_tA_t,\\operatorname{clip}(r_t,1-\\epsilon,1+\\epsilon)A_t\\right)\\right]",
+        "explanation": "Algorithm 1 uses its shielded, token-only log score in this PPO ratio. theta_old denotes rollout-policy parameters; epsilon is the clipping tolerance. Eq. (6) alone shows an advantage-weighted log objective, while the algorithm supplies the actual clipped update.",
+        "evidenceIds": [
+          "e-algorithm",
+          "e-surrogate"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO four-suite manipulation",
+      "setting": "Two-step RL; best task-wise online training-rollout SR, with 512 episodes per task as stated in Section 5.1. SFT uses 50 trials per subtask, 2,000 total.",
+      "metric": "Success rate (%)",
+      "value": "Spatial 99.8; Object 100.0; Goal 99.6; Long 99.2; average 99.7.",
+      "comparison": "MM-ACT* average 88.1; original MM-ACT 96.3; SimpleVLA-RL 99.1.",
+      "interpretation": "The printed-average gain over the initializer is 11.6 percentage points. Peak rollout selection differs from fixed-checkpoint SFT evaluation; this is not a common held-out protocol.",
+      "evidenceIds": [
+        "e-libero",
+        "e-evaluation",
+        "e-libero-config"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0 eight-task bimanual manipulation",
+      "setting": "Hybrid RL: highest online mean across eight tasks, 64 rollouts per task sampled from 1,000 training scenarios per task. SFT: four-step decoding, 100 trials per task.",
+      "metric": "Average success rate (%)",
+      "value": "92.0; Handover Mic 96.9.",
+      "comparison": "MM-ACT* average 61.4 and Handover Mic 49.0; absolute gains 30.6 and 47.9 percentage points.",
+      "interpretation": "Improvement appears across all eight tasks, but remains training-distribution rollout evidence. WAM references use different training settings; the result does not establish superiority to them.",
+      "evidenceIds": [
+        "e-robotwin",
+        "e-evaluation",
+        "e-robotwin-config",
+        "e-task-schedule",
+        "e-comparability"
+      ]
+    },
+    {
+      "task": "Trajectory-level versus last-step objective",
+      "setting": "LIBERO Spatial/Object, two/four denoising steps; shared backbone, rollout and reward.",
+      "metric": "EMA success-rate curves",
+      "value": "Trajectory-level optimization retains higher late-training success in all four panels.",
+      "comparison": "Last-step-only curves plateau lower or degrade after initial improvement.",
+      "interpretation": "A direct mechanism ablation supports retaining intermediate transitions. No exact endpoint values or independent-seed significance are inferred from the curves.",
+      "evidenceIds": [
+        "e-ablation"
+      ]
+    },
+    {
+      "task": "RoboTwin denoising-horizon comparison",
+      "setting": "Shared training protocol; 512 rollouts per optimization step.",
+      "metric": "Peak online average success rate",
+      "value": "Hybrid 0.920.",
+      "comparison": "Fixed two-step 0.908; fixed one-step 0.885.",
+      "interpretation": "Hybrid is ahead through much of training; task-level curves show uneven benefits. Figure 4 does not establish a comparison against a separate fixed four-step success curve.",
+      "evidenceIds": [
+        "e-hybrid",
+        "e-robotwin-config",
+        "e-task-curves"
+      ]
+    },
+    {
+      "task": "Action-chunk generation efficiency",
+      "setting": "Table 3's reported timing/FLOP configuration; hardware and training workload duration are unspecified.",
+      "metric": "Training seconds; inference milliseconds; inference GFLOPs",
+      "value": "Hybrid: 607.89 s; 387.24 ms; 37289.12 GFLOPs.",
+      "comparison": "Four-step: 845.95 s; 728.92 ms; 70191.28 GFLOPs. Two-step: 452.06 s; 364.21 ms; 35095.64 GFLOPs.",
+      "interpretation": "Hybrid costs less than fixed four-step but more than fixed two-step. These timings cannot establish total time to a target success rate.",
+      "evidenceIds": [
+        "e-efficiency"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Experiments establish simulated task completion, without physical-robot deployment or an RL held-out generalization result. Main tables lack uncertainty intervals; curve bands are labeled standard deviations without an identified independent-run basis.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-libero",
+        "e-robotwin",
+        "e-ablation"
+      ]
+    },
+    {
+      "text": "The final-step ablation does not isolate the benefit of dropping scheduler gradients or verify the claimed improvement in scheduler calibration. Figure 2 also has a gray-token legend/transition mismatch; use Eq. (6)'s explicit mask-to-token definition.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-surrogate",
+        "e-ablation",
+        "e-pipeline"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs MM-ACT initialization and its inherited SFT recipe, RLinf, both simulators, demonstrations and scenario seeds. LIBERO uses seven-dimensional ee actions with horizons 256/320/320/512; RoboTwin uses 14-dimensional qpos actions and a 256-step limit. Both use chunk size 16.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-sft",
+        "e-libero-config",
+        "e-robotwin-config"
+      ]
+    },
+    {
+      "text": "Unresolved requirements include software revisions, accelerator models/counts, scheduler temperature and exact remasking implementation, the tolerance defining comparable SFT success, and Table 3's timing workload. Algorithm 1's reconstruction of x_k from x_0/U_k needs checking against its stored sampled paths.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-algorithm",
+        "e-decoding-ambiguity",
+        "e-hybrid",
+        "e-efficiency",
+        "e-sft",
+        "e-libero-config",
+        "e-robotwin-config"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "VLA",
+      "subcategories": [
+        "Diffusion & flow-matching VLA",
+        "VLA post-training & data augmentation"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "ef666b389ee99e170c0a135e1c8620cc4e221a64d712c4b5ebcfb8a44cfedb41"
+    },
+    "reasoning": {
+      "text": "The recorded VLA / One Model classification is supported by the unified MM-ACT action-token generator and its shared denoising network, not merely by joint training. A training value head is auxiliary; the reported control path does not couple a future-world predictor to a separate action model. Action-only SFT and direct action generation support predictionParadigm and quadrant remaining Not applicable.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-pipeline",
+        "e-path",
+        "e-sft",
+        "e-algorithm"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Would the trajectory-level advantage persist under equal-budget held-out evaluation rather than peak training rollouts?",
+    "Does Hybrid's task lookup outperform other assignments with the same aggregate denoising budget?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin",
+      "detail": "The title matches the supplied observed title. The margin identifies arXiv:2606.23623v1 [cs.RO], 22 Jun 2026. Sixteen authors and five institutions are printed."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Sections 2.2 and 3.1–3.2, Eq. (3)",
+      "detail": "Only the fully decoded action interacts with the environment. Final-action likelihood sums over intermediate denoising paths; individual categorical predictions do not evaluate this marginal."
+    },
+    {
+      "id": "e-path",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, Eqs. (4)–(5)",
+      "detail": "Each transition includes a confidence-dependent Gumbel-TopK unmasking selection probability and token probabilities over selected indices U_k. The full path log-probability includes both terms."
+    },
+    {
+      "id": "e-pipeline",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 2 and caption; PDF p. 7, Section 4.2, Eq. (6)",
+      "detail": "The diagram connects observations, action denoising, sparse rewards, a value head and PPO. Its approximate likelihood sums newly generated tokens. Dark tokens first appearing after the fully masked row conflict with the legend's 'Already Denoised' label; Eq. (6) explicitly defines the mask-to-token subset M_k."
+    },
+    {
+      "id": "e-surrogate",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.2, Eq. (6) and following paragraph",
+      "detail": "The practical objective drops the scheduler term and restricts gradients to M_k, the newly unmasked subset of U_k, weighted by a shared chunk-level advantage. Improved scheduler confidence/calibration is the authors' proposed indirect effect."
+    },
+    {
+      "id": "e-algorithm",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Appendix A, Algorithm 1, lines 8–38",
+      "detail": "Rollout samples selected tokens, executes x_0, uses first-step hidden states for the value estimate and computes GAE. Updates accumulate shielded log-probabilities, apply PPO clipping and fit value targets. Line 27 reconstructs x_k from x_0 and U_k although stored x_k appears in line 18."
+    },
+    {
+      "id": "e-sft",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5.1, baseline paragraph; PDF p. 18, Appendix B.1–B.4",
+      "detail": "MM-ACT* uses action-only multi-task SFT, chunk size 16, 500 demonstrations per LIBERO suite and 1,000 per RoboTwin task. SFT batches are 128/96. Object uses epoch 1; the other LIBERO suites and RoboTwin use epoch 4. Remaining SFT hyperparameters are delegated to MM-ACT."
+    },
+    {
+      "id": "e-evaluation",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 5.1, benchmarks and online RL/evaluation protocol",
+      "detail": "Experiments are simulated single-arm LIBERO and bimanual RoboTwin 2.0. RLinf PPO uses binary outcome rewards. SFT uses 50 trials per LIBERO subtask, 2,000 total, and 100 trials per RoboTwin task at four denoising steps. Main RL results are peak online rollout success: LIBERO best task-wise values with 512 episodes; RoboTwin highest eight-task mean with 64 episodes per task."
+    },
+    {
+      "id": "e-libero",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 1, MM-ACT, MM-ACT*, dVLA-RL and SimpleVLA-RL rows",
+      "detail": "dVLA-RL reports Spatial/Object/Goal/Long success 99.8/100.0/99.6/99.2%, average 99.7%. MM-ACT* averages 88.1%, original MM-ACT 96.3%, and SimpleVLA-RL 99.1%."
+    },
+    {
+      "id": "e-robotwin",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 5.2 and Table 2, MM-ACT* and dVLA-RL rows",
+      "detail": "Across eight selected tasks the reported average rises from 61.4% to 92.0%, an absolute 30.6-point gain. dVLA-RL per-task values are 95.3, 96.9, 95.3, 89.1, 87.5, 79.7, 95.3 and 96.9% in table order. Handover Mic rises from 49.0% to 96.9%."
+    },
+    {
+      "id": "e-comparability",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 2 WAM rows and paragraph immediately below",
+      "detail": "RoboTwin WAM references use different training settings, explicitly precluding strictly controlled comparisons. LingBot-VA and Fast-WAM average 97.4% and 96.6%, respectively."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Figure 3, caption and Section 5.3",
+      "detail": "Trajectory-level and last-step-only objectives share backbone, rollout setting and sparse reward on LIBERO Spatial/Object with two/four denoising steps. Trajectory-level curves retain higher late-training success. Curves are EMA and shaded bands are labeled ±1 standard deviation; independent-run count and aggregation basis are not identified."
+    },
+    {
+      "id": "e-hybrid",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Sections 5.4–5.5; PDF p. 12, Figure 4 and legend",
+      "detail": "Hybrid chooses the smallest task-specific denoising horizon with SFT success comparable to longer decoding. Figure 4 labels fixed 2-step, fixed 1-step and Hybrid peaks as 0.908, 0.885 and 0.920. It does not plot a separate fixed 4-step curve."
+    },
+    {
+      "id": "e-efficiency",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Table 3, caption and Section 5.5 continuation",
+      "detail": "Rows 1-step/2-step/4-step/Hybrid report training seconds 259.33/452.06/845.95/607.89; action-chunk inference milliseconds 182.47/364.21/728.92/387.24; GFLOPs 17547.82/35095.64/70191.28/37289.12. The duration unit for the training workload and hardware configuration are not specified here."
+    },
+    {
+      "id": "e-libero-config",
+      "sourceId": "primary",
+      "location": "PDF pp. 18–19, Appendix C and Tables 4–5",
+      "detail": "LIBERO uses two denoising steps, seven-dimensional ee actions, chunk size 16, 256×256 images, bf16, AdamW, global/micro batches 512/8, actor/value rates 3e-5/2e-3, gamma 0.99, GAE lambda 0.95 and PPO clip 0.2. Rollout horizons are 256/320/320/512 for Spatial/Object/Goal/Long. Appendix C's generic same-checkpoint statement needs to be read alongside B.3's epoch-specific selection."
+    },
+    {
+      "id": "e-robotwin-config",
+      "sourceId": "primary",
+      "location": "PDF pp. 20–21, Appendix D and Table 6",
+      "detail": "Each RoboTwin task has 1,000 training initialization seeds; 64 sampled seeds per task give 512 rollouts per optimization step across eight tasks. Variants share this protocol. Table 6 specifies 14-dimensional qpos actions, chunk 16, bf16, global/micro batches 512/8, actor/value rates 3e-5/2e-3, PPO clip 0.2, gamma 0.99, GAE lambda 0.95 and a 256-step episode limit."
+    },
+    {
+      "id": "e-task-schedule",
+      "sourceId": "primary",
+      "location": "PDF p. 21, Table 7",
+      "detail": "Hybrid assigns one step to Beat Block Hammer, Place Phone Stand and Place Empty Cup; two to Lift Pot, Move Can Pot and Place A2B Left; four to Handover Mic and Pick Dual Bottles."
+    },
+    {
+      "id": "e-task-curves",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Figure 5; PDF p. 22, Figures 6–7 and captions",
+      "detail": "Appendix curves cover all four LIBERO suites and eight RoboTwin tasks. In RoboTwin, Hybrid gains vary by task; Handover Mic and Pick Dual Bottles separate visibly, whereas several one-step-assigned tasks have similar curves."
+    },
+    {
+      "id": "e-decoding-ambiguity",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 5.3 first paragraph; PDF p. 17, Algorithm 1 lines 12–14 and 27–30",
+      "detail": "Section 5.3 calls the path greedy, whereas Algorithm 1 samples scheduler choices and tokens. The relation between reconstructed update inputs and the stored sampled states is not fully resolved in the pseudocode."
+    },
+    {
+      "id": "e-overview-baseline",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 1(b); PDF p. 9, Table 1; PDF p. 18, Appendix B.2",
+      "detail": "The overview LIBERO bar labels SFT-only MM-ACT at 96.3%. Table 1 distinguishes this original MM-ACT from the modified MM-ACT* RL initializer at 88.1%; the two baselines must not be interchanged."
+    }
+  ]
+}
