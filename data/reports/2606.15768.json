@@ -1,0 +1,487 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.15768",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T14:35:41.894Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.15768",
+      "title": "LaWAM: Latent World Action Models for Efficient Dynamics-Aware Robot Policies",
+      "kind": "pdf",
+      "sha256": "07aa676e56ab20a5de037fe3444ea7009af5e54c4a21271c20aef35418e54f7f",
+      "wordCount": 8924,
+      "accessedAt": "2026-09-07T13:59:06.248299+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method",
+      "3.1 Problem Formulation",
+      "3.2 Latent World Model",
+      "3.3 Latent World Action Model",
+      "4 Experiments",
+      "4.1 LIBERO",
+      "4.2 RoboTwin",
+      "4.3 Real-World Experiments",
+      "4.4 LaWM Dynamics Analysis",
+      "4.5 Component Ablations",
+      "5 Limitations",
+      "6 Conclusion",
+      "References",
+      "A Detailed RoboTwin Results",
+      "B Qualitative Visualization Protocol",
+      "C Architecture and Implementation Details",
+      "C.1 Latent World Model Architecture",
+      "C.2 Latent World Action Model Architecture",
+      "C.3 Physical-Time Alignment for Mixed-Frequency Data",
+      "C.4 Mixed-Frequency Training Experiment",
+      "C.5 Training Details",
+      "D Experimental Details",
+      "D.1 LIBERO Protocol",
+      "D.2 RoboTwin Protocol",
+      "D.3 Real-World Protocol",
+      "D.4 Additional LaWM Rollout Analysis"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity/version: the inspected title page identifies arXiv:2606.15768v1, 14 June 2026; the title and all twelve authors match the supplied paper identity. All eight printed affiliations are retained in the verified metadata. No other edition was supplied or compared.",
+      "The supplied extraction does not reconstruct figure images; this gap was resolved by inspecting the retained PDF, including every figure and table. Reference pages 9–12 were read as text, without a separate visual pass.",
+      "Separate supplemental material availability has not been fully verified; no separate supplement was supplied.",
+      "Code, linked websites and cited papers were not inspected. No experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 2)",
+      "Figure 3 (p. 5)",
+      "Figures 4–5 (p. 7)",
+      "Figure 6 (p. 8)",
+      "Figure 7 (p. 16)",
+      "Figure 8 (p. 17)",
+      "Figure 9 (p. 18)",
+      "Figure 10 (p. 19)",
+      "Figures 11–12 (p. 20)",
+      "Figure 13 (p. 21)",
+      "Figure 14 (p. 22)",
+      "Figure 15 (p. 23)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (p. 6)",
+      "Table 3 (p. 7)",
+      "Table 4 (p. 13)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "LaWAM turns a latent-action model's forward decoder into an inference-time source of visual subgoals. A language-conditioned policy predicts a latent transition, LaWM expands it into DINO future features, and a separate action expert generates a robot action chunk. The main appeal is near-leading manipulation success with inexpensive future prediction; the evidence remains concentrated on stable-camera manipulation.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A current-observation VLA lacks an explicit predicted scene change, while pixel-space world-action models spend time synthesizing appearance. LaWAM asks whether a spatial future feature can supply useful dynamics to action generation at lower latency. Its target is chunk-level control, not photorealistic video or an independently validated physical simulator.",
+    "kind": "source",
+    "evidenceIds": [
+      "problem",
+      "factorization"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Retain the latent-action decoder as a 230M-parameter world model, making its predicted future an explicit policy input during deployment.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture"
+      ]
+    },
+    {
+      "text": "Combine posterior-to-policy latent-action distillation, insulated dynamics conditioning and native-frequency action tokens aligned by elapsed physical time.",
+      "kind": "source",
+      "evidenceIds": [
+        "stage-two",
+        "time-alignment"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current primary-view RGB observation and task instruction; optional auxiliary RGB views for policy context",
+      "Training only: horizon observations, robot end-effector labels and language-annotated trajectories for policy integration"
+    ],
+    "outputs": [
+      "Predicted latent action and horizon DINO feature map",
+      "Executable end-effector action chunk from the flow-matching expert"
+    ],
+    "steps": [
+      {
+        "name": "Learn a visual transition variable",
+        "detail": "Frozen DINOv3 ViT-B/16 encodes current and future observations. A 24-layer posterior transformer infers a continuous latent action. A separate 24-layer decoder predicts future features from current features and that action, conditioning through adaptive layer normalization.",
+        "evidenceIds": [
+          "stage-one",
+          "implementation"
+        ]
+      },
+      {
+        "name": "Replace access to the future",
+        "detail": "Stage two trains Qwen3-VL latent-action queries to predict the posterior's teacher action using present observation and instruction. The first 16 backbone layers feed a four-block Alternate-DiT expert, which alternates semantic context with current/predicted-future features. With the specified causal ordering, latent-action queries precede auxiliary views; action queries follow them.",
+        "evidenceIds": [
+          "factorization",
+          "implementation"
+        ]
+      },
+      {
+        "name": "Align the action horizon",
+        "detail": "Keep native control frequencies and add sinusoidal physical timestamps to action queries. Pad and mask variable-length chunks. The aligned robot horizon is 1.2 seconds in LaWM training; human-video transitions use a separate 0.4-second horizon, so fixed duration should not be read as universal across the entire mixture.",
+        "evidenceIds": [
+          "time-alignment",
+          "training-config"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage one uses roughly 3,000 robot-video hours and 1,500 human-video hours. Future-feature error and KL regularization train the latent model; an auxiliary end-effector predictor encourages embodied motion and is later discarded. Training runs 100k steps on 16 H100s, batch 1024, AdamW learning rate 3×10^-4, weight decay 10^-2 and KL weight 10^-5.",
+        "kind": "source",
+        "evidenceIds": [
+          "stage-one",
+          "stage-two",
+          "training-config"
+        ]
+      },
+      {
+        "text": "Stage two uses language-annotated robot trajectories only: 200k steps on 64 H100s, batch 1024. Distillation and subgoal losses each receive weight 0.1 alongside action flow matching. Learning rates are 10^-4 for the expert and 3×10^-5 for other modules. Knowledge Insulation blocks action-expert gradients from overwriting LaWM; it does not imply LaWM receives no subgoal supervision.",
+        "kind": "source",
+        "evidenceIds": [
+          "stage-two",
+          "training-config"
+        ]
+      },
+      {
+        "text": "Benchmark post-training follows integration: LIBERO uses 25k steps/batch 256 after failed-demonstration removal; RoboTwin uses 100k steps/batch 1024 with 2,500 clean and 25,000 randomized demonstrations. Policies receive 256×256 RGB images without proprioception; stage-one auxiliary state supervision is a separate training pathway.",
+        "kind": "source",
+        "evidenceIds": [
+          "implementation",
+          "libero-protocol",
+          "robotwin-protocol"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Predict the latent action from present visual-language context, decode one future feature in a single LaWM pass, then denoise the action chunk using both context and subgoal. The default evaluation uses 10 action-denoising steps. Predicted latent actions are not robot commands; the expert supplies executable actions. The described policy has no candidate-rollout search or reward-based planner.",
+        "kind": "source",
+        "evidenceIds": [
+          "factorization",
+          "stage-two",
+          "latency-protocol"
+        ]
+      },
+      {
+        "text": "Execution visualizations hold a subgoal across a chunk and show later chunks receiving new subgoals. Their heatmaps locate similarity to an initial arm patch; they visualize feature-space guidance rather than pixel prediction or a calibrated contact model.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "visualization"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "p(a_{1:T},\\hat u_T,\\hat z\\mid o,l)=p_\\theta(\\hat z\\mid o,l)\\,p_\\omega(\\hat u_T\\mid u,\\hat z)\\,p_\\eta(a_{1:T}\\mid o,l,u,\\hat u_T)",
+        "explanation": "Equation (3): o is the current observation, l the instruction, u its frozen visual feature, and a_{1:T} the action chunk. The policy prior predicts latent action hat z; LaWM deterministically produces future feature hat u_T; the action expert generates actions.",
+        "evidenceIds": [
+          "factorization"
+        ]
+      },
+      {
+        "expression": "\\mathcal L_{\\mathrm{LAM}}=\\|\\tilde u_T-u_T\\|_2^2+\\|g(s,z)-s_T\\|_2^2+\\beta D_{\\mathrm{KL}}\\!\\left(q_\\phi(z\\mid u,u_T)\\,\\|\\,\\mathcal N(0,I)\\right)",
+        "explanation": "Equation (4): u_T is the observed horizon feature and tilde u_T its decoder prediction. The posterior q_phi infers z from the transition. Auxiliary predictor g maps current end-effector state s and z to horizon state s_T; beta weights regularization.",
+        "evidenceIds": [
+          "stage-one"
+        ]
+      },
+      {
+        "expression": "H_b=\\operatorname{round}(\\tau h_b),\\qquad t_{b,i}=i/h_b",
+        "explanation": "Appendix C.3: branch b runs at frequency h_b; H_b counts action tokens over duration tau. Token i receives a physical timestamp t_{b,i}, preventing equal token indices at different frequencies from being treated as equal elapsed times.",
+        "evidenceIds": [
+          "time-alignment"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO success and action-chunk latency",
+      "setting": "Four suites, 40 tasks, 50 trials/task (2,000 total). Model-only timing: 1,000 predictions on an A100, 10 denoising steps.",
+      "metric": "Success rate (%) and mean model-only latency (ms/chunk)",
+      "value": "98.6% average; Long 97.0, Goal 98.4, Object 99.6, Spatial 99.4; 187 ms.",
+      "comparison": "Cosmos-Policy: 98.5%, 1413 ms. LingBot-VA: 98.5%, 4482 ms.",
+      "interpretation": "Only a 0.1 percentage-point average success margin, without reported uncertainty; the larger difference is latency. The approximately 24× ratio is relative to LingBot-VA model inference, not robot task duration.",
+      "evidenceIds": [
+        "libero",
+        "libero-protocol",
+        "latency-protocol"
+      ]
+    },
+    {
+      "task": "RoboTwin clean and randomized bimanual manipulation",
+      "setting": "50 tasks; 100 trials per task in each setting after mixed clean/randomized training.",
+      "metric": "Average success rate (%)",
+      "value": "Clean 92.64; randomized 89.80.",
+      "comparison": "Fast-WAM 91.98/90.52; LingBot-VA 91.50/90.92, clean/randomized respectively.",
+      "interpretation": "Best listed clean average, but below both comparators under randomization. The abstract's 91.22% equals the mean of LaWAM's two setting averages; retain the separate protocols. Table 4 exposes weak tasks, including Open Microwave at 41/43%.",
+      "evidenceIds": [
+        "identity",
+        "robotwin",
+        "robotwin-protocol"
+      ]
+    },
+    {
+      "task": "Physical pick-and-place, drawer opening and towel folding",
+      "setting": "Franka Panda for the first two tasks; Quanta X1 for folding. Training: 150 demonstrations per Franka task, 280 for folding. Thirty fixed-comparison trials per task include seen/unseen conditions.",
+      "metric": "Success rate (%)",
+      "value": "93.3 / 86.7 / 90.0; average 90.0.",
+      "comparison": "π0.5: 86.7 / 80.0 / 83.3; average 83.3.",
+      "interpretation": "Executed robot success supports transfer within these three setups. Seen/unseen results are pooled, and no uncertainty intervals establish statistical superiority.",
+      "evidenceIds": [
+        "real-world",
+        "real-protocol"
+      ]
+    },
+    {
+      "task": "LIBERO component ablations",
+      "setting": "Figure 6 compares removal of LaWM, distillation, KI plus distillation, and pretraining.",
+      "metric": "Success-rate ordering; exact bar values not supplied",
+      "value": "Removing LaWM gives the largest degradation, especially on Long.",
+      "comparison": "Removing KI plus distillation performs below removing distillation alone.",
+      "interpretation": "Supports the subgoal interface, but combined removal is not an independent KI-only ablation. Full-model bars differ visually from Table 1; the source does not reconcile the configurations.",
+      "evidenceIds": [
+        "ablation"
+      ]
+    },
+    {
+      "task": "Mixed-frequency training and latent rollout diagnostics",
+      "setting": "From-scratch LIBERO 5/10/20 Hz co-training from shared demonstrations; separate open-loop probe over 500 LIBERO trajectories.",
+      "metric": "Success-rate trend and feature cosine similarity",
+      "value": "Time encoding recovers performance toward the 20 Hz-only reference; rollout features track future features while diverging from initial features.",
+      "comparison": "Mixed-frequency training without encoding degrades; Figure 10 compares rollout/future, future/initial and rollout/initial similarities.",
+      "interpretation": "These support temporal alignment and nontrivial feature evolution. They do not establish calibrated physical dynamics or executed cross-embodiment transfer.",
+      "evidenceIds": [
+        "mixed-frequency",
+        "rollout",
+        "cross-embodiment"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Camera shake or large viewpoint changes can dominate the transition and disrupt latent-action learning. Sparse fine cloth dynamics and feature resolution also limit subtle deformation prediction.",
+      "kind": "source",
+      "evidenceIds": [
+        "limitations"
+      ]
+    },
+    {
+      "text": "The broad tables mix reported and re-evaluated baselines rather than controlling pretraining data and compute. Small success margins, qualitative transfer rollouts and unreported uncertainty limit stronger causal/generalization claims. Parameter accounting excludes WAM video VAEs and text encoders.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "latency-protocol",
+        "robotwin",
+        "real-world",
+        "cross-embodiment"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the DINO/Qwen architecture, exact data mixture, teacher posterior, gradient boundaries, physical timestamps and end-effector label conversions. RoboTwin's reported post-training alone takes about 20 hours on 64 H100s; low inference latency does not imply inexpensive training.",
+      "kind": "source",
+      "evidenceIds": [
+        "implementation",
+        "stage-two",
+        "time-alignment",
+        "robotwin-protocol"
+      ]
+    },
+    {
+      "text": "Missing details include latent dimensionality/query counts, dataset sampling weights, precise end-effector conventions, missing-state handling for human-video auxiliary supervision, software versions and seeds. Resolve these before claiming an exact reproduction.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "reproduction-gaps"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Dual-system × IDM classification is supported by an explicit LaWM-to-action-expert boundary and the future-conditioned action factorization. Stage-one latent inverse dynamics supplies teacher transitions; deployment uses a learned prior followed by forward prediction and a distinct action expert with an inverse-dynamics role. Joint training does not make this a single joint future/action generator, and LaWM is used at inference rather than only as an auxiliary loss.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "factorization",
+        "implementation"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Latent prediction & JEPA",
+        "Visual planning & IDM",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "ccdd0329f728e0b78e25ca71c8780a15445891dea7e7391ff33e57a8b8f5b643"
+    }
+  },
+  "discussionQuestions": [
+    "Would replacing predicted future features with capacity-matched current features preserve performance?",
+    "Can latency-matched cloth trials separate the benefit of better subgoals from the benefit of fresher observations?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block, arXiv margin stamp and Abstract",
+      "detail": "The title page reads LaWAM: Latent World Action Models for Efficient Dynamics-Aware Robot Policies and lists twelve authors, in the order retained in the verified metadata. The artifact is arXiv:2606.15768v1, dated 14 June 2026. Eight affiliations are printed, including Striding.AI and Infinigence AI. The abstract reports a RoboTwin headline success rate of 91.22%."
+    },
+    {
+      "id": "problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Introduction, Figure 1 and Related Work",
+      "detail": "The authors motivate feature-space future conditioning by the cost of iterative pixel generation and distinguish their retained forward decoder from latent-action methods that discard it."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 2 and caption; pp. 4–5, Sections 3.2–3.3",
+      "detail": "The two-stage diagram routes frozen DINO features through a transition posterior and forward decoder, then uses policy-predicted latent actions to obtain a subgoal for an Alternate-DiT action expert. Knowledge Insulation protects the dynamics interface from action-expert gradients."
+    },
+    {
+      "id": "factorization",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1, Eqs. (1)–(3)",
+      "detail": "The policy prior predicts a latent action from observation and instruction; LaWM deterministically predicts a future feature; the separate action expert conditions on current context and that feature. The training posterior requires an observed future and cannot serve as the deployment prior."
+    },
+    {
+      "id": "stage-one",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2, Eq. (4)",
+      "detail": "LaWM training combines future-feature squared error, an auxiliary end-effector horizon-state predictor and KL regularization toward a standard normal. The auxiliary head is discarded, while the posterior supplies stage-two teacher actions."
+    },
+    {
+      "id": "stage-two",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Eq. (5), and Section 4",
+      "detail": "Policy integration combines latent-action distillation, predicted-subgoal supervision and conditional action flow matching. LaWM pretraining uses roughly 3,000 robot-video hours and 1,500 egocentric-human-video hours; policy integration uses language-annotated robot trajectories only."
+    },
+    {
+      "id": "implementation",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendices C.1–C.2",
+      "detail": "DINOv3 ViT-B/16 features feed 24-layer posterior and decoder transformers, with adaptive layer normalization for latent-action conditioning. The policy uses Qwen3-VL's first 16 layers, four Alternate-DiT blocks totaling 16 layers, hidden size 1024, causal query ordering, 256×256 RGB images and end-effector action labels; it receives no proprioceptive inputs."
+    },
+    {
+      "id": "time-alignment",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–15, Appendix C.3, Eqs. (6)–(7)",
+      "detail": "Native-frequency branches use a common elapsed horizon within the aligned mixture, with rounded horizon-times-frequency token counts. Action tokens receive sinusoidal encodings of timestamps in seconds; variable-length batches use padding and masks."
+    },
+    {
+      "id": "mixed-frequency",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Appendix C.4 and Figure 7",
+      "detail": "The controlled from-scratch experiment downsamples the same 20 Hz LIBERO demonstrations to 10 and 5 Hz. Physical-time encoding improves mixed-frequency performance toward the 20 Hz-only reference without adding expert trajectories. The figure has no exact bar labels or uncertainty intervals."
+    },
+    {
+      "id": "training-config",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Appendix C.5",
+      "detail": "LaWM uses 16 H100 GPUs, 100k steps, AdamW at 3×10^-4, weight decay 10^-2, batch 1024 and KL weight 10^-5. Horizons are 1.2 s for robot teleoperation and 0.4 s for human videos. Policy integration uses 64 H100 GPUs, 200k steps, batch 1024, loss weights 0.1 each, and learning rates 10^-4 for the action expert and 3×10^-5 for other modules."
+    },
+    {
+      "id": "latency-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1 caption; p. 16, Appendix C.5, evaluation paragraph",
+      "detail": "Latency excludes simulator/robot execution overhead. The stated measurement averages 1,000 action-chunk predictions on an A100, ordinarily with 10 denoising steps. WAM parameter counts exclude video-diffusion VAEs and text encoders. Baseline values mix original-paper and reproduced results."
+    },
+    {
+      "id": "libero",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, LaWAM, Cosmos-Policy and LingBot-VA rows",
+      "detail": "LaWAM reports 2.3B parameters, 187 ms latency and success rates 97.0/98.4/99.6/99.4 for Long/Goal/Object/Spatial, averaging 98.6%. Cosmos-Policy and LingBot-VA each average 98.5%; their latencies are 1413 and 4482 ms, respectively."
+    },
+    {
+      "id": "libero-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix D.1; p. 6, Table 1 caption",
+      "detail": "LIBERO training removes failed demonstrations, runs 25k steps with batch 256, and evaluates 40 tasks over 2,000 trials, or 50 trials per task."
+    },
+    {
+      "id": "robotwin",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2 caption and Average row; p. 13, Table 4, Average, Hanging Mug and Open Microwave rows",
+      "detail": "LaWAM clean/randomized averages are 92.64/89.80%, versus Fast-WAM 91.98/90.52% and LingBot-VA 91.50/90.92%. LaWAM scores 51/43% on Hanging Mug and 41/43% on Open Microwave. Fast-WAM and LingBot-VA are re-evaluated from open weights; other baseline results are taken from cited papers."
+    },
+    {
+      "id": "robotwin-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix D.2",
+      "detail": "RoboTwin trains on 2,500 clean and 25,000 randomized demonstrations, uses 100k steps and batch 1024, and reports 100 evaluation trials per task for each setting. Training takes about 20 hours on 64 H100 GPUs."
+    },
+    {
+      "id": "real-world",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3 and Section 4.3",
+      "detail": "Over 30 trials per task, LaWAM reports 93.3% pick-and-place, 86.7% drawer opening and 90.0% towel folding, averaging 90.0%. The π0.5 row is 86.7/80.0/83.3%, averaging 83.3%; LingBot-VA reports 0.0% towel folding."
+    },
+    {
+      "id": "real-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Appendix D.3 and Figure 9",
+      "detail": "Franka Panda tasks use 150 demonstrations each; Quanta X1 towel folding uses 280. Initial configurations are fixed across methods, with seen and unseen conditions. Drawer trials cover 10 configurations with rotational perturbations up to 15 degrees. Folding includes flattening, two long-edge folds and one short-edge fold."
+    },
+    {
+      "id": "ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.5 and Figure 6; p. 6, Table 1",
+      "detail": "Figure 6 compares complete LaWAM with removal of pretraining, distillation, KI plus distillation, or LaWM. Removing LaWM produces the largest degradation, particularly on Long. The plot has no exact bar labels or uncertainty; its full-model bars visibly differ from the main Table 1 values, without a reconciliation in Section 4.5."
+    },
+    {
+      "id": "limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5; p. 18, Appendix D.3, Failure inspection",
+      "detail": "The authors identify camera-motion-dominated transitions and scarce fine cloth dynamics as limitations. They also describe insufficient feature resolution for subtle deformations and associate LingBot-VA towel failures with stale observations during slow inference."
+    },
+    {
+      "id": "visualization",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 3; pp. 13–14, Appendix B; p. 17, Figure 8; pp. 20–21, Figures 11–13",
+      "detail": "Subgoal heatmaps compare a selected initial robot-arm patch with predicted DINO patches by cosine similarity. Observations and feature visualizations show execution approaching predicted arm regions; they are not reconstructed future RGB frames."
+    },
+    {
+      "id": "rollout",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Figure 10 and Appendix D.4",
+      "detail": "Across 500 LIBERO trajectories, predicted-future versus true-future feature similarity remains high while predicted and true futures become less similar to initial features. The chart gives aggregate cosine-similarity curves without uncertainty or a detailed latent-action sourcing protocol for this aggregate probe."
+    },
+    {
+      "id": "cross-embodiment",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 5 and caption; p. 8, Section 4.4; pp. 22–23, Figures 14–15",
+      "detail": "A source video's inferred latent-action sequence is applied from initial observations in other scenes/embodiments, producing context-specific feature rollouts. Some target contexts are unseen screenshots. These are latent rollout demonstrations rather than executed transfer trials."
+    },
+    {
+      "id": "reproduction-gaps",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–18, Appendices C.1–C.5 and D.1–D.3",
+      "detail": "The implementation description supplies architectures, optimizers, hardware and benchmark schedules, but does not fully specify latent-action dimensionality/query counts, dataset sampling proportions, end-effector label conventions, treatment of missing auxiliary state labels in human data, software versions or random seeds."
+    }
+  ]
+}
