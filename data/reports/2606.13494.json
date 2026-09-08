@@ -1,0 +1,490 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.13494",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T15:13:19.301Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.13494",
+      "title": "NavWAM: A Navigation World Action Model for Goal-Conditioned Visual Navigation",
+      "kind": "pdf",
+      "sha256": "fd35fd9d82e5f098a61fbb8ae486ac3359234b93d29172f4553a4ce1f697b559",
+      "wordCount": 9984,
+      "accessedAt": "2026-09-07T13:59:34.352350+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "PDF pp. 1–8: Abstract; Sections 1–6, including complete method, training, inference, experimental setup, results and conclusion",
+      "PDF pp. 9–12: References",
+      "PDF pp. 13–14: Appendix A.1–A.5, canvas layout, value, state, actions and conditioning modes",
+      "PDF pp. 15–17: Appendix B.1–B.5, hyperparameters, curriculum, datasets and platform",
+      "PDF pp. 17–21: Appendix C.1–C.4.2, efficiency, controlled ablation, failure counts, future views and value rollout",
+      "PDF pp. 21–22: Appendix D.1–D.2, failure mechanisms, unverified regimes, limitations and deployment"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity notes: the inspected title page is arXiv:2606.13494v1 [cs.RO], dated 11 June 2026. Title and all nine authors match the catalog. The catalog affiliation string is incomplete; the inspected affiliations are recorded in metadata. No other edition or revision chain was supplied or compared.",
+      "The supplied extraction did not reconstruct figure images; this limitation was addressed by inspecting all original figures and tables in the retained PDF.",
+      "Separate supplemental material availability has not been fully verified. The embedded Appendices A–D were supplied and fully read.",
+      "No project website, code, checkpoints, external references or separate supplements were inspected. No experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 5)",
+      "Figures 3–4 (p. 7)",
+      "Figures 5–6 (p. 8)",
+      "Figure S1 (p. 17)",
+      "Figure S2 (p. 20)",
+      "Figure S3 (p. 21)",
+      "Figure S4 (p. 22)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (p. 7)",
+      "Tables 3–4 (p. 8)",
+      "Table S1 (p. 13)",
+      "Tables S2–S3 (p. 16)",
+      "Tables S4–S5 (p. 18)",
+      "Table S6 (p. 19)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "NavWAM adapts a video diffusion transformer into an image-goal navigation policy by jointly denoising actions, future views, state and goal progress. Its strongest mechanism evidence is a controlled future-image-loss ablation; its physical deployment reports 19/24 successes. The default policy avoids candidate-action search, but the study does not establish calibrated foresight or broad real-world robustness.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "A robot must connect a distant goal image to local motion under partial observability. An action-conditioned navigation world model can imagine candidate futures, but an external planner must select actions. NavWAM learns this action-producing role within the same predictive representation.",
+    "kind": "source",
+    "evidenceIds": [
+      "formulation"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The central contribution is a shared video-latent interface for visual and nonvisual navigation variables, using direct frame readout instead of separate action/value heads.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture"
+      ]
+    },
+    {
+      "text": "The authors argue that joint future, action and progress prediction makes visual foresight useful for control. The controlled future-loss ablation supports a training benefit, while the specific causal explanation remains open.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "future-ablation"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current 224×224 egocentric RGB observation and target image",
+      "Current normalized recorded-frame position and yaw; a blank temporal pad"
+    ],
+    "outputs": [
+      "A local-frame action chunk",
+      "Auxiliary future state, two future egocentric views and a scalar goal-progress value"
+    ],
+    "steps": [
+      {
+        "name": "Build the canvas",
+        "detail": "Cosmos Predict2 2B provides the diffusion transformer and causal VAE. Observed Frames 0–3 contain blank padding, current state, goal image and current image. Generated Frames 4–8 hold actions, future state, two future images and value. This nine-frame latent sequence corresponds to 33 raw VAE frames.",
+        "evidenceIds": [
+          "architecture",
+          "canvas"
+        ]
+      },
+      {
+        "name": "Encode and read out",
+        "detail": "Image frames use the VAE. Normalized state, action and value vectors are broadcast over the spatial grid and recovered by averaging denoised entries. State uses position divided by 100 and yaw divided by π. Actions contain local translation and yaw increments; the post-adaptation chunk has H=4.",
+        "evidenceIds": [
+          "architecture",
+          "state-action"
+        ]
+      },
+      {
+        "name": "Keep variants distinct",
+        "detail": "The image-goal variant places a later trajectory image in Frame 2 during training. The WM variant instead uses the previous observation and the backbone's text interface. Its description mentions language goals, but the paper explicitly leaves language-goal evaluation untested.",
+        "evidenceIds": [
+          "canvas",
+          "limitations"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Training starts with success-only HM3D trajectories (802 scenes; 185,000 trajectories), then adapts on RECON/SACSON/SCAND (11,835/2,000/372 trajectories). Simulation uses H=16; adaptation resets H=4. Optional in-domain fine-tuning uses 3,544 GO STANFORD trajectories, disjoint from 30 test episodes.",
+        "kind": "source",
+        "evidenceIds": [
+          "curriculum",
+          "datasets",
+          "state-action"
+        ]
+      },
+      {
+        "text": "Each sample selects policy, world-model or value conditioning with probabilities 50/25/25 percent. These observe Frames 0–3, 0–4 or 0–7 respectively. Generated-frame denoising uses an action multiplier of 5. AdamW uses learning rate 10^-4, effective batch 32 on four RTX PRO 6000 GPUs, bfloat16 and no EMA.",
+        "kind": "source",
+        "evidenceIds": [
+          "objective",
+          "curriculum",
+          "hyperparameters"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Main evaluations use one policy-mode denoising chain without CEM or best-of-N. The robot consumes the predicted chunk and then queries on a fresh observation. Co-predicted images and value are available for interpretation but are not needed to execute the action output.",
+        "kind": "source",
+        "evidenceIds": [
+          "inference",
+          "state-action"
+        ]
+      },
+      {
+        "text": "Optional value-guided candidate selection is described, but its robustness benefit is untested. A single denoising chain must not be equated with a single transformer evaluation or proven onboard latency.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "inference",
+          "efficiency",
+          "limitations"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{diff}}=\\mathbb{E}_{\\sigma,\\epsilon}\\!\\left[w(\\sigma)\\left\\|x_0-F_\\theta(x_\\sigma,\\sigma,c)\\right\\|_2^2\\right]",
+        "explanation": "Eqs. (4)/(8): x_0 is the clean canvas, x_σ its Gaussian-noised version, σ the noise level, ε the sampled noise, F_θ the denoiser, w the diffusion weighting and c the observed-frame mask, embeddings and latents. Only generated frames receive loss; action upweighting is specified separately.",
+        "evidenceIds": [
+          "objective",
+          "curriculum"
+        ]
+      },
+      {
+        "expression": "v_{t+H}=\\operatorname{clip}\\!\\left(1-\\frac{\\|p_{\\mathrm{end}}-p_t\\|_2}{d_{\\max}},\\,0,\\,1\\right)",
+        "explanation": "Eq. (5), as printed: p_t is current 2D position, p_end the recorded trajectory endpoint and d_max an unspecified upper-percentile distance cap. Simulation substitutes geodesic distance. The future index on v conflicts with use of current p_t; correspondence between the trajectory endpoint and sampled image goal also needs clarification.",
+        "evidenceIds": [
+          "value-definition",
+          "canvas"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "GO STANFORD offline image-goal navigation",
+      "setting": "30 held-out episodes; corresponding horizon 8 in Table S4; policy mode with or without in-domain fine-tuning.",
+      "metric": "ATE / RPE, lower is better",
+      "value": "NavWAM 0.324 / 0.099; with FT 0.192 / 0.070.",
+      "comparison": "Table 1: NWM+CEM 0.453 / 0.107; Cosmos Predict2+CEM 0.455 / 0.109.",
+      "interpretation": "Fine-tuning materially improves accuracy. Table S4 instead prints NWM ATE 0.452; this discrepancy is preserved. Offline errors do not measure physical goal reaching.",
+      "evidenceIds": [
+        "offline-results",
+        "datasets",
+        "inference"
+      ]
+    },
+    {
+      "task": "GO STANFORD future-view consistency",
+      "setting": "Figure 3 comparison accompanying the offline benchmark.",
+      "metric": "Subject consistency, higher is better",
+      "value": "NavWAM 0.668; with FT 0.635.",
+      "comparison": "NWM 0.524.",
+      "interpretation": "Fine-tuning improves trajectory metrics while lowering this visual metric. Feature similarity does not certify action execution or dynamics accuracy.",
+      "evidenceIds": [
+        "visual-consistency",
+        "evaluation",
+        "offline-results"
+      ]
+    },
+    {
+      "task": "SIT held-out direct-policy comparison",
+      "setting": "1,400 episodes across 14 official test segments; h=4/8.",
+      "metric": "ATE; SR@1.0m (%)",
+      "value": "NavWAM ATE 0.077/0.144; SR 46.3/15.9.",
+      "comparison": "OmniVLA ATE 0.086/0.162; SR 45.4/12.1.",
+      "interpretation": "Observed gains are modest; no uncertainty is reported. SIT avoids known GO STANFORD training overlap, but the 2B-versus-7B comparison does not isolate architecture or data effects.",
+      "evidenceIds": [
+        "sit-results",
+        "datasets",
+        "evaluation"
+      ]
+    },
+    {
+      "task": "Closed-loop Diablo image-goal navigation",
+      "setting": "24 shared start/goal episodes per method in four indoor environments; randomized method order; success within 1 m.",
+      "metric": "Success count/rate; 95% Wilson interval",
+      "value": "19/24; 79.2%; [59.5, 90.8]%.",
+      "comparison": "OmniVLA 14/24, 58.3%, [38.8, 75.5]%; NWM 4/24, 16.7%, [6.7, 35.9]%.",
+      "interpretation": "Physical execution supports feasibility, with limited sample size. Marginal intervals do not establish paired significance; failure labels include operator safety stops.",
+      "evidenceIds": [
+        "robot-results",
+        "failure-counts",
+        "evaluation"
+      ]
+    },
+    {
+      "task": "Effect of future-image supervision",
+      "setting": "Same backbone, canvas, data, three-phase curriculum and step budget; 30 GO STANFORD episodes; h=4/8.",
+      "metric": "ATE / RPE, lower is better",
+      "value": "With future loss: ATE 0.076/0.192; RPE 0.037/0.070.",
+      "comparison": "Without future loss: ATE 0.090/0.262; RPE 0.045/0.103.",
+      "interpretation": "A cleaner mechanism test than Table 2: future frames remain generated while only their loss changes. It supports supervision's benefit without proving inference-time causal use of decoded images.",
+      "evidenceIds": [
+        "future-ablation",
+        "target-ablation",
+        "inference"
+      ]
+    },
+    {
+      "task": "Inference efficiency against CEM planners",
+      "setting": "One RTX PRO 6000 96 GB; bfloat16; 224×224; 100 steps after 20 warmup; per-executed-action normalization.",
+      "metric": "FLOPs/action (TF); latency (ms); peak allocated GPU memory (GB)",
+      "value": "NavWAM: 4.45; 205.7; 4.82.",
+      "comparison": "NWM, N=120: 14,521; 233,831; 51.65. Cosmos Predict2+CEM, N=120: 18,114; 887,606; 20.04.",
+      "interpretation": "These are author-reported measurements under this implementation. The extreme gap warrants timing replication; the desktop-GPU result is not a Jetson measurement.",
+      "evidenceIds": [
+        "efficiency",
+        "platform"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Evaluation covers static indoor image goals on one platform. Dynamic obstacles, long multi-room routes, alternative goal modalities and cross-platform transfer remain unverified. Friction-induced over-rotation is a proposed cause of the illustrated failure, not a measured causal intervention.",
+      "kind": "source",
+      "evidenceIds": [
+        "limitations",
+        "failure-rollout"
+      ]
+    },
+    {
+      "text": "Table 2 changes targets and inference procedure together. Table S5 better isolates future supervision, but supplies no seed variation. The single value rollout is qualitative; Figure S2 also compares unequal prediction horizons. Neither establishes calibrated uncertainty.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "target-ablation",
+        "future-ablation",
+        "qualitative"
+      ]
+    },
+    {
+      "text": "Table S6 records NavWAM drift/collision counts of 3/2 versus OmniVLA's 3/7: drift is tied, despite prose implying superiority in both modes. Success examples and failure explanations should therefore be read alongside the actual counts.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "failure-counts"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the stated pretrained backbone, trajectory data/splits, frame packing and dataset-specific normalization, plus the Diablo action interface for deployment. The source specifies ROS 2 cmd_vel and operator-supervised hardware stopping, but does not fully specify the waypoint-to-controller conversion or deployment state estimator.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "curriculum",
+        "datasets",
+        "platform",
+        "limitations"
+      ]
+    },
+    {
+      "text": "Unresolved details include phase training-step and warmup counts, denoising-step count, frozen-module policy, exact d_max percentile, complete action rescaling bounds, native control rates, timeout duration and exact episode identifiers. Noise ranges and waypoint spacings are supplied; they do not resolve these gaps.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "hyperparameters",
+        "curriculum",
+        "value-definition",
+        "state-action",
+        "evaluation",
+        "datasets"
+      ]
+    },
+    {
+      "text": "Proposed first check: repeat the matched future-loss ablation across seeds with paired episode errors. Separately compare printed current-position value labels with future-position labels; this is a reader-designed clarification experiment, not a reported reproduction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "future-ablation",
+        "value-definition"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded One Model × Joint prediction classification is supported by one diffusion transformer jointly denoising action, state, future-image and value frames. Direct action-frame readout is architectural evidence beyond joint training alone. A causal VAE and physical controller remain surrounding components; action extraction is not an inverse-dynamics model, and main inference does not use an external visual planner.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "canvas",
+        "inference",
+        "platform"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Navigation",
+        "Joint video-action modeling"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q1 · One Model × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "d6873236774a418ec28fb4fc0a3d8e738beaab1e464769e66a8f63bb214629c6"
+    }
+  },
+  "discussionQuestions": [
+    "How much of the future-loss gain reflects transition learning versus preservation of a useful video representation?",
+    "Would future-indexed, goal-matched value targets improve candidate ranking beyond the default policy?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and arXiv margin",
+      "detail": "The title and nine authors match the catalog; the observed artifact is arXiv:2606.13494v1 [cs.RO], 11 June 2026. Affiliations are The University of Tokyo, National Institute of Informatics, AIRoA and ATR."
+    },
+    {
+      "id": "formulation",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–4, Figure 1, Sections 3–3.2, Eqs. (1)–(3)",
+      "detail": "Direct policies predict actions; navigation world models predict observations conditioned on candidate actions and require an external selector. NavWAM formulates joint action, future-state, future-observation and value prediction."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 4 and Section 4.1, Figure 2",
+      "detail": "Cosmos Predict2 supplies the causal VAE and shared diffusion transformer. Frames 0–3 condition Frames 4–8. Images use the VAE; normalized non-image variables are broadcast and recovered by averaging, without separate action/value heads."
+    },
+    {
+      "id": "canvas",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix A.1, Table S1",
+      "detail": "Nine latent frames correspond to a 33-raw-frame causal-VAE chunk. Frame 2 contains a goal image in the IG variant or the previous observation in the WM variant, which uses the text interface for goal specification. IG training goals are sampled from later steps of the same trajectory."
+    },
+    {
+      "id": "state-action",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A.3–A.4, Eqs. (6)–(7)",
+      "detail": "State is [x_t/100,y_t/100,psi_t/pi] using recorded-frame positions in meters and yaw in radians. Actions are H local-frame waypoint increments with translation and yaw. H=16 in simulation pretraining and H=4 thereafter; online execution consumes the chunk at the dataset-native rate before querying again."
+    },
+    {
+      "id": "objective",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.2, Eq. (4); PDF p. 14, Appendix A.5, Eq. (8) and mode list",
+      "detail": "Weighted denoising error is applied to generated frames. Per-sample policy/world-model/value modes occur with probabilities 50/25/25 percent; their observed frames are 0–3, 0–4 and 0–7 respectively."
+    },
+    {
+      "id": "inference",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Sections 4.2–4.3",
+      "detail": "Main results use policy mode without best-of-N or CEM. Future images and value are co-predicted but not required for execution. Optional best-of-N would sample candidates and use auxiliary modes to select the highest predicted value."
+    },
+    {
+      "id": "value-definition",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Appendix A.2, Eq. (5) and its definitions",
+      "detail": "The printed future-indexed value uses clipped one-minus-distance from current position p_t to trajectory endpoint p_end, divided by d_max. The cap is an unspecified upper percentile of training trajectory lengths. HM3D uses geodesic distance from the Habitat shortest-path API."
+    },
+    {
+      "id": "curriculum",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix B.1–B.3",
+      "detail": "The action multiplier is 5; waypoint spacings are RECON 0.25 m, SACSON 0.255 m, SCAND 0.38 m and GO STANFORD 0.12 m. Training proceeds through success-only HM3D, joint RECON/SACSON/SCAND adaptation, and optional GO STANFORD fine-tuning. Step counts are not supplied in the phase descriptions."
+    },
+    {
+      "id": "datasets",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Appendix B.3, Table S2",
+      "detail": "HM3D has 802 scenes/185,000 trajectories; Phase 2 uses 11,835 RECON, 2,000 SACSON and 372 SCAND trajectories. GO STANFORD fine-tuning has 3,544 trajectories with a disjoint 30-episode test subset. SIT uses 14 test segments and 1,400 episodes."
+    },
+    {
+      "id": "hyperparameters",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix B.4, Table S3",
+      "detail": "The backbone is Cosmos-Predict2 2B Video2World. Training uses AdamW at 10^-4, batch 8 on each of four RTX PRO 6000 GPUs, effective batch 32, bfloat16, cosine scheduling with linear warmup and no EMA. The table gives noise ranges but no denoising-step count; its caption refers to phase step counts/warmup not enumerated in B.2."
+    },
+    {
+      "id": "evaluation",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 5.1, datasets, baselines, metrics and real-world setup",
+      "detail": "Evaluation uses image goals; ATE and RPE are lower-is-better at horizons 4 and 8, SR@1.0m measures goal reaching, and subject consistency is feature similarity to ground-truth futures. SIT avoids OmniVLA's GO STANFORD training overlap. Real-robot inputs are 224x224 RGB, with goal-distance or fixed-timeout termination."
+    },
+    {
+      "id": "offline-results",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1 and Section 5.2; PDF p. 18, Table S4 caption and accuracy columns",
+      "detail": "Table 1 reports ATE/RPE 0.455/0.109 for Cosmos Predict2, 0.453/0.107 for NWM, 0.324/0.099 for NavWAM, and 0.192/0.070 with fine-tuning. Table S4 identifies the corresponding evaluation horizon as 8 and reports NWM ATE 0.452 at N=120, a discrepancy from Table 1."
+    },
+    {
+      "id": "visual-consistency",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 3, Figure 4 and Section 5.2, Preserving Visual Foresight",
+      "detail": "Subject consistency is 0.524 for NWM, 0.668 for NavWAM and 0.635 after fine-tuning. Figure 4 shows a selected GO STANFORD prediction comparison at H=4."
+    },
+    {
+      "id": "target-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2 and Section 5.2, Learning Useful Futures for Control",
+      "detail": "Image-only supervision with CEM N=120 gives ATE 0.326/0.569 at h=4/8. Adding action/state supervision and switching to policy gives 0.107/0.287. Adding value gives 0.076/0.192; RPE becomes 0.037/0.070. The first comparison changes both targets and inference procedure."
+    },
+    {
+      "id": "sit-results",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 5.2, Predictive Policies vs. Direct Policies, Table 3",
+      "detail": "On SIT, NavWAM ATE is 0.077/0.144 and SR is 46.3/15.9 percent at h=4/8. OmniVLA gives 0.086/0.162 and 45.4/12.1 percent. The compared backbones are 2B and 7B parameters; training and architecture are not controlled by that comparison."
+    },
+    {
+      "id": "robot-results",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 5.2, Closed-loop Real-Robot Deployment, Table 4 and Figure 5",
+      "detail": "NavWAM succeeds in 19/24 episodes (79.2%, 95% Wilson interval 59.5–90.8), OmniVLA in 14/24 (58.3%, 38.8–75.5), and NWM in 4/24 (16.7%, 6.7–35.9). NavWAM environment counts are Office 6/8, Storage 6/6, Meeting 4/6 and Hallway 3/4."
+    },
+    {
+      "id": "failure-counts",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Table S6 and Appendix C.3; PDF p. 20, opening continuation",
+      "detail": "Methods share start/goal pairs and randomized within-session order. Failures receive a dominant drift or collision label; collision includes operator safety stops. Aggregate drift/collision counts are NWM 13/7, OmniVLA 3/7 and NavWAM 3/2. NavWAM ties OmniVLA on drift despite prose describing the lowest count in both modes."
+    },
+    {
+      "id": "efficiency",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Appendix C.1, Table S4",
+      "detail": "Measurements use one RTX PRO 6000 96 GB, bfloat16 and 224x224 inputs, averaged over 100 steps after 20 warmup steps and normalized per executed action. NavWAM reports 4.45 TF, 205.7 ms and 4.82 GB. NWM at N=120 reports 14,521 TF, 233,831 ms and 51.65 GB; Cosmos Predict2+CEM reports 18,114 TF, 887,606 ms and 20.04 GB."
+    },
+    {
+      "id": "future-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Table S5 and Appendix C.2; PDF p. 19, Why Future-View Supervision Helps",
+      "detail": "Both variants share backbone, nine-frame canvas, curriculum, data and training-step budget. Turning on the Frames 6/7 denoising loss changes ATE from 0.090/0.262 to 0.076/0.192 and RPE from 0.045/0.103 to 0.037/0.070 at h=4/8 on 30 GO STANFORD episodes. Proposed representation/foresight explanations are not separately isolated."
+    },
+    {
+      "id": "platform",
+      "sourceId": "primary",
+      "location": "PDF pp. 16–17, Appendix B.5 and Figure S1",
+      "detail": "The Diablo platform carries a RealSense D455 RGB-D camera, Livox Mid-360 LiDAR and Jetson AGX Orin, and executes local-frame chunks using ROS 2 cmd_vel. These platform components do not establish that the desktop-GPU timing measurement runs on the Orin."
+    },
+    {
+      "id": "qualitative",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 6; PDF pp. 20–21, Appendix C.4, Figures S2–S3",
+      "detail": "Figure 6 aligns observed execution views with H=4 predictions. Figure S2 compares NWM at step 8 with NavWAM at step 4, so horizons differ. Figure S3 shows one value rollout with a dip at t=8 and later recovery; the text says values should be read qualitatively, not as calibrated progress probabilities."
+    },
+    {
+      "id": "failure-rollout",
+      "sourceId": "primary",
+      "location": "PDF pp. 21–22, Appendix D.1, Figure S4",
+      "detail": "The authors describe over-rotation near t=12, possibly from wheel friction, followed by inconsistent future prediction, drift and collision. The original panel pairs executed observations with predicted future views and marks a failed ending."
+    },
+    {
+      "id": "limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Conclusion limitations; PDF p. 22, Appendix D.1–D.2 and Safety and Deployment",
+      "detail": "Dynamic obstacles, multi-room/multi-floor navigation, language/object goals and other robot platforms are untested. Real-world evaluation is limited to 24 static indoor episodes. Diffusion-chain shortening is unstudied; value scales are dataset-dependent. Deployment uses operator supervision and a hardware safety stop."
+    }
+  ]
+}

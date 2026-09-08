@@ -1,0 +1,473 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.10040",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T15:13:52.608Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.10040",
+      "title": "Efficient-WAM: A 1B-Parameter World-Action Model with Low-Cost Future Imagination",
+      "kind": "pdf",
+      "sha256": "03bceaba02b236070153c14f956db378efa4aa2c8d3aaf6df6d3a70be16073d7",
+      "wordCount": 8898,
+      "accessedAt": "2026-09-07T13:59:45.149282+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, authors, abstract and version stamp (p. 1)",
+      "1 Introduction (p. 2)",
+      "2 Related Works and 3.1 Design Formulation (p. 3)",
+      "3.2–3.5 Architecture, multiscale latents, asymmetric denoising and objectives (pp. 4–5)",
+      "4.1–4.5 Experiments, ablations and efficiency (pp. 5–8)",
+      "5 Conclusion and 6 Limitations (p. 8)",
+      "Acknowledgments and References (pp. 9–11)",
+      "Appendix A Training Details (pp. 12–13)",
+      "Appendix B Real-World Evaluation Details (pp. 13–14)",
+      "Appendix C Latency Measurement Protocol and Summary (p. 15)",
+      "Appendix D Qualitative Future Prediction Results (pp. 15–16)",
+      "Appendix E RoboTwin Detailed Results (pp. 17–18)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction's figure limitation was addressed by inspecting original PDF figures and tables; all five supplied text chunks were read completely.",
+      "Identity matches the catalog title and all twelve authors. The inspected artifact is arXiv:2606.10040v2 [cs.RO], stamped 10 Jun 2026. The catalog URL is unversioned; no earlier version was supplied, so revision differences cannot be assessed.",
+      "No separate supplement was supplied. Code and external project resources were not inspected, and experiments were not reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 7)",
+      "Figure 4 (p. 8)",
+      "Figure 5 (p. 13)",
+      "Figure 6 (p. 14)",
+      "Figures 7–8 (p. 16)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (p. 6)",
+      "Table 3 (p. 7)",
+      "Table 4 (p. 12)",
+      "Table 5 (p. 15)",
+      "Table 6 (p. 17)",
+      "Table 7 (p. 18)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Efficient-WAM compresses a future-video expert and uses its coarse latent predictions to guide action generation. Its RT variant combines sparse future tokens with fewer video updates, trading some simulation success for faster policy calls. The evidence supports an efficiency–control tradeoff, without establishing that visual detail is universally dispensable.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "Photorealistic future generation makes world-action policies expensive. The paper asks whether a smaller future representation can retain useful control context while reducing backbone size, token count and video sampling depth.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A 0.8B video expert transferred from WAN-2.2-5B interacts with a 0.2B action expert through layer-wise Mixture-of-Transformers (MoT).",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e12"
+      ]
+    },
+    {
+      "text": "High-resolution current observations, coarse future latents and asymmetric video–action denoising provide complementary ways to reduce imagination cost.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04"
+      ]
+    },
+    {
+      "text": "The authors attribute retained control performance to preserved geometry, motion and contact cues. These specific representations are hypothesized rather than directly measured.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e03",
+        "e18"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current observation o and language instruction l",
+      "Robot state s; physical evaluation uses three RGB views and 31-dimensional joint states"
+    ],
+    "outputs": [
+      "Future visual latents z^v",
+      "Action chunk a_{1:H}, with H = 16"
+    ],
+    "steps": [
+      {
+        "name": "Transfer the video expert",
+        "detail": "Slice teacher layers [1,2,4,6,8,11,14,17,20,23,26,30] into a 12-layer student with 2048 hidden dimensions, 8192 FFN dimensions and 16 attention heads. Distillation aligns projected hidden states and frame-to-frame changes.",
+        "evidenceIds": [
+          "e12",
+          "e13"
+        ]
+      },
+      {
+        "name": "Encode a multiscale context",
+        "detail": "Keep current observations detailed; downsample target future frames before VAE encoding. Illustrative sizes are 384 × 320 and 192 × 160. Patchify and concatenate both latent groups. Language enters through cross-attention; state and noisy actions become action tokens.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Condition trajectory refinement on imagination",
+        "detail": "Action tokens attend to video tokens at MoT layers. Future prediction therefore participates in inference-time control, beyond auxiliary training supervision. Predicted chunks still require a separate robot execution loop.",
+        "evidenceIds": [
+          "e02",
+          "e03",
+          "e04",
+          "e16"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage 1 trains the video student with video flow matching and frozen-teacher supervision. Hidden-state cosine alignment uses 256-dimensional projections; motion alignment compares spatially averaged inter-frame deltas. Distillation weight decays 0.2 → 0.1 → 0.",
+        "kind": "source",
+        "evidenceIds": [
+          "e12",
+          "e13"
+        ]
+      },
+      {
+        "text": "Stage 2 freezes the video backbone and trains actions; Stage 3 updates both experts. Action and video noise timesteps are sampled independently. Joint loss weights actions at 1.0 and video at 0.01. A video loss listed during Stage 2 must not be read as updating frozen video parameters.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e12",
+          "e13",
+          "e14"
+        ]
+      },
+      {
+        "text": "All stages use AdamW, cosine scheduling, bf16, weight decay 10^-3 and reported batch size 16 × 8. Learning rates are 5 × 10^-5 initially, then 10^-5 for video and 5 × 10^-5 for actions in Stage 3. Each stage lasts approximately 2.5 simulation epochs or 5 physical-task epochs.",
+        "kind": "source",
+        "evidenceIds": [
+          "e12",
+          "e14"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The structural baseline retains high-resolution futures and symmetric sampling. RT adds low-resolution futures and a fixed [T_v,T_a] = [2,10] video/action budget, caching video features during further action refinement. Figure 2 depicts separated refresh blocks, whereas the text describes early updates; exact refresh indexing is unresolved.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e05",
+          "e20"
+        ]
+      },
+      {
+        "text": "On Astribot S1, the controller executes four or five steps uniformly sampled from each 16-step prediction, each lasting 0.3 seconds, then replans. Policy-call latency is consequently distinct from feedback-cycle duration.",
+        "kind": "source",
+        "evidenceIds": [
+          "e16"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "p(z^v,a_{1:H}\\mid o,l,s)=p_\\phi(z^v\\mid o,l)\\,p_\\theta(a_{1:H}\\mid o,l,s,z^v)",
+        "explanation": "Equation (1): o is the current observation, l the instruction, s the robot state, z^v future visual latents, and a_{1:H} the action chunk. The video distribution p_phi provides context for the action distribution p_theta.",
+        "evidenceIds": [
+          "e02"
+        ]
+      },
+      {
+        "expression": "x_t=(1-t)x_0+tx_1,\\quad u_t=x_1-x_0,\\quad \\mathcal{L}_{\\mathrm{FM}}=\\mathbb{E}_{t,x_0,x_1}\\!\\left[\\|f(x_t,t;c)-u_t\\|_2^2\\right]",
+        "explanation": "Equation (3): x_0 is Gaussian noise, x_1 clean video latents or actions, t interpolation time, f the corresponding velocity predictor, and c its conditioning. Sampling moves from noise toward data; video and action training times are independently drawn.",
+        "evidenceIds": [
+          "e04",
+          "e13"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboTwin 2.0 clean and randomized manipulation",
+      "setting": "50 tasks; 2,500 clean and 25,000 randomized demonstrations; one multitask policy; 100 trials per task per setting.",
+      "metric": "Average task success (%)",
+      "value": "Efficient-WAM: 86.7 clean / 85.7 randomized; RT: 83.1 / 82.0.",
+      "comparison": "Motus: 88.7 / 87.0; LingBot-VLA: 86.5 / 85.3; GigaWorld-Policy: 86.4 / 85.0.",
+      "interpretation": "RT loses 3.6/3.7 percentage points versus the compact baseline. Appendix E identifies baseline scores as largely imported from publications, limiting claims of fully matched retraining.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e14",
+        "e19"
+      ]
+    },
+    {
+      "task": "Astribot S1 four-task physical manipulation",
+      "setting": "Dedicated policies; the same 100 demonstrations per task for all three methods; 20 trials per task; binary success within three minutes.",
+      "metric": "Average success (%) and policy latency (ms/chunk)",
+      "value": "RT: 66.25% and 98 ms on RTX 4090.",
+      "comparison": "Motus: 63.75%, 3215 ms; pi0.5: 53.75%, 113 ms.",
+      "interpretation": "RT succeeds on 95% tray grasping, 75% bottle transfer, 65% LEGO sorting and 30% pen uncapping. The paper describes a 32× latency speedup over Motus; the small success difference lacks reported uncertainty.",
+      "evidenceIds": [
+        "e07",
+        "e15",
+        "e17"
+      ]
+    },
+    {
+      "task": "Compact expert and future-resolution ablations",
+      "setting": "RoboTwin, 20 rollouts per task across 50 tasks; A800 latency measurements.",
+      "metric": "Clean/randomized success (%) and ms/chunk",
+      "value": "Random student: 69/68; sliced: 82/81; sliced plus distillation: 87/86. High-to-low future resolution: 87/86 → 83/82, 240 → 60 tokens, 430 → 377 ms.",
+      "comparison": "Full WAN: 86.4/85.5 at 2013 ms; distilled compact model: 430 ms.",
+      "interpretation": "Initialization and distillation matter at fixed student size. Resolution reduction carries a four-point success loss in both settings; it does not preserve accuracy exactly.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e17"
+      ]
+    },
+    {
+      "task": "Asymmetric denoising on RoboTwin clean",
+      "setting": "50 tasks, 20 rollouts per task; compact baseline with high-resolution futures; A800.",
+      "metric": "Average success (%) and ms/chunk",
+      "value": "[2,10]: 86.3% at 139 ms; repeat: 86.2% at 140 ms.",
+      "comparison": "[10,10]: 87.1%, 431 ms in Figure 4 (430 ms in text); [1,10]: 79.3%, 92 ms.",
+      "interpretation": "Two video updates preserve much more performance than one. These are independent baseline ablations, not successive stages on the way to the RTX 4090 result.",
+      "evidenceIds": [
+        "e10",
+        "e17",
+        "e20"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors warn that coarse futures may hurt micro-manipulation and that fixed sampling schedules cannot allocate extra compute to uncertain dynamics. Observed failures include misalignment, missed objects and collisions.",
+      "kind": "source",
+      "evidenceIds": [
+        "e11",
+        "e16"
+      ]
+    },
+    {
+      "text": "Figures 7–8 demonstrate blur and ghosting, not measured contact accuracy or causal use of future cues. Appendix D compares RT main results with a Full-WAN ablation using a different rollout count.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e06",
+        "e18"
+      ]
+    },
+    {
+      "text": "Timing excludes instruction encoding, observation acquisition and robot motion. A800-to-RTX-4090 comparisons change hardware; Section 4.5's overhead explanation cannot establish a controlled algorithm-only gain. That section also calls the video expert 1B, whereas Figure 2/Table 3 specify 0.8B.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e17",
+        "e21",
+        "e03",
+        "e08"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs WAN-2.2-5B weights, the sliced architecture, VAE/text conditioning, RoboTwin demonstrations and the physical task data/end-effector. Preserve task-specific binary criteria and the receding-horizon loop.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e12",
+        "e15",
+        "e16"
+      ]
+    },
+    {
+      "text": "The source leaves exact retained width indices, action-expert configuration, distillation transition points and video-refresh indices incomplete. Batch size 16 × 8 does not establish a training GPU model/count; training wall time and software versions are unspecified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e12",
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "text": "A proposed check holds hardware, checkpoint and rollout seeds fixed while varying future resolution and video updates, measuring success and policy latency separately from execution time.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e17"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "Separate video/action experts support a Dual-system interpretation. Equation (1) makes the action branch future-conditioned and thus inverse-dynamics-like, but the implementation jointly processes video and actions through MoT with flow-matching losses. Q4/IDM is a plausible functional reading, not an unambiguous standalone-IDM architecture. Joint training alone also does not establish One Model.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e13",
+        "e14"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Visual planning & IDM",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "b928d0cdb64b289eb7f5348f28088310d686039ff4737657608203fe6367b1b3"
+    }
+  },
+  "discussionQuestions": [
+    "Does matching policy latency change which future resolution is best?",
+    "Would shuffling future context reduce success, demonstrating that the action branch actually uses its predicted dynamics?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block and arXiv margin stamp",
+      "detail": "Exact catalog title and all twelve authors match; the inspected source is arXiv:2606.10040v2 [cs.RO], 10 Jun 2026. Five affiliations are printed."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1, Equations (1)–(2)",
+      "detail": "The joint distribution factorizes into future-video and future-conditioned action branches; video cost depends on model size, token resolution and denoising budget."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2/caption and Sections 3.2–3.3",
+      "detail": "Figure labels video/action experts 0.8B/0.2B and teacher/student depths 30/12. Text specifies cross-attention, state/action tokens and multiscale VAE latents. The inference diagram separates refresh blocks with cached intervals."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Sections 3.4–3.5, Equation (3)",
+      "detail": "Video features are cached between fewer video updates, with the initial two given as an example. Flow matching interpolates Gaussian noise to clean targets; training uses video adaptation, frozen-video action training and joint refinement."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1",
+      "detail": "Baseline uses high-resolution futures and symmetric denoising; RT combines sparse future latents and asymmetric sampling. H = 16; simulation uses A800 and physical deployment RTX 4090."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.2 and Table 1, method/Clean/Random/Params columns",
+      "detail": "50 tasks, 2,500 clean plus 25,000 randomized demonstrations, 100 trials per task/setting. Baseline 86.7/85.7 and RT 83.1/82.0; Motus 88.7/87.0, LingBot-VLA 86.5/85.3, GigaWorld-Policy 86.4/85.0."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.3 and Table 2, all rows",
+      "detail": "Equal per-task physical training/evaluation counts; RT success 95/75/65/30 and mean 66.25, versus Motus 63.75 and pi0.5 53.75. Latencies are 98/3215/113 ms respectively."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.4 and Table 3(a), all variant rows",
+      "detail": "Ablations use 20 rollouts/task. Random, sliced and distilled students score 69/68, 82/81 and 87/86. Full WAN scores 86.4/85.5 at 2013 ms; distilled student is 0.8B at 430 ms."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3(b), High/Medium/Low rows",
+      "detail": "High/medium/low futures use 240/126/60 tokens, score 87/86, 85/84, 83/82, and take 430/396/377 ms."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 4/caption and Section 4.4 continuation",
+      "detail": "Figure plots [2,10] at 86.3%,139 ms and repeat at 86.2%,140 ms; [1,10] at 79.3%,92 ms. [10,10] is 87.1%,431 ms in the graphic but 430 ms in prose."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 6 Limitations",
+      "detail": "The authors identify possible precision costs of low-resolution futures and static asymmetric schedules, proposing dynamic allocation as future work."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix A, Table 4 and architecture paragraph",
+      "detail": "Specifies stage trainability, batch 16 × 8, learning rates, loss weights, optimizer, precision, weight decay, 12 selected teacher layers, hidden/FFN widths and attention heads."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix A, Equations (4)–(7) and surrounding text",
+      "detail": "Frozen-teacher supervision uses projected hidden-state and temporal-delta cosine alignment. Distillation weight decays 0.2→0.1→0. Video/action noise times are independently sampled."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix A continuation, Equation (8) and training-duration paragraph",
+      "detail": "Joint loss combines action and video velocities with stage-specific weights; simulation trains one multitask policy and physical tasks separate policies, for about 2.5/5 epochs per stage."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix B, evaluation protocol and task criteria",
+      "detail": "Astribot S1 receives three RGB views and 31-dimensional joint states; 100 demonstrations and 20 trials/task, randomized feasible resets and three-minute cap. Tray, bottle and LEGO success criteria are specified."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix B, pen criterion, execution protocol and Figure 6/failure analysis",
+      "detail": "Controller executes four or five uniformly sampled steps from H=16, each 0.3 s, before replanning. Failures include misalignment, missed objects and collisions; pen success also requires no drops or tipped holder."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix C and Table 5, all configuration rows",
+      "detail": "Policy-call timing follows one warm-up with cached text, excluding instruction encoding, sensing and motion. Compact, low-resolution-only and asymmetric-only A800 profiles are 430/377/139 ms; full RT is 98 ms on RTX 4090."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix D; PDF p. 16, Figures 7–8 and captions",
+      "detail": "Full WAN and RT future examples cover Adjust Bottle and Grab Roller. RT predictions show blur/ghosting; the text links them to results in Tables 1 and 3 without a separate visual-fidelity metric."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Appendix E, Table 6 and provenance paragraph",
+      "detail": "Own checkpoints use 100 rollouts/task; baseline per-task values primarily come from other publications, including pi0/pi0.5 results sourced through LingBot-VLA."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Table 7, Average row and explanatory paragraph",
+      "detail": "Clean denoising sweep uses 20 rollouts/task and two [2,10] runs (86.3/86.2). The text locates video updates in the early high-noise regime and reports losses from single-video-step/action compression."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.5 System-Level Efficiency Analysis",
+      "detail": "The narrative calls the video expert 1B and attributes deployment gains partly to removal of simulation overheads. Figure 2/Table 3 instead label the video expert 0.8B; Appendix C supplies the more precise timing boundary."
+    }
+  ]
+}
