@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.17240",
+  "shortTitle": "GigaWorld-Policy",
+  "thesis": "A shared causal Transformer uses future-video supervision to train a robot policy whose deployed actions do not require future-video generation.",
+  "standfirst": "A robot can benefit from learning what its actions will look like without rendering those consequences before every movement. GigaWorld-Policy makes that distinction explicit: one video-derived Transformer learns both actions and their visual consequences, while an attention mask prevents the action stream from consulting the future stream. This permits action-only inference. The reported result is a favorable latency–score tradeoff against Motus on the tested PiPER tasks, plus stronger target-task data efficiency than pi0.5. Read the empirical claims with their conditions attached: physical scores use graded credit and repeated attempts, and several simulation and ablation numbers disagree within this revision.",
+  "evidenceIds": [
+    "motivation",
+    "architecture",
+    "inference",
+    "latency",
+    "real-results",
+    "evaluation",
+    "data-efficiency",
+    "simulation",
+    "future-ablation"
+  ],
+  "featuredResultTask": "Four real-world PiPER manipulation tasks",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/2603.17240/architecture.png",
+      "width": 1310,
+      "height": 370,
+      "sourceSha256": "786a3e27a8bbe7e97f3a29020f78681d2a11a320f0a717dbe66930f7635c8ad4",
+      "sourceUrl": "https://arxiv.org/pdf/2603.17240#page=4",
+      "crop": [
+        0.103,
+        0.098,
+        0.895,
+        0.256
+      ],
+      "alt": "Two panels show joint video/action training through causal DiT blocks and inference with an optional future-video stream and KV cache.",
+      "caption": "One backbone learns both streams; the inference panel makes future-video decoding optional.",
+      "readingGuide": "Read the training panel from left to right. The VAE supplies observation tokens T_o and future tokens T_f; the noise symbols identify the future and action streams being denoised. State T_s and action T_a enter through their encoder, while text T_l conditions the blocks. The legend distinguishes video pre-training/post-training paths from post-training-only paths. Now compare the right panel: observations, state, language and noisy actions remain, but the future-token arrow is dashed and labeled optional. The KV cache supports later video generation. Section 3.2 clarifies that text uses cross-attention, so its bottom arrow should not be read as another position in the causal self-attention sequence.",
+      "takeaway": "The architecture allows visual supervision to shape shared parameters during learning while keeping future-video computation outside the required control path. The paper describes both joint optional video denoising and later video denoising from the cached action context; neither is required to produce the reported action-only policy output.",
+      "caution": "The figure is a schematic, not a complete training specification. Eqs. (2)–(3) introduce an action conditioning latent, whereas the losses use action tokens; their exact implementation mapping and missing-action handling during video pre-training remain unspecified.",
+      "evidenceIds": [
+        "factorization",
+        "architecture",
+        "objectives",
+        "inference",
+        "curriculum"
+      ]
+    },
+    {
+      "id": "causal-mask",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 5,
+      "asset": "report-assets/2603.17240/causal-mask.png",
+      "width": 1004,
+      "height": 1063,
+      "sourceSha256": "786a3e27a8bbe7e97f3a29020f78681d2a11a320f0a717dbe66930f7635c8ad4",
+      "sourceUrl": "https://arxiv.org/pdf/2603.17240#page=5",
+      "crop": [
+        0.625,
+        0.61,
+        0.895,
+        0.812
+      ],
+      "alt": "A four-by-four block attention mask with query rows and key columns ordered observation, state, action and future; action-to-future is white.",
+      "caption": "Read rows as queries: actions cannot consult future-video keys.",
+      "readingGuide": "Use the arrows to orient the matrix: Q runs downward through query rows, and K runs rightward through key columns. Green means attention is allowed; white means it is blocked. The first two rows allow observation and state to communicate while excluding actions and future images. The action row includes observation, state and action columns, but its future column is white. The future row is entirely green. The caption says actions attend to states and observations “only,” yet the graphic also colors the action-to-action diagonal green. Read that wording as excluding future conditioning, not as deleting within-action attention. Section 3.2 and Eqs. (2)–(3) support the directional dependency.",
+      "takeaway": "Future-image tokens can use action information, while action tokens do not need future-image information. This asymmetry explains why dropping the future stream can preserve the action model’s required inputs. Sharing weights still lets the visual objective affect learning; the mask is an information-flow constraint, not a stop-gradient operation.",
+      "caution": "Language is absent from this matrix because it enters through cross-attention. The caption’s “only” wording is less explicit than the green self-attention diagonal; the faithful crop is retained rather than silently modifying the mask.",
+      "evidenceIds": [
+        "architecture",
+        "factorization",
+        "objectives",
+        "inference"
+      ]
+    },
+    {
+      "id": "latency-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 8,
+      "asset": "report-assets/2603.17240/latency-results.png",
+      "width": 1029,
+      "height": 477,
+      "sourceSha256": "786a3e27a8bbe7e97f3a29020f78681d2a11a320f0a717dbe66930f7635c8ad4",
+      "sourceUrl": "https://arxiv.org/pdf/2603.17240#page=8",
+      "crop": [
+        0.482,
+        0.72,
+        0.897,
+        0.856
+      ],
+      "alt": "Table comparing A100 inference time and simulation and real-world SR for pi0.5, GigaBrain-0, Motus, Cosmos-Policy and Ours.",
+      "caption": "The action-only model is much faster than Motus, while pi0.5 remains faster.",
+      "readingGuide": "Begin with the Time column: it reports milliseconds on an NVIDIA A100, so smaller values indicate faster model inference. The method’s 360 ms measurement uses action-only decoding. Next inspect the two SR columns separately: simulation uses binary task completion, whereas the physical protocol allows graded credit. Blank simulation entries for GigaBrain-0 and Cosmos-Policy are missing results, not zeros. The Ours and Motus rows support the approximately ninefold latency comparison. The pi0.5 row provides a different tradeoff, with lower latency but lower reported scores. Do not replace this table’s simulation entries with the clean/randomized averages from Tables 2 or 8.",
+      "takeaway": "Dividing 3231 ms by 360 ms gives approximately 9× faster inference than Motus, alongside reported physical scores of 0.83 versus 0.76. Against pi0.5, the method takes 1.6× as long: 360 versus 225 ms. The table therefore establishes a particular speed–score tradeoff, not universal speed dominance.",
+      "caution": "These are model-inference timings, not a measured complete sensing-to-actuation cycle. Real-world SR is graded and permits repeated attempts. Table 3’s pi0.5 simulation value also differs from the separate clean/randomized summaries, and no reconciliation is supplied.",
+      "evidenceIds": [
+        "latency",
+        "inference",
+        "evaluation",
+        "simulation"
+      ]
+    },
+    {
+      "id": "real-world-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 9,
+      "asset": "report-assets/2603.17240/real-world-results.png",
+      "width": 1295,
+      "height": 393,
+      "sourceSha256": "786a3e27a8bbe7e97f3a29020f78681d2a11a320f0a717dbe66930f7635c8ad4",
+      "sourceUrl": "https://arxiv.org/pdf/2603.17240#page=9",
+      "crop": [
+        0.109,
+        0.138,
+        0.892,
+        0.306
+      ],
+      "alt": "Four physical-task columns and an average show GigaWorld-Policy leading three tasks and tying Motus on QR scanning.",
+      "caption": "Physical task scores favor GigaWorld-Policy under the paper’s graded evaluation protocol.",
+      "readingGuide": "Read across the final row before looking at the average. The four columns describe different manipulations: placing tableware in a basket, aligning an object with a QR scanner, sweeping debris and nesting bowls. Appendix C provides the task constraints, including plates beneath bowls during cleaning and returning the scanned object to its original location. Ours scores 0.90, 0.75, 0.75 and 0.90 respectively. Compare each value with the Motus row: QR scanning ties, while the other three entries improve. The final column rounds the average to two decimals. Do not confuse the fifty training demonstrations per task with the twenty evaluation trials.",
+      "takeaway": "The table reports average SR 0.83 versus Motus at 0.76 and pi0.5 at 0.69. Those rounded averages differ by seven and fourteen percentage points. The individual columns show that the advantage is not uniform: the QR-scanning comparison with Motus is a tie.",
+      "caution": "Each method receives 20 trials per task and up to five attempts per trial. The paper illustrates graded scoring through grasp/place credit but omits a full task-specific rubric, so these numbers cannot be read as first-attempt binary completion frequencies.",
+      "evidenceIds": [
+        "real-results",
+        "evaluation",
+        "tasks"
+      ]
+    },
+    {
+      "id": "data-efficiency",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 7",
+      "page": 11,
+      "asset": "report-assets/2603.17240/data-efficiency.png",
+      "width": 1009,
+      "height": 624,
+      "sourceSha256": "786a3e27a8bbe7e97f3a29020f78681d2a11a320f0a717dbe66930f7635c8ad4",
+      "sourceUrl": "https://arxiv.org/pdf/2603.17240#page=11",
+      "crop": [
+        0.103,
+        0.1,
+        0.51,
+        0.278
+      ],
+      "alt": "Grouped bars compare pi0.5 and GigaWorld-Policy at 5, 25 and 50 demonstrations; their scores are 46/69, 58/78 and 69/83 percent.",
+      "caption": "Five task demonstrations reach the baseline’s fifty-demonstration score.",
+      "readingGuide": "Use the legend to separate the yellow pi0.5 bars from the green GigaWorld-Policy bars. The horizontal axis is the number of task demonstrations, with three tested budgets: five, twenty-five and fifty. The labels above each bar give the reported score, avoiding the need to estimate heights. For the paper’s 10% claim, compare across groups: the green bar at five demonstrations and the yellow bar at fifty are both 69%. Comparing bars within a group instead asks which model learns more from an equal target-task budget. Appendix C establishes fifty trajectories per full real-world task dataset.",
+      "takeaway": "GigaWorld-Policy reports 69%, 78% and 83% across increasing task-data budgets, compared with 46%, 58% and 69% for pi0.5. The observed five-versus-fifty match supports improved target-task data efficiency in this setup, while the equal-budget comparisons favor the proposed model at every plotted point.",
+      "caution": "The smaller budget does not include the method’s web-video initialization and embodied-video pre-training. No error bars or repeated-run variation are shown. Matching one plotted score does not establish a general tenfold reduction in total data or training cost.",
+      "evidenceIds": [
+        "data-efficiency",
+        "tasks",
+        "evaluation",
+        "curriculum"
+      ]
+    },
+    {
+      "id": "mask-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 6",
+      "page": 11,
+      "asset": "report-assets/2603.17240/mask-ablation.png",
+      "width": 1053,
+      "height": 242,
+      "sourceSha256": "786a3e27a8bbe7e97f3a29020f78681d2a11a320f0a717dbe66930f7635c8ad4",
+      "sourceUrl": "https://arxiv.org/pdf/2603.17240#page=11",
+      "crop": [
+        0.108,
+        0.399,
+        0.472,
+        0.458
+      ],
+      "alt": "Two-row ablation table: Self-Attn versus Ours, with SR, PSNR and SSIM all slightly higher for Ours.",
+      "caption": "The causal mask changes deployment dependencies while retaining similar reported task performance.",
+      "readingGuide": "Start with the row labels: Self-Attn is the unconstrained variant in which all token types may attend to one another; Ours uses the causal mask from Figure 4. Read SR separately from PSNR and SSIM. SR summarizes physical-task evaluation, while the other two columns assess reconstructed future images on a held-out target-platform test set. All three arrows point upward. The numbers favor the causal version, but the action score moves only from 0.81 to 0.83. Figure 9 supplies selected visual examples of predicted object details; it is illustrative support rather than another aggregate performance measure.",
+      "takeaway": "Ours reports 0.83 SR, 28.41 PSNR and 0.901 SSIM, versus 0.81, 27.87 and 0.892. The central architectural benefit is that future-video prediction can be omitted at inference. The small score difference accompanies that benefit but does not by itself prove a statistically reliable control improvement.",
+      "caution": "The table supplies neither uncertainty nor a latency column for these two ablation variants. Higher reconstruction scores do not isolate why physical control changes, and selected red-box examples in Figure 9 cannot establish a general causal link between image fidelity and task success.",
+      "evidenceIds": [
+        "mask-ablation",
+        "architecture",
+        "inference",
+        "evaluation"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Make actions causally prior to their visual consequences",
+      "kind": "source",
+      "text": "Begin with the two conditionals in Eqs. (2)–(3). The first produces an action chunk and conditioning latent c_t from current observations, proprioception and language. The second predicts visual consequences conditioned on that action signal. Figure 4 makes this ordering operational: an action query cannot read future-image keys, although future queries can read action keys. The same Transformer parameters serve both streams, so this is not a separate video planner followed by an inverse-dynamics controller. At deployment, Eq. (12) integrates noisy action tokens while the context contains only language, state and observations. After commands are executed, fresh sensor readings close the loop. Optional future-video generation can remain useful for inspection, but the specified action distribution does not require it as an input.",
+      "evidenceIds": [
+        "factorization",
+        "architecture",
+        "inference"
+      ]
+    },
+    {
+      "heading": "Why sparse futures can teach a policy that runs without them",
+      "kind": "analysis",
+      "text": "The training objective helps explain why removing video at inference need not remove its training benefit. Pre-training fits visual dynamics; post-training combines video and action velocity losses with weights one and five. Because their Transformer parameters are shared, visual errors can change the representation subsequently used for actions. This is an interpretation of the architecture, not proof that it acquires a particular physical law. The default horizon contains 48 actions and four sampled future observations at stride 12. Table 5 favors that stride over denser or sparser alternatives. However, its no-video entry is 0.60 while the text says 0.65, and its zero-stride label cannot enter the frame-count formula. This supervision ablation should not be confused with simply disabling video decoding in an already trained policy.",
+      "evidenceIds": [
+        "objectives",
+        "architecture",
+        "inference",
+        "future-ablation"
+      ]
+    },
+    {
+      "heading": "Separate prediction quality, command latency and robot success",
+      "kind": "analysis",
+      "text": "Three kinds of evidence answer different questions. Table 6 measures both physical SR and future-image reconstruction, so better PSNR or SSIM is evidence about the image stream, not automatically about executed actions. Table 3 measures model-inference latency, which can affect feedback but omits a complete sensing-to-actuation timing breakdown. Table 4 measures four physical tasks under graded credit and repeated attempts. The authors attribute some advantage to faster feedback, yet comparing different policies changes learned priors and model design alongside delay. Reader analysis therefore treats latency as a plausible contributor requiring a controlled test. Similarly, Figure 7’s five-versus-fifty demonstration comparison concerns downstream task data; the preceding embodied pre-training remains part of the method’s cost. None of these distinctions negates the reported scores, but each changes what a reproduction must measure.",
+      "evidenceIds": [
+        "mask-ablation",
+        "latency",
+        "evaluation",
+        "real-results",
+        "data-efficiency",
+        "curriculum"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does deleting future tokens leave the action computation unchanged?",
+      "text": "Reader-proposed check, not performed: hold one causal-model checkpoint, observation/state/language context, initial action noise, solver schedule and numerical precision fixed. Compare action-only decoding with joint decoding using two different future-noise samples. Record action velocity outputs at every solver step and final actions, with a numerical tolerance fixed in advance. The causal dependency predicts agreement within that tolerance; systematic sensitivity to future noise would reveal an unintended input path. Use an unconstrained-attention checkpoint as a comparison where such invariance is not architecturally guaranteed. Measure latency separately from numerical agreement.",
+      "evidenceIds": [
+        "architecture",
+        "inference",
+        "mask-ablation"
+      ]
+    },
+    {
+      "title": "How much of the physical-score difference comes from feedback delay?",
+      "text": "Reader-proposed check, not performed: evaluate the same GigaWorld-Policy checkpoint at its native timing and with added delay targeting Motus’s reported 3231 ms, holding executed chunk prefix, sensor pipeline and task instructions fixed. Counterbalance trial order and pair initial object layouts across conditions on the four PiPER tasks. Record actual observation-to-command delay, strict first-attempt completion and the paper’s graded/repeated-attempt score separately. Compare with Motus under a matched-delay protocol if its implementation is available. A substantial within-policy loss under added delay supports the feedback explanation; little change would weaken latency as the main explanation. Report trial-level uncertainty.",
+      "evidenceIds": [
+        "latency",
+        "inference",
+        "evaluation",
+        "real-results",
+        "tasks"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "notes": "The title and complete 24-name byline were inspected on page 1. Visual reading covered Figures 1–10 and Tables 1–8 on the declared pages, including all equations, training/inference details, evaluation conditions and Appendix A compute settings cited here. Pages 5 and 11 resolved extraction-damaged labels. Figure 4’s query/key orientation and within-action diagonal were checked against its caption and Section 3.2; the caption’s abbreviated wording is disclosed. Tables 2 and 8, and Table 5 versus its discussion, were compared without reconciling conflicting values. Each of the six final original crops was opened and visually inspected with its labels, legends or table headers intact. Page 3 and reference pages 16–20 were read as text but were not visually inspected. No external supplement or code was inspected, and no reproduction check was run."
+  }
+}
