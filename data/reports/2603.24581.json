@@ -1,0 +1,482 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.24581",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T18:22:02.365Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2603.24581",
+      "title": "Latent-WAM: Latent World Action Modeling for End-to-End Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "b02d50f25f82296cc364859aa883aadd5edce0156a175f168b26112a18253429",
+      "wordCount": 7390,
+      "accessedAt": "2026-09-07T14:04:07.336375+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "identityVerified": true,
+    "sectionsRead": [
+      "Title, authors, affiliations, abstract and arXiv v1 stamp (p. 1)",
+      "1 Introduction (pp. 1–3)",
+      "2 Related Works, 2.1–2.2 (pp. 3–4)",
+      "3 Method, 3.1–3.5 (pp. 4–8)",
+      "4 Experiment, 4.1–4.3 (pp. 9–14)",
+      "5 Conclusion (p. 15)",
+      "References (pp. 15–18)",
+      "Supplementary A. Metrics, A.1–A.2 (p. 19)",
+      "B. Data Processing Pipeline, B.1–B.4 (pp. 20–21)",
+      "C. Inference Latency (p. 21)",
+      "D. More Visulization, D.1–D.2 (pp. 22–24)",
+      "Source-labeled C.3. HUGSIM (pp. 25–29)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The reviewed artifact is arXiv:2603.24581v1 [cs.CV], dated 25 March 2026. Its title and all sixteen authors match the catalog identity; the title page spells Junyu Han with a capital H, whereas the catalog has Junyu han. No other revision or edition was supplied or compared.",
+      "The supplied extraction does not reconstruct figure images; this gap was addressed by inspecting the original PDF figures, tables and equation layouts. Reference-only pages 16–18 were read as text but not rendered.",
+      "Separate supplemental material availability has not been fully verified; only the supplement embedded in this PDF was reviewed.",
+      "No code, external resources or software environments were inspected, and no experiments were reproduced."
+    ],
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 7)",
+      "Figure 4 (p. 13)",
+      "Figure 5 (p. 14)",
+      "Figure 6 (p. 22)",
+      "Figures 7–8 (p. 23)",
+      "Figures 9–10 (p. 24)",
+      "Figures 11–15 (pp. 25–29)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (p. 10)",
+      "Table 3 (p. 11)",
+      "Tables 4–5 (p. 12)",
+      "Table 6 (p. 13)",
+      "Table 7 (p. 21)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Latent-WAM trains a compact camera-based driving planner using geometric feature distillation and future latent-state prediction. Its deployment choice is to discard the dynamic predictor and decode trajectories from the current scene–ego representation. Reported gains concern NAVSIM planning scores and zero-shot HUGSIM simulation, with an HD-Score tie rather than an outright win (e03, e08, e10, e11).",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "The authors target representations that retain planning-relevant geometry and dynamics without carrying pixel-level video-generation costs into deployment. They argue that earlier latent planners remain insufficiently compressed, spatially weak, or temporally shallow.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "SCWE combines learnable scene-query compression with distillation from frozen WorldMirror geometric features into a trainable DINO encoder.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e19"
+      ]
+    },
+    {
+      "text": "DLWM learns scene and ego-state transitions with teacher forcing and spatiotemporal rotary positions, while a separate trajectory decoder learns expert imitation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e08"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Left, front and right RGB images; temporal sequences during training (e04, e09).",
+      "Driving command, velocity and acceleration; camera intrinsics/extrinsics for offline geometric targets and expert trajectories for supervision (e05, e08, e18, e19)."
+    ],
+    "outputs": [
+      "A command-selected four-second trajectory of ego-local longitudinal/lateral positions and headings (e03, e08).",
+      "Training-only future scene/ego latents and command, velocity and acceleration predictions (e05, e07)."
+    ],
+    "steps": [
+      {
+        "name": "Compress the visual scene",
+        "detail": "Append 16 learned queries per camera to image patch tokens in DINOv2-Base. Its 768-dimensional features project to a 256-dimensional latent space. Compact scene tokens continue into world-state aggregation; patch features also receive geometric supervision.",
+        "evidenceIds": [
+          "e04",
+          "e09"
+        ]
+      },
+      {
+        "name": "Teach spatial structure",
+        "detail": "Project patch features toward WorldMirror’s 2048-dimensional targets and align their LayerNorm-normalized features by cosine similarity. WorldMirror is frozen; targets are cached offline using camera-pose and intrinsic priors, with depth conditioning disabled.",
+        "evidenceIds": [
+          "e04",
+          "e19"
+        ]
+      },
+      {
+        "name": "Predict scene–ego transitions",
+        "detail": "Concatenate camera scene tokens with an MLP embedding of command, velocity and acceleration. Learned future queries attend to historical frame blocks. An EMA-updated target encoder supplies latent targets; separate heads supervise future command, velocity and acceleration. 3D-RoPE encodes time, camera and token indices.",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "name": "Decode the driving trajectory",
+        "detail": "Trajectory queries attend to the current world state. An MLP yields K candidate trajectories, and the current command selects one. DLWM and trajectory decoder each have four layers, eight heads, hidden width 256 and FFN width 1024.",
+        "evidenceIds": [
+          "e08",
+          "e09"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Training jointly optimizes trajectory imitation, geometric alignment, future-latent MSE and ego-state supervision. The configuration uses four temporal frames, 100 epochs, batch size 512 and 32 A100 GPUs for approximately two days. AdamW uses learning rate 0.0002, weight decay 0.05, 10% linear warm-up, cosine decay to 0.000001 and BF16. The paper reports 191M training parameters, 104M trainable.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08",
+          "e09"
+        ]
+      },
+      {
+        "text": "Teacher forcing supplies observed historical tokens instead of rolling predictions forward. Frame blocks permit bidirectional interaction internally, while cross-frame access is causal; this supports parallel training predictions.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Only SCWE and the trajectory decoder are required. The geometric teacher, EMA target encoder, DLWM and auxiliary heads are training machinery. Trajectories come directly from current state, without test-time imagined rollouts or world-model candidate scoring; low-level actuator control is not specified.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e03",
+          "e08"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{align}}=1-\\cos\\!\\left(\\operatorname{LN}(\\phi(\\hat X)),\\operatorname{LN}(f_g(I))\\right)",
+        "explanation": "Equation (2): I denotes input images, hat X the encoder patch features, phi the geometric projector, f_g the frozen geometric model and LN LayerNorm. Cosine similarity transfers geometric feature structure.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "S_{\\mathrm{future}}=\\operatorname{DLWM}(Q_{\\mathrm{future}},KV_{\\mathrm{future}})",
+        "explanation": "Equation (3): learned future queries Q_future use historical world-status keys/values KV_future to predict S_future. EMA-encoder targets supervise these latent predictions.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "\\tau=D_{\\tau}(Q_{\\tau},S_{\\mathrm{world}}^{t},C)",
+        "explanation": "Equation (5): D_tau decodes trajectory queries Q_tau using current state S_world at time t; driving command C selects trajectory tau. Poses contain longitudinal x, lateral y and heading theta in the current ego frame.",
+        "evidenceIds": [
+          "e08"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}=\\mathcal{L}_{\\mathrm{traj}}+\\alpha\\mathcal{L}_{\\mathrm{align}}+\\beta\\mathcal{L}_{\\mathrm{wm}}+\\gamma\\mathcal{L}_{\\mathrm{ego}}",
+        "explanation": "Equation (6): trajectory L1, geometric alignment, latent MSE and ego supervision are weighted by alpha=0.1, beta=0.2 and gamma=0.1. Ego supervision sums command cross-entropy and velocity/acceleration MSE.",
+        "evidenceIds": [
+          "e08"
+        ]
+      }
+    ]
+  },
+  "relatedPaperIds": [],
+  "results": [
+    {
+      "task": "NAVSIM v2 trajectory planning",
+      "setting": "NAVSIM evaluation; source describes 103k training and 12k evaluation scenarios.",
+      "metric": "EPDMS ↑",
+      "value": "89.3",
+      "comparison": "DriveVLA-W0: 86.1; perception-annotated Drive-JEPA: 87.8.",
+      "interpretation": "A 3.2-point gain over the strongest listed perception-free comparator, not uniform dominance: NC is 98.1 versus DriveVLA-W0’s 98.5. EPDMS combines multiplicative compliance terms and weighted progress/safety/comfort.",
+      "evidenceIds": [
+        "e10",
+        "e17"
+      ]
+    },
+    {
+      "task": "Zero-shot HUGSIM closed-loop driving",
+      "setting": "NAVSIM-trained model, no HUGSIM fine-tuning; pre-challenge test set, 436 scenarios, four difficulty levels.",
+      "metric": "Average RC / HD-Score ↑",
+      "value": "45.9 / 28.9",
+      "comparison": "LTF: 41.4 / 24.8; UniAD: 40.6 / 28.9.",
+      "interpretation": "Highest reported average road completion; HD-Score ties UniAD. Hard HD-Score is 12.2 versus UniAD’s 27.3. These are simulated driving results.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Component ablation",
+      "setting": "NAVSIM v2 progressive component study.",
+      "metric": "EPDMS ↑",
+      "value": "87.9 baseline; 87.7 compression; 88.0 with world model; 88.3 with ego supervision; 89.3 full.",
+      "comparison": "Compression plus geometry without dynamics: 88.6; adding world modeling: 89.0.",
+      "interpretation": "Geometry and dynamics improve this configuration; the full gain over the uncompressed baseline is 1.4 points. Colored deltas refer to that baseline.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Geometry injection ablation",
+      "setting": "Compressed model with world modeling and ego supervision.",
+      "metric": "EPDMS ↑",
+      "value": "89.3 distillation",
+      "comparison": "88.3 without geometry; 88.0 concatenation.",
+      "interpretation": "Distillation improves by 1.0 point over no geometry and 1.3 over concatenation. The proposed feature-misalignment explanation is an author hypothesis.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Backbone and adaptation ablation",
+      "setting": "NAVSIM v2 geometric-distillation study.",
+      "metric": "EPDMS ↑",
+      "value": "Base: 89.3; Small: 86.3",
+      "comparison": "Base-LoRA: 68.5; Small-LoRA: 84.7.",
+      "interpretation": "Full fine-tuning wins in these settings; unspecified LoRA configuration prevents a general conclusion about low-rank adaptation.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Temporal prediction schedule ablation",
+      "setting": "NAVSIM v2; all schedules reach frame 8.",
+      "metric": "EPDMS ↑",
+      "value": "89.3 for −3 → 0 → 4 → 8",
+      "comparison": "88.4 for 0 → 8; 89.1 for −3 → −2 → −1 → 0 → 2 → 4 → 6 → 8.",
+      "interpretation": "More history and intermediate targets help here; the comparison changes both, and does not isolate either effect.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "Inference latency",
+      "setting": "Single A100, one batch; three warm-up iterations, average of ten forward passes.",
+      "metric": "Latency / memory / reported parameters",
+      "value": "107 ms / 1.1 GB / 104M",
+      "comparison": "World encoder: 100 ms, 86.6M; trajectory decoder: 6 ms, 8.4M.",
+      "interpretation": "Reported measurement, not a deployment guarantee. Listed component parameters sum to 95M, leaving the 104M total unreconciled.",
+      "evidenceIds": [
+        "e20"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Tables report point estimates without seeds, run variation or confidence intervals. Cross-method training data and supervision differ, so the data-efficiency claim is not a controlled scaling experiment. HUGSIM gains also vary sharply by difficulty.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e10",
+        "e11",
+        "e12",
+        "e13",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "text": "Attention examples suggest more concentrated spatial focus after distillation, but do not establish causal understanding. Trajectory and HUGSIM image sequences are selected qualitative examples, not additional aggregate safety evidence or physical-road trials.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e16",
+        "e21",
+        "e11"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs NAVSIM data, DINOv2-Base, WorldMirror targets and HUGSIM evaluation. Follow the appendix’s width-by-height preprocessing: 1920×1080 → 455×256 → 448×224. Scale focal lengths, shift principal points for cropping, invert camera-to-world extrinsics, and cache WorldMirror features with condition flags [1,0,1].",
+      "kind": "source",
+      "evidenceIds": [
+        "e09",
+        "e18",
+        "e19"
+      ]
+    },
+    {
+      "text": "Unspecified details include EMA decay, exact K and pose count, command-class mapping, LoRA rank/target layers, software versions and trajectory-to-control conversion. Verify parameter accounting and metric aggregation: Eq. (9) writes a sum from 0 through T divided by T despite describing a temporal average.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e07",
+        "e08",
+        "e09",
+        "e14",
+        "e17",
+        "e20"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Latent prediction & JEPA"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "f3efa9b895243ea3f5ccdf77c49227f16ef7d6d882ea261bcb86bb0c95d99f0d"
+    },
+    "reasoning": {
+      "text": "The recorded Dual-system / Other mechanisms / Outside quadrants assessment is supported by the separate latent transition predictor and trajectory decoder. Future scene and ego prediction trains the representation; trajectories come from another decoder using current state. This is neither inverse-dynamics action extraction nor a joint future/action generator used at inference. Joint optimization alone would not establish One Model architecture. Dual-system here describes module separation, not two deployed control systems.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e07",
+        "e08"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does correctly paired geometric supervision outperform equally costly shuffled teacher targets? (e04, e13)",
+    "With identical historical context and optimization budget, do intermediate future targets improve planning beyond final-frame prediction? (e06, e15)"
+  ],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin stamp",
+      "detail": "Exact title matches the supplied observed title. Sixteen authors, from Linbo Wang to Dongbin Zhao, and five affiliations are printed. The stamp is arXiv:2603.24581v1 [cs.CV], 25 Mar 2026; Junyu Han is capitalized."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Section 1 and Figure 1/caption",
+      "detail": "Motivation contrasts expensive video generation with undercompressed latent planners lacking spatial or historical information. Figure 1 compares performance against differing training-data scales and model sizes; World4Drive has an additional depth estimator."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and Section 3.1",
+      "detail": "Architecture separates SCWE, training-time DLWM with EMA target supervision, and trajectory planning. Geometric and temporal objectives optimize the backbone; the planning horizon is four seconds."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Equations (1)–(2)",
+      "detail": "Scene queries concatenate with patch tokens in the DINO encoder. Projected patch features and WorldMirror geometric features undergo LayerNorm and cosine-similarity alignment."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.3, world latent aggregation and Equation (3)",
+      "detail": "Camera scene tokens plus one ego embedding form M×N+1 tokens per frame. Future queries use historical keys/values; an EMA-updated frozen SCWE provides stable targets."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 3.3, Figure 3 and 3D-RoPE paragraphs",
+      "detail": "Teacher-forced blocks use historical observed context. Figure 3 shows frame-2 queries accessing frame-1 keys, and frame-3 queries accessing frames 1–2. Positional axes are time, camera and token, with stated frequencies 50, 10 and 100."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 3.3 ego status supervision and Equation (4)",
+      "detail": "Future ego embeddings feed command, velocity and acceleration heads. Command logits have dimension four; velocity and acceleration each have dimension two."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Sections 3.4–3.5, Equations (5)–(6) and Inference paragraph",
+      "detail": "Current world status and trajectory queries yield K candidates, selected by command, with ego-local x/y/heading poses. Training combines trajectory L1, alignment, latent MSE and ego losses with weights 0.1/0.2/0.1. Only SCWE and trajectory decoder are required at inference."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.1, Architecture and Training Configuration",
+      "detail": "DINOv2-Base, 16 queries, dimensions 768/256, four frames, three cameras, 2048-dimensional geometry targets and four-layer/eight-head decoders are specified. Training uses 32 A100s, 100 epochs, batch 512, AdamW, BF16 and the stated learning schedule; parameter totals are 104M inference and 191M training, 104M trainable."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 4.2 NAVSIM; p. 10, Table 1, Ours and comparator rows",
+      "detail": "Source describes 103k training/12k evaluation scenarios. Ours reports EPDMS 89.3 against DriveVLA-W0 86.1 and Drive-JEPA 87.8. Ours NC/DAC/EP/EC are 98.1/97.3/87.7/87.3; DriveVLA-W0 NC is 98.5; Epona EP is 88.6. Table groups perception-based and perception-free methods."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 4.2 HUGSIM; p. 10, Table 2 and difficulty footnote",
+      "detail": "Zero-shot evaluation uses the NAVSIM-trained model without fine-tuning on 436 pre-challenge scenarios. Ours average RC/HD-Score are 45.9/28.9, UniAD 40.6/28.9 and LTF 41.4/24.8. Ours HD-Score by easy/medium/hard/extreme is 72.5/24.0/12.2/18.1; UniAD hard is 27.3. Environments are photorealistic reconstructions with changing camera viewpoints."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 3, all rows; Section 4.3 Effectiveness of Each Component",
+      "detail": "EPDMS sequence is 87.9 baseline, 87.7 compression, 88.0 compression+world model, 88.3 with ego status, 88.6 compression+geometry, 89.0 with world model, and 89.3 all components. Caption defines deltas relative to baseline."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Impact of Geometric Information; p. 12, Table 4",
+      "detail": "No geometry, concatenation and distillation score 88.3, 88.0 and 89.3. Authors hypothesize frozen-feature misalignment explains concatenation degradation."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Table 5 and Vision Backbone for Geometric Distillation",
+      "detail": "Small/Base score 86.3/89.3 and Small-LoRA/Base-LoRA 84.7/68.5. Authors attribute LoRA degradation to low-rank constraints, but do not specify rank or target layers here."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, World Model Prediction Temporal Stride; p. 13, Table 6",
+      "detail": "Schedules 0→8, −3→0→4→8 and −3→−2→−1→0→2→4→6→8 score 88.4, 89.3 and 89.1. They retain the same final horizon while varying historical context and prediction density."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Figures 4–5/captions and Qualitative Analysis",
+      "detail": "Trajectory comparisons use green human and yellow predicted paths. Paired attention maps compare models with/without geometry, across straight/right/left intentions; authors interpret the patterns as more spatially focused after distillation."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Appendix A.1–A.2, Equations (7)–(9)",
+      "detail": "EPDMS multiplies NC, DAC, DDC and TLC by a weighted average of EP, TTC, LK, HC and EC. HUGSIM combines NC, DAC, TTC and comfort, then scales a temporal average by route completion. Equation (9) prints t=0 through T with denominator T."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Appendix B.1–B.3, Equations (10)–(16)",
+      "detail": "Images resize from 1920×1080 to 455×256 then center-crop to 448×224. Intrinsics are rescaled and crop-adjusted; camera-to-world transforms are inverted for world-to-camera projection."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 21, Appendix B.4, Equations (17)–(18)",
+      "detail": "Frozen WorldMirror uses camera pose and intrinsics but excludes depth conditioning via flags [1,0,1]. Its 2048-dimensional patch features are precomputed and cached for all training samples."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 21, Appendix C and Table 7, all rows",
+      "detail": "Single-A100 inference is averaged over ten forward passes after three warm-ups for a single batch. Table reports encoder 86.6M/100ms, decoder 8.4M/6ms and all modules 104M/1.1GB/107ms; per-module memory is omitted."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF pp. 22–29, Appendix D.1–D.2 and source-labeled C.3, Figures 6–15/captions",
+      "detail": "Additional NAVSIM trajectory and attention examples include forward, lane-change, left-turn and right-turn scenes. HUGSIM trajectory images depict nuScenes, KITTI-360, Waymo and PandaSet reconstructions; no additional aggregate measurements are attached."
+    }
+  ]
+}

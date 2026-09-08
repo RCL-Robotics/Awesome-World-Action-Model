@@ -1,0 +1,287 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.24581",
+  "shortTitle": "Latent-WAM",
+  "thesis": "Geometry distillation and causal future-state prediction train compact driving representations, while deployment uses a direct trajectory decoder with no world-model rollout.",
+  "standfirst": "Latent-WAM asks how much of a driving scene must survive compression for a planner to make useful decisions. It appends learned scene queries to camera-image tokens, teaches the encoder geometry through a frozen foundation model, and trains a causal predictor to anticipate scene and ego-state changes. The resulting representation feeds a separate trajectory decoder. The crucial distinction is that future prediction shapes training, while inference uses the current representation. Read the architecture and attention mask first, then use the benchmark and ablation tables to assess the gains, their unevenness across driving conditions, and the evidence for geometric supervision.",
+  "evidenceIds": [
+    "e03",
+    "e04",
+    "e05",
+    "e06",
+    "e08",
+    "e10",
+    "e11",
+    "e12",
+    "e13"
+  ],
+  "featuredResultTask": "NAVSIM v2 trajectory planning",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2603.24581/architecture.png",
+      "width": 1448,
+      "height": 719,
+      "sourceSha256": "b02d50f25f82296cc364859aa883aadd5edce0156a175f168b26112a18253429",
+      "sourceUrl": "https://arxiv.org/pdf/2603.24581#page=4",
+      "crop": [
+        0.218,
+        0.146,
+        0.786,
+        0.364
+      ],
+      "alt": "Architecture with a compressive image encoder and geometric alignment above, an EMA-supervised dynamic predictor below, and a separate command-conditioned trajectory decoder at right.",
+      "caption": "Two training signals shape the encoder used by the deployed planner.",
+      "readingGuide": "Start at the upper left: green image-patch tokens and purple scene queries pass through the vision encoder. The patch branch aligns with geometric targets; the purple outputs become compact scene representations. In the lower training panel, these scene tokens join yellow ego-status tokens and supply context to the dynamic predictor. Follow the dashed EMA-update arrow to the frozen target encoder and the two supervision branches for latent world status and ego status. Finally, read the right-hand planning panel: current scene–ego tokens and trajectory queries feed the trajectory decoder, with the driving command selecting the intended trajectory.",
+      "takeaway": "The figure separates representation learning from trajectory generation. Geometry alignment teaches the backbone spatial structure, while latent and ego prediction teach temporal information. Section 3.5 explicitly retains only SCWE and the trajectory decoder for inference, so the model’s planning results do not demonstrate test-time search through imagined futures.",
+      "caution": "The flame and snowflake distinguish trainable and target encoders; the target still changes through EMA. The schematic token counts are illustrative. The reported implementation uses 16 scene queries per camera, and low-level actuator control is not shown.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e07",
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "id": "causal-mask",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 7,
+      "asset": "report-assets/2603.24581/causal-mask.png",
+      "width": 1240,
+      "height": 1274,
+      "sourceSha256": "b02d50f25f82296cc364859aa883aadd5edce0156a175f168b26112a18253429",
+      "sourceUrl": "https://arxiv.org/pdf/2603.24581#page=7",
+      "crop": [
+        0.523,
+        0.23,
+        0.766,
+        0.423
+      ],
+      "alt": "Block-causal attention matrix with future scene/ego queries on rows, historical scene/ego keys on columns, colored permitted cells and gray masked cells.",
+      "caption": "Historical frame blocks provide context without exposing the future target frame.",
+      "readingGuide": "Read rows as future queries Q and columns as historical keys K. Purple and yellow cells permit attention; gray cells block it. The first query block is labeled frame 2, while its accessible key block is frame 1. The frame-3 queries can access keys from frames 1 and 2. Continue to the bottom block to see the same pattern for frame T. This index offset matters: the filled block on the apparent diagonal is still historical context. Section 3.3 describes teacher forcing and bidirectional interaction within frame blocks, with temporal causality enforced between them.",
+      "takeaway": "The mask lets training predict multiple future blocks in parallel while conditioning on observed history. The scene and ego parts share that history, tying visual prediction to the vehicle’s evolving status. This supports the paper’s training formulation; it is not an empirical measurement of free-running prediction accuracy.",
+      "caution": "Teacher forcing does not test accumulated rollout error. Separately, the three 3D-RoPE axes are time, camera index and token index; the name does not imply that attention receives explicit metric x/y/z coordinates.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "id": "navsim-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 10,
+      "asset": "report-assets/2603.24581/navsim-results.png",
+      "width": 1448,
+      "height": 749,
+      "sourceSha256": "b02d50f25f82296cc364859aa883aadd5edce0156a175f168b26112a18253429",
+      "sourceUrl": "https://arxiv.org/pdf/2603.24581#page=10",
+      "crop": [
+        0.218,
+        0.173,
+        0.786,
+        0.4
+      ],
+      "alt": "NAVSIM v2 table comparing perception-based and perception-free methods across nine component metrics and EPDMS, with Latent-WAM at 89.3 EPDMS.",
+      "caption": "A higher composite planning score coexists with component-level tradeoffs.",
+      "readingGuide": "Begin with the shaded EPDMS column, then compare methods inside the two supervision groups. Latent-WAM scores 89.3, DriveVLA-W0 86.1, and the perception-annotated Drive-JEPA 87.8. The dagger note preserves the annotation distinction. Then scan leftward: NC is no at-fault collision, DAC drivable-area compliance, DDC driving-direction compliance and TLC traffic-light compliance; EP measures ego progress and TTC time to collision. LK, HC and EC cover lane keeping and comfort. Appendix A defines EPDMS through products and a weighted average, so the final column is not a simple arithmetic mean of the printed component columns.",
+      "takeaway": "The 3.2-point EPDMS improvement over DriveVLA-W0 is directly supported. Yet Latent-WAM’s NC is 98.1 versus 98.5, and its ego progress is 87.7 versus Epona’s 88.6. The table therefore supports stronger aggregate benchmark performance with tradeoffs across individual measures, rather than superiority on every driving criterion.",
+      "caution": "The entries are reported benchmark scores without uncertainty intervals. Training scale and supervision differ across methods. As a reader check, averaging the nine printed component columns cannot reconstruct EPDMS; consult Appendix A’s formula and the evaluation aggregation.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e17"
+      ]
+    },
+    {
+      "id": "hugsim-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 10,
+      "asset": "report-assets/2603.24581/hugsim-results.png",
+      "width": 1438,
+      "height": 465,
+      "sourceSha256": "b02d50f25f82296cc364859aa883aadd5edce0156a175f168b26112a18253429",
+      "sourceUrl": "https://arxiv.org/pdf/2603.24581#page=10",
+      "crop": [
+        0.22,
+        0.466,
+        0.784,
+        0.607
+      ],
+      "alt": "HUGSIM table with road completion and HD-Score by easy, medium, hard and extreme difficulty; Latent-WAM reports averages 45.9 and 28.9.",
+      "caption": "Zero-shot simulation yields the highest average completion and a tied driving score.",
+      "readingGuide": "Read this table in two halves. Road completion, RC, describes how much of the route is completed; HD-Score also incorporates driving quality through the appendix’s collision, drivable-area, time-to-collision and comfort terms. Each half lists easy, medium, hard and extreme scenarios before its reported average. The model is transferred from NAVSIM without HUGSIM fine-tuning and evaluated on 436 pre-challenge scenarios. Compare the average columns first, then inspect difficulty-specific values: the full-table view prevents strong easy-scenario performance from hiding weak performance in harder cases. Keep the printed difficulty legend when reading either half.",
+      "takeaway": "Latent-WAM’s average RC of 45.9 exceeds LTF’s 41.4 and UniAD’s 40.6. Its 28.9 HD-Score matches UniAD. On hard scenarios, however, its HD-Score is 12.2 against UniAD’s 27.3. Zero-shot transfer is supported, but the gains are uneven across difficulty levels.",
+      "caution": "The paper does not give the difficulty counts or averaging weights needed to reconstruct the Avg. columns. These reconstructed-environment tests and the appendix’s image sequences do not establish physical-road safety.",
+      "evidenceIds": [
+        "e11",
+        "e17",
+        "e21"
+      ]
+    },
+    {
+      "id": "component-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 11,
+      "asset": "report-assets/2603.24581/component-ablation.png",
+      "width": 1227,
+      "height": 532,
+      "sourceSha256": "b02d50f25f82296cc364859aa883aadd5edce0156a175f168b26112a18253429",
+      "sourceUrl": "https://arxiv.org/pdf/2603.24581#page=11",
+      "crop": [
+        0.262,
+        0.185,
+        0.743,
+        0.346
+      ],
+      "alt": "Component ablation with checkmarks for compression, geometry, world model and ego status, and EPDMS rising from baseline 87.9 to full-model 89.3.",
+      "caption": "Compression creates the representation bottleneck; geometry and dynamics recover and improve planning.",
+      "readingGuide": "Read each checkmark as enabling the named component, and compare rows that differ in one column. The all-cross baseline sends image patch tokens directly to the trajectory decoder. Compression alone changes 87.9 to 87.7. With compression retained, adding the world model raises the score to 88.0, and ego supervision raises it to 88.3. A second branch adds geometry to compression and reaches 88.6; world modeling and ego supervision then reach 89.0 and 89.3. The colored suffixes use 87.9 as their reference, not the immediately preceding row, as specified in the original caption.",
+      "takeaway": "The full system improves by 1.4 EPDMS points over the uncompressed baseline. Geometry’s gain is visible even without the dynamic predictor, while the world-model and ego-supervision rows improve the geometry-equipped configuration further. These comparisons support contributions from both spatial and temporal training signals in this setup.",
+      "caution": "The table is a progressive study, not a complete factorial experiment. There are no repeated-run uncertainty estimates, so small differences cannot establish statistical reliability or quantify a general interaction between geometry and dynamics.",
+      "evidenceIds": [
+        "e08",
+        "e12"
+      ]
+    },
+    {
+      "id": "geometry-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 12,
+      "asset": "report-assets/2603.24581/geometry-ablation.png",
+      "width": 918,
+      "height": 325,
+      "sourceSha256": "b02d50f25f82296cc364859aa883aadd5edce0156a175f168b26112a18253429",
+      "sourceUrl": "https://arxiv.org/pdf/2603.24581#page=12",
+      "crop": [
+        0.219,
+        0.199,
+        0.489,
+        0.273
+      ],
+      "alt": "Three-row geometry ablation: no geometric feature 88.3 EPDMS, concatenation 88.0 and distillation 89.3.",
+      "caption": "How geometric information enters the encoder matters in the reported comparison.",
+      "readingGuide": "Hold the surrounding model in mind: the no-geometry row already includes compression, world modeling and ego-state supervision. The concatenation row supplies frozen geometric features as key/value inputs, whereas distillation trains the vision backbone to align projected image-patch features with teacher targets. Read the three scores as a comparison of injection methods within that context. Equation (2) explains the distillation route through LayerNorm and cosine similarity; Appendix B.4 identifies the frozen WorldMirror targets and their camera priors. The best row therefore reflects a particular way of teaching the representation, not merely the presence of additional geometric features.",
+      "takeaway": "Distillation reaches 89.3 EPDMS, 1.0 point above the 88.3 no-geometry model and 1.3 above concatenation. The fact that concatenation scores 88.0 suggests that simply exposing the planner to teacher features is insufficient in this experiment; learning how the encoder represents them is consequential.",
+      "caution": "The authors’ explanation that concatenation creates conflicting or misaligned signals remains a hypothesis. This table does not isolate geometric correctness from feature regularization, extra supervision or optimization differences, motivating a shuffled-target control.",
+      "evidenceIds": [
+        "e04",
+        "e12",
+        "e13",
+        "e19"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "1. Make geometry survive scene compression",
+      "kind": "source",
+      "text": "The scene queries are a bottleneck inserted into the vision encoder: they interact with the image patches before the compressed tokens are passed onward. Geometric alignment acts on the patch-feature branch, so the shared backbone learns under both geometric and planning objectives. WorldMirror supplies the geometric features without receiving gradient updates. Its targets can therefore be cached before planner training. The appendix makes that cache concrete: resize and crop each camera image, adjust its intrinsic matrix, invert the camera-to-world transform when needed for projection, and enable camera pose and intrinsic conditioning while disabling depth conditioning. The downstream model uses 16 queries per camera. Reader calculation: three views plus one ego token yield 49 world-status tokens per frame, a compact context for the later predictor.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e09",
+        "e18",
+        "e19"
+      ]
+    },
+    {
+      "heading": "2. Use prediction to train a planner that does not roll out futures",
+      "kind": "source",
+      "text": "The world state combines scene tokens with a learned embedding of driving command, velocity and acceleration. During training, future queries predict subsequent world states from historical context, using the frame-block mask to prevent access to future target frames. An EMA-updated encoder supplies latent targets, while separate heads decode future commands and motion variables for direct supervision. These losses coexist with expert-trajectory imitation and geometric alignment in Equation (6). At inference, Section 3.5 removes the prediction machinery. The trajectory decoder uses the current world state and learned trajectory queries to produce candidates, then selects according to the driving command. Reader interpretation: the experiment tests whether forecasting is useful supervision for representation learning, rather than whether a planner can choose actions by evaluating imagined futures.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "heading": "3. Separate aggregate improvement from the mechanism it proves",
+      "kind": "analysis",
+      "text": "The strongest benchmark statement is the NAVSIM v2 EPDMS result of 89.3, exceeding the best listed perception-free comparator by 3.2 points. That score is a composite, and the individual columns expose safety, comfort and progress tradeoffs. HUGSIM adds a distinct test: the NAVSIM-trained model acts in photorealistic reconstructed environments without fine-tuning. Its average completion leads, while its HD-Score ties UniAD and its hard-scenario result is substantially lower. The ablations offer more targeted evidence for geometry and dynamics, but their point estimates lack uncertainty. In particular, changing the temporal schedule also changes historical context and the number of targets. Reader interpretation: the experiments justify investigating these training signals, while a matched-context study is still needed to isolate the benefit of intermediate prediction.",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e12",
+        "e13",
+        "e15",
+        "e17"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does correctly paired geometry matter beyond an auxiliary feature loss?",
+      "text": "Reader-proposed check, not run: train the same compressed model with world modeling and ego supervision under three conditions—no geometric alignment, correctly paired cached WorldMirror targets, and targets shuffled across training samples within the same camera view. Preserve the source’s preprocessing and camera conditioning; hold initialization, optimization budget and loss weight fixed, and repeat with at least three seeds. Compare paired NAVSIM EPDMS and its safety components, reporting uncertainty across runs and scenarios. If correctly paired targets do not reliably outperform shuffled ones, the explanation that spatially correct teacher information drives the gain is weakened, even if auxiliary training itself helps.",
+      "evidenceIds": [
+        "e04",
+        "e09",
+        "e12",
+        "e13",
+        "e18",
+        "e19"
+      ]
+    },
+    {
+      "title": "Do intermediate predictions help when history is held fixed?",
+      "text": "Reader-proposed check, not run: provide identical observed frames −3 and 0, then compare supervision only at frame 8 with supervision at frames 4 and 8. In both conditions, block ground-truth frame-4 tokens from frame-8 context; this deliberately controls the information supplied by teacher forcing. Keep the frame-8 horizon, normalize losses per target, and hold optimizer updates, batch size and seeds fixed. Add a compute-matched comparison if target density changes training cost. Measure NAVSIM EPDMS, per-horizon latent error and training time across repeated runs. A reliable planning gain would support intermediate supervision; its disappearance would implicate added context or optimization differences in the published schedule comparison.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e08",
+        "e09",
+        "e15"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29
+    ],
+    "notes": "Visually inspected the title/author/version page, all original Figures 1–15 and Tables 1–7, main method/equation/training pages, and supplementary metric, preprocessing, geometric-target and latency pages. All six final original crops were viewed; the causal-mask crop was widened and re-inspected to preserve its row-axis label. Figure 2 arrows, EMA/frozen markers and separate planning branch were cross-checked against Sections 3.1–3.5; Figure 3 query/key indices and mask colors were checked against Section 3.3 and Equation (3), with no claim-relevant conflict found. Reference-only pages 16–18 were read in the complete text but not rendered. No external supplement, code or reproduction was inspected."
+  }
+}

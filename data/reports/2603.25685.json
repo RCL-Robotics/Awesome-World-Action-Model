@@ -1,0 +1,562 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.25685",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T18:17:56.314Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2603.25685",
+      "title": "Persistent Robot World Models: Stabilizing Multi-Step Rollouts via Reinforcement Learning",
+      "kind": "pdf",
+      "sha256": "ae26eea650fde9422f6444728a97f5734618ec1089d9f9e38eb4188cfd3393e7",
+      "wordCount": 12883,
+      "accessedAt": "2026-09-07T14:03:54.492710+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "identityVerified": true,
+    "appendix": "reviewed",
+    "sectionsRead": [
+      "Title and abstract",
+      "1 Introduction",
+      "2 Related work",
+      "3 Improving Robot World Models with Reinforcement Learning",
+      "3.1 The Closed-Loop Gap in Autoregressive World Models",
+      "3.2 Online RL Post-Training via Reward-Contrasted Denoising",
+      "3.3 Adapting Group-Relative Training to Autoregressive Video",
+      "3.4 Visual Rewards for Multi-View Video Clips",
+      "4 Experiments",
+      "5 Conclusion, limitations and acknowledgements",
+      "References",
+      "Appendix A.1–A.2: EDM objective and theoretical analysis",
+      "Appendix B: all ablation studies",
+      "Appendix C: world-model policy evaluation",
+      "Appendix D: human preference study",
+      "Appendix E.1–E.3: inference, additional results and Algorithm 1"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity: PDF p. 1 identifies arXiv:2603.25685v2 [cs.RO], dated 4 September 2026. Its exact title and all four authors match the catalog. The catalog submission date is 26 March 2026; this report reviews the supplied v2, not the original submission. No earlier version or revision comparison was supplied.",
+      "All eight supplied text chunks, covering the complete 38-page paper including references and appendices, were read. Visual inspection covers the pages declared in the illustrated edition; Figures 1, 9 and 10 were read through extracted captions but their page images were not inspected.",
+      "The supplied extraction does not reconstruct figure images; this limitation was addressed for the reported evidence by inspecting the retained PDF pages and six original crops.",
+      "Separate supplemental material availability has not been fully verified. No separate supplement was supplied.",
+      "Project videos and code were not inspected; no experiments were reproduced. The printed project link establishes provenance only, not verified code availability."
+    ],
+    "figuresReviewed": [
+      "Figure 2 (p. 5)",
+      "Figures 3, 4 and 6 (p. 13)",
+      "Figure 5 (p. 14)",
+      "Figure 7 (p. 29)",
+      "Figure 8 (p. 30)",
+      "Figure 11 (p. 34)",
+      "Figure 12 (p. 35)",
+      "Figure 13 (p. 36)",
+      "Figure 14 (p. 37)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 12)",
+      "Table 2 (p. 14)",
+      "Tables 3–4 (p. 25)",
+      "Tables 5–6 (p. 26)",
+      "Tables 7–8 (p. 27)",
+      "Tables 9–11 (p. 28)",
+      "Table 12 (p. 29)",
+      "Table 13 (p. 35)",
+      "Table 14 (p. 36)"
+    ]
+  },
+  "synopsis": "PersistWorld post-trains Ctrl-World on its own imperfect video histories. It branches comparable futures, scores them against recorded multi-view trajectories, and applies reward-weighted contrastive denoising. The evidence supports better visual persistence and modest downstream policy benefits, with unresolved implementation details and no explicit physical-consistency guarantee.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "Teacher-forced video prediction conditions on clean observations, whereas autoregressive deployment repeatedly feeds generated frames back into the model. Errors therefore change the next prediction’s input distribution. PersistWorld targets this exposure bias in action-conditioned robot simulation, where object disappearance and robot deformation can undermine policy evaluation.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e19"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Adapt DiffusionNFT-style positive/negative denoising to the affine EDM clean-latent predictor used by Ctrl-World.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e20"
+      ]
+    },
+    {
+      "text": "Compare independent futures from one frozen rollout history, while randomizing prefix depth to expose training to different accumulated-error regimes.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03"
+      ]
+    },
+    {
+      "text": "Combine reference-based perceptual rewards across cameras, and evaluate full frames, foreground masks, human preference and downstream policy behavior.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e09",
+        "e10",
+        "e11",
+        "e15",
+        "e18"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Six recent frame latents and corresponding end-effector poses",
+      "Five future seven-dimensional end-effector pose targets",
+      "Recorded ground-truth frames for post-training rewards"
+    ],
+    "outputs": [
+      "Five predicted future frames per camera, jointly across two external views and one wrist view",
+      "Updated world-model LoRA adapters and action encoder"
+    ],
+    "steps": [
+      {
+        "name": "Predict and feed back",
+        "detail": "Ctrl-World’s SVD-based model conditions on history and future pose targets, generates a multi-view clip, and encodes the prediction into the rolling history. A separate robot policy can supply actions; the world model generates observations.",
+        "evidenceIds": [
+          "e02"
+        ]
+      },
+      {
+        "name": "Share a corrupted prefix",
+        "detail": "Replicate the initial observed latent to initialize history. Sample P uniformly from 0 through 9 and generate P clips autoregressively. Freeze that history and branch K=16 independent continuations, each with its own buffer and F chunks.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Score comparable futures",
+        "detail": "Average LPIPS, SSIM and PSNR over frames and equally across views. Compare with the recorded trajectory. Z-score rewards within the candidate group, clip advantages to [-1,1], and rescale to reward weights in [0,1].",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Contrastive forward denoising",
+        "detail": "Add Gaussian noise to each generated clean latent and evaluate current and reference denoisers. Fit reward-weighted positive and negative mixtures to that generated latent. Ground truth supplies the reward; it is not this denoising target. No gradient through rollout sampling is required.",
+        "evidenceIds": [
+          "e04",
+          "e03"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Use UNet LoRA rank 64 and alpha 64 plus a trainable action encoder; freeze other backbone and VAE parameters. The stated run uses 6,000 steps, Muon, learning rate 10^-4, batch size 64, and the top five plus bottom five rewards from each 16-candidate group. Training takes two days on eight NVIDIA H200 GPUs.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "text": "Appendix B marks KL regularization and an old-policy EMA rising to 0.5 by step 500 as defaults. Algorithm 1 updates that reference by EMA, although Appendix A describes a never-updated reference. It is frozen for differentiation within an update; the between-update descriptions conflict.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Use 50 Euler sampling steps without classifier-free guidance. Generated observations condition subsequent actions when evaluating a separate policy; prerecorded actions drive the principal fidelity benchmark. Candidate ranking and ground-truth rewards are post-training operations, not a reported deployment-time search controller.",
+        "kind": "source",
+        "evidenceIds": [
+          "e02",
+          "e08",
+          "e09",
+          "e15"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\hat{x}_0^{+}=(1-\\beta)\\hat{x}_0^{\\mathrm{old}}+\\beta\\hat{x}_{0,\\theta},\\qquad \\hat{x}_0^{-}=(1+\\beta)\\hat{x}_0^{\\mathrm{old}}-\\beta\\hat{x}_{0,\\theta}",
+        "explanation": "The current clean-latent estimate has parameters theta; the old superscript denotes the reference estimate. Beta mixes their displacement symmetrically around the reference. Equation 1 and Algorithm 1 distinguish the positive branch (line 35, reference coefficient 1−β) from the negative branch (line 36, reference coefficient 1+β). These algebraic branches differ from independently sampled candidate futures.",
+        "evidenceIds": [
+          "e04",
+          "e25"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}(\\theta)=\\mathbb{E}\\!\\left[r\\lVert\\hat{x}_0^{+}-x_0\\rVert_2^2+(1-r)\\lVert\\hat{x}_0^{-}-x_0\\rVert_2^2\\right]",
+        "explanation": "Here x_0 is the clean generated latent being re-noised, and r is its normalized reward weight. High rewards emphasize the positive branch; low rewards emphasize the negative branch. The ideal-predictor theorem assumes unlimited data/capacity and an exact reference posterior mean, not finite-run physical correctness.",
+        "evidenceIds": [
+          "e04",
+          "e20"
+        ]
+      },
+      {
+        "expression": "R_t=-w_{\\mathrm{LPIPS}}\\overline{\\mathrm{LPIPS}}_t+w_{\\mathrm{SSIM}}\\overline{\\mathrm{SSIM}}_t+w_{\\mathrm{PSNR}}\\overline{\\mathrm{PSNR}}_t",
+        "explanation": "Bars denote temporal and equal-view averages for clip t. Metric weights are 1, 1 and 1/32 respectively. LPIPS is negated because lower values indicate better perceptual agreement.",
+        "evidenceIds": [
+          "e05",
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "DROID autoregressive rollout fidelity",
+      "setting": "Ctrl-World validation split; recorded actions; 14 clips; averages over the rollout.",
+      "metric": "SSIM / PSNR (dB) / LPIPS",
+      "value": "External: 0.86 / 24.42 / 0.070; wrist: 0.67 / 19.39 / 0.277.",
+      "comparison": "Authors’ reproduced Ctrl-World: external 0.84 / 23.02 / 0.081; wrist 0.62 / 17.80 / 0.310.",
+      "interpretation": "All six improve. Imported and reproduced baselines remain distinct. The approximately 11-second label conflicts with the 70-frame, 5-Hz description.",
+      "evidenceIds": [
+        "e09"
+      ]
+    },
+    {
+      "task": "Foreground fidelity",
+      "setting": "Same 14-step validation protocol; RoboEngine object and robot masks.",
+      "metric": "Object LPIPS; robot PSNR (dB)",
+      "value": "Object LPIPS external/wrist: 0.021/0.078; robot PSNR: 19.25/27.24.",
+      "comparison": "Ctrl-World: 0.025/0.088 and 17.62/25.50.",
+      "interpretation": "Gains survive background removal; image-mask fidelity does not verify contact dynamics.",
+      "evidenceIds": [
+        "e10"
+      ]
+    },
+    {
+      "task": "Human preference",
+      "setting": "Blind randomized video pairs with ground truth; eight in-house experts who could choose videos.",
+      "metric": "Preference votes",
+      "value": "174 wins versus 43 losses; reported 80% preference.",
+      "comparison": "Original Ctrl-World.",
+      "interpretation": "Supports perceived fidelity in this selected-rater study; repeated votes and self-selection limit population inference.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Reward composition ablation",
+      "setting": "DROID validation; 10-step rollouts; equal gradient-update counts.",
+      "metric": "Wrist SSIM / PSNR (dB) / LPIPS",
+      "value": "Combined: 0.721 / 20.40 / 0.3387.",
+      "comparison": "LPIPS-only: 0.708 / 19.90 / 0.3242.",
+      "interpretation": "Combining rewards trades some LPIPS for structural and pixel fidelity; it does not win every metric.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Prefix sampling ablation",
+      "setting": "DROID validation; 10-step rollouts; equal gradient-update counts.",
+      "metric": "Wrist PSNR (dB) / LPIPS",
+      "value": "Random 0–9: 20.40 / 0.3387.",
+      "comparison": "Fixed 3: 20.51 / 0.3381; curriculum: 20.43 / 0.3412.",
+      "interpretation": "Random sampling is competitive, but Table 5 contradicts the claim that it matches or exceeds every fixed baseline.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Contrastive objective versus SF-style regression",
+      "setting": "Validation rollouts of 10 interactions; regression baseline also uses generated histories.",
+      "metric": "External SSIM / PSNR (dB) / LPIPS",
+      "value": "0.872 / 25.52 / 0.116.",
+      "comparison": "SF-style: 0.868 / 25.35 / 0.119.",
+      "interpretation": "An objective control, not full Self-Forcing reproduction; Figure 13 compares gradient steps, not wall-clock speed.",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "task": "Transfer to Bridge and RT-1",
+      "setting": "Separate SVD adaptation for 100,000 steps, then post-training; 10-interaction evaluation.",
+      "metric": "SSIM / PSNR (dB) / LPIPS",
+      "value": "Bridge: 0.876 / 26.36 / 0.0957; RT-1: 0.865 / 26.63 / 0.1305.",
+      "comparison": "Adapted SVD: 0.864 / 25.20 / 0.1061 and 0.833 / 23.81 / 0.1683.",
+      "interpretation": "Applicability after embodiment-specific training, not zero-shot transfer.",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "task": "World-model policy evaluation",
+      "setting": "Three tasks × three policies; five real and eleven simulated rollouts per combination; ordered partial-progress scores.",
+      "metric": "Pearson correlation / MMRV",
+      "value": "0.822 / 0.006.",
+      "comparison": "Ctrl-World: 0.796 / 0.053.",
+      "interpretation": "Ranking improves slightly, but both simulators overestimate real task progression.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "Real-robot spatial picking after policy finetuning",
+      "setting": "Full-finetune pi_0 on 50 rollouts from each world model; four block positions; five real trials per block.",
+      "metric": "Average task progression",
+      "value": "0.667.",
+      "comparison": "Base policy: 0.350; Ctrl-World augmentation: 0.558.",
+      "interpretation": "Small real-execution demonstration; this is progression, not binary success. Uncertainty is not supplied.",
+      "evidenceIds": [
+        "e18"
+      ]
+    },
+    {
+      "task": "Reference-based reward versus HPSv3",
+      "setting": "Reward substitution within PersistWorld on DROID; ours uses top-k=2.",
+      "metric": "SSIM / PSNR (dB) / LPIPS; seconds per training iteration",
+      "value": "0.826 / 24.09 / 0.181; 41.3 s.",
+      "comparison": "HPSv3: 0.802 / 22.58 / 0.193; 129.2 s.",
+      "interpretation": "HPSv3 uses “Robot arm <task>”; this is not an end-to-end WorldCompass comparison.",
+      "evidenceIds": [
+        "e23"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Candidate sampling increases training cost. Visual rewards enforce no explicit physics or geometry constraints, and the temporal plots still show deterioration at longer horizons.",
+      "kind": "source",
+      "evidenceIds": [
+        "e19"
+      ]
+    },
+    {
+      "text": "The 70-frame, 5-Hz and approximately 11-second descriptions are inconsistent. The claimed 14.0% external LPIPS and 9.1% wrist SSIM improvements also cannot be exactly reconstructed from Table 1’s rounded values; unrounded aggregates are absent.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09"
+      ]
+    },
+    {
+      "text": "Reward references are called “held-out ground truth” without separately identifying the post-training and evaluation splits; disjointness cannot be established. Tables omit seed variability, limiting interpretation of tiny ablation differences.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "text": "At beta=0, Equations 1–2 lose dependence on the learned predictor, contrary to the prose’s supervised-denoising interpretation of that limit. This is an algebraic reading, not an implemented correction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Requirements include Ctrl-World weights/action interface, synchronized DROID trajectories, the validation split, perceptual metric implementations and RoboEngine masks. Preserve the 14-step main protocol separately from 10-step ablations.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e06",
+        "e09",
+        "e10",
+        "e12"
+      ]
+    },
+    {
+      "text": "Resolve beta, noise-level distribution, KL formulation/coefficient, LoRA target modules, metric preprocessing, seeds and precise split membership. Algorithm 1 omits the reported extreme-candidate filtering and KL term.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e22"
+      ]
+    },
+    {
+      "text": "Table 7 uses H for prediction horizon, whereas Section 3.1 uses H for history and Section 3.3 uses F for branch chunks; their mapping is not explicit. Distinguish the evolving EMA reference from Appendix A’s fixed reference.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e21",
+        "e07"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Neural world simulators",
+        "Training optimization & distillation"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "d1de6f51fc76eb8c6c33fd12ec78c87c26f138d7150081545496661b689f89da"
+    },
+    "reasoning": {
+      "text": "The foundational-work, neural-simulator and training-optimization placement fits. PersistWorld updates a visual simulator conditioned on externally supplied actions. It neither jointly predicts actions and video nor extracts actions through inverse dynamics. The recorded architecture/prediction quadrant “Not applicable” therefore fits this contribution; it is not an unverified One Model assignment.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e15"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does randomized prefix training improve late-horizon foreground fidelity once sample-generation cost and seed variability are controlled?",
+    "Can improved policy ordering coexist with harmful simulator optimism when synthetic trajectories are used for training?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block and arXiv margin",
+      "detail": "Exact title, four authors, Czech Technical University affiliation, and arXiv:2603.25685v2 dated 4 September 2026 are visible."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 2 top and caption; p. 6, Section 3.1 Model overview",
+      "detail": "Separate robot-policy actions condition the world model; H=6 history latents, past poses and L=5 future seven-dimensional EEF targets produce three-view frames fed back into history."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 3.3 S1–S4; p. 38, Algorithm 1 lines 3–17, 30–40",
+      "detail": "A replicated initial latent seeds a random 0–9-clip prefix; 16 candidates use private histories and F continuation chunks; LoRA/action-encoder updates follow reward ranking."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Equation 1; p. 8, Equation 2 and following paragraph; p. 20, Equations 10–13; p. 38, Algorithm 1 lines 31–37",
+      "detail": "Predictor branches mix reference/current outputs; reward-weighted errors target generated clean latents after forward noising. The prose also interprets the beta-to-zero limit."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 3.4 Equation 3; p. 10, Equations 4–7; p. 11, reward weights",
+      "detail": "Metrics average over frames/views; negative LPIPS plus SSIM plus scaled PSNR forms the reward. Group z-scores are clipped and rescaled."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 4 Implementation details and Dataset",
+      "detail": "LoRA rank/alpha 64, action-encoder training, frozen other parameters, 6,000 Muon steps, learning rate 10^-4, batch 64, group 16 with top/bottom five, and eight H200 GPUs for two days are stated."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Appendix A Notation; p. 28, Tables 9–11 and Old-policy EMA schedule; p. 38, Algorithm 1 line 40",
+      "detail": "Appendix A says the reference never updates; the algorithm updates it by EMA. Table 10’s default rises to 0.5 by step 500; Table 9 marks KL as used. Learning-policy EMA is separately ablated."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 34, Appendix E.1 Inference Details",
+      "detail": "Euler sampling uses 50 steps without classifier-free guidance."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Section 4 rollout protocol and improvement percentages; p. 12, Table 1, all rows and caption",
+      "detail": "Table 1 contains camera-specific averages and distinguishes imported (*) from reproduced (dagger) baselines. The protocol says 14×5=70 frames, approximately 11 seconds, at 5 Hz."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Object- and Robot-Centric Evaluation; p. 14, Table 2, all camera/mask columns",
+      "detail": "RoboEngine masks isolate objects and robot pixels. All listed masked metrics improve over reproduced Ctrl-World."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Human Preference Study; p. 13, Figure 6; p. 31, Appendix D Study design and UI Design",
+      "detail": "The source reports 174 versus 43 votes, about 80% preference, eight in-house expert users, video self-selection, randomized placement and moderate inter-rater agreement."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Appendix B protocol and Table 4; p. 26, Combined reward paragraph",
+      "detail": "Ablations use 10-step validation rollouts and equal gradient-update counts. Individual rewards win their corresponding metrics; combined reward trades among them."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Appendix B protocol; p. 26, Table 5 and Prefix sampling strategy paragraph",
+      "detail": "Table 5 compares fixed 3/6, curriculum and random 0–9/0–4 prefixes. Random 0–9 is worse than fixed 3 in several columns despite the accompanying superiority claim."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF pp. 26–28, Tables 6–11 and corresponding Appendix B paragraphs",
+      "detail": "The source ablates group size/filtering, horizon, camera weighting, KL and reference/learning-policy EMAs; alternate filtering improves metrics over the selected default."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 29, Figure 7, task definitions and Table 12; p. 30, protocol and Figure 8",
+      "detail": "Banana placement, block placement and marker rotation use pi_0, pi_0-FAST and GR00T N1.5. Five real and eleven model rollouts per combination yield ordered partial-progress averages; Figure 8 reports correlation/MMRV and optimism."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 35, Generalization beyond DROID; p. 36, Table 14",
+      "detail": "SVD is adapted for 100k steps to Bridge and RT-1 before post-training. Table 14 gives 10-interaction metrics; IRASim rows contain only imported PSNR, with other metrics absent."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Comparison to Self-Forcing style baseline; p. 36, same comparison and Figure 13",
+      "detail": "The SF-style control regresses ground-truth latents from generated histories. Ten-interaction camera metrics and weighted reward versus gradient steps are reported."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF pp. 36–37, Policy Improvement and Figure 14",
+      "detail": "The authors full-finetune pi_0 on 50 rollouts from each world model and test four block commands with five real trials per block; progression is 0.350/0.558/0.667."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Limitations and Future Work; p. 14, Figure 5; p. 34, Figure 11",
+      "detail": "Candidate-generation overhead and absent explicit physical/geometrical constraints are acknowledged. Wrist/external temporal plots show both models deteriorating."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Appendix A.1 Equations 8–13; p. 23, Theorem 1; p. 24, Algebraic steps 3–4",
+      "detail": "Affine EDM preconditioning supports branch construction. The ideal minimizer assumes unlimited data/capacity and an exact reference posterior mean."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 6, H and L definitions; p. 9, S2 definition of F; p. 27, Table 7 and Prediction horizon paragraph; p. 38, Algorithm 1 Require block",
+      "detail": "Main-text H denotes history, L generated frames, and F branch chunks. Table 7 instead labels its 1/3 horizon H as generated frames; the correspondence is unspecified."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Implementation details; pp. 27–28, KL discussion and Table 9; p. 38, Algorithm 1",
+      "detail": "Beta/noise distribution remain symbolic; concrete KL formulation/coefficient, full preprocessing/split/seed configuration and LoRA targets are omitted. Algorithm 1 loops over all candidates without the stated extreme filtering."
+    },
+    {
+      "id": "e23",
+      "sourceId": "primary",
+      "location": "PDF pp. 34–35, Ours vs. WorldCompass discussion; p. 35, Table 13",
+      "detail": "HPSv3 substitution uses “Robot arm <task>”. Table 13 lists ours with top-k=2 and 41.3 versus 129.2 training seconds per iteration alongside visual metrics."
+    },
+    {
+      "id": "e24",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Figure 4 axes and caption",
+      "detail": "Paired metric histograms report about 98% improved samples; the LPIPS panel plots negative delta LPIPS, so positive values favor PersistWorld."
+    },
+    {
+      "id": "e25",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 2 S4 reference/current arrows; p. 7, Equation 1; p. 8, Equation 2; p. 20, Equations 10–13; p. 38, Algorithm 1 lines 35–37",
+      "detail": "Figure 2 assigns reference coefficients 1−β to the positive predictor and 1+β to the negative predictor. Equation 1 and Equations 10–11 use those same combinations. Algorithm 1 line 35 prints (1−β) times reference plus β times current; line 36 prints (1+β) times reference minus β times current. Line 37 adds the two squared errors with weights r and 1−r."
+    }
+  ]
+}
