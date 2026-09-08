@@ -1,0 +1,486 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.00725",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T10:23:12.726Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2608.00725",
+      "title": "SelfWAM: A Self-Grounded Unified World Action Model for Fast Robot Control",
+      "kind": "pdf",
+      "sha256": "33f6920f515fafac2cb471dd0593d0483cb0e76eb433cd8f9c927906db98a263",
+      "wordCount": 7242,
+      "accessedAt": "2026-09-07T13:54:38.502551+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 SelfWAM: formulation, architecture, information flow, masks, training and inference",
+      "4 Experiments: implementation, benchmarks, policy, future prediction, ablation and efficiency",
+      "5 Conclusion and Acknowledgements",
+      "Appendix A: Implementation and Reproducibility Details",
+      "Appendix B: Extended RoboTwin Evaluation",
+      "Appendix C: Action Sensitivity and Controlled Rollouts",
+      "Appendix D: Consistency of the Clean and Noisy Action Paths",
+      "Appendix E: Real Robot Experimental Details",
+      "Appendix F: Limitations and Future Work",
+      "References"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "All five supplied text chunks and all 14 PDF pages were read; the extraction-only figure omission was resolved by inspecting the original PDF pages and six final crops.",
+      "Identity/version note: the title and five authors match the catalog; the inspected source is arXiv:2608.00725v1, dated 1 August 2026. No different revision was supplied or substituted.",
+      "No external project, code, checkpoints or separate supplements were inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 3)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 6)",
+      "Figure 4 (p. 7)",
+      "Figure S1 (p. 9)",
+      "Figure S2 (p. 11)",
+      "Figure S3 (p. 12)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 5)",
+      "Tables 2–3 (p. 6)",
+      "Tables 4–5 (p. 7)",
+      "Table S1 (p. 8)",
+      "Tables S2–S3 (p. 9)",
+      "Table S4 (p. 10)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "SelfWAM co-trains a direct robot policy with action-conditioned RGB and robot-mask prediction. Its two-expert architecture isolates action denoising from clean demonstration targets, while future-video queries can access those targets. At deployment it generates actions without future video. The evidence supports stronger action sensitivity and modest aggregate policy gains, with important limits on held-out video generalization and physical-trial scale.",
+  "readingTimeMinutes": 8,
+  "problem": {
+    "text": "Observation-conditioned future prediction can learn likely task progression without distinguishing which action caused it. SelfWAM asks whether conditioning visual learning on demonstrated actions, and emphasizing the visible robot body, improves the policy while preserving action-only execution.",
+    "kind": "source",
+    "evidenceIds": [
+      "problem"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A directed clean-action route grounds future visual prediction while preventing clean targets and future observations from entering action-prediction queries.",
+      "kind": "source",
+      "evidenceIds": [
+        "attention"
+      ]
+    },
+    {
+      "text": "Prompt-selected robot self-mask prediction adds body-motion supervision through the existing video backbone; it does not introduce another expert or a deployment segmentation requirement.",
+      "kind": "source",
+      "evidenceIds": [
+        "masks",
+        "physical-data"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current three-view RGB observation, language instruction and proprioception",
+      "Training: demonstrated action chunk and aligned future RGB/self-mask targets",
+      "Optional visual rollout: supplied candidate action and output-domain prompt"
+    ],
+    "outputs": [
+      "32-step action chunk for direct control",
+      "During co-training or optional rollout: eight-frame future RGB or self-mask sequence"
+    ],
+    "steps": [
+      {
+        "name": "Encode context and align targets",
+        "detail": "Three camera views form a 384×320 T-shaped composite. A 32-action window is aligned with 32 future observations, temporally downsampled to eight visual targets; RGB and masks use matching offsets. WAN2.2-5B supplies the video backbone.",
+        "evidenceIds": [
+          "problem",
+          "configuration"
+        ]
+      },
+      {
+        "name": "Separate modality computation",
+        "detail": "Video and action experts have their own projections and feed-forward layers around mixed attention. Appendix A qualifies the main text’s broad initialization statement: matching weights are copied, mismatched axes interpolated, and action-specific layers without video counterparts initialized separately.",
+        "evidenceIds": [
+          "architecture",
+          "configuration"
+        ]
+      },
+      {
+        "name": "Expose the demonstrated action selectively",
+        "detail": "A second, uncorrupted action copy uses the same tokenizer and action blocks, denoising timestep zero and aligned positions. It conditions future visual queries but cannot be read by noisy action queries. It is a condition, not a second action target.",
+        "evidenceIds": [
+          "attention"
+        ]
+      },
+      {
+        "name": "Select the visual supervision domain",
+        "detail": "RGB and binary robot-mask instances retain RGB context and the same action condition. Changing the prompt selects the future target. Mask instances omit noisy-action tokens and action loss; simulation provides exact masks, while physical masks come from offline RobotSeg.",
+        "evidenceIds": [
+          "masks",
+          "sim-protocol",
+          "physical-data"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Flow matching combines action loss with a 9:1 RGB/self-mask mixture, using unit action and visual weights. Appendix A describes sampling either instance type; action supervision occurs only on RGB instances. Training runs five epochs with AdamW at 1e-4, global batch 1024 across 64 A800 GPUs, taking approximately 30 hours.",
+        "kind": "source",
+        "evidenceIds": [
+          "masks",
+          "objective",
+          "configuration"
+        ]
+      },
+      {
+        "text": "Simulation uses 27,500 demonstrations. Physical training uses 17,133 episodes and 9,461,919 transitions; an episode-level seed-42 split reserves 174 episodes and 95,500 transitions for validation. Compared physical methods use the same training split.",
+        "kind": "source",
+        "evidenceIds": [
+          "sim-protocol",
+          "physical-data"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Encode current context once, denoise 32 actions in ten steps, execute the first 24 and replan. Clean-action and future-visual tokens are absent. Physical actions contain six joint targets and one gripper command per arm; low-level execution is 30 Hz.",
+        "kind": "source",
+        "evidenceIds": [
+          "objective",
+          "configuration",
+          "physical-data"
+        ]
+      },
+      {
+        "text": "Optional rollout inserts a policy sample or candidate action into clean slots and generates RGB or masks. The reported controller does not rank candidates with imagined futures or recover actions through inverse dynamics.",
+        "kind": "source",
+        "evidenceIds": [
+          "attention",
+          "objective"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "Q_{\\widetilde{A}}\\to\\{O,\\widetilde{A}\\},\\qquad Q_{\\widetilde{V}}\\to\\{O,\\widetilde{V},A\\},\\qquad Q_A\\to\\{O,A\\}.",
+        "explanation": "Equation 6: O is current-context tokens, A clean-action tokens, and the tilded A and V are noisy action and visual tokens. Q denotes a query group; the arrow lists groups it may attend to. This is an information-access rule, not an action-execution arrow.",
+        "evidenceIds": [
+          "attention"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}=\\lambda_{\\mathrm{act}}\\mathcal{L}_{\\mathrm{act}}+\\lambda_{\\mathrm{video}}\\mathcal{L}_{\\mathrm{rgb/mask}}.",
+        "explanation": "Equation 7: action denoising loss and the mixture expectation of RGB/mask video denoising losses receive weights lambda_act and lambda_video, both one. A mask instance adds no action loss.",
+        "evidenceIds": [
+          "objective",
+          "masks"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboTwin 2.0 multitask policy success",
+      "setting": "50 tasks; 100 rollouts per task in each clean/randomized setting; same 27,500-demonstration training dataset.",
+      "metric": "Unweighted mean task success (%)",
+      "value": "SelfWAM: 92.16 clean, 93.08 randomized, 92.62 average.",
+      "comparison": "FastWAM: 91.82, 91.86, 91.84; Motus average 87.84; GigaWorld-Policy 85.70; pi0.5 79.75; pi0 62.16.",
+      "interpretation": "Calculated gains over FastWAM are 0.34 and 1.22 percentage points, averaging 0.78. Task gains vary: randomized Open Microwave improves 41→67%, while Dump Bin Bigbin falls 98→91%.",
+      "evidenceIds": [
+        "sim-protocol",
+        "sim-results",
+        "task-breakdown"
+      ]
+    },
+    {
+      "task": "Four physical pick-and-place tasks",
+      "setting": "AgileX ALOHA; ten trials per task per method; same training split and initial-state protocol; autonomous placement success.",
+      "metric": "Task and mean success (%)",
+      "value": "SelfWAM cup/pen/mouse/ball: 100/90/100/90; mean 95.",
+      "comparison": "FastWAM: 80/90/80/90, mean 85; pi0.5: 90 on every task.",
+      "interpretation": "This is executed control, with corrective attempts allowed within an episode. The ten-point mean gain over FastWAM comes from cup and mouse tasks; only 40 trials support each method’s mean.",
+      "evidenceIds": [
+        "physical-data",
+        "physical-results",
+        "physical-protocol"
+      ]
+    },
+    {
+      "task": "Future-video reconstruction on demonstration trajectories",
+      "setting": "275 sampled offline trajectories; matched windows across their full duration; supplied demonstrated actions for SelfWAM.",
+      "metric": "LPIPS↓; PSNR↑; FVD-I3D↓",
+      "value": "0.0429; 32.79; 34.55.",
+      "comparison": "Unconditioned FastWAM: 0.0636; 29.24; 45.92.",
+      "interpretation": "All three fidelity metrics improve, but this is not a held-out video-generalization test or proof of correct counterfactual physics.",
+      "evidenceIds": [
+        "fidelity"
+      ]
+    },
+    {
+      "task": "Clean-action and self-mask component ablation",
+      "setting": "RoboTwin clean/randomized protocol; neither component, action conditioning only, then both.",
+      "metric": "Average policy success (%)",
+      "value": "Full SelfWAM: 92.62.",
+      "comparison": "FastWAM: 91.84; action conditioning without masks: 90.80.",
+      "interpretation": "Conditioning alone lowers the mean by 1.04 points; masks recover 1.82 points. The authors describe the first change as largely preserving performance. The table lacks mask-only control and uncertainty.",
+      "evidenceIds": [
+        "ablation",
+        "sim-protocol"
+      ]
+    },
+    {
+      "task": "Action sensitivity under changed conditioning actions",
+      "setting": "Fixed context and sampling noise; WorldArena feature metrics, directional masks and hold-to-demonstration interpolation.",
+      "metric": "Action Following score↑",
+      "value": "SelfWAM: 0.0184.",
+      "comparison": "FastWAM: 0.0000; without masks: 0.0181.",
+      "interpretation": "Conditioning explains most feature sensitivity. Masks slightly improve subject/background consistency but lower raw photometric consistency from 1.5168 to 1.4361. Distinct futures do not establish physical correctness.",
+      "evidenceIds": [
+        "sensitivity",
+        "perturbation",
+        "interpolation"
+      ]
+    },
+    {
+      "task": "Inference latency and memory",
+      "setting": "Single H200; fixed episode, 32 actions, ten denoising steps; four runs after warm-up; joint mode includes RGB but no masks.",
+      "metric": "Latency (ms); peak memory (GiB)",
+      "value": "SelfWAM: 323.9 action-only; 677.5 action+video; 13.959 GiB.",
+      "comparison": "FastWAM: 320.7; 668.4; 13.959. Reported unrounded relative increases: 0.97% and 1.36%.",
+      "interpretation": "Comparable action-only cost supports the deployment claim under this setup. It does not mean the neural policy runs at the physical controller’s 30 Hz command rate.",
+      "evidenceIds": [
+        "latency",
+        "physical-data"
+      ]
+    },
+    {
+      "task": "Clean/noisy action-path consistency at zero noise",
+      "setting": "Aligned action representations across Transformer layers and sampled validation windows.",
+      "metric": "Maximum NRMSE; maximum cosine distance",
+      "value": "Approximately 1e-5; 6e-11.",
+      "comparison": "Two paths receive the same unperturbed demonstrated action.",
+      "interpretation": "The diagnostic supports representation agreement at the zero-noise endpoint, not equivalent behavior for noisy actions or proof of correct robot dynamics.",
+      "evidenceIds": [
+        "path-consistency"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors explicitly exclude contact, force and occluded interactions from the modeled targets.",
+      "kind": "source",
+      "evidenceIds": [
+        "limitations"
+      ]
+    },
+    {
+      "text": "Policy tables provide no confidence intervals or training-seed variation. Forty physical trials per method and four placement tasks cannot establish broad deployment robustness.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "sim-results",
+        "ablation",
+        "physical-results"
+      ]
+    },
+    {
+      "text": "Directional captions use translation-axis wording, while the detailed main protocol specifies joint-space offsets and image-plane direction labels. Exact joint selection remains unclear. The qualitative panels support directional response, not a quantified dynamics-error bound.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "perturbation"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required ingredients include WAN2.2-5B, paired trajectories and masks, the directed attention mask, interpolation initialization, and synchronized multi-view sampling. Table S2 specifies Ubuntu 22.04, Python 3.10.12, PyTorch 2.7.1, CUDA 12.8 and 1 TB system memory; these are reported settings, not independently tested requirements.",
+      "kind": "source",
+      "evidenceIds": [
+        "configuration",
+        "attention",
+        "masks"
+      ]
+    },
+    {
+      "text": "The source leaves exact eight-frame indices, full action-expert dimensions, frozen-module choices and training seeds unspecified. Physical placement-region bounds and an explicit trial time cap are absent. These gaps require resolution before a faithful replication.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "configuration",
+        "physical-protocol"
+      ]
+    },
+    {
+      "text": "Proposed checks should test action-query independence from clean targets and separate mask supervision from changes in effective action-loss exposure. Match initialization, sampling budget, seeds and evaluation contexts.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "attention",
+        "masks",
+        "ablation"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Dual-system label is supported at the modality-expert level: distinct video/action projections and feed-forward networks interact through directed mixed attention. The authors’ word unified does not imply one shared Transformer. Other mechanisms and Outside quadrants fit direct action denoising aided by training-time action-conditioned world prediction, without mandatory joint future/action generation or inverse-dynamics extraction at deployment.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "attention",
+        "objective"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Generalization & action alignment",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "4b44ec6c1f90a44f65bf23e38fb15391c61558e7617362b06008e916d2f709c4"
+    }
+  },
+  "discussionQuestions": [
+    "Would mask supervision still improve success after matching the number of action-supervised updates across variants?",
+    "Does action sensitivity predict accurate held-out contact outcomes, rather than merely different-looking futures?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and arXiv margin stamp",
+      "detail": "The title matches the supplied identity. Authors are Bikang Pan, Fan Liu, Haotao Lu, Jingya Wang and Ye Shi; Pan and Liu contributed equally. Affiliations are ShanghaiTech University and InstAdapt. The artifact identifies arXiv:2608.00725v1, 1 August 2026."
+    },
+    {
+      "id": "problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Introduction and Section 3, Problem Formulation, Eqs. (1)–(5)",
+      "detail": "The policy conditions on multi-view RGB, proprioception and instruction; the world model additionally conditions on the demonstrated action. The motivation is to distinguish action-specific consequences from generic task progression."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 1 and Architecture; p. 4, Figure 2, left panel",
+      "detail": "A pretrained video backbone and lightweight action expert retain separate projections and feed-forward layers, exchanging permitted information through mixed attention. Video generation is auxiliary during policy training and optional during rollout."
+    },
+    {
+      "id": "attention",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 attention matrices, Information Flow and Eq. (6)",
+      "detail": "Rows are query groups and columns are keys. Noisy action queries access current context and noisy actions only. Future-video queries access context, future video and clean actions. Clean actions access context and clean actions; clean tokens use denoising timestep zero and matching temporal positions."
+    },
+    {
+      "id": "masks",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Robot Mask Prediction; p. 8, Appendix A, Training Instance Construction and Table S1",
+      "detail": "RGB and self-mask targets share the video backbone, context, clean-action condition, noise schedule and positions. The output prompt changes the target domain. Only RGB instances include noisy actions and action loss; mask instances have only visual loss. Appendix A describes sampling either instance type at 9:1."
+    },
+    {
+      "id": "objective",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Training and Inference, Eq. (7)",
+      "detail": "The loss combines action flow matching and a mixture expectation of RGB/mask video flow matching. Action and visual weights are both one. Deployment omits clean-action and future-video tokens."
+    },
+    {
+      "id": "configuration",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Implementation Details; p. 8, Appendix A, Temporal Sampling and Configuration; p. 9, Figure S1 and Table S2",
+      "detail": "WAN2.2-5B initializes the video backbone; corresponding action weights are copied or linearly interpolated with input-width scaling, while unmatched action-specific layers are separately initialized. Three views form a 384×320 T-shaped composite. Training uses 32 actions, eight sampled future frames, five epochs, AdamW at 1e-4, batch 1024, 64 A800 GPUs and approximately 30 hours. Table S2 gives software versions and deployment settings."
+    },
+    {
+      "id": "sim-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 5, RoboTwin 2.0; pp. 8–9, Appendix A, Datasets and Splits; p. 9, Appendix B, Evaluation Protocol",
+      "detail": "All methods use 2,500 clean and 25,000 randomized demonstrations. Evaluation covers 50 tasks with 100 rollouts per task per setting, using simulator success and unweighted task means. Simulator masks provide exact per-camera robot segmentation."
+    },
+    {
+      "id": "sim-results",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 1, all rows and Clean/Random/Average columns",
+      "detail": "SelfWAM scores 92.16/93.08/92.62%; FastWAM 91.82/91.86/91.84%; Motus 88.66/87.02/87.84%; GigaWorld-Policy 86.36/85.04/85.70%; pi0.5 82.74/76.76/79.75%; pi0 65.92/58.40/62.16%. No uncertainty intervals are shown."
+    },
+    {
+      "id": "physical-data",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Appendix A, Datasets and Splits; p. 12, Appendix E, Platform and Data and RobotSeg Mask Generation",
+      "detail": "The physical dataset contains 17,307 episodes and 9,557,419 transitions. Seed-42 episode splitting gives 17,133 training episodes/9,461,919 transitions and 174 validation episodes/95,500 transitions, excluded from gradients. ALOHA uses 14-dimensional joint/gripper actions and matching proprioception at 30 Hz. RobotSeg generates offline whole-robot targets independently per camera; it is absent at deployment."
+    },
+    {
+      "id": "physical-results",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 3, Table 2 and Real-robot evaluation",
+      "detail": "For cup/pen/mouse/ball tasks, SelfWAM scores 100/90/100/90%, FastWAM 80/90/80/90%, and pi0.5 90/90/90/90%. Averages are 95/85/90%. Each method has ten trials per task; success requires grasping and placement without human intervention."
+    },
+    {
+      "id": "physical-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix E, Real-Robot Evaluation Details",
+      "detail": "Each task uses a fixed instruction. Objects and targets are randomly positioned within predefined regions. Regrasping and corrective attempts are allowed within an episode; completion or inability to continue without human intervention ends the episode."
+    },
+    {
+      "id": "fidelity",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 3 and Future prediction evaluation; p. 9, Appendices A–B, video evaluation scope and protocol",
+      "detail": "On 275 trajectories sampled from the 27,500-demonstration offline dataset, SelfWAM/FastWAM obtain LPIPS 0.0429/0.0636, PSNR 32.79/29.24 and FVD-I3D 34.55/45.92. Matched windows span each trajectory. Appendix A explicitly excludes interpreting this as held-out video generalization."
+    },
+    {
+      "id": "ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 4, component flags and success columns",
+      "detail": "FastWAM has neither component and averages 91.84%; clean-action conditioning without masks scores 90.80% in both settings; the full model scores 92.16% clean, 93.08% randomized and 92.62% average. A mask-only variant is absent."
+    },
+    {
+      "id": "latency",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Inference Efficiency and Table 5",
+      "detail": "Single-H200 timing uses a fixed episode, 32-action horizon and ten denoising steps, averaged over four warmed-up runs. Action-only latency is 320.7/323.9 ms for FastWAM/SelfWAM; action plus RGB is 668.4/677.5 ms. Peak memory is 13.959 GiB for both. Relative changes of 0.97% and 1.36% use unrounded timings; joint timing excludes masks."
+    },
+    {
+      "id": "perturbation",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Directional action perturbation; p. 7, Figure 4 and caption; p. 11, Appendix C, Directional Action Perturbation",
+      "detail": "The main protocol specifies joint-space offsets ramping from zero to ±0.10 rad over eight steps and then held. Directional names follow high-camera image-plane displacement. Figure 4 and Appendix C use translation-axis wording. Context, instruction and sampling noise are fixed; conditioned masks qualitatively follow simulator motion trends."
+    },
+    {
+      "id": "sensitivity",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table S3; p. 11, Appendix C, WorldArena Metrics, Eqs. (S1)–(S4)",
+      "detail": "Action Following is pairwise dissimilarity of global CLIP features. FastWAM/no-mask/full scores are 0.0000/0.0181/0.0184. Subject consistency is 0.9138/0.9321/0.9326, background 0.9309/0.9380/0.9385 and photometric 0.8126/1.5168/1.4361. Sensitivity is not physical correctness; raw photometric scores need not lie in [0,1], and static videos can appear consistent."
+    },
+    {
+      "id": "interpolation",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Appendix C, Continuous Action Interpolation, Eq. (S5) and Figure S2",
+      "detail": "The action is interpolated between hold and demonstration at coefficients 0, 0.25, 0.75 and 1 with fixed context and noise. Conditioned RGB outcomes progress toward the demonstration, whereas the unconditioned baseline is nearly invariant."
+    },
+    {
+      "id": "path-consistency",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Appendix D, Figure S3 and accompanying definitions/results",
+      "detail": "At zero perturbation, layerwise clean/noisy representations are compared by NRMSE and cosine distance. Text reports approximate maxima 1e-5 and 6e-11 over sampled validation windows and layers; curves show means and one standard deviation. This checks unperturbed representation consistency."
+    },
+    {
+      "id": "task-breakdown",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table S4, Open Microwave, Dump Bin Bigbin and Average rows",
+      "detail": "Randomized Open Microwave success is 67% for SelfWAM versus 41% for FastWAM; randomized Dump Bin Bigbin is 91% versus 98%. Task-level gains are not uniform despite the improved mean."
+    },
+    {
+      "id": "limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix F, Limitations and Future Work",
+      "detail": "The model does not explicitly represent contact, force or interactions hidden by occlusion; the authors propose adding such supervision."
+    }
+  ]
+}
