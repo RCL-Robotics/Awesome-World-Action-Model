@@ -1,0 +1,276 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.14048",
+  "shortTitle": "WAM4D",
+  "thesis": "WAM4D uses future-depth supervision to train causal video-action features, then removes the geometry branch for efficient control, with gains that depend on the evaluation setting.",
+  "standfirst": "A robot can generate a plausible video while still misunderstanding the space around its gripper. WAM4D addresses that gap by making history-video features support future-depth prediction during training. Learnable spatial registers provide the readout, and a pretrained geometric head supplies an adaptable prior. The critical detail is visibility: the action predictor cannot read those registers or future-video tokens. This permits deployment with real observations and action denoising alone. The paper's evidence supports a useful geometry-training mechanism, but its comparisons are mixed: clean simulation success is strong, randomized success is lower than leading baselines, and the physical study reports sub-actions rather than complete-task success.",
+  "evidenceIds": [
+    "e02",
+    "e04",
+    "e05",
+    "e08",
+    "e11",
+    "e13",
+    "e16"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2606.14048/architecture.png",
+      "width": 1308,
+      "height": 645,
+      "sourceSha256": "35ab949057809b5e150f6b2c6dff3d2f559bfc61b29dfa371c07fa1894d02b6f",
+      "sourceUrl": "https://arxiv.org/pdf/2606.14048#page=4",
+      "crop": [
+        0.115,
+        0.08,
+        0.885,
+        0.373
+      ],
+      "alt": "A video-action backbone sends intermediate features to four depth extraction blocks. Two query/key matrices show allowed attention among history video, future video, actions and depth registers.",
+      "caption": "Spatial registers read causal video features while remaining outside the action predictor's inputs.",
+      "readingGuide": "Start with the left tower: history RGB and actions feed the video-action backbone, which produces video and action predictions. The blue depth tower reads intermediate features and sends four feature sets into a geometric head. Its arrows carry features toward the auxiliary readout, not depth predictions back into the policy. Then read the matrices by query rows and key columns: gray cells mark allowed visibility. The action row can see historical video and actions but not future video; the depth rows can see historical video and registers, but neither action columns nor future-video columns. The actual default taps are layers 12/14/16/18, despite the schematic block labels.",
+      "takeaway": "The geometry branch supervises information already available to the causal policy. Eq. (7), Section 3.3 and the page-7 visibility table corroborate the illustrated separation. As a reader inference, the mask explains why deleting the auxiliary readout can preserve the action computation after the shared features have been trained.",
+      "caution": "This is an attention/data-flow diagram, not evidence that generated depth controls the robot. The final geometric head is trainable according to the objective and head ablation; the absence of a flame icon on that box does not imply it is frozen.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06",
+        "e07",
+        "e16"
+      ]
+    },
+    {
+      "id": "training-inference",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 6,
+      "asset": "report-assets/2606.14048/training-inference.png",
+      "width": 1307,
+      "height": 304,
+      "sourceSha256": "35ab949057809b5e150f6b2c6dff3d2f559bfc61b29dfa371c07fa1894d02b6f",
+      "sourceUrl": "https://arxiv.org/pdf/2606.14048#page=6",
+      "crop": [
+        0.116,
+        0.081,
+        0.885,
+        0.219
+      ],
+      "alt": "Training combines video-action losses with a spatial-register depth branch; deployment contains an observation queue, action history, a backbone KV cache and an execution feedback loop.",
+      "caption": "The training objectives are larger than the computation retained for deployment.",
+      "readingGuide": "Read the two halves as different operating modes. On the left, striped future RGB/action tokens are prediction states for the flow objectives, while the depth blocks and geometric head contribute the future-depth loss. The two loss groups are optimized together, with both weighting coefficients set to one. On the right, the geometric head and registers have disappeared. Real observations and executed-action history fill the backbone's cache, which supports action prediction. Algorithm 1 specifies the loop behind the arrows: encode the observation queue, replace the video cache, update the action cache, denoise a chunk, execute it and collect observations every four actions.",
+      "takeaway": "The default controller predicts 32 actions per chunk and uses fresh observations from execution. A separate analysis mode can keep the depth branch and generate RGB-D rollouts, but the paper does not use those imagined point clouds as the default controller's feedback. This distinction is essential when interpreting its 4D visualizations.",
+      "caution": "Removing geometry decoding does not make the whole control loop instantaneous. Table 9 still reports 525.43 ms mean action-generation latency on one A800; queue limits, capture delays and complete sensor-to-actuator timing are not specified by this diagram or algorithm.",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e07",
+        "e08",
+        "e12",
+        "e17"
+      ]
+    },
+    {
+      "id": "simulation-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 8,
+      "asset": "report-assets/2606.14048/simulation-results.png",
+      "width": 1319,
+      "height": 493,
+      "sourceSha256": "35ab949057809b5e150f6b2c6dff3d2f559bfc61b29dfa371c07fa1894d02b6f",
+      "sourceUrl": "https://arxiv.org/pdf/2606.14048#page=8",
+      "crop": [
+        0.12,
+        0.12,
+        0.508,
+        0.232
+      ],
+      "alt": "Six methods are compared on clean, randomized and average RoboTwin success, action-generation latency in milliseconds, and peak backbone memory in GiB.",
+      "caption": "Clean success, randomized success and inference cost identify different winners.",
+      "readingGuide": "Read Clean and Rand. separately before consulting Avg.; these are success percentages across the 50-task suite. WAM4D has the strongest clean entry, while Fast-WAM leads the randomized column and LingBot-VA leads the average. Move right to compare latency and memory, whose lower values are preferable. The timing setup on page 15 uses one A800 80GB GPU and ten action-denoising steps. LingBot-VA and Motus also perform five video-denoising steps, whereas WAM4D and Fast-WAM use action-only inference. The VRAM figure is peak allocated video-action backbone memory, rather than a full accounting of training or robot-system memory.",
+      "takeaway": "WAM4D reports 93.8% clean, 89.9% randomized and 91.8% average success. Its 9.71 GiB memory is below LingBot-VA's 12.97 and Fast-WAM's 11.55 GiB. Its 525.43 ms mean latency falls between those methods: faster than LingBot-VA at 843.57 ms and slower than Fast-WAM at 425.53 ms.",
+      "caution": "Table 3 imports per-task baseline results and has small aggregate discrepancies: LingBot-VA randomized is 91.50% there versus 91.6% here, and Motus clean is 88.52% versus 88.7%. Preserve the table-specific values; do not claim every baseline was retrained under identical conditions.",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "id": "robot-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 8,
+      "asset": "report-assets/2606.14048/robot-results.png",
+      "width": 1258,
+      "height": 471,
+      "sourceSha256": "35ab949057809b5e150f6b2c6dff3d2f559bfc61b29dfa371c07fa1894d02b6f",
+      "sourceUrl": "https://arxiv.org/pdf/2606.14048#page=8",
+      "crop": [
+        0.516,
+        0.12,
+        0.886,
+        0.227
+      ],
+      "alt": "Real-robot sub-action success fractions for plate lifting, bottle grasping, three LEGO sorting steps and two pen manipulation steps, with four methods and reported averages.",
+      "caption": "The physical result is an average over displayed intermediate goals.",
+      "readingGuide": "Each entry is a success fraction from ten physical rollouts per method per task. The seven displayed columns are plate S1, bottle S1, LEGO/Blocks S1–S3 and pen S1–S2. Table 4 defines plate S1 as lifting the plate, bottle S1 as grasping a bottle, each LEGO step as placing another brick in its matching box, and the pen steps as grasping then removing the cap. Read a task's columns in sequence: if one step fails, later steps are not attempted and receive zero. The Avg. column averages the displayed sub-action outcomes and should not be read as the fraction of four complete tasks solved.",
+      "takeaway": "WAM4D's reported average is 0.90, versus LingBot-VA's 0.84 and Fast-WAM's 0.80. Its third LEGO step reaches 0.8 versus LingBot-VA's 0.4, a concrete long-horizon difference in this small study. WAM4D is not better on every column: its plate and bottle S1 values are both 0.9, below LingBot-VA's 1.0.",
+      "caution": "Table 4 and Figure 4 include Bottle S2, placing the bottle into a tray, but this quantitative table omits it. Its value and complete bottle-task success cannot be reconstructed. Ten rollouts also give coarse 0.1 increments without reported confidence intervals.",
+      "evidenceIds": [
+        "e10",
+        "e13"
+      ]
+    },
+    {
+      "id": "register-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 7",
+      "page": 12,
+      "asset": "report-assets/2606.14048/register-ablation.png",
+      "width": 1630,
+      "height": 248,
+      "sourceSha256": "35ab949057809b5e150f6b2c6dff3d2f559bfc61b29dfa371c07fa1894d02b6f",
+      "sourceUrl": "https://arxiv.org/pdf/2606.14048#page=12",
+      "crop": [
+        0.12,
+        0.12,
+        0.887,
+        0.21
+      ],
+      "alt": "Rows compare no depth, a VAE depth head and shallow, middle, deep, uniform or bidirectional registers; columns give insertion layers, clean success, video metrics and geometry metrics.",
+      "caption": "Register placement trades image quality against control and geometric readout quality.",
+      "readingGuide": "These rows belong to the ten-task ablation setting with the depth head fixed, not the full-suite headline result. First compare shallow, middle and deep registers to isolate placement among unidirectional designs. Read the metric arrows: smaller FVD, LPIPS, AbsRel and CD1 are preferred; larger PSNR, threshold accuracy and overlap scores are preferred. Middle registers at layers 12/14/16/18 achieve stronger control and geometry than shallow registers, even though shallow has better selected RGB scores. To examine visibility, compare Uniform against Bidirectional, which both use 6/12/18/24. Comparing bidirectional directly against Middle also changes placement, so it cannot isolate visibility by itself.",
+      "takeaway": "Middle registers yield 75.2% clean success and 0.053 AbsRel, versus shallow's 72.5% and 0.058. Bidirectional reaches 76.6% success but 0.074 AbsRel. The authors choose middle unidirectional registers as the practical compromise, keeping register features out of the main policy path; these results do not make RGB quality a reliable proxy for control.",
+      "caution": "The VAE-head row lists layers 27–30, while the adjacent implementation prose says its readout is from layer 26; this remains unresolved. Bidirectional and no-depth comparisons also change parameter counts in Table 6. No repeated-seed uncertainty is reported.",
+      "evidenceIds": [
+        "e05",
+        "e09",
+        "e14",
+        "e15",
+        "e19"
+      ]
+    },
+    {
+      "id": "head-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 8",
+      "page": 13,
+      "asset": "report-assets/2606.14048/head-ablation.png",
+      "width": 1619,
+      "height": 217,
+      "sourceSha256": "35ab949057809b5e150f6b2c6dff3d2f559bfc61b29dfa371c07fa1894d02b6f",
+      "sourceUrl": "https://arxiv.org/pdf/2606.14048#page=13",
+      "crop": [
+        0.12,
+        0.105,
+        0.882,
+        0.184
+      ],
+      "alt": "Four geometric-head settings—no depth, trainable random, trainable pretrained and fixed pretrained—are compared on clean success and video, depth and point-cloud metrics.",
+      "caption": "An adaptable pretrained head gives the clearest evidence for the proposed geometry-training mechanism.",
+      "readingGuide": "Hold the default middle-register interface in mind, then compare the two trainable rows: they differ in whether the geometric head starts from random or pretrained weights. Next compare trainable pretrained with fixed pretrained to examine adaptation. No depth supplies the original policy baseline but lacks a depth branch, so its geometry entries are intentionally absent. Clean SR is control success; AbsRel and CD1 evaluate reconstruction error, while FVD concerns generated videos. Table 6 on page 11 supplies the complementary randomized results and per-task counts for the same ten-task runs. These ablations use the shorter 10k-step budget described on page 7.",
+      "takeaway": "Trainable pretrained reaches 80.1% clean success, compared with 75.2% for fixed pretrained, 70.0% for trainable random and 71.7% without depth. Its AbsRel is 0.049 and FVD 164.5. The 8.4-percentage-point gain over no depth supports the complete training intervention on this subset; the random-head result shows depth supervision alone is insufficient here.",
+      "caution": "This is a ten-task, shorter-budget experiment, not the 50-task result. No-depth also removes parameters, whereas the two trainable-head rows provide a closer initialization comparison. Agreement among geometry and success metrics does not independently prove a causal contact-reasoning mechanism.",
+      "evidenceIds": [
+        "e09",
+        "e14",
+        "e16",
+        "e19"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Make history features answer a question about future geometry",
+      "kind": "source",
+      "text": "Begin with the information available at a decision: language, historical camera images and executed actions. During training, the backbone also receives noisy future video and action states so it can learn their flow targets. WAM4D's addition is a set of learnable queries arranged on the camera mosaic. The same spatial grid is copied across future depth timesteps; time and image coordinates are encoded through RoPE. Each register can read itself, other registers and historical video features. Four intermediate register readouts are adapted to the pretrained depth head's input space. The depth loss therefore asks the history representation to support future-depth reconstruction. Backpropagation updates those shared features even though the policy is prohibited from reading the depth tokens. This is the paper's concrete route for transferring geometric priors.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06",
+        "e07"
+      ]
+    },
+    {
+      "heading": "Use the visibility rules to understand what can be deleted",
+      "kind": "analysis",
+      "text": "A reader can trace the deployment simplification directly from the mask. Future action queries need history-video keys, history-action keys and their own noisy action chunk. They do not need future-video keys or register keys. The auxiliary readout can consequently train the shared representation without becoming an action-time dependency. This is a structural deduction from the specified attention pattern, not merely an inference from joint training. At deployment, Algorithm 1 encodes real observations into the cache, supplies executed actions, generates a new chunk and refreshes observations during execution. By contrast, the RGB-D examples retain the depth branch and roll forward generated futures. Their reconstruction quality and occlusion failures concern that analysis path; neither constitutes evidence that a geometric planner selects the robot's executed actions.",
+      "evidenceIds": [
+        "e05",
+        "e08",
+        "e17",
+        "e18"
+      ]
+    },
+    {
+      "heading": "Ask whether geometry training improves the control decision",
+      "kind": "analysis",
+      "text": "The decisive comparison is not whether the depth head can draw a recognizable scene. It is whether changing that training signal improves executed control under a stated protocol. Table 8 supplies a useful sequence: random depth-head training performs worse than no depth on clean success, frozen pretraining helps, and trainable pretraining helps more. That supports the specific prior-and-adaptation design within the ten-task experiment. Table 7 adds a warning: shallow registers can improve RGB metrics while trailing middle registers on control, and bidirectional visibility changes the deployment dependency. Finally, the full-suite and real-robot tables bound the conclusion. Clean simulation improves, randomized simulation does not lead the baselines, and the physical average combines intermediate goals with an omitted bottle-placement column. These boundaries matter when choosing a reproduction target.",
+      "evidenceIds": [
+        "e11",
+        "e13",
+        "e14",
+        "e15",
+        "e16"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test whether the auxiliary branches are truly outside action inference",
+      "text": "Reader-proposed, not performed: load one trained checkpoint and fix language, RGB/action histories, future-action noise, denoising steps and numerical precision. Compare action outputs with the masked future-video/register branches present versus physically removed. Also perturb future-video noise and register values while holding the action inputs fixed. The stated mask predicts unchanged actions within numerical tolerance, with lower auxiliary computation after removal. A material output change would falsify the assumed separation or expose a mask/cache implementation error. Time both versions with the paper's ten action steps on the same hardware, reporting the measured scope separately from capture and execution delays.",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e08",
+        "e12"
+      ]
+    },
+    {
+      "title": "Separate geometric pretraining from extra training capacity",
+      "text": "Reader-proposed, not performed: repeat Table 8 on the exact Table 5 ten-task split with matched demonstrations, backbone initialization, action horizons, optimizer, 10k-step budget and paired evaluation scenes. Use several declared seeds for no depth, trainable random, fixed pretrained and trainable pretrained heads; add a same-architecture control with depth gradients blocked from the backbone. Report per-task clean/randomized success and AbsRel, retaining the published 100-rollout-per-task protocol. Pretrained-head gains should persist beyond seed variability, and blocking depth gradients should reduce the policy benefit if representation transfer is responsible. Comparable success after blocking those gradients would weaken that explanation even if depth reconstruction remained good.",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e07",
+        "e09",
+        "e14",
+        "e16"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "notes": "The title/author block, all seven figures, all nine numbered tables, attention mask table, equations and deployment algorithm were visually inspected on pages 1–15. Figure 2's query/key shading and arrow directions were checked against Eq. (7), Section 3.3 and the page-7 mask; Figure 3 was checked against Eqs. (9)–(10) and Algorithm 1. Six final original crops were separately viewed, including higher-DPI renders for narrow result tables. Pages supporting training, data, metric definitions, task definitions, ablation settings, failure analysis and A800 inference measurements are included even when not cropped. Table 2's missing Bottle S2, the VAE-head layer discrepancy and baseline aggregate differences remain explicit. References on pages 16–19 were read as text only. No appendix or separate supplement was supplied; code and experiments were not inspected or executed."
+  },
+  "featuredResultTask": "RoboTwin 2.0 full-suite control"
+}

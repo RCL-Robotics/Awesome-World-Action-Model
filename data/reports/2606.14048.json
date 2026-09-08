@@ -1,0 +1,432 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.14048",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T12:02:39.436Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.14048",
+      "title": "WAM4D: Fast 4D World Action Model via Spatial Register Tokens",
+      "kind": "pdf",
+      "sha256": "35ab949057809b5e150f6b2c6dff3d2f559bfc61b29dfa371c07fa1894d02b6f",
+      "wordCount": 9724,
+      "accessedAt": "2026-09-07T13:56:37.864257+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, abstract and Section 1: Introduction (pp. 1–3)",
+      "Section 2: Related Work (p. 3)",
+      "Sections 3.1–3.5: backbone, registers, masks, objectives, implementation and Algorithm 1 (pp. 3–7)",
+      "Sections 4.1–4.3: setup, simulation and real-world results (pp. 7–10)",
+      "Sections 4.4–4.7: all ablations, qualitative rollouts, failure analysis and compute (pp. 10–15)",
+      "Section 5: Conclusion and Limitation (p. 15)",
+      "References (pp. 16–19)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity/version note: the inspected artifact is arXiv:2606.14048v3, stamped 7 July 2026, with a July 8, 2026 title-block date. The supplied catalog's submittedDate is July 7, 2026. Title and all 13 authors agree; earlier revisions were not supplied and no cross-version scientific equivalence is asserted.",
+      "The supplied acquisition notes state: Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This limitation was addressed by inspecting PDF pages 1–15 and all six final crops.",
+      "Separate supplemental material availability has not been fully verified. No separate supplement was supplied.",
+      "No appendix occurs in this 19-page PDF. References were read as text; reference-only pages 16–19 were not visually inspected.",
+      "The title-page code link was recorded as provenance only. Code was not inspected, and no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 6)",
+      "Figure 4 (p. 8)",
+      "Figure 5 (p. 10)",
+      "Figure 6 (p. 14)",
+      "Figure 7 (p. 15)"
+    ],
+    "tablesReviewed": [
+      "Attention mask table and Algorithm 1 (p. 7)",
+      "Tables 1–2 (p. 8)",
+      "Table 3 (p. 9)",
+      "Table 4 (p. 10)",
+      "Tables 5–6 (p. 11)",
+      "Table 7 (p. 12)",
+      "Table 8 (p. 13)",
+      "Table 9 (p. 15)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "WAM4D trains a causal video-action model to expose future geometry through auxiliary spatial registers, then deletes the depth branch for control. Its strongest mechanism evidence is the benefit of a trainable pretrained depth head; full-suite results show competitive success and reduced memory, with mixed accuracy and latency advantages.",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "Manipulation needs object extent, free space and contact geometry that plausible RGB predictions may miss. The paper asks whether future-depth supervision can strengthen the causal features used for actions without paying for dense geometry decoding during deployment.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A repeated spatial register grid reads intermediate history-video features and exposes them to geometric supervision through an adapted pretrained depth head.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e06"
+      ]
+    },
+    {
+      "text": "Modality-specific visibility isolates action generation from future-video targets and geometry tokens, allowing the auxiliary branch to be removed after training.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e08"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Language instruction, multi-view RGB history and executed-action history",
+      "Training targets: future RGB frames, absolute bimanual actions and future depth"
+    ],
+    "outputs": [
+      "Deployment: 32 actions, each a 16-dimensional bimanual end-effector/gripper command",
+      "Training: video/action flow predictions and auxiliary future-depth maps"
+    ],
+    "steps": [
+      {
+        "name": "Encode causal context and prediction states",
+        "detail": "LingBot-VA supplies the video-action backbone and Wan2.2 supplies the video VAE. History latents, noised future-video latents, history-action embeddings and noised future actions form one MoT sequence. Future clean frames and actions construct training targets; they are not additional causal observations.",
+        "evidenceIds": [
+          "e03",
+          "e07"
+        ]
+      },
+      {
+        "name": "Read future depth from history features",
+        "detail": "Copy a learnable spatial grid across eight future depth frames. The three-view mosaic gives a 12 × 10 grid per frame, hence 960 registers. At layers 12/14/16/18, register queries read registers and history video; temporal/spatial RoPE supplies positions. Four linear adapters feed a DA3-GIANT-1.1 DualDPT head.",
+        "evidenceIds": [
+          "e04",
+          "e07"
+        ]
+      },
+      {
+        "name": "Keep the action path causal",
+        "detail": "Future actions attend to history video, history actions and their own noisy chunk. Registers cannot read action or future-video tokens, and the policy cannot read registers. Future video reads history video and future-video noise. Figure 2 agrees with the explicit mask table.",
+        "evidenceIds": [
+          "e05"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Sample at most 17 frames: history lengths 1/5/9 when available, plus eight future targets every four collected steps. Mask padded latent slots for video loss, while every valid depth frame contributes. Head images are 256 × 320 and wrist images 128 × 160. Position normalization uses dataset q01/q99; quaternion and gripper bounds are −1 and 1.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "text": "Video/action conditional flow matching and depth SmoothL1 are optimized together. The final pretrained geometric head is trainable; depth gradients also update the backbone, registers, blocks and adapters. AdamW uses learning rate 2 × 10^-5√N for N machines, ten warmup steps, clipping 2.0, bf16, 50k main steps and 10k ablation steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e09",
+          "e16"
+        ]
+      },
+      {
+        "text": "RoboTwin training spans 50 tasks with 50 clean and 500 randomized trajectories per task. Real-world training uses 400 AstriBot demonstrations across plate lifting, bottle placement, pen-cap removal and LEGO sorting, with offline DA3 pseudo-depth.",
+        "kind": "source",
+        "evidenceIds": [
+          "e10"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Delete registers, depth blocks and the geometric head. VAE-encode the observation queue, replace the video KV cache, and encode executed-action history into the action cache. Denoise and execute a 32-step chunk; collect an observation every four actions. This loop uses real feedback rather than generated depth for control.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e08"
+        ]
+      },
+      {
+        "text": "Retaining the depth branch enables a separate autoregressive RGB-D/point-cloud visualization mode. These imagined futures are not the default policy's sensory feedback or a demonstrated geometric planner.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e08",
+          "e17"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "R_t^{\\ell+1}=\\operatorname{DepthBlock}_{\\ell}\\!\\left(Q=R_t^{\\ell},\\ K,V=[R_t^{\\ell},Z_t^{\\mathrm{hist},\\ell}]\\right)",
+        "explanation": "Eq. (7): at a selected layer ℓ, registers R are queries Q; registers and history-video features Z supply keys K and values V. The readout sees causal history rather than clean future targets.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{depth}}=\\frac{\\sum_{\\tau\\in\\mathcal{T}_t}\\sum_{p\\in\\Omega_\\tau}\\operatorname{SmoothL1}(\\hat D_{\\tau,p},D_{\\tau,p})}{\\sum_{\\tau\\in\\mathcal{T}_t}|\\Omega_\\tau|},\\qquad \\mathcal{L}=\\mathcal{L}_{\\mathrm{video}}+\\lambda_{\\mathrm{act}}\\mathcal{L}_{\\mathrm{action}}+\\lambda_{\\mathrm{depth}}\\mathcal{L}_{\\mathrm{depth}}",
+        "explanation": "Eqs. (9)–(10): T_t indexes future depth frames, Ω_τ valid pixels, and D-hat/D predicted/target depth at time τ and pixel p. Video and action terms are flow losses; both λ weights equal one.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboTwin 2.0 full-suite control",
+      "setting": "Unified policy; 50 tasks; clean and randomized settings.",
+      "metric": "Success rate (%)",
+      "value": "Table 1: 93.8 clean, 89.9 randomized, 91.8 average.",
+      "comparison": "LingBot-VA: 92.9/91.6/92.3; Fast-WAM: 91.9/91.8/91.8.",
+      "interpretation": "WAM4D leads clean success but not randomized or average success. Table 3's baseline aggregates differ slightly from Table 1; its baseline rows are imported from earlier reports, limiting claims of completely matched retraining.",
+      "evidenceIds": [
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "Action-generation latency and memory",
+      "setting": "One A800 80GB GPU; ten action-denoising steps; geometry removed.",
+      "metric": "Mean ± SD milliseconds per chunk; peak allocated backbone GiB",
+      "value": "525.43 ± 5.64 ms; 9.71 GiB.",
+      "comparison": "Fast-WAM: 425.53 ± 6.01 ms, 11.55 GiB; LingBot-VA: 843.57 ± 11.55 ms, 12.97 GiB, including five video steps.",
+      "interpretation": "Lower memory than both comparators, faster than LingBot-VA and slower than Fast-WAM. These are model-generation measurements, not complete sensor-to-actuator loop latency.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "AstriBot S1 reported sub-action success",
+      "setting": "Four tasks; ten physical rollouts per method per task; seven displayed sub-action columns.",
+      "metric": "Mean reported sub-action success fraction",
+      "value": "0.90; LEGO/Blocks S3: 0.8.",
+      "comparison": "LingBot-VA average 0.84 and Blocks S3 0.4; Fast-WAM average 0.80; π0.5 average 0.74.",
+      "interpretation": "This is not 90% complete-task success. Later steps are scored zero after failure. Bottle placement S2 is defined but absent from Table 2, so full bottle-task success cannot be recovered.",
+      "evidenceIds": [
+        "e10",
+        "e13"
+      ]
+    },
+    {
+      "task": "Pretrained geometric-head ablation",
+      "setting": "Fixed ten-task RoboTwin split; 10k training steps; 100 evaluation rollouts per task and condition.",
+      "metric": "Clean success (%); AbsRel; FVD",
+      "value": "Trainable pretrained: 80.1%; 0.049; 164.5.",
+      "comparison": "Fixed pretrained: 75.2%, 0.053, 179.8; trainable random: 70.0%, 0.059, 189.8; no depth: 71.7%, depth unavailable, 181.2.",
+      "interpretation": "Pretraining plus adaptation improves control and reconstruction in this subset. The clean gain over no depth is 8.4 percentage points, not a full-suite gain. No seed uncertainty is supplied.",
+      "evidenceIds": [
+        "e09",
+        "e14",
+        "e16"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Autoregressive rollouts can replace occluded objects with different identities because explicit long-term memory is absent. The authors say fresh observations protect their evaluated control path; robustness under sustained real occlusion remains unestablished.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e18",
+        "e08"
+      ]
+    },
+    {
+      "text": "The real-robot study is small and omits Bottle S2 results. Table 1 and Table 3 disagree on some baseline aggregates. Table 7 lists VAE-head layers 27–30 while the prose says layer 26; neither configuration should be silently substituted.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e13",
+        "e15"
+      ]
+    },
+    {
+      "text": "Attention maps show selected correlations, not causal explanations. Section 4.4.1's reference to action-history cues should not imply direct register access to action tokens, which the stated mask forbids. Fixed-intrinsic point-cloud overlap also does not by itself establish calibrated metric geometry.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e15",
+        "e17",
+        "e19"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required ingredients include the named backbone/VAE/DA3 checkpoints, re-collected depth-annotated RoboTwin data, AstriBot demonstrations, action quantiles and exact temporal/mosaic alignment. The paper leaves batch size, actual training machine count, VAE freezing, detailed depth validity/pseudo-depth processing, queue limits, software versions and evaluation seeds unspecified. The A800 specification concerns inference measurements.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09",
+        "e10",
+        "e12"
+      ]
+    },
+    {
+      "text": "Resolve metric thresholds, depth scaling, the numerical intrinsic matrix and VAE-head layer ambiguity before comparing geometry scores. A useful proposed check repeats no-depth, frozen-pretrained and trainable-pretrained heads with matched data and seeds, reporting per-task success alongside depth error; another checks that removing masked auxiliary tokens leaves action predictions unchanged.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e14",
+        "e15",
+        "e16",
+        "e19"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "The WAM and geometry/efficiency tags fit. However, Eqs. (4)–(5) describe one integrated video-action MoT sequence with prediction heads, while the separate geometry branch is removed for deployment. This does not support a planner-plus-policy Dual-system reading. The mechanism is joint future-video/action training with masked action-only inference, not inverse dynamics. MoT experts alone do not establish two deployed systems; the recorded composite classification therefore needs editorial review.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e08"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "3D multiview modeling",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "8015c9e3bd395057e1ac1102b0c5728f6e99bdca0f6ed413d7fb0eea508700a0"
+    }
+  },
+  "discussionQuestions": [
+    "Does the pretrained-head advantage persist across seeds and the complete randomized suite?",
+    "Can explicit object memory improve sustained-occlusion control while preserving action-only deployment?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and arXiv margin stamp",
+      "detail": "The title and all 13 authors match the supplied catalog. The PDF identifies arXiv:2606.14048v3, stamped 7 July 2026, while its title block is dated July 8, 2026. The three affiliations and a code link are printed here."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "The paper motivates future-depth supervision as a way to improve geometric representations without retaining dense geometry decoding in the deployed policy."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1, Eqs. (1)–(5)",
+      "detail": "Language, RGB history and historical actions form the causal context. History and noised future video/action tokens occupy one sequence processed by video-action MoT blocks; separate heads predict the video and action flow targets."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Eqs. (6)–(8)",
+      "detail": "A shared register grid is repeated across future timesteps. Registers query themselves and history video features using temporal and mosaic-coordinate RoPE. Four intermediate readouts are projected into a pretrained geometric head to predict future depth; gradients reach history video features."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2; p. 5, Section 3.3; p. 7, Attention mask table",
+      "detail": "The figure and explicit visibility table agree: future actions read history video, history actions and future-action noise; registers read history video and registers; future video reads history video and future-video noise. History video and history action each read only their own group. Text cross-attention conditions video and action tokens."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.4, Eqs. (9)–(10)",
+      "detail": "The objective sums video and action conditional-flow losses and valid-pixel SmoothL1 future-depth loss. Both weights are one. Depth gradients update the backbone, registers, depth blocks, projection and geometric head."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 3.5, frame sampling, actions, view layout and geometric readout",
+      "detail": "Initialization uses LingBot-VA and the Wan2.2 VAE. Training samples 1/5/9 history frames when available and eight future frames at stride four, with padding masks. Three views yield 960 registers over eight depth frames; layers 12/14/16/18 feed four adapters into DA3-GIANT-1.1 DualDPT. Actions are 32-step chunks of 16-dimensional absolute bimanual end-effector/gripper commands with specified normalization."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 3; p. 7, Algorithm 1",
+      "detail": "Deployment removes registers, depth blocks and the geometric head. Observations are VAE-encoded into the video KV cache, executed actions fill the action cache, and future action tokens are denoised and executed. A new observation is captured every four actions."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Training Hyperparameters",
+      "detail": "AdamW uses learning rate 2 × 10^-5 times the square root of the machine count, ten warmup steps, gradient clipping 2.0 and bf16 parameters. Main experiments use 50,000 training steps and ablations 10,000."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1, Datasets and Tasks; p. 8, Section 4.2",
+      "detail": "RoboTwin uses a unified policy across 50 tasks with 50 clean and 500 randomized trajectories per task. AstriBot S1 uses four tasks with 100 demonstrations each and ten physical rollouts per method per task. Real-world depth supervision uses offline Depth Anything 3 pseudo-depth."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1; p. 9, Table 3 and its caption",
+      "detail": "Table 1 gives WAM4D clean/randomized/average success of 93.8/89.9/91.8%, versus LingBot-VA 92.9/91.6/92.3% and Fast-WAM 91.9/91.8/91.8%. Table 3 gives WAM4D 93.82/89.86%; it lists LingBot-VA randomized 91.50% and Motus clean 88.52%, differing from Table 1's 91.6% and 88.7%. Per-task baseline results are attributed to earlier reports."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, latency and memory protocol; p. 15, Section 4.7 and Table 9",
+      "detail": "On one A800 80GB GPU, WAM4D action-only inference takes 525.43 ± 5.64 ms per chunk and 9.71 GiB peak allocated backbone memory. Fast-WAM takes 425.53 ± 6.01 ms and 11.55 GiB; LingBot-VA takes 843.57 ± 11.55 ms and 12.97 GiB. All use ten action steps; LingBot-VA additionally uses five video steps. Latency uncertainty is mean ± standard deviation."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2 and Figure 4; p. 10, Section 4.3 and Table 4",
+      "detail": "Table 2 reports seven sub-action columns, with WAM4D average 0.90, LingBot-VA 0.84, Fast-WAM 0.80 and π0.5 0.74. WAM4D Blocks S3 is 0.8 versus LingBot-VA 0.4. Failed sequential steps make subsequent steps unattempted and scored zero. Table 4 defines Bottle S2 placement, but Table 2 omits that column."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 4.4; p. 11, Tables 5–6",
+      "detail": "Ablations use a fixed ten-task RoboTwin split. Table 6 supplies 100-rollout counts per task and condition, full video/geometry metrics and parameter counts. Trainable pretrained DA3 has 80.1% clean and 75.4% randomized success versus no-depth 71.7% and 69.1%. The no-depth model has 5.089B transformer parameters versus 5.690B for the middle-register variants."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Table 7 and Sections 4.4.1–4.4.2",
+      "detail": "With the depth head fixed, middle registers achieve 75.2% clean success and 0.053 AbsRel, shallow 72.5% and 0.058, and bidirectional 76.6% and 0.074. Uniform and bidirectional variants use layers 6/12/18/24. The VAE-head row lists layers 27/28/29/30, whereas the prose describes a layer-26 readout. Attention interpretation mentions action-history cues despite the register mask excluding action tokens."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Table 8 and Section 4.4.3; p. 11, Table 6",
+      "detail": "At the default register interface, trainable pretrained, fixed pretrained and trainable random heads achieve clean success 80.1%, 75.2% and 70.0%. Their AbsRel values are 0.049, 0.053 and 0.059. Trainable pretrained gives FVD 164.5, δ1 0.948, CD1 0.0099, F-score 0.710 and F-score-T 0.848. It is selected as the final setting."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Figure 5; p. 12, Section 4.4.1; pp. 13–14, Section 4.5 and Figure 6",
+      "detail": "Register attention maps are averaged over heads at selected layers. The separate qualitative analysis retains the depth branch, generates RGB and depth autoregressively from an initial frame, and back-projects RGB-D into point clouds."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Section 4.6; p. 15, Figure 7 and Section 5",
+      "detail": "The authors show identity-inconsistent object completions after occlusion and attribute them to missing explicit long-term memory. They argue fresh real observations protect their evaluated policy path. The conclusion also acknowledges slower inference than VLAs."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Metrics",
+      "detail": "Video metrics are FVD, PSNR, SSIM and LPIPS. Depth is evaluated using AbsRel and threshold accuracies; predicted and reference depth are back-projected using a fixed dataset-level intrinsic matrix. CD1/CD2 measure Chamfer distance, and F-score/F-score-T describe spatial/temporal overlap. Numerical thresholds and the intrinsic matrix are not given here."
+    }
+  ]
+}
