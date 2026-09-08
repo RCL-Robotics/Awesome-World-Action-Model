@@ -1,0 +1,457 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2512.15692",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T22:05:30.229Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2512.15692",
+      "title": "mimic-video: Video-Action Models for Generalizable Robot Control Beyond VLAs",
+      "kind": "pdf",
+      "sha256": "a7d2d3fa9367921bde900889e862025afa1e28e93437f287aa018b3b17e39658",
+      "wordCount": 10380,
+      "accessedAt": "2026-09-07T14:09:27.272418+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title and abstract",
+      "I. Introduction",
+      "II. Related Work",
+      "III. Case Study: How Does Video Generation Quality Affect Robot Policy Performance?",
+      "IV. Video-Action Models (A–F), Algorithms 1–2",
+      "V. Experiments (A–C)",
+      "VI. Discussion and Future Work",
+      "Acknowledgments and References",
+      "Contributions",
+      "Appendix A–E, including Table IV"
+    ],
+    "omissions": [
+      "Reviewed edition: arXiv:2512.15692v2, 19 December 2025; title and all six authors match. The catalog submission date is 17 December 2025. The earlier version was not supplied, so revision changes were not compared (e-identity).",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction limitation was addressed by inspecting original PDF pages 1–9 and 14–15, including all eight figures and four tables. Reference-only pages 10–13 were read as text, not rendered.",
+      "No code, project website or separate supplement was inspected, and no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 3)",
+      "Figure 3 (p. 4)",
+      "Figure 4 (p. 6)",
+      "Figure 5 (p. 7)",
+      "Figures 6–8 (p. 8)"
+    ],
+    "tablesReviewed": [
+      "Tables I–III (p. 7)",
+      "Table IV (p. 15)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "mimic-video turns a robot-adapted video generator into features for a separate action policy. Its default setting combines observed frames with entirely noisy future latents, avoiding video reconstruction while retaining full action denoising. Experiments support strong decoder-data efficiency and manipulation performance, with task-dependent noise tuning and limited deployment evidence (e-architecture, e-sampling, e-efficiency, e-limits).",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "The authors argue that static image–text pretraining leaves expensive robot demonstrations to teach dynamics as well as control. They use video pretraining for visual-dynamics priors and learn a translator from video representations to motor commands. This motivates a representation choice; it does not establish that video pretraining learns physical causality.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e-motivation"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A two-model construction combines a language-conditioned video flow model with an inverse-dynamics action decoder trained on intermediate hidden states.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-architecture",
+        "e-training"
+      ]
+    },
+    {
+      "text": "Independent video and action noise schedules permit marginal action sampling without completing video generation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-sampling",
+        "e-training"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Five RGB context frames from a workspace view",
+      "Language instruction l",
+      "Robot proprioceptive state q_t"
+    ],
+    "outputs": [
+      "A chunk A_t of robot actions, using embodiment-specific end-effector and gripper/hand commands",
+      "Optional generated video for visualization, not required for execution"
+    ],
+    "steps": [
+      {
+        "name": "Encode observed and future video",
+        "detail": "The 2B Cosmos-Predict2 DiT consumes clean context latents from a pretrained 3D tokenizer and noisy future latents. Self-attention spans the video sequence; T5-encoded instructions enter through cross-attention. Video prediction is not conditioned on candidate robot actions.",
+        "evidenceIds": [
+          "e-architecture",
+          "e-motivation"
+        ]
+      },
+      {
+        "name": "Read internal video features",
+        "detail": "Extract hidden states h at layer k rather than decoded frames. Appendix C favors k = 19 and five context frames over one, but gives no numerical layer/horizon ablation table.",
+        "evidenceIds": [
+          "e-architecture",
+          "e-layer"
+        ]
+      },
+      {
+        "name": "Translate features into actions",
+        "detail": "A separate DiT embeds proprioception and noisy actions with MLPs, adds learned temporal positions, cross-attends to video features and self-attends over actions. AdaLN receives both flow times. Random proprioceptive-token masking during training discourages overreliance on that input.",
+        "evidenceIds": [
+          "e-architecture"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "First adapt the video model with LoRA on robotics videos; then freeze it and train the action decoder from scratch. Algorithm 2 independently corrupts ground-truth future video and actions and optimizes action-flow regression. These are disjoint parameter stages, not joint end-to-end action training.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training"
+        ]
+      },
+      {
+        "text": "Table IV specifies video/action learning rates 1.778e-4/1e-4 with constant/linear schedules, AdamW, 1000 warmup steps, weight decay 0.1 and gradient clipping 10. LIBERO uses batch size 128, 7k–8k video-adaptation steps and 50k decoder steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-hyper"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Initialize future-video and action latents with Gaussian noise. Integrate video to the selected time, extract layer-k features, then integrate actions fully to time zero. At video time one, video integration disappears: one backbone feature pass still conditions iterative action generation. No measured control frequency or latency is provided.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-sampling"
+        ]
+      },
+      {
+        "text": "Bimanual executions use this time-one setting. Figure 4 separately decodes full videos for illustration; those frames are not generated during autonomous execution. The precise chunk-execution and replanning schedule is unspecified.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-real-setup",
+          "e-sampling"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "x^{\\tau}=(1-\\tau)x^0+\\tau\\varepsilon,\\qquad \\varepsilon\\sim\\mathcal{N}(0,I),\\quad \\tau\\in[0,1]",
+        "explanation": "Equation (1): x^0 is clean data, epsilon is Gaussian noise, and tau is flow time. Zero means clean and one means noise. Video and actions use this convention independently.",
+        "evidenceIds": [
+          "e-flow",
+          "e-training"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{CFM}}=\\mathbb{E}_{\\mathcal{T}(\\tau),\\,p_0(x^0),\\,p_{\\tau}(x^{\\tau}\\mid x^0)}\\left\\|v_{\\theta}(x^{\\tau},\\tau)-u_{\\tau}(x^{\\tau}\\mid x^0)\\right\\|^2,\\qquad u_{\\tau}(x^{\\tau}\\mid x^0)=\\varepsilon-x^0",
+        "explanation": "Equation (2): v_theta estimates the flow field and u_tau is its conditional target. The expectation samples times from T, clean data from p_0 and corrupted data from the conditional path. Sampling integrates the learned field from time one to zero.",
+        "evidenceIds": [
+          "e-flow"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "SIMPLER-Bridge four-task manipulation",
+      "setting": "BridgeDataV2-trained Widow-X policy in SIMPLER; target-only action training with pretrained visual backbones.",
+      "metric": "Average success rate (%)",
+      "value": "46.9 default; 56.3 with per-task video-time tuning",
+      "comparison": "Matched pi0.5-style VLA: 35.4; published FLOWER: 45.0 under a different action-data regime.",
+      "interpretation": "Default performance gains 11.5 percentage points over the matched VLA. Tuning adds 9.4 points, with extra computation and an unspecified tuning-validation protocol.",
+      "evidenceIds": [
+        "e-benchmarks",
+        "e-baseline",
+        "e-simpler"
+      ]
+    },
+    {
+      "task": "LIBERO Spatial, Object and Goal",
+      "setting": "Three simulated Panda suites, each with ten tasks and fifty demonstrations per task before preprocessing.",
+      "metric": "Success rate (%)",
+      "value": "Spatial 94.2; Object 96.8; Goal 90.6; average 93.9",
+      "comparison": "Matched VLA average 85.9; OpenVLA-OFT 96.9 with external action pretraining.",
+      "interpretation": "An 8.0-point gain over the matched VLA, but not the highest published score in Table II. LIBERO-Long is not evaluated.",
+      "evidenceIds": [
+        "e-benchmarks",
+        "e-libero",
+        "e-preprocess"
+      ]
+    },
+    {
+      "task": "Real-world Packing and Package handover",
+      "setting": "Bimanual Panda arms with mimic hands; workspace-view mimic-video. Video adaptation uses 200 hours; sorting/stowing decoders use 512/480 episodes.",
+      "metric": "Reported benchmark score; Table III does not explicitly label units",
+      "value": "Packing 72.0; Package handover 93.0",
+      "comparison": "DiT-Block workspace-only: 11.0/30.0; with wrist cameras: 42.6/74.1.",
+      "interpretation": "Retains Table III labels. Prose instead names Tape Stowing and Package Sorting; the exact column mapping is not explicitly documented. These are robot-execution scores.",
+      "evidenceIds": [
+        "e-real-setup",
+        "e-real-results"
+      ]
+    },
+    {
+      "task": "LIBERO action-decoder data efficiency",
+      "setting": "Decoder data subsets of 2%, 10%, 50% and 100% across the three evaluated suites.",
+      "metric": "Average success and action-data fraction",
+      "value": "77% success at 2% data (one episode per task); author-reported approximately 10x decoder-data efficiency",
+      "comparison": "The authors describe 10%-data mimic-video as reaching the full-data matched VLA level.",
+      "interpretation": "This does not establish a tenfold reduction in video pretraining, robot-video adaptation or total compute.",
+      "evidenceIds": [
+        "e-efficiency",
+        "e-training"
+      ]
+    },
+    {
+      "task": "Decoder convergence",
+      "setting": "Both decoders use batch size 128 and individually optimized learning rates.",
+      "metric": "Success versus training steps",
+      "value": "Author-claimed 2x faster convergence; Figure 6 shows earlier high success",
+      "comparison": "Matched VLA improves more slowly and plateaus lower.",
+      "interpretation": "The ratio is an author summary, not measured wall-clock speedup or a precisely specified time-to-threshold statistic.",
+      "evidenceIds": [
+        "e-convergence"
+      ]
+    },
+    {
+      "task": "Effect of video denoising on action quality",
+      "setting": "SIMPLER predicted-video rollouts and a separate held-out BridgeDataV2 ground-truth-video diagnostic.",
+      "metric": "Rollout success; separately, action reconstruction MSE",
+      "value": "High-noise predicted features perform well; oracle-feature MSE is lowest around video time 0.4.",
+      "comparison": "Near-clean conditioning is worse in the diagnostic; task-specific rollout peaks differ.",
+      "interpretation": "Figure 7’s intermediate-peak caption conflicts with the prose’s universal-sounding time-one claim. Reconstruction MSE and autonomous success are distinct protocols.",
+      "evidenceIds": [
+        "e-noise",
+        "e-oracle-mse",
+        "e-simpler"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors acknowledge a fixed single view, narrow real-world task coverage and no unified cross-embodiment model.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-limits"
+      ]
+    },
+    {
+      "text": "Matching decoders helps comparison, but changing video versus VLM pretraining also changes backbone size, training objective and pretraining corpus. Tables lack uncertainty and rollout counts; performance alone does not establish causal physical understanding.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-baseline",
+        "e-simpler",
+        "e-libero",
+        "e-real-results"
+      ]
+    },
+    {
+      "text": "Oracle future-video access is privileged. Near-perfect oracle success and intermediate-noise MSE support representation usefulness; distribution-mismatch and hidden-state explanations remain hypotheses.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-oracle",
+        "e-oracle-mse",
+        "e-hypotheses"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the stated backbone/tokenizer, adaptation videos, action demonstrations and simulator/robot interfaces. Preserve 480×640 images, six-dimensional rotations, chunk-relative poses, gripper/hand conventions and the documented BridgeDataV2 and LIBERO filtering.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-architecture",
+        "e-real-setup",
+        "e-preprocess"
+      ]
+    },
+    {
+      "text": "The text omits LoRA rank, decoder dimensions, numerical action horizon, solver step counts, execution frequency, GPU counts/models and software versions. Table IV supplies optimizer settings, not a complete executable configuration. A project link does not establish dataset or code availability.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-sampling",
+        "e-training",
+        "e-real-setup",
+        "e-hyper"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Visual planning & IDM",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "b928d0cdb64b289eb7f5348f28088310d686039ff4737657608203fe6367b1b3"
+    },
+    "reasoning": {
+      "text": "Dual-system × IDM is supported by separate video/action DiTs, disjoint training and action decoding from video hidden states. Joint-distribution language does not imply one shared predictor. With default pure-noise future input, visual planning means predictive features rather than a completed trajectory.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-training",
+        "e-sampling"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does held-out task tuning retain the reported gain from selecting video noise?",
+    "How much decoder-data efficiency survives when robot-video adaptation data is reduced simultaneously?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and arXiv margin stamp",
+      "detail": "Title and six authors match the catalog. The artifact is arXiv:2512.15692v2, dated 19 December 2025. Affiliations are mimic robotics, Microsoft Zurich, ETH Zurich, ETH AI Center and UC Berkeley."
+    },
+    {
+      "id": "e-motivation",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section I; p. 2, Section II(c)",
+      "detail": "The authors motivate video pretraining as temporal and visual-dynamics priors and explicitly consider video models without action conditioning."
+    },
+    {
+      "id": "e-oracle",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section III and Figure 2",
+      "detail": "Ground-truth future-video conditioning gives near-perfect success with both pretrained and robot-finetuned backbones; finetuning improves predicted-video conditioning. Detailed rollout counts and uncertainty are absent."
+    },
+    {
+      "id": "e-flow",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section IV-A, Eqs. (1)–(2); p. 4, Eq. (3)",
+      "detail": "Flow matching interpolates clean data at zero with Gaussian noise at one, regresses toward noise minus clean data, and samples by integrating from one to zero."
+    },
+    {
+      "id": "e-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 3 and Sections IV-B–D",
+      "detail": "A 2B Cosmos-Predict2 video DiT with a pretrained 3D tokenizer and T5 conditioning takes five context frames and noisy future latents. A separate action DiT cross-attends to intermediate video states and processes proprioception and actions with independent flow-time conditioning."
+    },
+    {
+      "id": "e-sampling",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section IV-E and Algorithm 1, lines 2–6",
+      "detail": "Video integration stops at a chosen time before layer-k features condition full action denoising. At video time one, integration is skipped and one backbone feature pass suffices. Numerical latency and control frequency are not supplied."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section IV-F and Algorithm 2",
+      "detail": "LoRA video adaptation precedes action-decoder training with the backbone frozen. Independently sampled times corrupt ground-truth future video and actions. Video times follow a logit-normal distribution."
+    },
+    {
+      "id": "e-benchmarks",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section V(a), Evaluation setups",
+      "detail": "SIMPLER evaluates BridgeDataV2-trained Widow-X policies. LIBERO uses Goal, Object and Spatial, each with ten tasks and fifty demonstrations per task."
+    },
+    {
+      "id": "e-baseline",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section V(b), Comparisons",
+      "detail": "The matched baseline uses 3B PaliGemma, FAST next-token backbone training and an identical flow action decoder on equivalent target datasets. It is pi0.5-style, not original fully pretrained pi0.5. Published baselines use distinct action-data regimes."
+    },
+    {
+      "id": "e-real-setup",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section V(a); p. 6, Figure 4; p. 7, Section V-A(c)",
+      "detail": "Two Panda arms carry 16-DoF mimic hands. Video adaptation uses 200 hours; sorting/stowing decoders use 512 episodes/1 h 33 min and 480 episodes/2 h 14 min. mimic-video uses the workspace view. Figure 4 distinguishes execution from videos decoded only for visualization."
+    },
+    {
+      "id": "e-simpler",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table I, all rows and Average SR column",
+      "detail": "Average success is 46.9% for default mimic-video, 56.3% with per-task time tuning and 35.4% for matched VLA. Default task scores are 37.5, 37.5, 12.5, 100.0%; tuned scores are 54.2, 41.7, 29.2, 100.0%."
+    },
+    {
+      "id": "e-libero",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table II, mimic-video, pi0.5-style VLA and OpenVLA-OFT rows",
+      "detail": "mimic-video Spatial/Object/Goal scores are 94.2/96.8/90.6%, average 93.9%. Matched VLA averages 85.9%; OpenVLA-OFT averages 96.9% under a different action-pretraining regime."
+    },
+    {
+      "id": "e-real-results",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table III and Section V-A(c)",
+      "detail": "Packing/Package handover scores are 72.0/93.0 for mimic-video, 11.0/30.0 for workspace-only DiT-Block and 42.6/74.1 with wrist cameras. Table III gives no unit label, trial counts or uncertainty."
+    },
+    {
+      "id": "e-efficiency",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section V-B and Figure 5; p. 8, Section V-B continuation",
+      "detail": "The authors report 10%-data mimic-video reaching the full-data VLA decoder level and one demonstration per task (2%) yielding 77% average success. The experiment varies decoder training data."
+    },
+    {
+      "id": "e-convergence",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 6 and Section V-B; p. 1, Abstract",
+      "detail": "Figure 6 plots decoder success against steps at batch size 128 and individually optimized learning rates. The abstract summarizes convergence as 2x faster; wall-clock speedup is not quantified."
+    },
+    {
+      "id": "e-noise",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section V-C and Figure 7 with caption; p. 9, opening continuation",
+      "detail": "Curves favor high noise over nearly clean predicted video. The caption describes intermediate-noise peaks, while prose claims best performance at time one and later calls it the highest average. A universal per-task optimum is not established."
+    },
+    {
+      "id": "e-oracle-mse",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 8 and Section V-C, right column",
+      "detail": "Held-out BridgeDataV2 action reconstruction from noisy ground-truth video features has lowest MSE at an intermediate time, described as approximately 0.4. Both endpoints are worse."
+    },
+    {
+      "id": "e-limits",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section VI, final paragraph",
+      "detail": "Authors identify the single fixed workspace view, absence of a unified cross-embodiment model and narrow real-world task set as limitations."
+    },
+    {
+      "id": "e-preprocess",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix B(a–c)",
+      "detail": "Images are 480×640; rotations use the top two matrix rows. Actions use chunk-relative end-effector poses and embodiment-specific hand/gripper representations. BridgeDataV2 removes 3046 uninformative labels and initial state/null actions; LIBERO removes demonstrations failing action replay."
+    },
+    {
+      "id": "e-layer",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix C–D",
+      "detail": "The authors favor video layer 19 and five observation frames over one; VLA features favor layer 11. No numerical layer/horizon ablation table is provided."
+    },
+    {
+      "id": "e-hyper",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Table IV",
+      "detail": "Video/action learning rates are 1.778e-4/1e-4 with constant/linear schedules. AdamW, 1000 warmup steps, weight decay 0.1 and gradient clipping 10 are shared. LIBERO video/action training uses 7k–8k/50k steps with batch size 128."
+    },
+    {
+      "id": "e-hypotheses",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–15, Appendix E(a–b)",
+      "detail": "The authors propose predicted-video distribution mismatch and changing hidden-state information across denoising as explanations. These interpret oracle/noise findings rather than independently isolate the mechanisms."
+    }
+  ]
+}

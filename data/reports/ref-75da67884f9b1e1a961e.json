@@ -1,0 +1,500 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-75da67884f9b1e1a961e",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T22:00:44.678Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://proceedings.iclr.cc/paper_files/paper/2026/file/7f5e909ac0324db03506b380c695ffaf-Paper-Conference.pdf",
+      "title": "WORLDGYM: WORLDMODEL ASANENVIRONMENT FORPOLICYEVALUATION",
+      "kind": "pdf",
+      "sha256": "747d71a0b1e79b5dedb77c79dbe51d3a8ecaab36d6eadf5115ef3085d3d0a9a5",
+      "wordCount": 11976,
+      "accessedAt": "2026-09-07T14:09:27.859452+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract and Sections 1–2: motivation and policy-value formulation",
+      "Sections 3.1–3.2: world-model training, rollout, reward and validation",
+      "Sections 4.1–4.3: real-world comparison, ranking and OOD probes",
+      "Sections 5–6, acknowledgments and references",
+      "Appendix A: architecture, hyperparameters and Algorithm 1",
+      "Appendix B.1–B.2: reward prompt and validation",
+      "Appendices C–D: evaluated video and diffusion policies",
+      "Appendix E.1–E.4: additional robot and OOD results",
+      "Appendix F.1–F.2: dataset and parallelism ablations",
+      "Appendices G–H: visual drift and preliminary RL"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "All seven supplied text chunks were read individually, covering all 26 PDF pages. Original PDF figures and tables were inspected separately because text extraction does not reconstruct images.",
+      "Separate supplemental material availability has not been fully verified. Linked videos, code, external cited papers and other online resources were not inspected; experiments were not reproduced.",
+      "Identity scope: the supplied ICLR 2026 proceedings PDF matches the catalog title and all six authors. The acquisition title merges some interword spaces; its exact observedTitle is preserved in provenance and metadata. No numbered revision or revision date is established. No comparison with an earlier OpenReview artifact was possible from the supplied material.",
+      "Visual inspection covers PDF pp. 1–9 and 16–26, including every figure and table. Reference-only pp. 10–15 were read as text."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8",
+      "Figure 9",
+      "Figure 10",
+      "Figure 11",
+      "Figure 12",
+      "Figure 13",
+      "Figure 14",
+      "Figure 15",
+      "Figure 16",
+      "Figure 17",
+      "Figure 18"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7",
+      "Table 8",
+      "Table 9"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "WorldGym replaces a hand-built evaluation environment with an action-conditioned video model. A separate robot policy repeatedly acts on generated observations; GPT-4o grades the resulting trajectory. Bridge experiments support useful aggregate policy ranking, while task-level discrepancies, imperfect object physics and reward-model transfer limit how confidently simulated scores predict deployment.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Real-robot evaluation is costly, and manually built simulators require substantial effort. WorldGym asks whether one visual dynamics model learned from diverse offline robot data can estimate the value of multiple policies and tasks using only an initial image and a language goal.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e21"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The system combines interactive action-conditioned video rollouts with VLM scoring and supports testing edited initial images or changed instructions.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e06",
+        "e14"
+      ]
+    },
+    {
+      "text": "Its inference horizon can match different policies' action chunk sizes using one world-model checkpoint, making parallel frame generation useful without retraining the simulator.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e18"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Initial robot-camera image and language goal",
+      "A separate policy's action chunks; previous generated observations and action history"
+    ],
+    "outputs": [
+      "Generated observation trajectory",
+      "VLM task score and Monte Carlo policy-value estimate"
+    ],
+    "steps": [
+      {
+        "name": "Encode frames and align controls",
+        "detail": "Stable Diffusion 3's VAE encodes individual 256×256 frames. Seven-dimensional controls combine the paper's six-dimensional end-effector representation and binary gripper state; each component's 10th/90th percentiles are mapped to RT-1's across robots.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Learn action-conditioned dynamics",
+        "detail": "A latent DiT combines projected action vectors with diffusion-timestep embeddings through AdaLN-Zero. Interleaved spatial and causal temporal attention, trained with Diffusion Forcing, allow autoregressive frame generation. Whole-clip action dropout enables classifier-free guidance.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Close the simulated feedback loop",
+        "detail": "The external policy consumes the latest frame and goal, emits an action chunk, and receives the final generated frame after the world model predicts one frame per action. Longer rollouts retain a sliding context window; no physical robot executes these simulated actions.",
+        "evidenceIds": [
+          "e02",
+          "e05"
+        ]
+      },
+      {
+        "name": "Score against the goal",
+        "detail": "GPT-4o reads generated frames and a task rubric. Scores are binary unless the task permits half credit. Consequently, reported 'success rates' can average graded progress as well as complete task success.",
+        "evidenceIds": [
+          "e06",
+          "e09"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The 609M-parameter world model has 16 layers, hidden size 1024 and 16 attention heads. It trains on nine compatible Open-X robot datasets with 20-frame context, AdamW at 8e-5, batch size 16 and 300k steps on two A100 80GB GPUs. Table 2 specifies v prediction and a sigmoid noise schedule.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "text": "Policies are distinct from the evaluator. Appendix C's video policy uses frozen UMT5-xxl conditioning and a separately trained ResNet-50 inverse model with action MSE. Appendix D adapts pretrained Qwen2-VL-2B and a diffusion head using LoRA, training only adapters and the head with noise-prediction MSE.",
+        "kind": "source",
+        "evidenceIds": [
+          "e12",
+          "e13"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "In practice the prediction horizon equals the policy's action chunk size, with ten sampling timesteps and a sliding 20-frame history. OpenVLA uses one-action chunks and Octo four; the latest generated observation supplies feedback only after the chunk.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e18"
+        ]
+      },
+      {
+        "text": "Monte Carlo evaluation samples policy/world-model rollouts and averages terminal VLM scores. The language goal enters the policy and grader; the dynamics model receives actions and visual context rather than producing goal-directed robot actions itself.",
+        "kind": "source",
+        "evidenceIds": [
+          "e02",
+          "e03",
+          "e06"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\hat{\\rho}(\\pi)=\\mathbb{E}\\!\\left[\\hat{R}([o_0,\\ldots,o_H],g)\\mid s_0,g\\sim G,\\;\\mathbf{a}\\sim\\pi(\\mathbf{o},g),\\;\\mathbf{o}'\\sim\\hat{T}(\\mathbf{o},\\mathbf{a}),\\;\\mathbf{o}=\\mathbf{o}'\\right]",
+        "explanation": "Eq. (2): estimated policy value is expected learned reward under simulated rollouts. Here π is the policy, g the goal, G the initial state/goal distribution, s₀ the initial state, H the horizon, o image observations, a actions, T̂ the world model and R̂ the reward model. The final assignment denotes advancing the rollout; Algorithm 1 retains history.",
+        "evidenceIds": [
+          "e02",
+          "e05"
+        ]
+      },
+      {
+        "expression": "h=|\\mathbf{a}_{\\mathrm{pred}}|",
+        "explanation": "The practical inference rule makes h, the number of frames denoised in parallel, equal the number of actions in the policy's predicted chunk.",
+        "evidenceIds": [
+          "e05",
+          "e18"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Bridge policy-value agreement with real-world trials",
+      "setting": "OpenVLA Bridge suite: 17 held-out tasks, 10 matched initial frames per task and policy; original real-world scores versus WorldGym rollouts.",
+      "metric": "Mean task score (%) ± SE across tasks; Pearson correlation",
+      "value": "WorldGym: RT-1-X 15.5±3.4%; Octo 23.82±4.3%; OpenVLA 67.4±4.9%. Reported r=0.78, p<0.001.",
+      "comparison": "Real-world: 18.5±4.0%, 20.0±5.3%, 70.6±6.1%, respectively (Table 5).",
+      "interpretation": "Aggregate ordering agrees, but this is not per-trial equivalence. Figure 4 rounds RT-1-X to 15.6% and Octo to 23.8%; Table 5 values are preserved here. The approximately 3.3-point average mean gap is in percentage points.",
+      "evidenceIds": [
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "task": "Reward-label validation",
+      "setting": "Real RT-1 validation videos with ground-truth success labels; four grader runs.",
+      "metric": "Conditional label rates, mean ± SE",
+      "value": "TP 0.81±0.14; TN 0.97±0.05.",
+      "comparison": "FP 0.03±0.05; FN 0.19±0.14.",
+      "interpretation": "Low false positives support this real-video grading setup. Accuracy on generated or edited scenes remains unvalidated by this table.",
+      "evidenceIds": [
+        "e10"
+      ]
+    },
+    {
+      "task": "Policy ranking across versions",
+      "setting": "WorldGym evaluation on the Bridge task suite.",
+      "metric": "Mean reported success score (%)",
+      "value": "Octo Small/Base 1.5: 21.5/23.8; OpenVLA v0.1/final 7B: 27.6/67.4.",
+      "comparison": "Larger or later versions receive higher scores; training checkpoints generally improve, with a visible diffusion-policy dip.",
+      "interpretation": "Version comparisons are consistent with prior rankings cited by the authors; checkpoint improvement is not monotonic or independently validated by new physical trials here.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Bridge robustness to unrelated image distractors",
+      "setting": "Edited initial frames across the same Bridge suite; language instructions retained.",
+      "metric": "Mean simulated success score (%) ± reported uncertainty",
+      "value": "RT-1-X 7.6±4.3%; Octo 4.1±1.7%; OpenVLA 39.4±5.1%.",
+      "comparison": "Unedited scores: 15.5%, 23.82%, 67.4% in Table 5.",
+      "interpretation": "All degrade. OpenVLA retains the highest score, but edited-image simulations alone cannot establish physical-world robustness.",
+      "evidenceIds": [
+        "e09",
+        "e16"
+      ]
+    },
+    {
+      "task": "Validation-video fidelity under different training datasets",
+      "setting": "Bridge V1 versus Bridge V2 world-model training, compared with ground-truth validation videos.",
+      "metric": "MSE ↓ / LPIPS ↓ / SSIM ↑",
+      "value": "Bridge V2: 0.010 / 0.073 / 0.827.",
+      "comparison": "Bridge V1: 0.015 / 0.131 / 0.735.",
+      "interpretation": "All three favor Bridge V2; changing dataset versions does not isolate sample count from composition, nor measure policy-value accuracy.",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "task": "Parallel rollout generation",
+      "setting": "40-frame generation on an A100 GPU; same world-model checkpoint.",
+      "metric": "Inference time (seconds)",
+      "value": "h=4: 33 seconds.",
+      "comparison": "h=1: 93 seconds; reported 2.8× speedup.",
+      "interpretation": "This supports chunk-aligned parallelism in the measured setting. No paired quality comparison or timing uncertainty accompanies the table.",
+      "evidenceIds": [
+        "e18"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Realistic object interactions remain difficult. Qualitative control sweeps establish visible action following, not contact-physics accuracy. Figure 17's mean LPIPS stays below 0.2 only over the displayed 20-frame test window; its spread exceeds that threshold, so this is not a trajectory-wise or arbitrary-horizon bound.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e19",
+        "e21"
+      ]
+    },
+    {
+      "text": "Good aggregate agreement can hide task errors: OpenVLA scores 1 versus 6 on Lift White Tape and 10 versus 6 on Put Eggplant into Pot in real versus simulated trials, each out of ten. Partial credit further separates reported score from strict binary completion.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e09"
+      ]
+    },
+    {
+      "text": "OOD behavior mixes policy, image-editing, dynamics and grader errors. Table 6 calls one edit 'Replace Carrot with Radish', while Figure 9 describes recoloring the carrot. Table 1 omits explicit OOD-language trial denominators; no rates are inferred from it.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "text": "Appendix H's RL improvement is measured inside WorldGym, with an initial dip, and supplies no real-world transfer test. Google Robot results likewise lack paired real-world columns and allow half credit for reaching attempts.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e20",
+        "e22"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A faithful implementation needs the exact nine-dataset mixture/splits, action transforms, SD3 VAE, DiT checkpoint and policy versions. The paper supplies percentile alignment and core hyperparameters but omits the complete mixture, action-dropout probability, guidance scale, software versions and whether the VAE is frozen.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04"
+      ]
+    },
+    {
+      "text": "Recreate matched initial frames, rollout horizons and per-task rubrics; pin the GPT-4o version and frame-selection procedure. Those grader details and validation sample counts are incomplete. Algorithm 1 also leaves n_chunk undefined and drops the goal in its terminal reward call, unlike Eq. (2) and the prompt.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e05",
+        "e06",
+        "e08",
+        "e10"
+      ]
+    },
+    {
+      "text": "Checkpoint reproduction needs clarification: Section 4.2 lists video checkpoints ending at 18k steps, whereas Appendix C reports 180k generator training. The main text's 'from scratch' description also differs from Appendix D's pretrained adaptation. Neither discrepancy is silently resolved here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e12",
+        "e13"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded benchmark/simulator classification fits the inference architecture: a learned environment evaluates separate policies using a separate grader. One shared dynamics model does not make this a joint future/action One Model controller. The inverse dynamics module belongs to one evaluated policy, not WorldGym's evaluation mechanism; the recorded architecture, prediction paradigm and quadrant can therefore remain not applicable.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e05",
+        "e12"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Benchmarks & simulators",
+      "subcategories": [
+        "Neural policy evaluation environments",
+        "Robot manipulation benchmarks"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Explicit in survey",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "3c44448beb38bcad06f8e4796e18cc9c8fa7a538524abb7c0b32286015d4e1a9"
+    }
+  },
+  "discussionQuestions": [
+    "Would policy ordering persist when humans grade the same generated videos and when difficult tasks are evaluated separately?",
+    "Does chunk-aligned denoising preserve action fidelity and policy-value calibration while reducing runtime?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block and conference header",
+      "detail": "The supplied artifact is titled WorldGym: World Model as An Environment for Policy Evaluation and marked as an ICLR 2026 conference paper. Authors, in order, are Julian Quevedo, Ansh Kumar Sharma, Yixiang Sun, Varad Suryavanshi, Percy Liang and Sherry Yang. Affiliations are Stanford University, NYU and Google DeepMind. No numbered revision or revision date is printed here."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Figure 1 and Section 2, Eqs. (1)–(2)",
+      "detail": "WorldGym estimates policy value by sampling visual trajectories from an action-conditioned world model and scoring them with a learned reward function. The goal and initial state are sampled from G; observations replace inaccessible physical states in the evaluation loop. Figure 1 depicts separate policy, world-model and reward components."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1.1",
+      "detail": "The latent Diffusion Transformer uses Diffusion Forcing, linear action projection added to diffusion-timestep embeddings, AdaLN-Zero conditioning, clip-level action dropout and classifier-free guidance. Causal temporal attention alternates with spatial attention."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix A, implementation paragraph and Table 2",
+      "detail": "Stable Diffusion 3's VAE encodes 256×256 frames. The world model uses 609M parameters, 16 layers, hidden size 1024, 16 heads, 20-frame context and seven action dimensions. Nine compatible Open-X datasets are used; action-component 10th/90th percentiles are aligned to RT-1. Training uses AdamW, learning rate 8e-5, batch size 16, 300k steps and two A100 80GB GPUs; Table 2 lists a sigmoid noise schedule, v prediction and 10 sampling timesteps. The complete dataset mixture, guidance scale and dropout rate are not specified here."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1.2; p. 16, Algorithm 1 and following paragraph",
+      "detail": "The policy receives the latest observation and emits an action chunk; the world model generates a frame per action and returns the latest frame. In practice h equals the action chunk size. History uses a sliding 20-frame window. Algorithm 1 increments n by an undefined n_chunk and writes the terminal reward without its goal argument, unlike Eq. (2)."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1.3; p. 17, Appendix B.1, reward prompt and rubrics",
+      "detail": "GPT-4o scores the generated frame sequence against the language instruction. Binary tasks use 0 or 1; tasks with a specified partial-credit criterion allow 0.5. The prompt acknowledges generation artifacts. An exact GPT-4o snapshot, frame-sampling specification and all task-specific partial-credit descriptions are not supplied."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Sections 3.2.1–3.2.2 and Figures 2–3; p. 21, Figures 15–16",
+      "detail": "Validation videos are generated from initial frames and the original recorded actions, with qualitative comparisons across robot morphologies. Separate control sweeps change one action dimension while holding others at zero. The stills illustrate action following; the paper directs readers to supplemental videos for motion."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.1 and Figure 4",
+      "detail": "The evaluation reuses initial frames from OpenVLA's real-world Bridge trials: 17 tasks absent from Bridge V2, 10 trials per task and policy. RT-1-X, Octo and OpenVLA are rolled out in WorldGym. Figure 4 reports Pearson r=0.78, p<0.001; its bars show real/simulated means of 18.5/15.6%, 20.0/23.8% and 70.6/67.4%. Page 6 instead gives 15.5% and 23.82% for the first two simulated means."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Appendix E.3, Table 5, all rows and standard-error definition",
+      "detail": "Table 5 reports real/WorldGym means (±SE): RT-1-X 18.5±4.0% / 15.5±3.4%; Octo 20.0±5.3% / 23.82±4.3%; OpenVLA 70.6±6.1% / 67.4±4.9%. SE is sd of per-task rates divided by the square root of the number of tasks. OpenVLA's Lift White Tape scores are 1 real and 6 simulated; Put Eggplant into Pot scores are 10 real and 6 simulated, each over 10 trials. Fractional success totals occur in the table."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Appendix B.2; p. 17, Table 3",
+      "detail": "On real RT-1 validation videos with ground-truth success labels, GPT-4o has TP 0.81±0.14, FN 0.19±0.14, FP 0.03±0.05 and TN 0.97±0.05. The caption identifies mean and standard error across four runs. It does not specify the number of videos per run or establish accuracy on generated OOD videos."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.2 and Figures 6–7",
+      "detail": "Figure 6 gives WorldGym scores of 21.5%, 23.8%, 27.6% and 67.4% for Octo Small 1.5, Octo Base 1.5, OpenVLA v0.1 7B and OpenVLA 7B. Figure 7 shows an overall upward checkpoint trend, with a diffusion-policy decline from 20k to 40k. Page 7 describes video-policy evaluations at 2k, 8k, 12k and 18k steps, and calls both trained policies 'from scratch'."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Appendix C and Figure 14",
+      "detail": "The evaluated video policy is a separate UniPi-style language-conditioned generator and inverse dynamics model. Its frozen UMT5-xxl encoder provides pooled language features; a ResNet-50/MLP inverse model uses frame features and temporal differences, trained with action MSE. Appendix C states 180k generator steps and 200k independent inverse-model steps, leaving the relation to the main text's 18k checkpoint endpoint unclear."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Appendix D",
+      "detail": "The diffusion policy uses pretrained Qwen2-VL-2B and a pretrained control head. Only LoRA adapters and the policy head are trained during 60k-step Bridge V2 adaptation; actions are rescaled to (-1,1). The head uses noise-prediction MSE and DDIM inference. This pretrained adaptation qualifies the main text's 'from scratch' description."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–9, Section 4.3, Figures 8–12 and Table 1",
+      "detail": "Image edits introduce objects, distractors and classification targets; changed instructions alter objects or destinations. Table 1 lists scores for four OOD language tasks but omits an explicit trial-count column or rate unit. Figure 9 describes turning the carrot red; this differs in wording from Table 6's radish replacement. These are simulated policy probes."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 24, Appendix E.4, Table 6",
+      "detail": "OpenVLA's orange-selection scores are 4/10 with carrot closer, 9/10 with orange closer and 10/10 for 'Replace Carrot with Radish'. Its classification totals are 20/20 for red/blue, 12/20 for circle/square and 11/20 for the two celebrity faces. The table does not establish equivalent behavior on real edited scenes."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 4.3 and Figure 13; p. 24, Table 7",
+      "detail": "Unrelated distractors are added to initial images across the Bridge suite while instructions are held fixed. Table 7 reports mean simulated success scores of 7.6±4.3%, 4.1±1.7% and 39.4±5.1% for RT-1-X, Octo and OpenVLA. Figure 13 compares them with the unedited-image scores."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Appendix F.1, Table 8 and following paragraph",
+      "detail": "Bridge V1 versus Bridge V2 training yields MSE 0.015 versus 0.010, LPIPS 0.131 versus 0.073 and SSIM 0.735 versus 0.827 against ground-truth validation videos. Lower is better for MSE/LPIPS and higher for SSIM. Validation sample counts, repetitions and uncertainty are not reported in this ablation."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Appendix F.2, Table 9 and following paragraph",
+      "detail": "Generating 40-frame rollouts on an A100 takes 93 seconds at h=1 and 33 seconds at h=4, a reported 2.8× speedup. The same checkpoint can match policy chunk sizes: OpenVLA predicts one action, Octo four. The table provides timing, without paired quality or repeated-timing uncertainty."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 26, Appendix G and Figure 17",
+      "detail": "Mean per-frame LPIPS over ten test rollouts stays below 0.2 under fixed recorded actions. The plotted frame indices span 0–19 and the shaded band is ±1 standard deviation, extending above 0.2 late in the rollout. Error grows over time; a bound on every trajectory or on hundreds of steps is not demonstrated."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 26, Appendix H and Figure 18",
+      "detail": "A preliminary RL4VLA study finetunes OpenVLA inside WorldGym from Bridge V2 training starts and evaluates with Bridge V2 test starts and instructions inside WorldGym. The displayed reward trend improves overall but dips initially. No real-world transfer result is reported for this RL study."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 1, abstract; p. 9, Section 6",
+      "detail": "The authors acknowledge that highly realistic object interactions remain challenging and that not every generated interaction is fully realistic. They position WorldGym as a preliminary evaluation aid before deployment."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF p. 22, Appendix E.2, Table 4",
+      "detail": "Four Google Robot tasks from RT-1 use ten trials each and give half credit for attempting to reach the target location. On Pick Blue Chip Bag, the reported totals are 5 for RT-1-X, 5.5 for Octo and 9 for OpenVLA. Table 4 compares simulated policies without paired real-world evaluation columns."
+    }
+  ]
+}
