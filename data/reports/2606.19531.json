@@ -1,0 +1,456 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.19531",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T14:25:45.901Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.19531",
+      "title": "ImageWAM: Do World Action Models Really Need Video Generation, or Just Image Editing?",
+      "kind": "pdf",
+      "sha256": "0bf354364a18a2e504b46dcefd895ea923a63f04bc2f4ac12d9e8ea57ea80e2a",
+      "wordCount": 9356,
+      "accessedAt": "2026-09-07T13:58:58.765153+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, authors and abstract (p. 1)",
+      "1 Introduction (pp. 1–3)",
+      "2 Related Works, 2.1–2.2 (p. 3)",
+      "3 Method, 3.1–3.4 (pp. 3–5)",
+      "4 Experiments, 4.1–4.4 (pp. 6–9)",
+      "5 Conclusion (p. 9)",
+      "References (pp. 10–15)",
+      "Appendix 5.1.1–5.1.3: all three architectures (p. 16)",
+      "Appendix 5.2 Training Details (pp. 16–17)",
+      "6 Efficiency Optimization (pp. 17–18)",
+      "7 Real-World Experiments Detail, 7.1 (p. 18)",
+      "8 RoboTwin Evaluation Results (pp. 18–19)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction's image limitation was addressed by inspecting the original PDF figures, tables, equations and final crops.",
+      "Only the supplied PDF was reviewed; linked code and project pages were not inspected, and no experiments were reproduced.",
+      "Identity notes: exact title and all ten authors match the catalog. The inspected artifact says arXiv:2606.19531v1, 17 Jun 2026, while its title block says June 19, 2026. No other edition or revision chain was supplied or compared."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 4)",
+      "Figures 3–4 (p. 6)",
+      "Figure 5 (p. 9)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (p. 6)",
+      "Table 3 (p. 7)",
+      "Tables 4–6 (p. 8)",
+      "Table 7 (p. 9)",
+      "Tables 8–10 (p. 17)",
+      "Table 11 (p. 18)",
+      "Table 12 (p. 19)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "ImageWAM adapts pretrained image-editing models into robot policies: future endpoint supervision shapes internal visual features, and a separate flow-matching action expert reads their key/value caches. Deployment uses one editing forward pass without decoding the endpoint image. Reported robustness and efficiency gains depend strongly on the backbone and comparison protocol.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "The authors question whether manipulation needs dense future-video prediction. They argue that video synthesis spends computation on appearance and temporal details that may not determine the next action, while inaccurate imagined contacts can mislead control. Image editing instead supplies a prior for the instruction-conditioned difference between a current observation and a useful endpoint.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e-motivation",
+      "e-diagnostic"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The framework turns editing-transformer caches into an action-conditioning interface, retaining endpoint-image supervision during policy learning while omitting image decoding at deployment.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-pipeline",
+        "e-inference"
+      ]
+    },
+    {
+      "text": "Experiments span three editing backbones, standard and perturbed simulation, and executed dual-arm manipulation. These establish useful policies with no additional embodied policy pretraining, rather than training without pretrained foundation models.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-data",
+        "e-plus",
+        "e-real"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current visual observation o_t, assembled from multiple cameras in the experiments",
+      "Task instruction l",
+      "Current robot state and noisy action samples for the action expert"
+    ],
+    "outputs": [
+      "A robot action chunk; implemented experiments use length 16",
+      "A supervised future endpoint latent during training; no decoded endpoint is required at inference"
+    ],
+    "steps": [
+      {
+        "name": "Encode instruction and observation",
+        "detail": "Frozen language/vision understanding components provide context, and a frozen VAE encodes images. The trainable editing branch combines instruction context, observation latents and noisy prediction latents. Figure 2 also draws a decoder and endpoint image; these depict the visual prediction branch, not a mandatory deployment stage.",
+        "evidenceIds": [
+          "e-pipeline",
+          "e-inference"
+        ]
+      },
+      {
+        "name": "Expose editing features to a separate action transformer",
+        "detail": "At a sampled editing timestep, collect layer-wise keys and values after language–visual interaction. Appendix 5.1 describes separate visual and action QKV projections within joint attention, with one-way action access to context. Action-head weights are copied/interpolated from the editing transformer, with projections added for action input and output.",
+        "evidenceIds": [
+          "e-pipeline",
+          "e-architecture"
+        ]
+      },
+      {
+        "name": "Learn endpoint prediction and action denoising",
+        "detail": "Expert action chunks and future observation latents supply separate flow-matching targets. Understanding components stay frozen; the image diffusion branch and action expert are jointly updated. The intermediate is learned predictive context, not a decoded goal that an independent planner searches against.",
+        "evidenceIds": [
+          "e-objectives",
+          "e-pipeline"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "LIBERO provides 500 demonstrations per suite across four suites; training merges the suites. LIBERO-Plus uses these original demonstrations without augmented training data. RoboTwin uses 2,500 clean and 25,000 randomized trajectories. Real-world training combines four tasks with 100 demonstrations each.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-data",
+          "e-real-protocol"
+        ]
+      },
+      {
+        "text": "Appendix settings use eight NVIDIA H20 GPUs, bf16, AdamW at learning rate 0.0001, and ZeRO-1, except ZeRO-2 for FLUX.2 9B. LIBERO concatenates two views to 224×448; RoboTwin arranges three views at 288×256. Both use a future observation 16 frames ahead and a 16-action chunk.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Choose a fixed editing timestep τ* and obtain caches from one editing-branch forward pass. Denoise actions conditioned on that cache, without decoding an edited frame or rolling out video. Appendix efficiency variants additionally use prefix-only training/inference. Table 11 uses three action denoising steps. Cache-timestep selection and feedback/execution cadence are not fully specified.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-inference",
+          "e-optimization"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "C_{\\mathrm{edit}}^{\\tau}=\\{(K_{\\ell}^{\\tau},V_{\\ell}^{\\tau})\\}_{\\ell=1}^{L}=f_{\\mathrm{edit}}^{\\tau}(o_t,l)",
+        "explanation": "Equation (5): o_t is the current image observation, l the instruction, τ the editing denoising timestep, and L the transformer-layer count. K and V are each layer's keys and values; their collection C supplies the action expert's context.",
+        "evidenceIds": [
+          "e-pipeline"
+        ]
+      },
+      {
+        "expression": "a_s=(1-s)a^{*}_{t:t+H}+s\\epsilon_a,\\qquad \\mathcal{L}_{\\mathrm{act}}=\\mathbb{E}_{a^{*},\\epsilon_a,s,\\tau}\\!\\left[\\left\\|v_{\\theta}(a_s,s\\mid o_t,l,C_{\\mathrm{edit}}^{\\tau})-(\\epsilon_a-a^{*}_{t:t+H})\\right\\|_2^2\\right]",
+        "explanation": "Equations (8–9): a* is the expert chunk, H the action horizon, ε_a Gaussian noise, s the action flow time, and v_θ the action velocity predictor. Training regresses noise-minus-data velocity. The total loss is L_act + L_img; printed image-loss indices are inconsistent and are not silently repaired here.",
+        "evidenceIds": [
+          "e-formulation",
+          "e-objectives"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO-Plus robustness",
+      "setting": "Original LIBERO demonstration training; seven perturbation dimensions across four suites; FLUX.2 4B.",
+      "metric": "Reported average success rate (%)",
+      "value": "83.1",
+      "comparison": "FastWAM 51.5; OpenVLA-OFT 69.6; ImageWAM OmniGen2 71.8 and Ovis-U1 71.2.",
+      "interpretation": "A large reported improvement under this protocol; backbone and pretraining differences prevent attributing the entire gap to editing alone.",
+      "evidenceIds": [
+        "e-data",
+        "e-plus",
+        "e-architecture"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0 multi-task manipulation",
+      "setting": "Clean and randomized training/evaluation; main protocol specifies 100 trials per task.",
+      "metric": "Success rate (%)",
+      "value": "93.20 clean; 93.56 randomized; 93.38 average",
+      "comparison": "Table 1: FastWAM 91.83 average; LingBot-VA 92.20.",
+      "interpretation": "Table 12 identifies these ImageWAM numbers with FLUX.2 4B. Randomized training is included; this is not clean-only transfer to randomized scenes.",
+      "evidenceIds": [
+        "e-data",
+        "e-main-tables",
+        "e-per-task"
+      ]
+    },
+    {
+      "task": "Standard LIBERO manipulation",
+      "setting": "Spatial, Object, Goal and Long suites.",
+      "metric": "Average success rate (%)",
+      "value": "98.4",
+      "comparison": "Fast-WAM 97.6; LingBot-VA 98.5.",
+      "interpretation": "Competitive near-ceiling performance, not the best reported average in Table 2.",
+      "evidenceIds": [
+        "e-main-tables"
+      ]
+    },
+    {
+      "task": "Real-world dual-arm manipulation",
+      "setting": "Dobot XTrainer; bowls, towel, drawer/marker and hanging-cup tasks. Trial denominator differs between main text and appendix.",
+      "metric": "Execution success rate (%)",
+      "value": "94, 84, 78, 82; average 84.5",
+      "comparison": "FastWAM 79.0 average; π0.5 72.3; π0 55.8.",
+      "interpretation": "Reported gain over FastWAM: 5.5 percentage points. These are physical execution results; uncertain trial counts prevent reconstructing reliable uncertainty estimates.",
+      "evidenceIds": [
+        "e-real",
+        "e-real-protocol"
+      ]
+    },
+    {
+      "task": "Inference efficiency",
+      "setting": "Table 5, A6000 GPU.",
+      "metric": "Latency (ms) and TFLOPs; lower is better",
+      "value": "263 ms; 9.72 TFLOPs",
+      "comparison": "FastWAM-IDM: 1081 ms, 63.65 TFLOPs; FastWAM (1 Step): 302 ms, 13.21 TFLOPs.",
+      "interpretation": "The roughly quarter-latency headline uses the video-intermediate baseline. Against one-step FastWAM the latency reduction is approximately 12.9%, calculated from the table.",
+      "evidenceIds": [
+        "e-efficiency"
+      ]
+    },
+    {
+      "task": "Editing-backbone scaling",
+      "setting": "LIBERO-Plus, FLUX.2 4B versus 9B.",
+      "metric": "Reported average success rate (%)",
+      "value": "83.1 → 85.2",
+      "comparison": "Robot perturbation: 50.3 → 58.7; Camera: 80.8 → 79.8.",
+      "interpretation": "Scaling helps unevenly. Prose gives 85.21%, while Table 7 rounds to 85.2%; the action head also grows from 642M to 952M parameters.",
+      "evidenceIds": [
+        "e-scaling",
+        "e-architecture"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Attention overlays and selected video-artifact examples support a qualitative explanation, not causal proof that editing pretraining produces the gains. Backbone comparisons change components, despite the claim that the action expert is unchanged. Appendix action-head sizes differ across variants.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-diagnostic",
+        "e-backbone-claim",
+        "e-architecture"
+      ]
+    },
+    {
+      "text": "Robustness is protocol-specific: Table 6 reports 84.4% on RoboTwin Clean Only but 18.3% on Clean2Hard, below keyframe BagelVLA's 20.9%. These columns cannot be merged with Table 1's randomized-training results. Aggregate success tables provide no seed-level uncertainty.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-unified",
+        "e-data",
+        "e-main-tables",
+        "e-plus",
+        "e-real"
+      ]
+    },
+    {
+      "text": "Source inconsistencies remain unresolved: main real-world text says 100 trials, appendix says 50 per task; main training uses 30k steps while appendix gives epoch budgets. Equation (6) has a stray endpoint-index suffix, (7) switches to undefined K, and inclusive chunk notation is not reconciled with implemented length 16.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-real-protocol",
+        "e-data",
+        "e-training",
+        "e-formulation",
+        "e-objectives"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs pretrained editing/LLM checkpoints, copied action-head initialization, attention masks, camera composites and endpoint/action pairing. Table 8 specifies optimizer betas (0.9, 0.95), weight decay 0.01, warmup-cosine scheduling and gradient clipping 1.0; exact software versions and the fixed cache timestep are not supplied.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-architecture",
+        "e-training",
+        "e-inference"
+      ]
+    },
+    {
+      "text": "Resolve configuration provenance before comparing speed or success: Table 10 lists real-world training cost only for OmniGen2, while the main setup names FLUX.2 4B. Table 11's optimized 69 ms prefix-only result has no paired success measurement there. Proposed checks should measure matched success and latency and isolate endpoint supervision from capacity.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-data",
+        "e-cost",
+        "e-optimization",
+        "e-objectives"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "Dual-system × IDM is supported as a functional interpretation: separate visual and action transformers communicate through visual KV context, and actions are inferred from current observations plus endpoint-oriented features. Joint attention and training do not establish one shared-parameter model. IDM here means latent-context-conditioned action decoding, not an explicit observed current/goal-image interface at deployment.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-formulation",
+        "e-pipeline",
+        "e-inference",
+        "e-architecture"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Visual planning & IDM",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "b928d0cdb64b289eb7f5348f28088310d686039ff4737657608203fe6367b1b3"
+    }
+  },
+  "discussionQuestions": [
+    "Would removing endpoint supervision while holding the backbone and action head fixed preserve robustness?",
+    "Does prefix-only inference preserve success on contact-sensitive tasks under matched compilation settings?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author/affiliation block, date and arXiv margin",
+      "detail": "Exact title and ten-author identity match. Margin: 2606.19531v1, 17 Jun 2026; title block: June 19, 2026. Five affiliations are printed."
+    },
+    {
+      "id": "e-motivation",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Introduction and Figure 1",
+      "detail": "Authors motivate editing through instruction-to-change alignment, a single endpoint proxy and compact inference instead of dense video synthesis."
+    },
+    {
+      "id": "e-formulation",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1, Equations (1–4)",
+      "detail": "Actions are conditioned on current observation and instruction. The conceptual visual intermediate becomes an endpoint at t+H+1. Equation (1) lists actions inclusively through t+H."
+    },
+    {
+      "id": "e-pipeline",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and Section 3.2, Equation (5); p. 5, opening paragraph",
+      "detail": "Layer-wise editing KV features feed an action expert with robot state and action noise. Figure 2 marks LLM/VAE frozen and editing/action branches tunable; text freezes understanding modules."
+    },
+    {
+      "id": "e-objectives",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Equations (6–9)",
+      "detail": "Image and action flow-matching losses are summed; training samples editing timesteps. The image target is defined at t+H+1, but (6) prints an extra s in the index and (7) uses t+K without defining K. Action interpolation and velocity targets are explicit."
+    },
+    {
+      "id": "e-inference",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.4, Equations (10–11)",
+      "detail": "One editing forward step at fixed τ* supplies caches for action denoising without edited-image decoding; numerical timestep and selection rule are unspecified."
+    },
+    {
+      "id": "e-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix Sections 5.1.1–5.1.3",
+      "detail": "Separate visual/action QKV and directional attention form a MoT architecture. Weight-copy initialization is described. Action DiT sizes: approximately 760M for OmniGen2, 642M/952M for FLUX.2 4B/9B, and 1.1B for Ovis-U1."
+    },
+    {
+      "id": "e-data",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, opening and benchmark protocol paragraphs",
+      "detail": "No extra embodied policy pretraining. Main setup names FLUX.2 4B. LIBERO: 500 demonstrations per suite; LIBERO-Plus adds no augmented training data. RoboTwin: 2,500 clean and 25,000 randomized trajectories, 30k training steps and 100 trials per task."
+    },
+    {
+      "id": "e-main-tables",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Tables 1–2, ImageWAM and comparison rows",
+      "detail": "RoboTwin: 93.20/93.56/93.38 clean/randomized/average, versus FastWAM average 91.83 and LingBot-VA 92.20. LIBERO averages: ImageWAM 98.4, Fast-WAM 97.6, LingBot-VA 98.5."
+    },
+    {
+      "id": "e-plus",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3, all rows and perturbation columns",
+      "detail": "Averages: FLUX.2 4B 83.1, OmniGen2 71.8, Ovis-U1 71.2, FastWAM 51.5, OpenVLA-OFT 69.6. FLUX.2 4B Robot 50.3, Camera 80.8, Background 85.5; Ovis-U1 Robot 58.4; OpenVLA-OFT Background 93.3."
+    },
+    {
+      "id": "e-real",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4, T1–T4 and Avg columns",
+      "detail": "ImageWAM execution success: 94/84/78/82 (84.5 average); FastWAM: 88/75/77/76 (79.0); π0.5 average 72.3; π0 average 55.8."
+    },
+    {
+      "id": "e-real-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1 Real-world Experiments; p. 18, Section 7.1",
+      "detail": "Four Dobot XTrainer tasks use about 100 demonstrations each. Main text: 30k training steps and 100 evaluation trials; appendix: 50 trials per task. Tasks: stacking three bowls, folding a towel, opening/storing/closing a drawer, hanging a cup."
+    },
+    {
+      "id": "e-efficiency",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 5 and Section 4.3 Latency and FLOPs",
+      "detail": "A6000: FastWAM-IDM 1081 ms/63.65 TFLOPs, FastWAM (1 Step) 302 ms/13.21 TFLOPs, ImageWAM 263 ms/9.72 TFLOPs. Intermediates: Video, Cache, Cache."
+    },
+    {
+      "id": "e-diagnostic",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 4; p. 8, Section 4.3; p. 9, Figure 5 and caption",
+      "detail": "Attention overlays show two instructions and localized ImageWAM hotspots; authors interpret these as task-relevant focus. Figure 5 marks selected video artifacts with red boxes and associates them with unreliable action conditioning. Evidence is qualitative."
+    },
+    {
+      "id": "e-backbone-claim",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.4 Q1",
+      "detail": "Text says backbones are replaced with action expert and training data unchanged; cited averages correspond to Table 3 although the paragraph references Table 7."
+    },
+    {
+      "id": "e-unified",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 6 and Section 4.4 Q2",
+      "detail": "ImageWAM: 84.4 RoboTwin Clean Only, 18.3 Clean2Hard. BagelVLA with keyframes: 75.3/20.9; without keyframes: 56.7/15.9. Authors argue for frozen understanding and adapted generation."
+    },
+    {
+      "id": "e-scaling",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.4 Q3 and Table 7",
+      "detail": "FLUX.2 4B/9B averages: 83.1/85.2; prose: 85.21. Robot, Language, Background and Layout improve; Camera, Light and Noise decrease."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF pp. 16–17, Appendix 5.2, Tables 8–9 and adjoining text",
+      "detail": "Eight H20 GPUs, bf16, AdamW, learning rate 1e-4, betas 0.9/0.95, weight decay 0.01, warmup cosine, clipping 1.0; ZeRO-2 only for FLUX.2 9B. LIBERO: 224×448 two-view input, 10 epochs; RoboTwin: 288×256 three-view input, 5 epochs. Future horizon/action length: 16. Real-world: RoboTwin preprocessing, 10 epochs."
+    },
+    {
+      "id": "e-cost",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Table 10 and footnote",
+      "detail": "LIBERO FLUX.2 4B: 18 hours, batch/GPU 10; 9B: 1.6 days, 12. RoboTwin: five days, effective batch/GPU 48 with three-step accumulation. Real-world cost row lists only OmniGen2: 18 hours, batch/GPU 16."
+    },
+    {
+      "id": "e-optimization",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Section 6 and Table 11",
+      "detail": "Prefix-only attention training and image-denoising-free inference are evaluated with compilation/static graphs; all rows use three action denoising steps. ImageWAM prefix-only: 198 ms, then 85/77/69 ms with listed optimizations. FastWAM prefix-only: 194 ms, 80 ms compiled. Original ImageWAM row is labeled '1× Vid. Denoise' despite its image-editing method. No success column."
+    },
+    {
+      "id": "e-per-task",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Table 12, headers and Average row",
+      "detail": "FLUX.2 4B reproduces 93.20/93.56. OmniGen2, explicitly labeled 50 trials, reports 92.48/92.80. Baselines include Fast-WAM-IDM and Fast-WAM without co-training; they must not be silently equated with Table 1's FastWAM."
+    }
+  ]
+}
