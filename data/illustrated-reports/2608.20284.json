@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.20284",
+  "shortTitle": "Joint Surgical Visual–Trajectory Forecasting",
+  "thesis": "A shared latent predictor improves surgical scene and tool-path forecasts by rolling forward in short chunks, while accumulated error limits its planning relevance.",
+  "standfirst": "This paper asks a focused question: can a predictor anticipate both the appearance of a surgical scene and the motion of its instrument from the same observed history? Five frames and five tool locations seed a shared representation, which produces visual latents and two-dimensional trajectory points. The central comparison is how that representation forecasts fifteen future steps: all at once, or through repeated three-step updates. Read the architecture first to understand what is fed back, then use the table and qualitative example to separate relative improvement from remaining forecast error. The experiments evaluate recorded-video prediction; action conditioning and stronger visual-motion consistency remain future work.",
+  "evidenceIds": [
+    "e-formulation",
+    "e-predictor",
+    "e-rollout",
+    "e-protocol",
+    "e-table",
+    "e-conclusion"
+  ],
+  "visuals": [
+    {
+      "id": "history-encoding",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1(a)",
+      "page": 4,
+      "asset": "report-assets/2608.20284/history-encoding.png",
+      "width": 1428,
+      "height": 475,
+      "sourceSha256": "1e34c7ff31bd1957db46f663eb331df290df660482ff6fc8fee9fad7265be767",
+      "sourceUrl": "https://arxiv.org/pdf/2608.20284#page=4",
+      "crop": [
+        0.222,
+        0.146,
+        0.782,
+        0.29
+      ],
+      "alt": "Five observed surgical frames labeled I0 through I4 pass through a frozen SurgMotion ViT-L encoder into five token grids, with the original color legend retained.",
+      "caption": "The visual history enters through a frozen encoder before future prediction begins.",
+      "readingGuide": "Start with the five observed RGB frames across the top, labeled I₀ through I₄ in this diagram. Follow the downward arrows through the SurgMotion ViT-L block; the snowflake marks the frozen encoder. The resulting grids z₀ through z₄ preserve spatial organization, and the size label gives five grids of 1024 × 16 × 16. The legend distinguishes observed images, causal token grids and future outputs. This panel supplies the visual history used by the next panel. Section 2.2 adds a detail compressed by the drawing: the method draws on intermediate and final encoder tokens, projecting each stream before fusion with historical tool coordinates.",
+      "takeaway": "The forecast begins in a pretrained visual representation. Freezing the encoder fixes this observation interface while the downstream predictor learns future transitions. The panel also establishes that initial conditioning comes from five observed frames, which matters when interpreting the paper's strict history-only evaluation.",
+      "caution": "The frozen block is labeled SurgMotion ViT-L, but its cited reference 19 is titled UniSurg. The PDF does not explain the naming relationship or identify the exact checkpoint; this crop cannot resolve that reproduction ambiguity.",
+      "evidenceIds": [
+        "e-encoding",
+        "e-fusion",
+        "e-protocol",
+        "e-backbone"
+      ]
+    },
+    {
+      "id": "joint-rollout",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1(b)",
+      "page": 4,
+      "asset": "report-assets/2608.20284/joint-rollout.png",
+      "width": 1428,
+      "height": 555,
+      "sourceSha256": "1e34c7ff31bd1957db46f663eb331df290df660482ff6fc8fee9fad7265be767",
+      "sourceUrl": "https://arxiv.org/pdf/2608.20284#page=4",
+      "crop": [
+        0.222,
+        0.291,
+        0.782,
+        0.459
+      ],
+      "alt": "Historical token grids and normalized 2-D tool positions feed temporal and spatial processing, branch into future latents and tool points, and update a five-step history over five three-step chunks.",
+      "caption": "Both predicted modalities update the same rolling history; RGB decoding is a separate output branch.",
+      "readingGuide": "Read left to right from the token grids and orange historical tool points. The projection block changes the depicted channel width from 1024 to 512, and position embeddings enter before temporal attention. The temporal transformer has three layers and eight heads and operates across five time steps at each spatial location; three spatial residual blocks follow. The prediction block branches into future token grids and tool positions. Trace the purple feedback arrow downward: it updates the five-step history and repeats prediction over five chunks. Follow the separate rightward branch to the frozen deterministic RGB decoder, whose output is labeled for RGB supervision and visualization rather than as the history-update signal.",
+      "takeaway": "A common predictor supplies two future modalities and recursively conditions on them. The body text clarifies the two priors hidden inside the prediction block: visual residuals start from the latest latent, while trajectory residuals correct constant velocity. These choices support short local transitions, but their individual contributions are not isolated experimentally.",
+      "caution": "The loop describes forecast feedback, with no executed robot command or fresh observation between chunks. The compact diagram also leaves unspecified how subsequent predicted visual states supply the two feature streams described in Section 2.2.",
+      "evidenceIds": [
+        "e-predictor",
+        "e-fusion",
+        "e-residuals",
+        "e-rollout",
+        "e-formulation",
+        "e-reproduction-gaps",
+        "e-evaluation-gaps"
+      ]
+    },
+    {
+      "id": "segment-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 8,
+      "asset": "report-assets/2608.20284/segment-results.png",
+      "width": 1367,
+      "height": 653,
+      "sourceSha256": "1e34c7ff31bd1957db46f663eb331df290df660482ff6fc8fee9fad7265be767",
+      "sourceUrl": "https://arxiv.org/pdf/2608.20284#page=8",
+      "crop": [
+        0.235,
+        0.195,
+        0.771,
+        0.393
+      ],
+      "alt": "Complete ten-row table comparing chunked and direct forecasts over five three-frame segments, with PSNR, SSIM, LPIPS, ADE and FDE columns and metric-direction arrows.",
+      "caption": "Chunking improves every reported segment, while accuracy deteriorates within both settings.",
+      "readingGuide": "Compare rows with the same Segment label across the upper chunked block and lower direct block. Each row evaluates a distinct three-frame future interval, so the last row is the final interval rather than an average over all fifteen steps. Read the column arrows before comparing: larger PSNR and SSIM are better, whereas smaller LPIPS, ADE and FDE are better. PSNR is reported in dB; both trajectory errors use original-image pixels. ADE averages point errors within the interval, and FDE concerns its last point. First compare settings at a fixed interval, then scan downward within one setting to see how performance changes with forecast distance.",
+      "takeaway": "For t+1:3, chunking raises PSNR from 18.859 to 23.105 dB and lowers ADE from 45.77 to 22.22 pixels. At t+13:15, chunked ADE is 158.52 versus 195.27 pixels for direct prediction. The improvement persists, but the rising errors reveal a substantial remaining long-horizon problem.",
+      "caution": "No split membership, repeated-run uncertainty or inference timing accompanies these rows. The comparison evaluates two prediction strategies; it cannot attribute gains separately to scheduled sampling, the residual motion prior or joint visual/trajectory supervision.",
+      "evidenceIds": [
+        "e-data",
+        "e-protocol",
+        "e-first",
+        "e-last",
+        "e-table",
+        "e-evaluation-gaps"
+      ]
+    },
+    {
+      "id": "qualitative-rollout",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 2",
+      "page": 9,
+      "asset": "report-assets/2608.20284/qualitative-rollout.png",
+      "width": 1298,
+      "height": 832,
+      "sourceSha256": "1e34c7ff31bd1957db46f663eb331df290df660482ff6fc8fee9fad7265be767",
+      "sourceUrl": "https://arxiv.org/pdf/2608.20284#page=9",
+      "crop": [
+        0.252,
+        0.143,
+        0.761,
+        0.395
+      ],
+      "alt": "Three rows of surgical image crops at t+3, t+6, t+9, t+12 and t+15, with overlaid tool paths, red region boxes and the original blue/green/red trajectory legend.",
+      "caption": "The rollout diagnostic shows stronger chunked image structure alongside persistent path drift.",
+      "readingGuide": "Use the row letters together with the source caption: (a) is direct one-shot prediction, (b) is chunked rollout and (c) is ground truth. Columns move through the forecast at t+3, t+6, t+9, t+12 and t+15. Compare each generated image with the ground-truth image in its column before following the small trajectory overlays. The retained legend marks historical inputs blue, ground truth green and predictions red. The authors display cropped regions of interest, so these panels show a selected part of the operative field. Look separately at the tissue/instrument appearance and the path endpoints; agreement in one does not automatically establish agreement in the other.",
+      "takeaway": "The displayed chunked row retains more of the scene structure than the direct row, consistent with the authors' qualitative assessment. Later columns still show trajectory separation and reduced fidelity. This is a useful diagnostic companion to Table 1 because it illustrates the distinction between relative visual improvement and an accurate future tool path.",
+      "caution": "This selected example has no calibrated displacement axis and cannot supply new numerical errors or failure frequencies. It compares rollout settings, not an isolated component ablation, and it does not verify physical safety or prospective robot execution.",
+      "evidenceIds": [
+        "e-qualitative",
+        "e-protocol",
+        "e-table",
+        "e-evaluation-gaps"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Understand what the shared state predicts",
+      "text": "Begin with the two outputs rather than the world-action label. The model receives observed surgical frames and their annotated two-dimensional tool locations. Its frozen encoder provides visual features, while an MLP embeds the tool position and broadcasts it over the spatial grid. Adding these representations lets temporal-spatial processing produce a common context for both heads. The visual head predicts changes in latent appearance; the trajectory head predicts corrections to extrapolated motion. A frozen decoder subsequently turns visual latents into images for supervision and evaluation. Interpretation: this architecture makes joint forecasting concrete, because both outputs depend on the same encoded history. It does not by itself prove that a predicted tool point matches the tool inside the predicted image. The paper leaves stronger visual-motion consistency to future work.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-formulation",
+        "e-fusion",
+        "e-predictor",
+        "e-residuals",
+        "e-conclusion"
+      ]
+    },
+    {
+      "heading": "Follow the feedback after the first chunk",
+      "text": "With five history entries, the first predictor call emits three future latent states and three positions. The history update removes the oldest three entries and appends that predicted chunk, again leaving five. Repeating the operation means later calls increasingly depend on earlier model outputs. The RGB decoder sits outside this feedback path: the predictor rolls forward latent states and positions. During training, scheduled sampling selects either ground-truth or predicted states through a Bernoulli mask. Its predicted-state probability starts increasing at epoch 8 and reaches 0.75 at epoch 45; validation and test use fully autoregressive updates. Interpretation: scheduled sampling targets the mismatch between clean training histories and imperfect inference histories. It can expose the predictor to its own errors, but the direct/chunked comparison does not isolate how much improvement this training choice contributes.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-predictor",
+        "e-rollout",
+        "e-sampling",
+        "e-training",
+        "e-evaluation-gaps"
+      ]
+    },
+    {
+      "heading": "Separate a better forecast from demonstrated planning",
+      "text": "Read the table along two directions. Matching an upper row to its lower counterpart asks whether chunking beats direct prediction at the same horizon; every reported metric favors chunking. Moving downward within the upper block asks whether chunking maintains accuracy over time; it does not. ADE rises from 22.22 pixels in the first interval to 158.52 pixels in the last, while PSNR falls from 23.105 to 17.982 dB. Figure 2 supplies a qualitative view of appearance and path drift, but no additional statistical estimate. Interpretation: these results support the feasibility of forecasting two modalities from historical observations and the usefulness of short prediction chunks in this setup. They leave open the intervention question: whether conditioning on a proposed surgical action would correctly anticipate its consequences and improve executed planning.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-protocol",
+        "e-first",
+        "e-last",
+        "e-table",
+        "e-qualitative",
+        "e-formulation",
+        "e-conclusion"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Isolate scheduled sampling at a fixed chunk length",
+      "text": "Reader-proposed experiment, not performed here: after resolving the data split and checkpoints, train two otherwise matched three-step predictors, one with the reported epoch-8-to-45 scheduled-sampling schedule and one using ground-truth history throughout training. Hold initial weights, losses, data order and optimization budget fixed within each paired run, and repeat across seeds. Evaluate both with fully autoregressive fifteen-step forecasts and report all five segment metrics. A consistent late-segment advantage would support the exposure-robustness rationale; no advantage would weaken the claimed role of scheduled sampling without disproving chunking itself.",
+      "evidenceIds": [
+        "e-sampling",
+        "e-training",
+        "e-protocol",
+        "e-evaluation-gaps",
+        "e-reproduction-gaps"
+      ]
+    },
+    {
+      "title": "Measure the learned correction beyond constant velocity",
+      "text": "Reader-proposed experiment, not performed here: compare the full trajectory predictor with a constant-velocity baseline initialized from the same final two observed anchor points, using identical segments and original-pixel ADE/FDE. Additionally, evaluate the learned trajectory head with its residual set to zero on the same saved history contexts, so immediate correction value can be distinguished from changes caused by recursive feedback. Report results by future segment and repeated-run variation for the learned model. If corrections fail to improve matched-context errors or long-horizon forecasts, the learned motion benefit beyond the explicit prior remains unsupported.",
+      "evidenceIds": [
+        "e-residuals",
+        "e-rollout",
+        "e-protocol",
+        "e-table",
+        "e-evaluation-gaps"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "notes": "All ten supplied PDF pages were rendered and visually inspected. Page 1 verifies title, eight authors, affiliations and v1/date; pages 2–3 establish motivation and formulation; pages 4–6 verify architecture, equations, latent feedback and training-state selection; pages 6–8 establish data, metrics, optimizer/GPU settings and the complete numerical comparison; pages 8–9 establish limitations and the qualitative diagnostic; pages 9–10 contain acknowledgments/disclosure/references, including the backbone naming discrepancy on page 10. Every final crop was separately viewed with legends, labels and table rows retained. No appendix is present. External qualitative material and code remain outside this review."
+  },
+  "featuredResultTask": "Joint visual–trajectory forecasting, future frames t+1:3",
+  "visualLimitations": {
+    "kind": "analysis",
+    "text": "The supplied paper contains one two-panel architecture figure, one quantitative table and one qualitative comparison. The four crops present the architecture panels separately, the complete table and the qualitative figure. Figure 2 supplies a rollout diagnostic for the ablation section; the paper reports no separate component ablation isolating scheduled sampling, the constant-velocity prior, joint training or individual losses, and no robot-execution experiment.",
+    "evidenceIds": [
+      "e-encoding",
+      "e-predictor",
+      "e-table",
+      "e-qualitative",
+      "e-evaluation-gaps"
+    ]
+  }
+}
