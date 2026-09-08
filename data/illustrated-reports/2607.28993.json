@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.28993",
+  "shortTitle": "ST-WAM",
+  "thesis": "ST-WAM combines VAE dynamics, DINO future supervision and current-conditioned history to improve robustness under visual shifts, while paying additional inference cost without generating futures at deployment.",
+  "standfirst": "A robot can predict a plausible future and still lose track of the scene it actually faces. ST-WAM studies this problem through visual perturbations, then changes how future supervision and recent observations enter an action policy. Its two future experts learn in VAE and DINO spaces; its history module retrieves DINO features using queries anchored in the current image and instruction. The crucial architectural detail is the attention mask: actions never read future tokens. The six visuals below connect that information flow to the diagnostic evidence, zero-shot transfer results and ablations, while separating representation stability from demonstrated robot success.",
+  "evidenceIds": [
+    "e02",
+    "e03",
+    "e04",
+    "e05",
+    "e06",
+    "e13",
+    "e14",
+    "e15",
+    "e16",
+    "e17"
+  ],
+  "featuredResultTask": "Zero-shot manipulation on LIBERO-Plus",
+  "visuals": [
+    {
+      "id": "representation-diagnosis",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 1,
+      "asset": "report-assets/2607.28993/representation-diagnosis.png",
+      "width": 1214,
+      "height": 1175,
+      "sourceSha256": "0c31090b27a4c604b596373354950b462cf387098c2bb993305dfcee6c155853",
+      "sourceUrl": "https://arxiv.org/pdf/2607.28993#page=1",
+      "crop": [
+        0.538,
+        0.295,
+        0.895,
+        0.562
+      ],
+      "alt": "Three rows of predicted futures drift from shifted visual conditions toward LIBERO appearance; below, clean and shifted frame triplets accompany DINOv3 and Wan-VAE cosine-similarity distributions.",
+      "caption": "Prediction drift motivates a controlled comparison of representations.",
+      "readingGuide": "Read panel (a) across time: the examples show background, illumination and camera-related prediction drift for LingBot-VA or Fast-WAM-Joint. These are generated futures. In panel (b), compare the clean and shifted initial frames, whose robot and object states match, with the different-state final frame. The DINO color maps illustrate representations, while the adjacent plot summarizes same-state cosine similarity across 290 triplets. Its labels give means of 0.904 for DINOv3 and 0.686 for Wan-VAE. Page 2 adds the separate state-discrimination comparison, so the figure should be read together with that diagnostic protocol.",
+      "takeaway": "DINOv3 is more stable across the tested visual changes: the plotted mean similarity gap is 0.218. The text also reports that the shifted initial frame ranks its matched clean state above the final state in 95.2% of triplets, versus 60.0% for Wan-VAE. This motivates using DINO for future targets and history.",
+      "caution": "The qualitative examples and similarity statistics do not prove that hallucination causes control failure. The paper defers additional diagnostic details to an unsupplied supplement; the plot’s confidence interval concerns feature similarity, not robot success.",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e06",
+        "e20"
+      ]
+    },
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2607.28993/architecture.png",
+      "width": 1353,
+      "height": 546,
+      "sourceSha256": "0c31090b27a4c604b596373354950b462cf387098c2bb993305dfcee6c155853",
+      "sourceUrl": "https://arxiv.org/pdf/2607.28993#page=4",
+      "crop": [
+        0.089,
+        0.065,
+        0.885,
+        0.313
+      ],
+      "alt": "Left: frozen VAE and DINOv3 encoders feed separate visual and semantic future experts beside an action expert. Right: current Qwen3-VL queries retrieve DINO history and send eight intent tokens to action cross-attention.",
+      "caption": "Two future spaces train the policy, while current-anchored history supplies action context.",
+      "readingGuide": "Start on the left with the current and future RGB observations. The frozen VAE and DINOv3 encoders send tokens into separate future experts alongside the action expert. The future RGB and DINO outputs are explicitly marked train only; the VAE target is latent even though the drawing illustrates RGB. On the right, current RGB and language enter frozen Qwen3-VL. A learnable query resampler creates current semantic queries, which attend to temporal DINO history as keys and values. Follow the resulting intent tokens back to the action expert’s cross-attention. Equations (6)–(7) confirm that this history context enters only the action branch.",
+      "takeaway": "The design gives DINO two temporal roles: supervising future semantic states and representing recent observations for retrieval. CAIR produces eight intent tokens without task-specific intent labels. Separate branch parameters and heads remain inside the joint training system; the figure does not depict a single shared predictor for every modality.",
+      "caution": "The overview omits the detailed routing restrictions and shared T5/proprioceptive contexts. Read it with Figure 3 and Eqs. (4)–(7): neither the future-output arrows nor the term intent means that deployment plans through an explicitly generated future.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e08"
+      ]
+    },
+    {
+      "id": "attention-mask",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/2607.28993/attention-mask.png",
+      "width": 1193,
+      "height": 739,
+      "sourceSha256": "0c31090b27a4c604b596373354950b462cf387098c2bb993305dfcee6c155853",
+      "sourceUrl": "https://arxiv.org/pdf/2607.28993#page=4",
+      "crop": [
+        0.089,
+        0.382,
+        0.44,
+        0.55
+      ],
+      "alt": "Training and inference attention matrices, with query rows, colored allowed cells and white blocked cells. Action rows read current visual/semantic tokens and actions, while future-token columns are blocked and absent at inference.",
+      "caption": "The mask makes future prediction a training signal without future-token access for actions.",
+      "readingGuide": "Read each row as the query stream and each column as the stream it can attend to. Colored cells allow attention; white cells block it. In the training panel, the current visual and semantic tokens, v0 and s0, read one another but no future or action tokens. Future rows exchange visual and semantic information while excluding actions. The purple action rows read only v0, s0 and other actions. The smaller inference panel retains exactly these current/action relationships after removing future rows and columns. This matches the structured-mask description on page 3, including the direction of every claim-relevant dependency.",
+      "takeaway": "The direct action computation cannot use the noisy future targets because the corresponding attention entries are blocked, and current anchors cannot relay them. The future objectives can still influence learned parameters during training. At deployment, current visual and semantic streams remain, so removing future tokens does not remove all world-model computation.",
+      "caution": "The diagram specifies permitted dependencies; it is not an implementation test of leakage or numerical equivalence. Future-supervision ablations support a training benefit, but the mask alone cannot establish why that benefit improves robustness.",
+      "evidenceIds": [
+        "e05",
+        "e07",
+        "e16"
+      ]
+    },
+    {
+      "id": "libero-plus",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 6,
+      "asset": "report-assets/2607.28993/libero-plus.png",
+      "width": 1356,
+      "height": 381,
+      "sourceSha256": "0c31090b27a4c604b596373354950b462cf387098c2bb993305dfcee6c155853",
+      "sourceUrl": "https://arxiv.org/pdf/2607.28993#page=6",
+      "crop": [
+        0.101,
+        0.065,
+        0.899,
+        0.238
+      ],
+      "alt": "LIBERO-Plus zero-shot success percentages across seven perturbation categories and overall, comparing ST-WAM with VLA baselines, Fast-WAM and Fast-WAM-Joint.",
+      "caption": "Zero-shot transfer improves substantially over Fast-WAM, with uneven strengths across perturbations.",
+      "readingGuide": "Begin with Overall at the right, then compare ST-WAM with Fast-WAM and Fast-WAM-Joint category by category. ST-WAM’s 72.8% overall exceeds 51.5% and 59.0%, respectively. Camera rises from 16.4% to 55.4% against Fast-WAM; Noise rises from 37.7% to 79.5%. Emb. PT. indicates embodied pretraining, rather than all use of pretrained models. The protocol evaluates a LIBERO-trained policy without fine-tuning on 10,030 LIBERO-Plus cases. The caption credits baseline results to two prior studies, so the table is a reported benchmark comparison rather than evidence that every model was rerun within one controlled training pipeline.",
+      "takeaway": "The strongest transfer comparison is a 21.3 percentage-point overall improvement over Fast-WAM, with gains in all seven perturbation categories. ST-WAM also exceeds the listed X-VLA overall score of 71.4%. The category columns show that this aggregate lead does not mean uniformly strongest performance.",
+      "caution": "Language success is 79.3%, below Fast-WAM-Joint’s 88.9%, and other models lead several categories. No success-rate confidence intervals or seed variation are reported here; embodied pretraining and training pipelines differ across rows.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e11",
+        "e13"
+      ]
+    },
+    {
+      "id": "real-world",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 7,
+      "asset": "report-assets/2607.28993/real-world.png",
+      "width": 1411,
+      "height": 297,
+      "sourceSha256": "0c31090b27a4c604b596373354950b462cf387098c2bb993305dfcee6c155853",
+      "sourceUrl": "https://arxiv.org/pdf/2607.28993#page=7",
+      "crop": [
+        0.086,
+        0.065,
+        0.916,
+        0.2
+      ],
+      "alt": "Real-world success table with nominal results for five tasks, averages under four visual shifts, two component-removal variants, and ST-WAM, Fast-WAM and pi0 baselines.",
+      "caption": "The real robot results connect robustness to both semantic prediction and history retrieval.",
+      "readingGuide": "The two halves use different column groupings. Nominal Environment lists Flower, Drawer, Scoop, Fruit and Hang separately, then their average. Visual Distribution Shifts lists background, lighting, object appearance and their compound combination; each shift column averages all five tasks. Thus the two Avg. columns summarize different test conditions. All methods use the same 50 nominal demonstrations per task and are post-trained separately for each task. Evaluation uses 30 trials per task and condition with predefined initializations, without adaptation to the shifts. Compare the component-removal rows with ST-WAM to see how the future expert and CAIR each contribute under this protocol.",
+      "takeaway": "Shifted success is 61.5% for ST-WAM versus 25.8% for Fast-WAM, a 35.7 percentage-point gain. Removing the semantic future expert yields 41.0%; removing CAIR yields 43.7%. Compound-shift success remains higher at 48.0% versus Fast-WAM’s 15.3%, supporting complementary benefits from both components.",
+      "caution": "The shifted columns conceal task-specific variation, whose breakdown is deferred to the unsupplied supplement. The experiment covers five separately trained tasks on one robot, and compound success remains below half; transfer to new physical dynamics is untested.",
+      "evidenceIds": [
+        "e10",
+        "e15",
+        "e19",
+        "e20"
+      ]
+    },
+    {
+      "id": "ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 5",
+      "page": 7,
+      "asset": "report-assets/2607.28993/ablation.png",
+      "width": 1161,
+      "height": 378,
+      "sourceSha256": "0c31090b27a4c604b596373354950b462cf387098c2bb993305dfcee6c155853",
+      "sourceUrl": "https://arxiv.org/pdf/2607.28993#page=7",
+      "crop": [
+        0.157,
+        0.253,
+        0.84,
+        0.425
+      ],
+      "alt": "Nine ablation rows specify future-prediction space and intent-conditioning design, with LIBERO and LIBERO-Plus success. Variants isolate dual-space prediction, semantic loss, current anchors and history representation.",
+      "caption": "The controls distinguish semantic supervision from extra capacity and useful history from distracting context.",
+      "readingGuide": "Read the Future Prediction and Intent Conditioning columns before comparing success. The first group compares VAE-only, DINO-only and dual-space prediction without intent. The next group keeps CAIR but removes either the semantic expert or its future objective. The text identifies Semantic Expert w/o Future Obj. as parameter-matched: current-DINO conditioning, the semantic DiT and mixed attention remain, while future targets and loss are removed. The final group changes retrieval to unanchored DINO history, current Qwen features alone, or VAE history. LIBERO-Plus is the most revealing column because the full model’s benefit is largest under distribution shift.",
+      "takeaway": "Dual-space prediction without CAIR reaches 66.4%, above VAE-only 51.5% and DINO-only 39.7%. The parameter-matched no-future-objective variant reaches 62.9%, below full ST-WAM’s 72.8%. All three alternative history-conditioning designs also fall below the 66.4% no-CAIR dual-space baseline, showing that adding context can hurt.",
+      "caution": "These controls strengthen the proposed mechanism but do not provide seed-level uncertainty or a complete factorial experiment. In particular, the parameter-matched control changes future targets and loss together; a numerical advantage alone does not prove a unique causal explanation.",
+      "evidenceIds": [
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Understand how future targets can help an action-only policy",
+      "kind": "analysis",
+      "text": "During training, ST-WAM observes demonstrated actions and future frames. Frozen encoders map those frames into VAE and DINO targets, which are corrupted with Gaussian noise alongside action targets. The future streams share a timestep so their mixed attention compares corresponding denoising stages; the action timestep is sampled independently. The loss asks each expert to estimate noise minus its clean target. Crucially, the action branch cannot read the noisy futures, and current anchors cannot relay them. My interpretation is that predictive learning shapes the parameters used to process present evidence, rather than supplying future content as an action input. At deployment the policy therefore retains current visual/semantic computation and CAIR but removes future-token streams. It integrates actions and replans after executing part of the chunk.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "heading": "Follow the current anchor into short semantic history",
+      "kind": "source",
+      "text": "CAIR does not start by treating all old observations as equally relevant. It first forms queries from the current image and instruction through frozen Qwen3-VL and a learnable resampler. Frozen DINOv3 encodes the four selected past observations; projection and temporal embeddings turn their patches into the history sequence. Two cross-attention blocks let the current semantic queries retrieve that sequence, and an output projection produces eight intent tokens. The word intent describes a label-free summary trained through the action objective, not a separately supervised task-state variable. These tokens augment the action expert’s language and proprioceptive context. The history ablations matter here: current Qwen features alone, unanchored retrieval and VAE-based history all underperform full CAIR, and even underperform dual-space prediction without CAIR.",
+      "evidenceIds": [
+        "e06",
+        "e08",
+        "e17"
+      ]
+    },
+    {
+      "heading": "Separate three kinds of robustness evidence",
+      "kind": "analysis",
+      "text": "The frame-triplet study tests whether representations preserve state distinctions under appearance change. The simulation tables test executed task success, but with different exposure to shifts: LIBERO-Plus is zero-shot transfer from LIBERO, whereas RoboTwin uses mixed clean and randomized demonstrations during training. The real robot table adds physical execution, with matched task demonstrations and initializations but only five separately trained tasks. These results reinforce one another without being interchangeable. My reading is that the ablations provide stronger support for complementary supervision and retrieval than the illustrative hallucinations provide for a causal failure theory. The latency measurement adds a concrete tradeoff: complete chunk inference is 756.17 ms on the stated A100 setup, versus 609.30 ms for Fast-WAM. It does not by itself establish a robot control rate.",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e09",
+        "e10",
+        "e12",
+        "e14",
+        "e15",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test semantic prediction against matched capacity and corrupted targets",
+      "text": "Reader-proposed experiment, not performed: repeat the LIBERO-to-LIBERO-Plus comparison for the full model and the parameter-matched Semantic Expert w/o Future Obj. control, holding CAIR, initialization, demonstrations, optimizer, training steps and evaluation cases fixed. Add a third variant that preserves the semantic loss and its stated 0.02 weight but permutes future DINO targets across demonstrations within a task. Use multiple matched seeds and report per-category success with uncertainty. The proposed mechanism predicts that correctly paired future targets outperform both controls. If the shuffled targets perform comparably, the claim that useful semantic transition supervision explains the advantage would weaken, even if extra training regularization still helps.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09",
+        "e16"
+      ]
+    },
+    {
+      "title": "Test whether CAIR uses recent progress rather than extra image context",
+      "text": "Reader-proposed experiment, not performed: evaluate the same trained policy with correctly aligned history, history assigned to incorrect temporal slots, and four repeated current-frame features. Keep the current image, instruction, proprioception, query count, token budget, action noise and evaluation initializations fixed; preserve the stated retrieval architecture. Compare nominal and shifted success by task, alongside the trained Qwen Current Only and no-CAIR controls. A consistent advantage for aligned history would support retrieval of useful temporal evidence. Similar scores for repeated-current or shuffled histories would weaken the interpretation that recent progress, rather than additional semantic context, drives the gain. Any degradation from these interventions must also be distinguished from simple out-of-training-distribution sensitivity.",
+      "evidenceIds": [
+        "e06",
+        "e08",
+        "e09",
+        "e10",
+        "e17"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "notes": "All nine supplied PDF pages were rendered and visually inspected, alongside individual reading of all four text chunks. The title, all authors and affiliations were checked on p. 1. Figures 1–5 and Tables 1–5 were inspected; final crops retain Figure 1, Figure 2, Figure 3, Table 3, Table 4 and Table 5. All six final assets were viewed at their native crop resolutions. Figure 3 routing was checked against p. 3, and Figure 2 against Eqs. (4)–(7); no claim-relevant conflict was found. Pages 5–6 supply training, evaluation and latency details. No appendix is present; referenced supplementary material, code and task/subset breakdowns were not supplied or inspected. All numerical and method claims in this bundle are supported by the declared pages."
+  }
+}

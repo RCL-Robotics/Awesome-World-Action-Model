@@ -1,0 +1,442 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.28993",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T10:44:42.767Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2607.28993",
+      "title": "ST-WAM: Semantic-Temporal World Action Model for Robust Manipulation under Visual Distribution Shifts",
+      "kind": "pdf",
+      "sha256": "0c31090b27a4c604b596373354950b462cf387098c2bb993305dfcee6c155853",
+      "wordCount": 5243,
+      "accessedAt": "2026-09-07T13:55:02.343295+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract (p. 1)",
+      "Introduction (pp. 1–2)",
+      "Related Work, all three subsections (pp. 2–3)",
+      "Methodology: Problem Formulation, DSFE, CAIR and Joint Flow-Matching Objective (pp. 3–5)",
+      "Experiments: setup, implementation, main results, ablations and qualitative analysis (pp. 5–7)",
+      "Conclusion (pp. 7–8)",
+      "References (pp. 8–9)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction-only figure omission was resolved by visually inspecting all nine PDF pages, Figures 1–5, Tables 1–5 and all six final crops.",
+      "No supplement was supplied. Referenced diagnostic details, additional implementation details, task-wise shifted results and subset ablations remain outside this review.",
+      "Code was not inspected and experiments were not reproduced.",
+      "Identity note (e01): title and all 15 authors match. The observed artifact is arXiv:2607.28993v1, dated 31 July 2026; the catalog submittedDate is 30 July 2026. No other revision was supplied or compared."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 4)",
+      "Figure 4 (p. 6)",
+      "Figure 5 (p. 7)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 5)",
+      "Table 2 (p. 5)",
+      "Table 3 (p. 6)",
+      "Table 4 (p. 7)",
+      "Table 5 (p. 7)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "ST-WAM trains separate visual-future, semantic-future and action experts together, then deploys an action-only policy. DINOv3 supplies both semantic future targets and recent-history features retrieved under current image/language context. The central result is improved manipulation under visual shifts, supported by component ablations; it does not establish that correcting generated videos is necessary for control.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Video-generative WAMs may encode distracting appearance alongside useful dynamics. The authors call the drift of shifted-scene predictions toward training-domain content Training-Distribution Hallucination; their manual audit flags 70.6% of 180 predictions. This motivates changing supervision and temporal context, but the audit itself does not establish a causal connection between hallucination and action failure.",
+    "kind": "analysis",
+    "evidenceIds": [
+      "e02",
+      "e04"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A controlled 290-triplet diagnosis compares identical task states across visual conditions and a different-state reference. DINOv3 has higher same-state similarity and better state discrimination than Wan-VAE.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03"
+      ]
+    },
+    {
+      "text": "Dual-Space Future Experts preserve VAE dynamics while adding DINO future supervision; CAIR adds current-conditioned semantic history. Training uses no additional embodied pretraining or task-specific semantic labels, while retaining pretrained visual, language and video models.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e08",
+        "e11"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current multi-view observation, proprioceptive state and language instruction",
+      "Four preceding observations for semantic history",
+      "Training only: demonstrated action chunks and future observations"
+    ],
+    "outputs": [
+      "A 32-step action chunk at deployment",
+      "Training only: flow velocities for future VAE latents, future DINO features and actions"
+    ],
+    "steps": [
+      {
+        "name": "Represent current and future states twice",
+        "detail": "Frozen Wan2.2 VAE and DINOv3 encoders produce visual and semantic tokens, partitioned into clean current conditions and future targets. DSFE uses a pretrained visual DiT and a semantic DiT; a third DiT predicts actions. Each has separate parameters and a prediction head.",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "name": "Route information without future leakage",
+        "detail": "Mixed attention lets current VAE/DINO streams interact. Noisy futures read both current anchors and each other, but not actions. Actions read current streams and themselves, never future streams. Consequently future prediction supplies a training objective, rather than an imagined trajectory passed into a deployment planner.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Retrieve history with a current anchor",
+        "detail": "Learnable queries first attend to frozen Qwen3-VL features of the current scene and instruction. These semantic queries retrieve temporally embedded DINO history through two cross-attention blocks. Eight resulting intent tokens condition only the action expert; all experts receive T5 language context and projected proprioception. Intent has no explicit annotation.",
+        "evidenceIds": [
+          "e06",
+          "e08"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The visual DiT is 5B; semantic and action DiTs are 1B each, initialized from Wan2.2. VAE, T5, DINOv3 ViT-S/16 and Qwen3-VL-4B-Instruct stay frozen. Future branches share a noise timestep; the action timestep and all branch noises are independent. CAIR learns through the action loss.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07",
+          "e08"
+        ]
+      },
+      {
+        "text": "LIBERO/RoboTwin training uses 10/5 epochs and global batches 128/1,024. AdamW uses learning rate 0.0001, weight decay 0.01, cosine decay, BF16 and gradient clipping 1.0. The shifted flow schedule has shift 5.0; visual/semantic/action loss weights are 1.0/0.02/1.0.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Encode current inputs and history, construct intent context, and integrate the action flow for 10 steps while omitting future-token streams. Predict 32 actions, execute 10, then replan using updated observations. Current visual/semantic processing remains active: action-only output does not mean the action DiT is the only deployed component.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e08",
+          "e14"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "x^r_{\\tau_r}=(1-\\tau_r)x^r+\\tau_r\\epsilon^r,\\qquad u^r=\\epsilon^r-x^r",
+        "explanation": "For branch r in {v,s,a}, x is the clean future-VAE, future-DINO or action target; epsilon is Gaussian noise and tau is the flow timestep. Tau=0 is clean and tau=1 is pure noise. The model estimates velocity u, with synchronized visual/semantic timesteps.",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_r=\\mathbb{E}\\!\\left[w(\\tau_r)\\left\\|\\hat{u}^r_\\theta-u^r\\right\\|_2^2\\right],\\qquad \\mathcal{L}=\\lambda_v\\mathcal{L}_v+\\lambda_s\\mathcal{L}_s+\\lambda_a\\mathcal{L}_a",
+        "explanation": "The estimated velocity is compared with the target using scheduler weight w. Lambda values balance the visual, semantic and action losses. This objective trains predictive supervision alongside control without granting action tokens access to future targets.",
+        "evidenceIds": [
+          "e05",
+          "e07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Zero-shot manipulation on LIBERO-Plus",
+      "setting": "LIBERO-trained policy; no fine-tuning; 10,030 test cases across seven perturbation dimensions.",
+      "metric": "Overall success rate (%)",
+      "value": "72.8%",
+      "comparison": "Fast-WAM 51.5%; Fast-WAM-Joint 59.0%; X-VLA 71.4%.",
+      "interpretation": "The 21.3 percentage-point gain over Fast-WAM spans all seven categories. ST-WAM is not best in every category, and table baselines are imported from cited studies.",
+      "evidenceIds": [
+        "e09",
+        "e13"
+      ]
+    },
+    {
+      "task": "In-distribution manipulation on LIBERO",
+      "setting": "Four suites, 40 tasks, 50 evaluation rollouts per task.",
+      "metric": "Average success rate (%)",
+      "value": "98.7%",
+      "comparison": "Fast-WAM 97.6%; ST-WAM Spatial/Object/Goal/Long: 99.0/100.0/99.0/96.8%.",
+      "interpretation": "A high aggregate with a small margin over strong baselines; Table 1 supplies no uncertainty estimates.",
+      "evidenceIds": [
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "task": "Bimanual manipulation on RoboTwin 2.0",
+      "setting": "2,500 clean plus 25,000 randomized training demonstrations; 100 trials per task in each setting.",
+      "metric": "Success rate (%)",
+      "value": "93.06% clean; 92.48% randomized; 92.77% average.",
+      "comparison": "Fast-WAM 91.83% average.",
+      "interpretation": "The abstract rounds the average to 92.8%. Randomized evaluation follows mixed-domain training, unlike zero-shot LIBERO-Plus.",
+      "evidenceIds": [
+        "e09",
+        "e12"
+      ]
+    },
+    {
+      "task": "Real-world manipulation under visual shifts",
+      "setting": "Five Agilex Piper tasks; 50 shared nominal demonstrations per task; separate task training; 30 trials per task and condition.",
+      "metric": "Average success rate (%)",
+      "value": "61.5% shifted; 79.3% nominal; 48.0% compound shift.",
+      "comparison": "Fast-WAM 25.8% shifted, 64.7% nominal, 15.3% compound; pi0 32.8% shifted.",
+      "interpretation": "The shifted gain over Fast-WAM is 35.7 percentage points. Each shift column averages five tasks; this does not establish generalization to new physical dynamics.",
+      "evidenceIds": [
+        "e10",
+        "e15",
+        "e19"
+      ]
+    },
+    {
+      "task": "Future-supervision and history ablation on LIBERO-Plus",
+      "setting": "Table 5 controlled variants; LIBERO-trained models evaluated on LIBERO-Plus.",
+      "metric": "Success rate (%)",
+      "value": "Full model 72.8%; dual-space without CAIR 66.4%.",
+      "comparison": "DINO-only 39.7%; VAE-only Fast-WAM 51.5%; parameter-matched semantic expert without future objective 62.9%; unanchored retrieval 56.5%.",
+      "interpretation": "Results support complementary future spaces and carefully conditioned history. The capacity control strengthens the future-objective argument, but the table supplies no run-to-run uncertainty.",
+      "evidenceIds": [
+        "e16",
+        "e17"
+      ]
+    },
+    {
+      "task": "Action-chunk inference latency on RoboTwin 2.0",
+      "setting": "Single NVIDIA A100-80GB, BF16, 10 flow steps; 20 synchronized full-call runs; 32-action output.",
+      "metric": "Mean latency (ms; lower is better)",
+      "value": "756.17 ms",
+      "comparison": "Fast-WAM 609.30 ms; reported 1.24× latency.",
+      "interpretation": "Sub-second chunk generation incurs overhead. This measurement is not an end-to-end robot control-frequency guarantee.",
+      "evidenceIds": [
+        "e14"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Physical-dynamics and embodiment shifts remain future work. Real-world evidence covers five separately trained tasks with fixed nominal demonstrations; compound-shift success remains 48.0%.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e15",
+        "e19"
+      ]
+    },
+    {
+      "text": "Tables report point estimates without seed variation or confidence intervals. The diagnostic plot does show a confidence interval for a representation-similarity gap; that is not uncertainty on robot success. Attention heatmaps are qualitative, normalized within each map, and cannot prove causal feature use.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e11",
+        "e12",
+        "e13",
+        "e15",
+        "e16",
+        "e17",
+        "e18"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reconstruct the stated frozen checkpoints, separate experts and mask. Use future horizon K=8 sampled every four control steps; history indices are t−24,t−16,t−8,t−1. Match task data and evaluation initializations before comparing success or synchronized latency.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e08",
+        "e09",
+        "e10",
+        "e14"
+      ]
+    },
+    {
+      "text": "The supplied main paper leaves exact scheduler weighting, detailed preprocessing/action normalization, training hardware/time and seed-level variability unresolved. Additional implementation and task/subset results are deferred to an unsupplied supplement; a complete replication needs these specifications.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e20"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Latent prediction & JEPA",
+        "Memory & long-horizon modeling",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "fde78b32e9b9b8baa90775fa972255903a520f4e3d443c5bcd37fcb1856aab69"
+    },
+    "reasoning": {
+      "text": "Separate world and action expert parameters support the catalog’s coarse Dual-system label, although the actual architecture has three interacting branches. Other mechanisms/Outside quadrants fits deployment through predictive auxiliary training and retrieved history, without inverse-dynamics action extraction or generated-future conditioning. Joint training alone would not justify One Model. Latent prediction and memory are supported; the history is explicitly short-horizon, and neither JEPA-specific training nor broad long-horizon capability follows from those category labels.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e07",
+        "e08"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Would correctly aligned DINO history outperform time-shuffled history when current inputs and compute are matched?",
+    "How much of the semantic-future advantage persists across training seeds and under changes in physical dynamics?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin",
+      "detail": "The title matches the supplied observed title. All 15 authors match the catalog after name-order normalization. The margin identifies arXiv:2607.28993v1 [cs.RO], 31 Jul 2026. Six affiliations are printed; Houde Liu and Tianlun Li are corresponding authors."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Introduction; p. 1, Figure 1(a)",
+      "detail": "The authors audit LingBot-VA and Fast-WAM-Joint predictions: 30 cases per model for each of background, illumination and camera shifts, totaling 180 predictions; 70.6% are judged to exhibit training-distribution hallucination."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Figure 1(b); p. 2, Introduction, controlled representation diagnosis",
+      "detail": "Among 290 frame triplets, mean same-state cosine similarity is 0.904 for DINOv3 and 0.686 for Wan-VAE. The shifted initial frame is closer to the matched clean initial than to a different-state final frame in 95.2% versus 60.0% of triplets. The plot labels a mean gap of 0.218 and 95% CI [0.200, 0.235]; further diagnostic details are deferred to supplementary material."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Problem Formulation, Eqs. (1)–(3); Dual-Space Future Experts",
+      "detail": "Current multi-view images, proprioception, language and short history condition action chunks. Frozen VAE and DINO encoders supply current tokens and future targets. Training models actions and both future spaces; deployment is an action-only policy."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Three-Branch Mixture-of-Transformers and Structured Cross-Branch Attention Mask; p. 4, Figures 2(a) and 3",
+      "detail": "Visual, semantic and action DiTs have separate parameters and heads with mixed attention. Current streams read one another but not future/action tokens. Future streams read current and future streams, excluding actions. Actions read current streams and themselves, excluding futures. Figure 3 agrees with the textual routing and removes future tokens at inference."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Current-Anchored Intent Retrieval, Eqs. (4)–(7); p. 4, Figure 2(b)",
+      "detail": "Learnable queries attend to frozen Qwen3-VL current image/language features. The resulting anchors retrieve projected DINO history with temporal embeddings through cross-attention. Projected intent tokens condition only the action expert; all experts also receive T5 language and projected proprioception. Intent is label-free and trained through action flow matching."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Joint Flow-Matching Objective, Eqs. (8)–(11); p. 5, opening continuation",
+      "detail": "Each clean branch target is interpolated with Gaussian noise; zero timestep is clean and one is noise. Target velocity is noise minus clean target. Future timesteps are shared, the action timestep is independent, and all noises are independent. Scheduler-weighted squared velocity errors are combined with branch loss weights."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Implementation Details, both columns",
+      "detail": "The visual DiT has 5B parameters; semantic and action DiTs are 1B each, initialized from Wan2.2. Wan2.2 VAE/T5, DINOv3 ViT-S/16 and Qwen3-VL-4B-Instruct remain frozen. H=32, K=8, future sampling interval is four control steps; CAIR uses history indices t−24,t−16,t−8,t−1, two blocks and eight queries. Training uses 10/5 epochs and batch sizes 128/1024 for LIBERO/RoboTwin, AdamW at 1e−4, weight decay 0.01, cosine decay, BF16, clipping 1.0, schedule shift 5.0 and loss weights (1.0,0.02,1.0). Inference uses 10 integration steps and executes 10 actions before replanning."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Experimental Setup, Benchmarks and Protocols",
+      "detail": "LIBERO covers 40 tasks across four suites with 50 evaluation rollouts per task. LIBERO-Plus uses the LIBERO-trained policy without fine-tuning on 10,030 cases across seven perturbation dimensions. RoboTwin training mixes 2,500 clean and 25,000 heavily randomized demonstrations; each task has 100 evaluation trials in each setting."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Real-World Evaluation",
+      "detail": "An Agilex Piper 6-DoF single arm performs Arrange Flowers, Drawer Organization, Bean Scooping, Arrange Fruits and Hang Mug. Each method is post-trained separately per task on the same 50 nominal demonstrations. Evaluation uses 30 trials per task and condition with predefined initializations, nominal scenes and background, lighting, object-appearance and compound shifts without further fine-tuning."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 1, ST-WAM and Fast-WAM rows; caption",
+      "detail": "LIBERO success for ST-WAM is 99.0/100.0/99.0/96.8% on Spatial/Object/Goal/Long, averaging 98.7%, versus Fast-WAM 97.6% average. Emb. PT. denotes large-scale robot-trajectory or embodied-video pretraining before adaptation; both rows are marked No."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 2, ST-WAM and Fast-WAM rows; caption; p. 1, Abstract",
+      "detail": "Under mixed clean/randomized RoboTwin training, ST-WAM scores 93.06% clean and 92.48% randomized, averaging 92.77%; Fast-WAM averages 91.83%. The abstract on p. 1 rounds the ST-WAM average to 92.8%."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 3, all rows and caption; Zero-Shot Generalization on LIBERO-Plus",
+      "detail": "ST-WAM reaches 72.8% overall versus Fast-WAM 51.5%, Fast-WAM-Joint 59.0% and X-VLA 71.4%. ST-WAM category scores are 55.4/60.1/79.3/93.0/74.2/79.5/74.3 for Camera/Robot/Language/Light/Background/Noise/Layout. It exceeds Fast-WAM in all seven, but Fast-WAM-Joint scores 88.9% on language. Baseline results are taken from the two studies cited in the caption."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Inference Efficiency",
+      "detail": "Complete action-chunk inference, including all deployment components, is measured on one NVIDIA A100-80GB using BF16 and 10 integration steps. Over 20 synchronized runs, a 32-step chunk averages 756.17 ms for ST-WAM and 609.30 ms for Fast-WAM, reported as 1.24× latency."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Real-World Generalization and Figure 4; p. 7, Table 4 and caption",
+      "detail": "ST-WAM nominal/shifted averages are 79.3/61.5%, versus Fast-WAM 64.7/25.8% and pi0 47.3/32.8%. ST-WAM background/light/object/compound success is 66.0/70.0/62.0/48.0%, with each shift averaged over five tasks. Compound applies all three shifts; Fast-WAM scores 15.3%. Removing the semantic future expert or CAIR yields shifted averages 41.0% or 43.7%."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Ablation Q1–Q2; p. 7, Table 5, future-representation and semantic-objective rows",
+      "detail": "LIBERO-Plus scores are 39.7% for DINO Future Only, 51.5% for Fast-WAM, 66.4% for Dual-Space w/o CAIR, 63.5% without the semantic expert, 62.9% for the parameter-matched semantic expert without future target/loss, and 72.8% for the full model. The parameter-matched control retains the semantic DiT, current-DINO conditioning and mixed attention."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 5, history-conditioning rows; Ablation Q3",
+      "detail": "Naive unanchored DINO retrieval achieves 56.5% on LIBERO-Plus, Qwen Current Only 62.3%, and CAIR with VAE History 64.7%, versus dual-space without CAIR 66.4% and full DINO-based CAIR 72.8%. VAE history retains the Qwen anchor and retrieval architecture."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 5, caption and Cross-Branch Attention Visualization",
+      "detail": "Two task heatmaps show action queries attending to current DINO and VAE tokens. The authors describe DINO attention as more aligned with manipulated objects and interaction regions. Warm colors show relative attention within each map, not a shared calibrated scale."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Conclusion, especially p. 8 final sentence",
+      "detail": "Extension beyond visual shifts to changes in physical dynamics and embodiments is future work, rather than an established result."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 2, diagnosis paragraph; p. 5, Implementation Details ending; p. 6, Real-World Generalization ending; p. 7, Q3 ending; pp. 8–9, References",
+      "detail": "The paper refers to supplementary diagnosis details, implementation details, task-wise shifted results and subset ablations. The supplied nine-page PDF ends in references and contains no appendix or those supplemental breakdowns."
+    }
+  ]
+}
