@@ -1,0 +1,494 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2601.04453",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T20:13:21.877Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2601.04453",
+      "title": "UniDrive-WM: Unified Understanding, Planning and Generation World Model for Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "9557a3a40bf9e405ab76b290848ca4a8996cfdae894da854b51d1ff7bacc0fce",
+      "wordCount": 9983,
+      "accessedAt": "2026-09-07T14:07:09.879343+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title and abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method (3.1–3.4)",
+      "4 Experiments (4.1–4.6)",
+      "5 Conclusion and Future Work",
+      "Bibliography",
+      "Appendix A Evaluation Metrics",
+      "Appendix B More Results",
+      "Appendix C Perception Module",
+      "Appendix D Trajectory Planner"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity/version: the supplied PDF is arXiv:2601.04453v4, dated 1 July 2026. Its title and all eight authors match the catalog; the catalog submission date is 7 January 2026. Earlier revisions were not supplied, so their scientific differences are unverified.",
+      "All six supplied text chunks were read, covering the 27-page PDF. Text extraction does not reconstruct figure images; this was addressed by inspecting the retained PDF figures and equation/table layouts.",
+      "Separate supplemental material availability has not been fully verified; no separate supplement was supplied.",
+      "Code, project links and external resources were not inspected. No experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7",
+      "Table 8",
+      "Table 9"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "UniDrive-WM couples a shared driving VLM to a waypoint planner and a future front-view image generator. Planning tokens precede visual prediction, allowing image supervision to improve shared representations. Discrete AR is faster; continuous AR+Diffusion yields lower FID. Bench2Drive closed-loop gains over ORION are modest, and do not establish real-vehicle safety or an inference-time imagination-and-replanning loop.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Driving requires geometric understanding, continuous plans and predictions of what follows those plans. The authors argue that text-only interfaces discard visual detail and weaken coupling between these tasks. UniDrive-WM learns them within a shared VLM, treating ego trajectories as actions and front-view images as part of the future state.",
+    "kind": "source",
+    "evidenceIds": [
+      "motivation",
+      "architecture"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A shared VLM connects structured multi-view/history representations, a differentiable latent waypoint planner and trajectory-conditioned image prediction.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture",
+        "planner",
+        "joint-training"
+      ]
+    },
+    {
+      "text": "Two visual decoders expose a fidelity/latency tradeoff; component and prediction-order ablations test whether image supervision helps planning.",
+      "kind": "source",
+      "evidenceIds": [
+        "ar-decoder",
+        "continuous-decoder",
+        "speed-tradeoff",
+        "component-ablation",
+        "order-ablation"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current multi-view images",
+      "Temporal visual history and perception features",
+      "High-level language instructions or navigation conditions"
+    ],
+    "outputs": [
+      "Continuous 2D ego-BEV trajectory waypoints",
+      "Predicted future front-view image",
+      "VQA and driving-scene reasoning text"
+    ],
+    "steps": [
+      {
+        "name": "Compress scene and history",
+        "detail": "QT-Former attends to image features with 3D positional encodings. History queries retrieve timestamp-embedded memory and current scene context; MLPs project updated history and scene features into the LLM.",
+        "evidenceIds": [
+          "architecture"
+        ]
+      },
+      {
+        "name": "Translate reasoning into waypoints",
+        "detail": "The planning representation predicts Gaussian latent parameters. Reparameterized samples feed a recurrent waypoint decoder. This provides a numeric interface instead of parsing free-form trajectory text; explicit KL regularization is omitted.",
+        "evidenceIds": [
+          "planner"
+        ]
+      },
+      {
+        "name": "Generate the planned future",
+        "detail": "AR predicts visual tokens after planning and detokenizes them with MoVQGAN. AR+Diffusion places continuous queries after planning features, maps them through an MLP, and conditions a diffusion decoder through cross-attention.",
+        "evidenceIds": [
+          "ar-decoder",
+          "continuous-decoder",
+          "joint-training"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Initialize from ORION perception pretraining with Hungarian assignment and focal/L1 supervision. Freeze the detection head. Stage 1 combines planning/image prediction with LoRA; Stage 2 adds VQA data. The continuous-decoder description also freezes its vision encoder. End-to-end therefore does not mean every module is trainable.",
+        "kind": "source",
+        "evidenceIds": [
+          "perception-training",
+          "joint-training",
+          "continuous-decoder"
+        ]
+      },
+      {
+        "text": "The setup uses EVA-02-L, Vicuna 1.5 and eight H200 GPUs. LoRA rank/alpha are 16/16. Scene/perception/history query counts are 512/600/16, with 16-frame memory. Inputs are 640×640; outputs are 192×128 for AR and 512×1024 with 64 latent queries for AR+Diffusion.",
+        "kind": "source",
+        "evidenceIds": [
+          "configuration"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Encode observations/history, predict a trajectory, then generate its conditioned image. The source describes supervisory feedback but provides no explicit iterative image-based trajectory search or replanning algorithm. The learned output is a waypoint plan; closed-loop route evaluation separately measures executed simulator behavior.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "architecture",
+          "joint-training",
+          "planner",
+          "protocol"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "z_a=\\mu_h+\\sigma_h\\odot\\epsilon,\\qquad \\epsilon\\sim\\mathcal{N}(0,I)",
+        "explanation": "The action latent z_a uses mean μ_h and variance σ_h² predicted from the VLM planning representation. Reparameterization permits gradients through sampling before recurrent waypoint decoding.",
+        "evidenceIds": [
+          "planner"
+        ]
+      },
+      {
+        "expression": "X_t=tX_1+(1-t)X_0,\\quad V_t=X_1-X_0,\\quad \\mathcal{L}_{\\mathrm{FM}}=\\mathbb{E}\\!\\left[\\|V_\\theta(X_t,Q,t)-V_t\\|^2\\right]",
+        "explanation": "X_1 is the target future-image feature, X_0 Gaussian noise, t a sampled interpolation time and Q the conditioned latent query. The diffusion transformer predicts interpolation velocity. Flow time t differs from scene time elsewhere.",
+        "evidenceIds": [
+          "continuous-decoder"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{plan}}=\\mathcal{L}_{\\mathrm{col}}+\\mathcal{L}_{\\mathrm{bd}}+\\mathcal{L}_{\\mathrm{mse}}",
+        "explanation": "The terms penalize agent-box collisions, leaving drivable space/crossing solid lanes, and expert-waypoint error. AR adds cross-entropy; AR+Diffusion also adds flow matching and CLIP image alignment.",
+        "evidenceIds": [
+          "planner",
+          "joint-training"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Bench2Drive closed-loop driving",
+      "setting": "950 training scenes; 220 routes across 44 scenarios; cameras and navigation commands.",
+      "metric": "Driving Score (higher) / Success Rate (%) (higher)",
+      "value": "AR: 79.22 / 56.36%; AR+Diffusion: 79.31 / 56.42%.",
+      "comparison": "ORION: 77.74 / 54.62%.",
+      "interpretation": "AR+Diffusion gains 1.57 score units and 1.80 percentage points (reader-calculated). Other methods retain higher efficiency or comfort scores.",
+      "evidenceIds": [
+        "protocol",
+        "closed-loop"
+      ]
+    },
+    {
+      "task": "Bench2Drive open-loop planning and detection",
+      "setting": "50 validation scenes; VAD/ORION cumulative-time evaluation; 3-second entries.",
+      "metric": "L2 (m), collision (%), mAP and NDS",
+      "value": "AR+Diffusion: 1.066 m, 0.657%; mAP 0.675, NDS 0.755.",
+      "comparison": "ORION: 1.129 m, 0.743%; mAP 0.646, NDS 0.723.",
+      "interpretation": "These ORION metrics improve. VAD has lower collision (0.296%); UniAD uses different temporal aggregation.",
+      "evidenceIds": [
+        "protocol",
+        "planning-perception"
+      ]
+    },
+    {
+      "task": "nuScenes open-loop planning",
+      "setting": "Official train/validation split.",
+      "metric": "Average L2 (m) / collision (%)",
+      "value": "AR: 0.30 / 0.31%; AR+Diffusion: 0.29 / 0.31%.",
+      "comparison": "ORION: 0.34 / 0.37%; FSDrive: 0.60 / 0.19%.",
+      "interpretation": "Both metrics improve over ORION; FSDrive retains lower collision. Dataset-specific evaluation does not establish zero-shot transfer.",
+      "evidenceIds": [
+        "protocol",
+        "nuscenes"
+      ]
+    },
+    {
+      "task": "Future-frame generation",
+      "setting": "Bench2Drive and nuScenes future-frame evaluation.",
+      "metric": "FID (lower)",
+      "value": "AR: 7.2 / 7.8; AR+Diffusion: 6.6 / 7.3, in dataset order.",
+      "comparison": "FSDrive: 9.3 / 10.1.",
+      "interpretation": "Distributional fidelity improves. Different resolutions and decoder costs confound attributing the gap solely to representation; FID does not verify collision avoidance.",
+      "evidenceIds": [
+        "image-fidelity",
+        "configuration"
+      ]
+    },
+    {
+      "task": "DriveLM GVQA understanding",
+      "setting": "DriveLM GVQA benchmark.",
+      "metric": "Final Score (higher)",
+      "value": "0.59.",
+      "comparison": "FSDrive: 0.57.",
+      "interpretation": "This aggregate understanding gain is distinct from the separately scaled Chat-B2D ablation and from physical execution.",
+      "evidenceIds": [
+        "vqa",
+        "protocol"
+      ]
+    },
+    {
+      "task": "AR component ablation",
+      "setting": "Bench2Drive open-loop; detection+planning versus all three components.",
+      "metric": "3-second L2 (m) / collision (%)",
+      "value": "With image generation: 1.079 / 0.668%.",
+      "comparison": "Without image generation: 1.130 / 0.746%.",
+      "interpretation": "Image supervision helps this system, but the comparison does not isolate gradient coupling from extra supervision or compute.",
+      "evidenceIds": [
+        "component-ablation"
+      ]
+    },
+    {
+      "task": "AR prediction-order ablation",
+      "setting": "Bench2Drive open-loop; planning/generation head order.",
+      "metric": "Average L2 (m), collision (%), FID",
+      "value": "Planning then generation: 0.64, 0.43%, 7.2.",
+      "comparison": "Generation then planning: 0.67, 0.45%, 9.1.",
+      "interpretation": "All three metrics favor the proposed order; counterfactual dynamics accuracy is not established.",
+      "evidenceIds": [
+        "order-ablation"
+      ]
+    },
+    {
+      "task": "Bench2Drive multi-ability evaluation",
+      "setting": "Closed-loop base-set ability groups.",
+      "metric": "Mean ability (%)",
+      "value": "AR: 59.00%; AR+Diffusion: 59.23%.",
+      "comparison": "ORION: 54.72%.",
+      "interpretation": "The mean improves, while Give Way remains 40.00%, below several target-point baselines at 50.00%.",
+      "evidenceIds": [
+        "multi-ability",
+        "protocol"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Continuous generation uses sampled noise and flow matching, then is described as deterministic reconstruction. Noise handling and the inference solver are insufficiently specified to reconcile these descriptions; reduced diversity is acknowledged.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "continuous-decoder"
+      ]
+    },
+    {
+      "text": "A100 inference is 2 fps for AR and 0.4 fps for AR+Diffusion. These measurements alone do not establish a real-time control deadline. Longer-horizon, more interactive driving remains future work.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "speed-tradeoff",
+        "future-work"
+      ]
+    },
+    {
+      "text": "Principal comparisons and ablations provide no uncertainty intervals. Figure 6 also combines speed keeping with a red-light stop instruction, illustrating why fluent VQA needs consistency checks.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "closed-loop",
+        "order-ablation",
+        "qualitative"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires ORION/QT-Former initialization, the specified visual/language backbones, driving/VQA annotations, decoder configurations and benchmark splits. Resolve optimizer/schedule, stage duration, data mixture, future-frame offset, controller/simulator settings and decoder integration details: the supplied method and appendix do not provide a complete executable configuration.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "configuration",
+        "protocol",
+        "joint-training",
+        "continuous-decoder",
+        "perception-training",
+        "planner"
+      ]
+    },
+    {
+      "text": "Reader-proposed checks: repeat component ablations with matched optimization budgets and detached image gradients; compare prediction orders with identical data, resolution and decoding budgets. Measure planning and image metrics across seeds before attributing gains to coupling.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "component-ablation",
+        "order-ablation",
+        "configuration"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "WAM/joint prediction is supported: a shared VLM predicts actions and their conditioned visual future. Figures 2–3 establish a shared backbone with distinct planner/visual decoders, stronger evidence than joint losses alone. This supports a shared-model interpretation, not an identical decoder for all modalities. No inverse-dynamics extraction or explicit inference-time image search is specified. The pending architecture/quadrant fields remain unchanged.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "ar-decoder",
+        "continuous-decoder",
+        "joint-training",
+        "planner"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Joint video-action modeling",
+        "Autonomous driving"
+      ],
+      "architecture": "Pending verification",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Pending verification",
+      "classificationStatus": "Partly pending verification",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "d4714abbff8c6b0ccee799b6146fc846f09ffcc3e037b1357a132646cce44700"
+    }
+  },
+  "discussionQuestions": [
+    "Would planning gains survive detaching image-loss gradients under a matched training budget?",
+    "Does changing only the trajectory produce correct ego-motion changes in generated frames?",
+    "How should latency, collision rate and image fidelity be balanced under fixed closed-loop compute?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin",
+      "detail": "The title and eight authors match the catalog. The supplied artifact identifies itself as arXiv:2601.04453v4, 1 July 2026, and prints four institutional affiliations."
+    },
+    {
+      "id": "motivation",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Section 1; PDF p. 1, Figure 1 and legend",
+      "detail": "The authors motivate jointly learning understanding, planning and image prediction to avoid text-only bottlenecks. Figure 1 distinguishes forward information flow from dashed red backpropagation."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–6, Section 3, Equations (1)–(5), Figure 2; PDF p. 22, Appendix C.1",
+      "detail": "Multi-view images, history and perception features form the multimodal state. QT-Former processes scene, perception and history queries, retrieves time-embedded memory, and projects history/scene representations to the LLM. Equation (2) factors planning before future-state generation."
+    },
+    {
+      "id": "planner",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.2; PDF pp. 23–24, Appendix D, Equations (16)–(18)",
+      "detail": "MLPs predict Gaussian mean and variance from VLM planning embeddings; reparameterized samples feed a recurrent decoder of continuous 2D ego-BEV waypoints. Explicit KL regularization is omitted. Planning uses collision, boundary and expert-trajectory losses."
+    },
+    {
+      "id": "ar-decoder",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 3.3, Figure 3(a), Equation (7); PDF p. 9, Section 3.4",
+      "detail": "The discrete branch extends the visual codebook, brackets image tokens with special tokens, and decodes through MoVQGAN. Image prediction is conditioned on preceding planning tokens and trained with teacher-forced cross-entropy."
+    },
+    {
+      "id": "continuous-decoder",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–9, Figure 3(b), Section 3.3, Equations (8)–(12)",
+      "detail": "Learnable queries connect VLM features to a diffusion decoder. Equations (9)–(11) interpolate between Gaussian noise and future-image embeddings and define velocity matching; Equation (12) adds CLIP alignment. The vision encoder is frozen for decoder training. The following prose describes deterministic reconstruction and reduced inference diversity without specifying noise handling."
+    },
+    {
+      "id": "joint-training",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 3.4, Equations (13)–(15); PDF p. 10, Section 4.3",
+      "detail": "Planning precedes visual generation. AR combines cross-entropy and planning losses; AR+Diffusion adds flow matching and CLIP alignment. Stage 1 jointly trains planning/generation with LoRA; Stage 2 mixes VQA and driving data. Continuous latent queries follow planning features."
+    },
+    {
+      "id": "configuration",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 4.1",
+      "detail": "The setup lists eight NVIDIA H200 GPUs, EVA-02-L, Vicuna 1.5, LoRA rank/alpha 16/16, scene/perception/history queries 512/600/16, a 16-frame memory, 640×640 inputs, 192×128 AR and 512×1024 AR+Diffusion outputs, and 64 continuous latent queries."
+    },
+    {
+      "id": "protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 4.2; PDF p. 11, Section 4.4 and Table 1 caption; PDF p. 21, Appendix A",
+      "detail": "Bench2Drive uses 950 training and 50 open-loop validation scenes, plus 220 closed-loop routes across 44 scenarios. nuScenes uses its official train/validation split. Table 1 L2 averages a 2-second horizon at 2 Hz. The paper distinguishes UniAD per-timestep metrics from VAD/ORION cumulative averages. Appendix A defines driving, detection, image and VQA metrics."
+    },
+    {
+      "id": "closed-loop",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 1, ORION, Ours, DriveTransformer-Large and MomAD rows",
+      "detail": "ORION DS/SR/L2 are 77.74/54.62%/0.68; AR gives 79.22/56.36%/0.64; AR+Diffusion gives 79.31/56.42%/0.63. DriveTransformer-Large has L2 0.62. MomAD efficiency/comfortness are 170.21/48.63, above both proposed branches."
+    },
+    {
+      "id": "planning-perception",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 2, VAD, Orion and Ours rows",
+      "detail": "At 3 seconds ORION L2/collision are 1.129 m/0.743%; AR gives 1.079 m/0.668%; AR+Diffusion gives 1.066 m/0.657%. ORION mAP/NDS are 0.646/0.723, versus 0.675/0.755 for AR+Diffusion. VAD collision is 0.296% at 3 seconds."
+    },
+    {
+      "id": "nuscenes",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Table 3, ORION, FSDrive and Ours columns",
+      "detail": "Average L2/collision are 0.34 m/0.37% for ORION, 0.30 m/0.31% for AR and 0.29 m/0.31% for AR+Diffusion. FSDrive reports 0.60 m/0.19%."
+    },
+    {
+      "id": "image-fidelity",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Table 4; PDF p. 21, Appendix A, FID definition",
+      "detail": "Bench2Drive/nuScenes FID is 7.2/7.8 for AR and 6.6/7.3 for AR+Diffusion, versus 9.3/10.1 for FSDrive. FID compares generated and ground-truth future-frame distributions."
+    },
+    {
+      "id": "speed-tradeoff",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–14, Section 4.5, especially PDF p. 13, Speed and Resolution and Compression Trade-offs",
+      "detail": "Open-loop Bench2Drive inference on an A100 is 2 fps for AR and 0.4 fps for AR+Diffusion. The discussion links discrete resolution to token count and describes continuous decoding as the higher-resolution, heavier alternative."
+    },
+    {
+      "id": "vqa",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Tables 5 and 8; PDF p. 15, Section 4.6",
+      "detail": "DriveLM GVQA final scores are 0.59 for UniDrive-WM and 0.57 for FSDrive. The separate Chat-B2D ablation changes CIDEr/BLEU/ROUGE-L from 65.7/52.4/77.5 without image generation to 66.7/53.5/78.6 with it."
+    },
+    {
+      "id": "component-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Table 6, all four checkbox rows; PDF pp. 14–15, Section 4.6",
+      "detail": "AR detection+planning without image generation gives 3-second L2/collision 1.130 m/0.746%; all three give 1.079 m/0.668%. Planning+image without detection gives 2.146 m/1.77%. Detection+image without planning has no planning metrics."
+    },
+    {
+      "id": "order-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Table 7; PDF p. 15, Section 4.6",
+      "detail": "Generation+Planning has average L2 0.67 m, collision 0.45% and FID 9.1; Planning+Generation gives 0.64 m, 0.43% and 7.2. The authors interpret this order as aligned with action-to-observation causality."
+    },
+    {
+      "id": "perception-training",
+      "sourceId": "primary",
+      "location": "PDF pp. 22–23, Appendix C.2; PDF p. 9, Section 3.4",
+      "detail": "Perception pretraining uses Hungarian matching, focal classification and L1 regression, with auxiliary traffic-state and motion supervision. The detection head is frozen during joint planning/generation training; Appendix C distinguishes this from jointly optimizing detection as an end task."
+    },
+    {
+      "id": "multi-ability",
+      "sourceId": "primary",
+      "location": "PDF p. 21, Table 9; PDF p. 22, Appendix B.1",
+      "detail": "Mean ability is 54.72% for ORION, 59.00% for AR and 59.23% for AR+Diffusion. Proposed models obtain 40.00% Give Way, while several target-point baselines attain 50.00%."
+    },
+    {
+      "id": "qualitative",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Figures 4–5; PDF pp. 25–27, Figures 6–8 and captions",
+      "detail": "The source shows selected future-frame and VQA examples. Figure 6 first-scene Q3 combines maintaining speed/lane following with an instruction to stop for a red light. These examples do not measure failure rates."
+    },
+    {
+      "id": "future-work",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Section 5",
+      "detail": "More interactive and longer-horizon driving scenarios are identified as future work."
+    }
+  ]
+}

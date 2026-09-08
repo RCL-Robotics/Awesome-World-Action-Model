@@ -1,0 +1,520 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2601.16163",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T20:02:26.941Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2601.16163",
+      "title": "Cosmos Policy: Fine-Tuning Video Models for Visuomotor Control and Planning",
+      "kind": "pdf",
+      "sha256": "05696475c9b5481afbf88673a65f80a46cf3fb87a5755c1410e83d0f468cc6e0",
+      "wordCount": 12126,
+      "accessedAt": "2026-09-07T14:06:58.050541+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract and Section 1 Introduction (pp. 1–2)",
+      "Section 2 Related Work (pp. 2–3)",
+      "Section 3 Preliminaries (pp. 3–4)",
+      "Sections 4.1–4.3: latent injection, joint training and planning (pp. 4–6)",
+      "Sections 5.1–5.3: experimental setup, direct policies, ablations and planning (pp. 7–10)",
+      "Sections 6–7: discussion and reproducibility (pp. 10–11)",
+      "Acknowledgments and References (pp. 11–14)",
+      "Appendix A.1: latent injection implementation (pp. 15–16)",
+      "Appendix A.2.1: noise distribution (pp. 15–16)",
+      "Appendices A.2.2–A.2.4: training details (p. 17)",
+      "Appendices A.3.1–A.3.2: evaluation and scoring (pp. 17–19)",
+      "Appendices A.4.1–A.4.2: further ablations and latency (pp. 20–22)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The text-extraction image omission was addressed by inspecting the supplied PDF: all scientific figures and tables, the title page, and the claim-supporting method, evaluation and appendix pages were visually reviewed. Reference-only pages 12–14 were read as text.",
+      "Identity and edition scope: the supplied title page identifies arXiv:2601.16163v1 [cs.AI], 22 January 2026. Its title and all 11 authors match the catalog. This report concerns that v1 artifact; no separate ICLR 2026 proceedings edition or later revision was supplied or compared. The printed project address uses /labs/dir/cosmos-policy/, whereas the catalog uses /labs/cosmos-lab/cosmos-policy/; neither was fetched.",
+      "All seven supplied text chunks were read in full. External code, model checkpoints, datasets, project pages and separate supplements were not inspected; no experiments were run."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 6)",
+      "Figures 4–6 (pp. 8–9)",
+      "Figure 7 (p. 10)",
+      "Figures 8–9 (p. 16)",
+      "Figure 10 (p. 19)",
+      "Figure 11 (p. 20)",
+      "Figure 12 (p. 21)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (p. 8)",
+      "Table 3 (p. 19)",
+      "Table 4 (p. 20)",
+      "Table 5 (p. 22)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Cosmos Policy adapts Cosmos-Predict2-2B to generate robot action chunks, future observations and values in one latent diffusion sequence. Direct control benefits from joint supervision; optional planning adds rollout refinement and a separate planning checkpoint. Experiments support strong manipulation performance, while slow search and uneven OOD performance limit broader conclusions.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "How can a pretrained video generator produce executable robot controls while retaining useful predictive structure? The authors replace separate action modules with a shared latent representation and ask whether future-observation and value prediction improve both imitation learning and action selection.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-motivation",
+      "e-injection"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Latent frame injection accommodates proprioception, continuous action chunks, values and multiple camera views without architectural changes to the pretrained diffusion model.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-injection",
+        "e-implementation"
+      ]
+    },
+    {
+      "text": "Conditioning masks turn the same denoiser into a joint policy, world model or value predictor. Optional rollout refinement enables best-of-N planning through dual checkpoint deployment.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-joint",
+        "e-planning"
+      ]
+    },
+    {
+      "text": "The authors report the highest aggregate performance among their listed comparisons in LIBERO, RoboCasa and ALOHA. These claims concern the reported benchmarks and protocols, not unrestricted robot generalization.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-libero",
+        "e-robocasa",
+        "e-aloha"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current robot proprioception and camera observations, without observation history",
+      "Task description encoded with T5-XXL",
+      "Action and future-observation prefixes for conditional world-model/value training"
+    ],
+    "outputs": [
+      "Executable continuous action chunk",
+      "Predicted proprioception and camera observations at the chunk endpoint",
+      "Predicted return, interpreted as a value estimate"
+    ],
+    "steps": [
+      {
+        "name": "Pack observations and controls into video latents",
+        "detail": "Images pass through the Wan2.1 VAE. Placeholder latents are overwritten with flattened, normalized and repeated proprioception, action or value vectors. The sequence is ordered as current observation, action, endpoint observation and value. The illustrative three-camera layout has 11 latents, including an initial blank. Four copies of each image accommodate temporal compression; they represent one timestep.",
+        "evidenceIds": [
+          "e-backbone",
+          "e-injection",
+          "e-implementation"
+        ]
+      },
+      {
+        "name": "Recover controls directly",
+        "detail": "After denoising, repeated action-vector copies are averaged and unnormalized. Value extraction averages its entire latent volume and rescales to [0,1]. Neither operation requires VAE decoding. The predicted future state is only a camera/proprioception approximation of state at t+K, where K is chunk length; no intermediate future trajectory is predicted.",
+        "evidenceIds": [
+          "e-state-value",
+          "e-injection",
+          "e-implementation"
+        ]
+      },
+      {
+        "name": "Change the conditioning boundary",
+        "detail": "Initial training allocates 50% of samples to joint action/future/value prediction, 25% to future/value prediction given an action, and 25% to value given the full prefix. Policy examples use successful demonstrations; world/value examples also retain failed replays when available. ALOHA initially has only successful demonstrations.",
+        "evidenceIds": [
+          "e-joint",
+          "e-training-mask"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "All base Cosmos-Predict2 weights are fine-tuned. LIBERO uses 40K steps, batch 1920 and 64 H100 GPUs; RoboCasa uses 45K, batch 800 and 32 H100s; ALOHA uses 50K, batch 200 and 8 H100s. Each run lasts 48 hours. ALOHA combines 185 demonstrations across four tasks.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training"
+        ]
+      },
+      {
+        "text": "Noise sampling mixes the original log-normal distribution with probability 0.7 and Uniform[1,85] with probability 0.3. The original log-noise mean and standard deviation are 1.39 and 1.2. Inference uses noise bounds 4 and 80. The authors report improved precision; the mixture probabilities were not tuned.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-noise"
+        ]
+      },
+      {
+        "text": "Planning refinement uses 10/45/45 policy/world/value sampling. Its 648-rollout pool combines 505 evaluations across all compared policies and 143 additional Cosmos bag-task rollouts. Although the deployment motivation invokes on-policy prediction, this reported pool contains data from multiple policies.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-planning",
+          "e-rollouts"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Direct evaluation jointly generates all targets and discards future/value predictions. It uses five denoising steps in simulation and ten on ALOHA. LIBERO executes all 16 predicted actions; RoboCasa predicts 32 and executes 16; ALOHA executes 50 actions at 25 Hz, then queries again.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training",
+          "e-decoding"
+        ]
+      },
+      {
+        "text": "Planning keeps the original action checkpoint and uses the refined checkpoint for prediction. Eight action proposals each receive three future predictions and five values per future. Values are aggregated by the majority success/failure group and its mean. Model-based value prediction masks current state/action; the Q variant masks the future. Search uses ten action-denoising steps and five each for future/value.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-planning",
+          "e-rollouts",
+          "e-decoding",
+          "e-latency"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}(D_\\theta,\\sigma)=\\mathbb{E}_{\\mathbf{x}_0,\\mathbf{c},\\mathbf{n}}\\!\\left[\\left\\|D_\\theta(\\mathbf{x}_0+\\mathbf{n};\\sigma,\\mathbf{c})-\\mathbf{x}_0\\right\\|_2^2\\right],\\quad \\mathbf{n}\\sim\\mathcal{N}(0,\\sigma^2 I)",
+        "explanation": "The backbone's EDM objective reconstructs clean image latents x₀ from Gaussian-corrupted inputs. Dθ is the diffusion-transformer denoiser, σ the noise level, and c the T5-XXL task-text embedding. Cosmos Policy applies denoising to its extended multimodal latent sequence, keeping conditioning portions clean.",
+        "evidenceIds": [
+          "e-backbone",
+          "e-joint"
+        ]
+      },
+      {
+        "expression": "G_t=\\gamma^{H-t}R(s_H,a_H)",
+        "explanation": "Training uses observed Monte Carlo return Gₜ: terminal reward R at horizon H discounted by γ back to timestep t. Rewards before H are zero. The paper writes V(s′) for this empirical target; it is not an independently known optimal value. No numerical γ is specified.",
+        "evidenceIds": [
+          "e-state-value",
+          "e-joint"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO direct-policy manipulation",
+      "setting": "Four ten-task suites; 50 demonstrations per task before failure filtering. Evaluation: 50 episodes per task over three seeds, 6000 trials.",
+      "metric": "Average success rate (%)",
+      "value": "98.5 overall; Spatial 98.1, Object 100.0, Goal 98.2, Long 97.6.",
+      "comparison": "CogVLA 97.4 and OpenVLA-OFT 97.1 overall; Video Policy reports 94.0 on Long.",
+      "interpretation": "Strong reported control success, especially on Long. These are benchmark comparisons; the table gives no uncertainty intervals.",
+      "evidenceIds": [
+        "e-sim-protocol",
+        "e-libero"
+      ]
+    },
+    {
+      "task": "RoboCasa direct-policy manipulation",
+      "setting": "24 kitchen tasks; 50 human demonstrations per task before filtering. Five evaluation scenes, unseen object instances, three seeds, 3600 trials.",
+      "metric": "Average success rate (%)",
+      "value": "67.1",
+      "comparison": "FLARE and GR00T-N1.5 + HAMLET: 66.4 with 300 demonstrations/task; Video Policy: 66.0 with 300; UVA: 50.0 with 50.",
+      "interpretation": "Supports efficiency in target-task demonstrations. Unequal pretraining, architectures and data budgets prevent a controlled attribution solely to video priors.",
+      "evidenceIds": [
+        "e-sim-protocol",
+        "e-robocasa"
+      ]
+    },
+    {
+      "task": "ALOHA direct-policy bimanual manipulation",
+      "setting": "Four tasks with 101 trials per method, shared initial conditions, and in-distribution/OOD subsets; 185 training demonstrations.",
+      "metric": "Average task-completion score (0–100)",
+      "value": "93.6 overall; in-distribution 96.3; OOD 89.3.",
+      "comparison": "π₀.₅: 88.6 overall, 87.8 in-distribution, 92.5 OOD.",
+      "interpretation": "Highest aggregate score does not imply the best OOD score. The rubric awards partial credit, so 93.6 is not a binary episode-success percentage.",
+      "evidenceIds": [
+        "e-aloha-protocol",
+        "e-aloha"
+      ]
+    },
+    {
+      "task": "ALOHA planning on challenging candy tasks",
+      "setting": "Harder initial conditions for bowl and ziploc-bag tasks after refinement on 648 rollouts; a separate evaluation setting from the direct-policy suite.",
+      "metric": "Average task-completion score (0–100)",
+      "value": "Model-based 72.0: bowl 60.0, bag 84.0.",
+      "comparison": "Direct 59.5: bowl 49.0, bag 70.0; Q-based 61.3: bowl 52.0, bag 70.7.",
+      "interpretation": "A 12.5-point gain over direct control supports this planning configuration. Separate planning trial counts and uncertainty are not reported.",
+      "evidenceIds": [
+        "e-rollouts",
+        "e-planning-results",
+        "e-aloha-protocol"
+      ]
+    },
+    {
+      "task": "LIBERO mechanism ablations",
+      "setting": "Two independent changes, each trained for the full policy's gradient-step count.",
+      "metric": "Average success rate (%)",
+      "value": "Full 98.5; auxiliary losses removed 97.0; pretrained initialization removed 94.6.",
+      "comparison": "Drops of 1.5 and 3.9 percentage points respectively; Long falls from 97.6 to 94.0 and 88.6.",
+      "interpretation": "Both ingredients help under this training budget. Equal steps do not establish that a randomly initialized model has converged.",
+      "evidenceIds": [
+        "e-libero-ablation"
+      ]
+    },
+    {
+      "task": "RoboCasa cumulative objective ablations",
+      "setting": "Same training hyperparameters/compute as the full model; 3600 trials over 24 tasks and three seeds.",
+      "metric": "Average success rate (%)",
+      "value": "Full 67.1; remove value-training samples 66.6; remove world/value-training samples 64.0; also remove auxiliary value 62.5; also remove auxiliary future state 44.4.",
+      "comparison": "The final adjacent change reduces success by 18.1 percentage points.",
+      "interpretation": "Future supervision matters in that already-reduced configuration. The full-to-bare-policy gap is not an isolated future-prediction effect.",
+      "evidenceIds": [
+        "e-robocasa-ablation"
+      ]
+    },
+    {
+      "task": "RoboCasa denoising-speed tradeoff",
+      "setting": "Direct policy; one H100 GPU; latency per predicted 32-action chunk.",
+      "metric": "Success rate (%) and inference latency (seconds)",
+      "value": "One denoising step: 66.4 and 0.16 s.",
+      "comparison": "Five steps: 67.1 and 0.61 s.",
+      "interpretation": "Reported rows imply a 0.7-percentage-point drop; Table 5's caption instead says −0.5%. This internal discrepancy remains unresolved.",
+      "evidenceIds": [
+        "e-robocasa-ablation",
+        "e-latency"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Planning takes 4.9 seconds on eight H100 GPUs per chunk, versus 0.95 seconds for direct ALOHA inference on one H100. Rollout requirements, one-layer search and slow reactions constrain dynamic manipulation; deeper planning and locomotion are future directions.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-latency",
+        "e-discussion"
+      ]
+    },
+    {
+      "text": "Figure 6 illustrates improved future prediction but supplies no aggregate world-model accuracy metric. Narrow tabletop OOD tests and single-endpoint observation prediction do not establish general physical simulation or long-horizon planning accuracy.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-world-diagnostic",
+        "e-aloha-protocol",
+        "e-injection"
+      ]
+    },
+    {
+      "text": "Section 5.3 says 'three' value formulations but explicitly specifies and plots only V(s′) and Q(s,a). Its explanation of Q-model overfitting is a hypothesis, not a measured diagnosis.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-rollouts",
+        "e-planning-results"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A faithful reproduction needs the stated initialization, successful/failed demonstration separation, latent packing, mixed-noise sampler, conditioning masks and platform-specific chunk execution. The paper announces checkpoints, data and scripts; this is an author release statement.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-backbone",
+        "e-implementation",
+        "e-joint",
+        "e-noise",
+        "e-training",
+        "e-release"
+      ]
+    },
+    {
+      "text": "The supplied PDF leaves optimizer/learning-rate settings, image resolution, normalization statistics, numerical discount and majority-mean threshold unspecified. It also lacks a separate planning-refinement compute schedule and explicit planning train/evaluation partition. These gaps need resolution before claiming exact reproduction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-implementation",
+        "e-state-value",
+        "e-planning",
+        "e-rollouts",
+        "e-training"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded One Model × Joint prediction classification fits the architecture: one denoiser jointly models actions, future observations and values without an inverse-dynamics module. The deployment qualification is substantial: reported planning uses two checkpoints with different roles. Joint supervision benefits direct control even when its predicted future/value outputs are discarded.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-injection",
+        "e-joint",
+        "e-planning",
+        "e-decoding"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Joint video-action modeling",
+        "Generalization & action alignment"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q1 · One Model × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "57faa0ebd8b9fbe0dfbfe40d2adc7597b69f4dc6e7c1b1c8dd44ea5e2259b3fc"
+    }
+  },
+  "discussionQuestions": [
+    "Does future-observation supervision still help when action examples per optimizer step are held fixed across objective ablations?",
+    "Would V(s′) retain its advantage over Q(s,a) with matched inference cost and more held-out rollout data?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block and arXiv margin",
+      "detail": "Title and all eleven catalog authors match; affiliations are NVIDIA and Stanford University. The margin identifies arXiv:2601.16163v1 [cs.AI], 22 Jan 2026."
+    },
+    {
+      "id": "e-motivation",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract and Sections 1–2",
+      "detail": "The proposal adapts pretrained video diffusion to robot control without adding a separate action module; prior physical and temporal structure motivates this design."
+    },
+    {
+      "id": "e-backbone",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3, Cosmos video model paragraph and denoising objective",
+      "detail": "Initialization is Cosmos-Predict2-2B-Video2World, using Wan2.1 VAE tokens, T5-XXL text conditioning and an EDM reconstruction objective."
+    },
+    {
+      "id": "e-state-value",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3, MDP and world-model/value definitions",
+      "detail": "The finite-horizon formulation has sparse terminal reward and Monte Carlo discounted returns. Observations approximate state; numerical discount is not given."
+    },
+    {
+      "id": "e-injection",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Figure 2 and Section 4.1",
+      "detail": "New modalities occupy normalized, repeated latent volumes; the example has 11 frames including a placeholder. Observations are at t and t+K only, with no input history."
+    },
+    {
+      "id": "e-joint",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.2 and empirical-return footnote",
+      "detail": "Initial sample fractions are 50/25/25 for policy/world/value tasks. Conditioning defines their functions; auxiliary targets extend policy/world prediction. V(s′) denotes an empirical return target."
+    },
+    {
+      "id": "e-planning",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.3",
+      "detail": "Refinement changes sampling to 10/45/45. Original and refined checkpoints serve as policy and planning models. Best-of-N uses three futures and five values per future, majority-mean aggregation and full-chunk execution."
+    },
+    {
+      "id": "e-sim-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5.1, LIBERO and RoboCasa paragraphs",
+      "detail": "LIBERO supplies 50 demonstrations per task. RoboCasa uses 24 tasks, 50 human demonstrations per task, five evaluation scenes and unseen objects; failures are filtered only for policy training."
+    },
+    {
+      "id": "e-libero",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1, all suite/average columns and caption",
+      "detail": "Cosmos scores 98.1/100.0/98.2/97.6, average 98.5; CogVLA averages 97.4 and OpenVLA-OFT 97.1. Cosmos evaluation totals 6000 trials over three seeds."
+    },
+    {
+      "id": "e-robocasa",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2, training-demonstration and average-SR columns",
+      "detail": "Cosmos obtains 67.1 with 50 demonstrations/task; FLARE and HAMLET obtain 66.4 with 300; Video Policy 66.0 with 300; UVA 50.0 with 50. Caption reports 3600 trials."
+    },
+    {
+      "id": "e-aloha-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5.1 ALOHA paragraph; p. 18, Appendix A.3.2",
+      "detail": "ALOHA uses three cameras, 14 joint angles and 25-Hz control. Trials total 30/20/25/26 by task with shared initial conditions; scoring assigns partial completion credit and defines limited OOD variations."
+    },
+    {
+      "id": "e-aloha",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 4; p. 19, Table 3, In-distribution/OOD/Full blocks",
+      "detail": "Cosmos averages 96.3/89.3/93.6 across these blocks, versus π₀.₅ at 87.8/92.5/88.6. Full-task Cosmos scores are 100.0, 99.5, 89.6 and 85.4."
+    },
+    {
+      "id": "e-world-diagnostic",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 6 and caption",
+      "detail": "Selected base/refined predictions are juxtaposed with actual bag-task observations, illustrating a base-model grasp-error mismatch and a refined-model match; no aggregate predictive-accuracy statistic accompanies the example."
+    },
+    {
+      "id": "e-rollouts",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 5.3, rollout collection and value-function formulations",
+      "detail": "Refinement uses 505 rollouts across policies plus 143 Cosmos bag rollouts. V(s′) masks current state/action; Q(s,a) masks future state. The prose says three formulations but lists two."
+    },
+    {
+      "id": "e-planning-results",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Figure 7 bars/legend and Section 5.3 results",
+      "detail": "Bowl/bag/average scores: direct 49.0/70.0/59.5, model-free 52.0/70.7/61.3, model-based 60.0/84.0/72.0. Evaluation uses harder initial conditions; separate trial counts and intervals are absent."
+    },
+    {
+      "id": "e-libero-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5.2 ablation paragraph; p. 20, Table 4",
+      "detail": "Independent auxiliary-loss and pretrained-initialization removals use the same gradient-step count. Average scores are 98.5, 97.0, 94.6; Long scores 97.6, 94.0, 88.6."
+    },
+    {
+      "id": "e-discussion",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 6",
+      "detail": "The authors identify slow model-based search, substantial rollout needs and one-layer search as limitations; deeper and longer-horizon prediction is proposed future work."
+    },
+    {
+      "id": "e-release",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Section 7 Reproducibility Statement",
+      "detail": "The authors state that model checkpoints, training data and code are released through their project website; the statement itself does not verify those artifacts."
+    },
+    {
+      "id": "e-implementation",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A.1; p. 16, Figure 8 and caption",
+      "detail": "Blank-image latents are overwritten with repeated normalized vectors. Averaging and unnormalization recover actions/values without VAE decoding. A first blank and four identical image copies accommodate the tokenizer."
+    },
+    {
+      "id": "e-noise",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Appendix A.2.1 and Figure 9",
+      "detail": "Training uses 0.7 log-normal with log parameters 1.39/1.2 plus 0.3 uniform over [1,85]. Inference bounds are σmin=4 and σmax=80; mixture weights were not tuned."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Appendices A.2.2–A.2.4",
+      "detail": "Full model fine-tuning uses LIBERO 40K/1920/64 H100, RoboCasa 45K/800/32 H100, ALOHA 50K/200/8 H100, all 48 hours. Predicted/executed chunk sizes are 16/16, 32/16, 50/50. ALOHA uses 185 demonstrations."
+    },
+    {
+      "id": "e-decoding",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Appendix A.3.1",
+      "detail": "Direct generation is parallel with five simulation or ten ALOHA denoising steps; future/value outputs are discarded. Planning generates action, future and value autoregressively using 10/5/5 steps and 3-by-5 ensembles."
+    },
+    {
+      "id": "e-training-mask",
+      "sourceId": "primary",
+      "location": "PDF pp. 20–21, Appendix A.4.1 and Figure 12/caption",
+      "detail": "The fixed latent sequence is conditioned differently for 50/25/25 initial training. During refinement, value masking yields V(s′) or Q(s,a)."
+    },
+    {
+      "id": "e-robocasa-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 22, Table 5, complete table and caption",
+      "detail": "Cumulative objective removals score 67.1, 66.6, 64.0, 62.5 and 44.4 under matching compute; one-step inference scores 66.4. The caption's −0.5% loss disagrees with the 67.1-to-66.4 rows."
+    },
+    {
+      "id": "e-latency",
+      "sourceId": "primary",
+      "location": "PDF pp. 21–22, Appendix A.4.2",
+      "detail": "Direct latencies are 0.61/0.95/0.16 seconds on one H100 for 5/10/1 steps. ALOHA best-of-8 uses eight H100s, three future predictions and five values per future, totaling 4.9 seconds."
+    }
+  ]
+}

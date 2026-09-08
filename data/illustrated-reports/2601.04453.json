@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2601.04453",
+  "shortTitle": "UniDrive-WM",
+  "thesis": "Predicting an image after a driving plan supplies useful training feedback, while discrete and continuous visual decoders trade speed against image fidelity.",
+  "standfirst": "UniDrive-WM asks whether learning to picture a planned future can improve the plan itself. Multi-view images and temporal memory enter a shared vision–language backbone; a latent planner produces waypoints, and a visual decoder predicts the future front-view image conditioned on planning features. The useful distinction is between this forward prediction order and the backward training signal supplied by image losses. The paper reports gains over ORION in simulated closed-loop driving and open-loop prediction, but the architecture does not specify an iterative imagination-based controller. Read the decoder comparison alongside its resolution and latency differences, and use the ablations to judge what the coupling actually establishes.",
+  "evidenceIds": [
+    "architecture",
+    "planner",
+    "joint-training",
+    "closed-loop",
+    "speed-tradeoff",
+    "configuration",
+    "order-ablation"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/2601.04453/architecture.png",
+      "width": 1466,
+      "height": 479,
+      "sourceSha256": "9557a3a40bf9e405ab76b290848ca4a8996cfdae894da854b51d1ff7bacc0fce",
+      "sourceUrl": "https://arxiv.org/pdf/2601.04453#page=5",
+      "crop": [
+        0.215,
+        0.145,
+        0.79,
+        0.29
+      ],
+      "alt": "Multi-view images pass through a vision encoder and QT-Former; visual and instruction embeddings enter a LoRA-adapted LLM whose output layer serves trajectories, future images and VQA.",
+      "caption": "A shared reasoning backbone receives structured visual history and serves three output tasks.",
+      "readingGuide": "Follow the multi-view input from left to right. The vision encoder extracts image features; QT-Former combines them with perception, scene and history queries before projecting visual representations into the LLM. Instructions take a separate tokenizer path into text embeddings. The LoRA marker identifies adaptation of the language backbone, while the output panel lists trajectory planning, future-image generation and VQA. The figure is an architectural overview: Equation (2) and Section 3.4 supply the missing ordering detail, namely that the predicted plan conditions the future image. History is retrieved through the memory mechanism described alongside the figure, rather than through the text prompt alone.",
+      "takeaway": "The common LLM and structured visual inputs support a shared-backbone interpretation of the system. The output tasks are connected through representations and training, while the planner and image decoders retain different numerical interfaces. This architecture gives a concrete basis for the joint-prediction classification.",
+      "caution": "The three output arrows do not establish simultaneous independent predictions or a replanning loop. Read their dependency from Equation (2) and Section 3.4. Appendix C also specifies a frozen detection head, despite the broad end-to-end description.",
+      "evidenceIds": [
+        "architecture",
+        "joint-training",
+        "perception-training"
+      ]
+    },
+    {
+      "id": "decoding-branches",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 7,
+      "asset": "report-assets/2601.04453/decoding-branches.png",
+      "width": 1466,
+      "height": 446,
+      "sourceSha256": "9557a3a40bf9e405ab76b290848ca4a8996cfdae894da854b51d1ff7bacc0fce",
+      "sourceUrl": "https://arxiv.org/pdf/2601.04453#page=7",
+      "crop": [
+        0.215,
+        0.144,
+        0.79,
+        0.279
+      ],
+      "alt": "Left: hidden-state visual tokens between image markers feed MoVQGAN. Right: learnable queries pass through an MLP and cross-attention into a diffusion model. Both panels also show planning and VQA paths.",
+      "caption": "Two image decoders attach to the shared planning and reasoning backbone.",
+      "readingGuide": "Compare the visual paths rather than just the output photographs. On the left, the visual token sequence lies between image-start and image-end markers, and the MoVQGAN decoder converts it to pixels. On the right, learnable queries provide continuous features through an MLP and cross-attention to the diffusion model. Both panels retain a trajectory planner and a VQA route. The drawing does not show an explicit arrow from the predicted trajectory to image decoding; Sections 3.4 and 4.3 establish that planning tokens or features precede and condition the visual representation. That textual specification is essential for interpreting the apparent parallel branches.",
+      "takeaway": "The two paths instantiate different representations of the planned visual future. AR uses discrete next-token prediction; AR+Diffusion uses continuous queries, flow matching and semantic image alignment. The figure explains where the additional decoder enters, while the measured speed and fidelity tradeoff must be read from the experiments.",
+      "caution": "The continuous branch's equations sample noise, but the following prose calls inference deterministic reconstruction. The source leaves noise handling and solver details unresolved. This schematic should not be used to infer a standard diffusion sampling schedule.",
+      "evidenceIds": [
+        "ar-decoder",
+        "continuous-decoder",
+        "joint-training",
+        "speed-tradeoff"
+      ]
+    },
+    {
+      "id": "closed-loop-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 11,
+      "asset": "report-assets/2601.04453/closed-loop-results.png",
+      "width": 1710,
+      "height": 770,
+      "sourceSha256": "9557a3a40bf9e405ab76b290848ca4a8996cfdae894da854b51d1ff7bacc0fce",
+      "sourceUrl": "https://arxiv.org/pdf/2601.04453#page=11",
+      "crop": [
+        0.215,
+        0.212,
+        0.79,
+        0.412
+      ],
+      "alt": "Bench2Drive method rows compare conditioning, camera or LiDAR input, Driving Score, Success Rate, efficiency, comfortness and open-loop L2; the two proposed rows appear at the bottom.",
+      "caption": "Closed-loop improvements over ORION coexist with metric-specific strengths of other baselines.",
+      "readingGuide": "Start with the Condition and Modality columns: NC means navigation command, TP target point, C camera and L LiDAR; an asterisk marks expert feature distillation. The most relevant architectural baseline is ORION, which shares camera input and navigation-command conditioning with both proposed variants. Driving Score combines completion with infraction penalties, while Success Rate measures routes completed within the time limit. Keep these closed-loop columns separate from the final open-loop L2 column, whose caption specifies a two-second horizon sampled at 2 Hz. The official closed-loop protocol comprises 220 short routes across 44 scenarios; it is a simulator evaluation.",
+      "takeaway": "AR+Diffusion reports Driving Score 79.31 and Success Rate 56.42%, versus ORION's 77.74 and 54.62%. Those are gains of 1.57 score units and 1.80 percentage points, calculated from the table. AR is close at 79.22 and 56.36%, so the slower decoder adds little on these two measures.",
+      "caution": "Do not turn this into an across-the-board ranking: DriveTransformer-Large has lower open-loop L2 (0.62 versus 0.63), and MomAD has higher efficiency and comfortness. The table gives no uncertainty intervals for the small AR/AR+Diffusion differences.",
+      "evidenceIds": [
+        "closed-loop",
+        "protocol",
+        "speed-tradeoff"
+      ]
+    },
+    {
+      "id": "generation-fidelity",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 12,
+      "asset": "report-assets/2601.04453/generation-fidelity.png",
+      "width": 1698,
+      "height": 224,
+      "sourceSha256": "9557a3a40bf9e405ab76b290848ca4a8996cfdae894da854b51d1ff7bacc0fce",
+      "sourceUrl": "https://arxiv.org/pdf/2601.04453#page=12",
+      "crop": [
+        0.219,
+        0.278,
+        0.79,
+        0.336
+      ],
+      "alt": "Future-frame FID table with columns for GAN, diffusion and autoregressive baselines and rows for Bench2Drive and nuScenes; both UniDrive-WM variants have the lowest displayed values.",
+      "caption": "Lower FID favors both proposed decoders, with a further gain for continuous decoding.",
+      "readingGuide": "Read horizontally within each dataset row. The Type row groups methods by generative architecture, but the actual comparison is the FID value below it: lower means the generated frame distribution more closely matches the ground-truth future-frame distribution. The two rightmost columns compare the paper's own AR and AR+Diffusion variants; FSDrive provides a nearby unified-model comparison. Keep Bench2Drive and nuScenes separate because they contain different image distributions. Then return to the implementation section: AR predicts at 192×128, whereas AR+Diffusion predicts at 512×1024. The fidelity comparison therefore includes a substantial resolution and decoder-capacity change.",
+      "takeaway": "On Bench2Drive, AR and AR+Diffusion report FID 7.2 and 6.6, compared with FSDrive's 9.3. On nuScenes the corresponding values are 7.8 and 7.3, versus 10.1. These reported values support a distributional image-quality gain for the proposed systems under the paper's evaluation setup.",
+      "caution": "FID does not measure whether a particular trajectory causes the correct particular future, nor does it verify safety. The different output resolutions and reported speeds also prevent interpreting the AR/AR+Diffusion gap as a controlled representation-only ablation.",
+      "evidenceIds": [
+        "image-fidelity",
+        "configuration",
+        "speed-tradeoff"
+      ]
+    },
+    {
+      "id": "component-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 6",
+      "page": 14,
+      "asset": "report-assets/2601.04453/component-ablation.png",
+      "width": 1690,
+      "height": 274,
+      "sourceSha256": "9557a3a40bf9e405ab76b290848ca4a8996cfdae894da854b51d1ff7bacc0fce",
+      "sourceUrl": "https://arxiv.org/pdf/2601.04453#page=14",
+      "crop": [
+        0.222,
+        0.324,
+        0.79,
+        0.395
+      ],
+      "alt": "Four AR ablation rows switch detection, planning and image-generation components; columns report 1-, 2- and 3-second planning error/collision and detection metrics.",
+      "caption": "Image prediction and perception supervision both help the AR planner in the reported ablation.",
+      "readingGuide": "Use the checkbox columns to identify the experiment before reading the numbers. The first row keeps planning and image generation without detection; the second keeps detection and generation without planning, so its planning entries are dashes. The third row keeps detection and planning but removes image generation. The last row includes all three. Compare the last two rows to examine adding image prediction to a perception-informed planner. Then compare the first and last to see the dependence on detection supervision. The right-hand metrics assess detection features, but Appendix C says the detection head is frozen during the joint planning/generation stage.",
+      "takeaway": "Adding image generation changes three-second L2 from 1.130 m to 1.079 m and collision from 0.746% to 0.668%. Without detection, the planning-plus-generation row reaches 2.146 m and 1.77%. The evidence therefore supports complementary benefits from perception supervision and image prediction within this AR setup.",
+      "caution": "These switches alter available supervision and training objectives; they do not isolate the image-loss gradient pathway under matched compute. The detection checkbox should be interpreted with the pretraining/freeze description, not as proof that detection loss is jointly optimized throughout.",
+      "evidenceIds": [
+        "component-ablation",
+        "perception-training",
+        "joint-training"
+      ]
+    },
+    {
+      "id": "prediction-order",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 7",
+      "page": 14,
+      "asset": "report-assets/2601.04453/prediction-order.png",
+      "width": 1472,
+      "height": 247,
+      "sourceSha256": "9557a3a40bf9e405ab76b290848ca4a8996cfdae894da854b51d1ff7bacc0fce",
+      "sourceUrl": "https://arxiv.org/pdf/2601.04453#page=14",
+      "crop": [
+        0.31,
+        0.46,
+        0.695,
+        0.51
+      ],
+      "alt": "Two rows compare Generation plus Planning against Planning plus Generation, with lower-is-better average L2, collision and FID columns.",
+      "caption": "Planning before generation improves both visual fidelity and open-loop planning metrics.",
+      "readingGuide": "The plus signs in the row labels denote the order being compared, not merely the inclusion of two losses. Section 4.6 spells this out as Generation→Planning versus Planning→Generation. Read each column downward: every metric is lower-is-better, so the second row is favorable throughout. This experiment is specific to the AR architecture on Bench2Drive. Its most direct architectural interpretation is that visual tokens benefit from the preceding planning representation. The paper associates this sequence with the action-to-observation direction, while the joint loss also allows supervision on later image tokens to influence earlier shared representations during training.",
+      "takeaway": "Planning→Generation yields average L2 0.64 m, collision 0.43% and FID 7.2, compared with 0.67 m, 0.45% and 9.1 for the reverse order. These values support the proposed token order in this AR comparison, with a particularly visible improvement in the image-quality metric.",
+      "caution": "The result does not prove causal world knowledge or inference-time plan refinement. No uncertainty intervals are shown, and swapping token order changes the conditioning context. A gradient-detachment control would be needed to separate forward conditioning from backward supervisory benefits.",
+      "evidenceIds": [
+        "order-ablation",
+        "joint-training"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "From camera history to a differentiable action representation",
+      "kind": "source",
+      "text": "Begin with what the model knows before it imagines anything. QT-Former compresses current multi-view image features through scene and perception queries, while history queries retrieve temporally indexed memory. The current scene and updated history representations enter the same LLM space as the language instruction. The planner then reads the planning-related hidden representation and predicts the parameters of a Gaussian action latent. Reparameterization makes this stochastic interface differentiable, and a recurrent decoder turns the latent into continuous two-dimensional waypoints in ego BEV coordinates. Collision and boundary terms connect those waypoints to predicted traffic boxes and road structure; expert-waypoint error supplies imitation supervision. The paper omits explicit KL regularization and explains that choice as a training-stability decision. The resulting output is a numeric trajectory, rather than a natural-language driving instruction.",
+      "evidenceIds": [
+        "architecture",
+        "planner",
+        "perception-training"
+      ]
+    },
+    {
+      "heading": "Why a later image can help an earlier plan",
+      "kind": "analysis",
+      "text": "Planning precedes generation in the forward sequence. In AR, visual tokens follow the planning token; in AR+Diffusion, learnable image queries follow planning features. During training, however, a loss on those visual predictions can send gradients into the representations on which they depend. This is the useful distinction between the solid information arrows and dashed backpropagation arrows in Figure 1. Reader interpretation: learning to explain future pixels may regularize the shared scene and planning representations, even when no generated image is fed back into a controller at inference. Table 6 supports a benefit from adding generation, and Table 7 supports planning-first ordering. Neither comparison isolates that gradient mechanism from extra supervision, altered conditioning or training cost. An explicit stop-gradient control would sharpen the causal claim.",
+      "evidenceIds": [
+        "motivation",
+        "joint-training",
+        "component-ablation",
+        "order-ablation"
+      ]
+    },
+    {
+      "heading": "Keep fidelity, planning accuracy and executed driving separate",
+      "kind": "analysis",
+      "text": "The paper evaluates three different consequences of the architecture. FID measures future-image distributions, open-loop L2 and collision compare predicted plans under a dataset protocol, and closed-loop Driving Score and Success Rate measure simulator routes. Improvement on one does not logically guarantee improvement on another. AR+Diffusion improves FID over AR, but it also uses much larger output images and runs at 0.4 fps rather than 2 fps in the reported A100 measurement. Its closed-loop gains over AR are small. Across other baselines, the pattern is also mixed: FSDrive has lower nuScenes collision, while DriveTransformer-Large has lower Table 1 L2. Reader interpretation: the evidence favors useful multitask coupling, with a practical decoder tradeoff, rather than a universal dominance claim or demonstrated real-vehicle readiness.",
+      "evidenceIds": [
+        "image-fidelity",
+        "protocol",
+        "configuration",
+        "speed-tradeoff",
+        "closed-loop",
+        "nuscenes"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate image supervision from gradient coupling",
+      "text": "Reader-proposed experiment, not performed: train three AR variants from the same perception/VLM initialization—planning without image generation, full joint training, and joint forward conditioning with image-loss gradients blocked from the planner and shared backbone. Keep training scenes, ordering, main-task losses, optimization steps and VQA mixture fixed; record actual compute rather than assuming equal cost. Evaluate the Table 6 planning and detection metrics plus FID across multiple seeds. A persistent planning gain for full coupling over the detached variant would support the backward-feedback explanation. If detached and coupled variants perform alike, extra supervision, initialization or another shared training effect would remain a plausible explanation.",
+      "evidenceIds": [
+        "component-ablation",
+        "joint-training",
+        "perception-training",
+        "configuration"
+      ]
+    },
+    {
+      "title": "Test prediction order under matched budgets and changed plans",
+      "text": "Reader-proposed experiment, not performed: repeat Table 7 with the same AR resolution, token budget, data split, initialization and optimizer schedule for both orders. First test whether the reported L2, collision and FID ranking persists across seeds. Then hold the scene input fixed and replace the planning condition with feasible alternative trajectories, examining whether generated ego-motion and road geometry change consistently. Use matched simulator rollouts as references where available, recording the reference protocol explicitly. If planning-first only improves marginal FID while images scarcely respond to changed plans, the ordering advantage would not substantiate action-conditioned counterfactual prediction. This proposed intervention goes beyond the paper's reported ablation.",
+      "evidenceIds": [
+        "order-ablation",
+        "ar-decoder",
+        "architecture",
+        "configuration",
+        "protocol"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27
+    ],
+    "notes": "Visually inspected the title/author/version block, Figures 1–8, Tables 1–9, main-text method equations, training/evaluation details, and Appendix A–D evidence pages. All six final original crops were separately viewed. Figure 3 omits a direct planning-to-image arrow; its conditioning was checked against Sections 3.4 and 4.3. The flow-matching versus deterministic-reconstruction ambiguity is preserved. Bibliography pages 16–20 were read as supplied text but not rendered; no independent scientific claims are based on those references. No separate supplement or code was inspected."
+  },
+  "featuredResultTask": "Bench2Drive closed-loop driving"
+}

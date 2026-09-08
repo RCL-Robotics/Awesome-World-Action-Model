@@ -1,0 +1,473 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-6c70da879cfe4f99ac28",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T20:19:15.579Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2603.14851",
+      "title": "AutoMoT: A Unified Vision-Language-Action Model with Asynchronous Mixture-of-Transformers for End-to-End Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "9562cda11cb33473f6d152cc9460983c5192652ff3f5e09fddf9452ad47ee52f",
+      "wordCount": 9399,
+      "accessedAt": "2026-09-07T14:07:15.220244+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1. Introduction",
+      "2. Related Work (2.1–2.2)",
+      "3. AutoMoT (3.1 Network Architecture; 3.2 Training Strategy; 3.3 Asynchronous Inference with KV Caching)",
+      "4. Experiments (4.1–4.4)",
+      "5. Conclusion",
+      "6. Impact Statement",
+      "References",
+      "A.1. Data Flow of AutoMoT",
+      "A.2. Decision-Making Benchmark Results",
+      "A.3. Impact of Individual Component",
+      "A.4. Inference Latency Comparisons"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "The retained PDF was inspected separately: all five figures and ten tables, plus every page supporting retained technical claims, were visually reviewed.",
+      "Separate supplemental material availability has not been fully verified.",
+      "All six supplied text chunks were read individually, covering the complete 15-page PDF including references and Appendix A. No code, external project pages, or separate supplements were inspected; no experiments were reproduced.",
+      "Identity/version: the title and all nine authors match the supplied catalog. The inspected artifact is arXiv:2603.14851v3 [cs.CV], dated 14 May 2026 in the margin, with a title-page preprint date of May 15, 2026. The catalog lists ICML 2026; this reading verifies the supplied preprint, not a separate proceedings edition. Earlier revisions and any differences from them were not supplied."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1): integration paradigms",
+      "Figure 2 (p. 3): architecture and asynchronous schedule",
+      "Figure 3 (p. 4): attention mask",
+      "Figure 4 (p. 5): action refiner",
+      "Figure 5 (p. 13): detailed expert data flow"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 6)",
+      "Table 2 (p. 7)",
+      "Tables 3–4 (p. 8)",
+      "Tables 5–6 (p. 9)",
+      "Table 7 (p. 13)",
+      "Tables 8–9 (p. 14)",
+      "Table 10 (p. 15)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "AutoMoT transfers a frozen VLM’s scene representations into a separately trained action expert through layer-wise shared attention. Reusing the understanding expert’s key–value cache lets trajectory prediction run faster than semantic reasoning; an optional diffusion refiner improves simulated driving results. The strongest evidence combines CARLA closed-loop scores with a controlled cache-delay comparison, while real-world data are evaluated open-loop. [e03, e04, e09, e11, e12, e16, e17]",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A driving policy needs current geometric observations and rapid replanning, while a large VLM supplies slower semantic reasoning. The authors seek to avoid the latency of synchronized language/action generation and the alignment problems of a VLM that merely conditions an independent planner.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A mixture-of-transformers (MoT) shares attention layer by layer between understanding and action experts, with different update rates and direct numerical trajectory supervision.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e07",
+        "e09"
+      ]
+    },
+    {
+      "text": "A proposal-initialized diffusion refiner and backbone-adaptation experiments address trajectory quality and preservation of general VQA ability, respectively.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e08",
+        "e14"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Historical multi-view RGB images and system/user or navigation prompts for the understanding expert [e03, e04].",
+      "Current RGB, LiDAR BEV features, ego information, action queries and target points on the action side [e03, e04, e06]."
+    ],
+    "outputs": [
+      "Semantic language responses; three future meta-actions at one-second intervals [e03, e04].",
+      "Six temporal waypoints at 0.5-second intervals over three seconds and 20 spatial route points; optionally refined trajectories [e04, e07, e08]."
+    ],
+    "steps": [
+      {
+        "name": "Preserve the semantic backbone",
+        "detail": "The understanding expert (UE) uses Qwen3-VL-4B and remains frozen during default action-policy training. Historical images and prompts generate semantic responses and layer-wise latent representations. Freezing is a training choice; its scene cache still changes with new observations.",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e09"
+        ]
+      },
+      {
+        "name": "Predict actions through shared attention",
+        "detail": "The approximately 1.6B-parameter action expert (AE) is trained from scratch. Current RGB/BEV observations and queries enter separate transformer blocks; joint attention connects their representations to UE states. Cross-task ordering lets decision tokens attend to understanding and planning tokens attend to both. Separate heads decode meta-actions and spatial/temporal trajectories.",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "name": "Refine a trajectory proposal",
+        "detail": "AutoMoT+ perturbs AE trajectories with multiplicative Gaussian noise, then performs truncated reverse denoising with a diffusion transformer. Adaptive layer normalization conditions on diffusion time, ego state and state history. Mixture-of-Attention combines trajectory self-attention, BEV attention and decision-latent attention, with learned gates and pooled residual bypasses.",
+        "evidenceIds": [
+          "e06",
+          "e08"
+        ]
+      },
+      {
+        "name": "Separate prediction from execution",
+        "detail": "The learned action outputs are decisions and waypoint proposals. Bench2Drive tests their consequences in a closed-loop simulator; nuScenes tests predictions on recorded driving data. The supplied method does not spell out the complete waypoint-to-actuator controller, so a physical-vehicle execution pipeline cannot be reconstructed from these outputs alone.",
+        "evidenceIds": [
+          "e04",
+          "e10",
+          "e11",
+          "e12"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "NuSync contains 80.1K curated samples with four historical RGB frames and an additional RGB–BEV pair; asynchronous pairs use 0.5- or 1-second offsets. Labels span five lateral and four longitudinal actions over three future seconds. CARLA’s PDM-Meta includes only longitudinal labels because lateral boundaries are ambiguous.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e18"
+        ]
+      },
+      {
+        "text": "AE jointly minimizes decision-token negative log-likelihood and spatial/temporal L1 trajectory losses. Refinement also uses L1 reconstruction; its PDM-Lite data contain over 700,000 samples across over 5,000 scenarios, with four historical frames at 2 Hz. Training uses FSDP, eight NVIDIA A100 GPUs and learning rates from 10^-4 to 2×10^-5.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e08",
+          "e10"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "At action time t, use current AE queries and concatenate its current keys/values with UE keys/values from the latest available update τ(t)≤t. Refresh the cache when new UE representations become available. This retains fresh action-side perception even when semantic context is stale. Optional refinement follows the AE proposal; caching does not eliminate periodic UE computation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09",
+          "e06",
+          "e17"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\begin{aligned}\\widetilde K^l(t)&=[K^l_{\\mathrm{scene}}(\\tau(t))\\Vert K^l_{\\mathrm{act}}(t)],\\\\\\widetilde V^l(t)&=[V^l_{\\mathrm{scene}}(\\tau(t))\\Vert V^l_{\\mathrm{act}}(t)],\\\\\\operatorname{Attn}^l(t)&=\\operatorname{softmax}\\!\\left(\\frac{Q^l_{\\mathrm{act}}(t)\\widetilde K^l(t)^\\top}{\\sqrt d}\\right)\\widetilde V^l(t).\\end{aligned}",
+        "explanation": "Equations (4)–(5): l indexes the attention layer; τ(t) is the latest UE update; Q, K and V are queries, keys and values. Concatenation is along the sequence dimension, and d is their shared embedding dimensionality. Current actions can attend to cached scene context.",
+        "evidenceIds": [
+          "e09"
+        ]
+      },
+      {
+        "expression": "\\tau'=(1+\\epsilon_{\\mathrm{mul}})\\odot\\tau",
+        "explanation": "The refiner perturbs proposal trajectory τ by multiplicative Gaussian noise ε_mul; ⊙ denotes elementwise multiplication. Here τ is a trajectory, distinct from the cache-update time τ(t). The paper does not specify the noise variance or denoising-step count.",
+        "evidenceIds": [
+          "e06",
+          "e08"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Closed-loop driving on CARLA Bench2Drive",
+      "setting": "Official Bench2Drive evaluation; AutoMoT trained with PDM-Lite expert data.",
+      "metric": "Driving Score (DS) and Success Rate (SR, %); higher is better.",
+      "value": "AutoMoT: 87.34 DS / 70.00% SR; AutoMoT+: 89.42 / 74.09%.",
+      "comparison": "SimLingo: 85.07 / 67.27%. Refinement adds 2.08 DS and 4.09 percentage points SR to AutoMoT.",
+      "interpretation": "Best values in Table 1. AutoMoT+ is reported as a multiple-run average, with no run count or dispersion; baselines differ in expert data and augmentation.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Open-loop trajectory planning on nuScenes",
+      "setting": "ST-P3 evaluation protocol, vector ego status; benchmark training/evaluation protocol followed.",
+      "metric": "Average L2 displacement (m) and collision rate (%); lower is better.",
+      "value": "0.32 m L2; 0.07% collision.",
+      "comparison": "DriveTransformer-Large: 0.33 m / 0.07%; Drive-R1: 0.31 m / 0.09%.",
+      "interpretation": "Competitive displacement and a tied best average collision rate among listed methods; these are recorded-data predictions, not physical driving success.",
+      "evidenceIds": [
+        "e12",
+        "e10"
+      ]
+    },
+    {
+      "task": "Cache reuse versus synchronized planning",
+      "setting": "Dedicated nuScenes validation with UE context offset by two steps (1.0 s); AutoMoT-S recomputes both experts.",
+      "metric": "Average L2 (m); action-step latency (ms) and frequency (Hz).",
+      "value": "Asynchronous: 0.324 m, 37.0 ms, 27.0 Hz without refinement; 63.0 ms, 16.0 Hz with refinement.",
+      "comparison": "Synchronous: 0.322 m, 117.3 ms, 8.5 Hz; with refinement 143.3 ms, 7.0 Hz.",
+      "interpretation": "Reported average error increases 0.62% while unrefined action-step latency falls 68.5%. The timing omits UE work on cache-hit steps, not from the entire system.",
+      "evidenceIds": [
+        "e16",
+        "e17"
+      ]
+    },
+    {
+      "task": "Backbone adaptation and general knowledge retention",
+      "setting": "Table 4 prompted frozen backbone versus AD-fine-tuned backbone; Section 4.3 describes held-out test splits.",
+      "metric": "Lingo-Judge, GPT-Score and token accuracy, as individually labeled.",
+      "value": "LingoQA: 67.00→67.20; OmniDrive counterfactual GPT-Score: 18.20→67.80; TallyQA token accuracy: 81.40→52.40.",
+      "comparison": "InfographicVQA GPT-Score also falls from 89.30 to 50.20.",
+      "interpretation": "The adaptation tradeoff is task-dependent. Counterfactual VQA improvement is not itself a measured improvement in executed planning; dataset descriptions conflict.",
+      "evidenceIds": [
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "task": "Understanding and decision-objective ablations",
+      "setting": "nuScenes planning; random-backbone variant and planning-only AE compared with default AutoMoT.",
+      "metric": "Average L2 displacement (m).",
+      "value": "Default 0.32; randomly initialized UE 0.36; without decision objective 0.34.",
+      "comparison": "At 3 s: 0.54, 0.60 and 0.58 m, respectively.",
+      "interpretation": "Decision supervision helps reported planning. The random-UE comparison changes both initialization and training treatment, so it does not isolate reasoning alone.",
+      "evidenceIds": [
+        "e20"
+      ]
+    },
+    {
+      "task": "Discrete decision prediction",
+      "setting": "NuSync synchronous/asynchronous comparison and separate Senna nuScenes benchmark.",
+      "metric": "Reported joint average accuracy (NuSync) and accuracy (Senna).",
+      "value": "NuSync: asynchronous 53.10%, synchronous 53.49%; Senna: AutoMoT 90.92%, Senna baseline 88.47%.",
+      "comparison": "NuSync decreases 0.39 percentage points; Senna increases 2.45 percentage points.",
+      "interpretation": "Protocols are separate. Table 7 omits an explicit 3-second column despite three-second labels; its reported averages cannot be reconstructed from the displayed 1/2-second columns alone.",
+      "evidenceIds": [
+        "e18",
+        "e19"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors acknowledge resource-intensive onboard deployment. Desktop-GPU timings and simulated closed-loop scores do not establish physical-vehicle readiness or rare-event safety.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e22",
+        "e21",
+        "e11"
+      ]
+    },
+    {
+      "text": "Section 4.1 names LingoQA and CODA-LM for UE fine-tuning, whereas Section 4.3 names LingoQA and OmniDrive counterfactual reasoning. Figure 4 additionally labels a sequential cross-attention path that is not mapped clearly to the prose’s parallel attention and pooled bypass formulation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e15",
+        "e06"
+      ]
+    },
+    {
+      "text": "The 1-second cache-offset result is an aggregate open-loop check. It does not establish robustness to longer delays, abrupt scene changes or scheduling contention. Table 9’s planning-only variant equals default L2 at 1 second after rounding, despite prose claiming degradation at every horizon.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e16",
+        "e17",
+        "e20"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction requires the Qwen3-VL-4B backbone, NuSync/PDM-Meta label construction, nuScenes/PDM-Lite data, benchmark evaluators and shared-attention/cache implementation. Learning rates and GPU count are given, but batch size, training duration, optimizer details, loss weights, exact prompts, noise schedule and denoising-step count remain unspecified in the supplied method/setup.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e07",
+        "e08",
+        "e10"
+      ]
+    },
+    {
+      "text": "Proposed checks: sweep cache age with weights and action observations fixed, logging cache-refresh cost and planning errors; separately ablate latent transfer and decision supervision under matched training. Table 10 places AutoMoT inference on RTX 5090; its unknown-GPU/L40S-training footnote concerns AutoVLA, not AutoMoT.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e16",
+        "e17",
+        "e20",
+        "e21"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "VLA and the fast/slow functional split are supported. The categorical Dual-system architecture label is ambiguous: UE and AE have separate transformer blocks and update rates, but layer-wise shared attention integrates them into what the authors call one MoT VLA, explicitly distinguished from an auxiliary VLM plus independent planner. The source predicts actions and routes, not future world observations or inverse-dynamics actions, supporting the recorded Not applicable prediction paradigm/quadrant.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04",
+        "e09"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "VLA",
+      "subcategories": [
+        "Hierarchical & dual-system VLA"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "ff69194519c5fafa02e479c1bb21a45cb4f2387926d82f4adb92693914a06aea"
+    }
+  },
+  "discussionQuestions": [
+    "Would cache reuse remain effective in scenes with sudden hazards rather than average validation traffic?",
+    "How much of the planning benefit comes from pretrained visual representations versus language reasoning and decision supervision?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block, arXiv margin and preprint footer.",
+      "detail": "Exact catalog title and nine authors are present. Margin identifies arXiv:2603.14851v3, 14 May 2026; footer says Preprint, May 15, 2026. Affiliations are Nanyang Technological University, Singapore; Harvard University, US; Xiaomi EV, China."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Figure 1 and Sections 1–2.2.",
+      "detail": "Authors distinguish auxiliary VLM/planner dual systems and synchronous single-transformer VLAs from AutoMoT’s joint-attention, functionally decomposed MoT."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2 and Section 3.1; p. 13, Appendix A.1, Figure 5.",
+      "detail": "Diagrams show slow 4B understanding and fast 1.6B action branches, shared layer-wise attention, cache transfer, historical versus current vision, text/navigation prompts, ego/query inputs and decision/planning heads."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Understanding Expert and Action Expert.",
+      "detail": "Qwen3-VL-4B UE is frozen; approximately 1.6B AE is trained from scratch. AE consumes current RGB/BEV and queries and predicts three one-second meta-actions, six half-second temporal waypoints and spatial route nodes."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 3 and Action Expert attention paragraphs.",
+      "detail": "Mask and prose establish understanding→decision→planning cross-task conditioning. The text calls cross-modal attention causal but later describes within-task multimodal attention as bidirectional; a uniform cross-modal rule is therefore not asserted here."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.1 Action Refiner, multiplicative-noise and fusion formulas, Figure 4.",
+      "detail": "Refinement starts from noisy AE proposals, conditions on diffusion/ego/history information, and combines self/BEV/decision attention with learned gates and pooled residuals. Figure 4 also labels Sequential Cross-Attention, without a clear mapping to the prose’s bypass construction."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, NuSync construction and Equations (1)–(2).",
+      "detail": "80.1K samples; four historical RGB frames plus RGB–BEV pair; offsets 0.5/1 s; three-second action labels. CARLA longitudinal-only labels, token NLL, temporal/spatial L1 losses and 20 spatial route points are specified."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.2 continuation before Section 3.3.",
+      "detail": "Truncated diffusion refines AE proposals using L1 reconstruction on PDM-Lite: over 700,000 samples and 5,000+ scenarios, four historical frames at 2 Hz."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.3, Equations (3)–(5).",
+      "detail": "Most recent UE update τ(t)≤t provides cached layer-wise scene keys/values, concatenated with current AE keys/values for scaled dot-product attention."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1, datasets, metrics and implementation details.",
+      "detail": "nuScenes and CARLA-Garage support planning; benchmark protocols are followed. Training uses FSDP, eight NVIDIA A100 GPUs and learning-rate range 10^-4 to 2×10^-5. Lingo-Judge/GPT-based scores, accuracy, L2 and collision metrics are distinguished."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, SimLingo/AutoMoT/AutoMoT+ rows and Expert/DS/SR columns; p. 7, Section 4.2 closed-loop paragraph.",
+      "detail": "DS/SR are 85.07/67.27%, 87.34/70.00%, 89.42/74.09%. AutoMoT+ is a multiple-run average without run count or dispersion. Text notes SimLingo augmentation and original-data-only AutoMoT training."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2 caption and AutoMoT/DriveTransformer-Large/Drive-R1 rows, average L2/collision columns.",
+      "detail": "ST-P3 protocol. AutoMoT averages 0.32 m and 0.07%; DriveTransformer-Large 0.33 m and 0.07%; Drive-R1 0.31 m and 0.09%."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3, all rows and metric columns; Section 4.2 General VQA.",
+      "detail": "Frozen AutoMoT scores 67.00 LingoQA, 0.89 OmniDrive, 6.07 CODA-LM, 81.40 TallyQA and 89.30 InfoVQA. Results mix benchmark-specific metrics; baseline adaptation differs."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4, footnote and all rows; Section 4.3 continuing on p. 9.",
+      "detail": "Prompted versus fine-tuned values: LingoQA 67.00/67.20; counterfactual OmniDrive 18.20/67.80; ScienceQA 88.60/87.80; FigureQA 97.60/91.20; TallyQA 81.40/52.40; InfographicVQA 89.30/50.20; VizWiz 75.60/50.20. L/G/A identify Lingo-Judge/GPT-Score/token accuracy."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1 Datasets, last sentence; p. 8, Section 4.3, first paragraph.",
+      "detail": "Section 4.1 describes UE fine-tuning on LingoQA and CODA-LM; Section 4.3 describes LingoQA and the counterfactual subset of OmniDrive. The supplied version does not reconcile the difference."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 5, both rows; Section 4.4 temporal-offset setup and error discussion.",
+      "detail": "Two-step/1.0-second UE–AE offset. Synchronous L2 values 0.140/0.290/0.537, average 0.322; asynchronous 0.141/0.293/0.544, average 0.324. Authors report 0.62% relative average degradation."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 6, all rows; Section 4.4 timing discussion.",
+      "detail": "UE/AE costs 80.3/37.0 ms; AR adds 26.0 ms. Totals synchronous/asynchronous are 117.3/37.0 ms without AR, 143.3/63.0 ms with AR. Asynchronous UE=0.0 means cached context reused at that action step; reported unrefined reduction is 68.5%."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix A.2, NuSync paragraph and Table 7.",
+      "detail": "Five lateral and four longitudinal actions, three future seconds, 0.5/1.0-second asynchronous offsets. Table displays 1 s, 2 s and Avg columns: joint Avg 53.49% synchronous, 53.10% asynchronous; third-horizon values and explicit averaging formula are absent."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Appendix A.2 Senna benchmark; p. 14, Table 8.",
+      "detail": "Trajectory-derived Senna meta-action benchmark reports fine-tuned Senna accuracy 88.47% and AutoMoT 90.92%."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A.3, Table 9 and component-ablation paragraphs.",
+      "detail": "Default/random-UE/planning-only L2 averages 0.32/0.36/0.34, 3-second values 0.54/0.60/0.58. Random UE is trained end-to-end on planning, whereas default UE is frozen. Removing decision supervision retains rounded 1-second L2 of 0.14."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–15, Appendix A.4; p. 15, Table 10 and dagger footnote.",
+      "detail": "AutoMoT/AutoMoT-S inference uses RTX 5090, at 37/117 ms. AutoVLA timings are cited, with unknown inference GPU; the footnote’s eight-L40S training detail pertains to AutoVLA."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 6 Impact Statement.",
+      "detail": "Authors acknowledge resource-intensive deployment on current onboard platforms and frame quantization, pruning and caching improvements as prospective aids."
+    }
+  ]
+}
