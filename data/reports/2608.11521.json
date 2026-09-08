@@ -3,7 +3,7 @@
   "paperId": "2608.11521",
   "reportStatus": "full-text-reviewed",
   "resourceType": "paper",
-  "generatedAt": "2026-09-07T15:18:29.800Z",
+  "generatedAt": "2026-09-08T08:41:16.962Z",
   "sources": [
     {
       "id": "primary",
@@ -17,22 +17,14 @@
   ],
   "coverage": {
     "scope": "full-paper",
+    "identityVerified": true,
     "sectionsRead": [
-      "Title page and Abstract",
+      "Abstract",
       "1 Introduction",
       "2 Related Work",
-      "3.1 The channel we edit",
-      "3.2 Scoring each edit",
-      "3.3 Intervention set",
-      "3.4 Finding 1: WAM action experts use future values at their assigned positions",
-      "3.5 Finding 2: one final-clean K/V cache nearly preserves execution",
-      "4.1 From findings to our design",
-      "4.2 Writing the cache in one pass",
-      "4.3 Training",
-      "5.1 Setup",
-      "5.2 Quantitative results",
-      "5.3 Ablations",
-      "5.4 Qualitative results",
+      "3 What does the action expert read? (3.1–3.5)",
+      "4 RIFT: One-pass Future-Token Imagination (4.1–4.3)",
+      "5 Experiments (5.1–5.4)",
       "6 Conclusion",
       "References",
       "A Training implementation details",
@@ -44,331 +36,247 @@
       "G RoboTwin results and future decodes"
     ],
     "omissions": [
-      "Review used the supplied complete main text and appendix text. PDF figure images were not supplied or visually inspected; figure captions and extracted labels were read.",
-      "Merged Table 6 per-task cells were not used for numerical conclusions. RoboTwin aggregate results were taken from the legible Table 2.",
-      "Intermediate token-sweep values were not reconstructed from Figure 5.",
-      "Separate supplemental material availability was not verified. Source provenance was supplied, not independently recomputed.",
       "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
-      "Separate supplemental material availability has not been fully verified."
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction’s image omission was addressed by inspecting PDF pages 1–7 and 10–14, including every figure and table. Reference pages 8–9 were read as text.",
+      "Reviewed arXiv:2608.11521v2 dated 13 August 2026. The catalog submission date is 12 August 2026; the earlier version was not supplied, so revision changes cannot be compared.",
+      "All five author names match. The title page lists Australian National University (1) and Beijing Normal University (2), but Yikai Wang carries marker 3; his institutional mapping remains unresolved.",
+      "Code and external resources were not inspected; no experiments were reproduced."
     ],
-    "identityVerified": true,
-    "figuresReviewed": [],
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 3)",
+      "Figure 3 (p. 5)",
+      "Figure 4 (p. 6)",
+      "Figures 5–7 (p. 7)",
+      "Figure 8 (p. 13)",
+      "Figure 9 (p. 14)"
+    ],
     "tablesReviewed": [
-      "Table 1: LIBERO success and deployment cost",
-      "Table 2: RoboTwin 2.0 aggregate closed-loop success",
-      "Table 3: EE-ADE estimates and task-cluster bootstrap intervals",
-      "Table 4: LIBERO per-suite success",
-      "Table 5: LIBERO-Plus perturbation, difficulty, and source-suite results"
+      "Table 1 (p. 6)",
+      "Table 2 (p. 7)",
+      "Table 3 (p. 10)",
+      "Tables 4–5 (p. 11)",
+      "Table 6 (p. 12)"
     ],
     "appendix": "reviewed"
   },
-  "synopsis": "RIFT constructs future-position attention keys and values with one learned anticipation-token pass, then reuses that cache throughout action denoising. Its central distinction is between needing a future representation and needing iterative video generation to produce it. Cache interventions motivate the interface; a separately trained producer establishes rollout-free control performance. The reported policy achieves 98.8% LIBERO success at 247.9 ms per action chunk. All execution evidence is from simulation, and diagnostic future decodes do not establish physical robot performance. [e3, e5, e6, e10, e15]",
-  "readingTimeMinutes": 12,
+  "synopsis": "RIFT retains explicit future conditioning for robot actions while replacing iterative video generation with one learned cache prefill. Its central distinction is between consuming a future representation and producing it. Paired interventions motivate a fixed future interface; separate training and simulation experiments test whether anticipation tokens can supply that interface efficiently.",
+  "readingTimeMinutes": 9,
   "problem": {
-    "text": "Existing comparisons between rollout-based WAMs and current-only policies change both the future representation available to the controller and the computation producing it. The paper asks whether meaningful future conditioning can remain at deployment while eliminating iterative video generation.",
+    "text": "Rollout-based WAMs generate video although their action expert consumes internal future-position keys and values. Removing both rollout and future attention confounds their contributions. The paper asks whether an effective future read can survive when its producer becomes a single backbone pass.",
     "kind": "source",
     "evidenceIds": [
-      "e2"
+      "problem",
+      "cache-method"
     ]
   },
   "contributions": [
     {
-      "text": "A paired closed-loop intervention protocol tests the controller's use of future-position attention caches through masking, value corruption, position reassignment, and fixed final-clean cache replay.",
+      "text": "A record-and-replay protocol tests future-cache use through closed-loop simulator trajectories, with matched initial states and policy seeds. Structured final-clean and frozen-present controls complement destructive value edits.",
       "kind": "source",
       "evidenceIds": [
-        "e3",
-        "e4",
-        "e5"
+        "intervention"
       ]
     },
     {
-      "text": "The authors distinguish consumption-side sufficiency from producer-side feasibility: replaying a rollout-derived clean cache can preserve behavior, but this alone does not establish that one pass can construct an effective cache.",
-      "kind": "author-claim",
+      "text": "RIFT learns position-aligned anticipation tokens under action, native video and conditional future-flow supervision, preserving the original future-read interface at deployment.",
+      "kind": "source",
       "evidenceIds": [
-        "e5"
-      ]
-    },
-    {
-      "text": "RIFT supplies that producer using aligned anticipation tokens and auxiliary conditional flow matching, obtaining competitive simulated control success with substantially lower deployment latency.",
-      "kind": "author-claim",
-      "evidenceIds": [
-        "e6",
-        "e7",
-        "e10",
-        "e12"
+        "cache-method",
+        "training"
       ]
     }
   ],
   "method": {
     "inputs": [
-      "Current observation o, including multi-camera imagery, and language instruction l. [e6, e9]",
-      "Learned anticipation tokens E at future spatiotemporal positions; aligned ground-truth future latent patches Y supply training supervision. [e6, e7]"
+      "Current observation o, including camera images and original robot-state conditioning",
+      "Language instruction l",
+      "Learned anticipation tokens E; aligned ground-truth future latents Y are training-only"
     ],
     "outputs": [
-      "A fixed future-position K/V cache at every video-stack layer and an action chunk with horizon H = 32. [e6]",
-      "Auxiliary future-flow predictions and a deterministic latent probe, excluded from policy-only deployment. [e7, e8]"
+      "A fixed per-layer future-position K/V cache",
+      "An action chunk of horizon H=32; optional future decodes are diagnostic"
     ],
     "steps": [
       {
-        "name": "Establish whether the controller uses its future cache",
-        "detail": "Record per-layer future K/V during the original policy's generation. Replay action denoising with non-target inputs fixed. Value edits preserve recorded keys; final-clean replay substitutes both keys and values. Execute paired simulator episodes from the same initial state and policy seed.",
+        "name": "Separate cache consumption from production",
+        "detail": "Record each model’s action-independent video cache, then replay action denoising. Masking removes future attention; spatial shuffle, temporal swap, noise and frozen-present edit values under recorded keys. Final-clean replay instead fixes both K and V from a rollout-produced clean future. Comparisons are within-model; structural N/A entries are not zeros.",
         "evidenceIds": [
-          "e3",
-          "e5"
+          "intervention",
+          "source-discrepancy"
         ]
       },
       {
-        "name": "Construct aligned future states",
-        "detail": "Replace rollout tokens with learned E at their original future positions. Full alignment uses m = n(T_lat − 1), giving 196 tokens for LIBERO and 240 for RoboTwin. One video-stack pass over the current-frame tokens and E writes the complete per-layer cache.",
+        "name": "Write a position-aligned cache",
+        "detail": "Concatenate observed-frame tokens with learned future placeholders. First-frame tokens read only the observed frame, anticipation tokens read that frame and one another, and video tokens cannot read actions. One video-stack pass writes every layer’s future K/V. Full alignment uses 196 tokens on LIBERO and 240 on RoboTwin.",
         "evidenceIds": [
-          "e6"
+          "cache-method"
         ]
       },
       {
-        "name": "Preserve directional attention",
-        "detail": "Current-frame tokens attend only the observed frame. Anticipation tokens attend the current frame and one another. Video tokens cannot attend action tokens, making the cache action-independent conditional on observations and language.",
+        "name": "Generate actions from the fixed interface",
+        "detail": "The action expert reads the same cache throughout action denoising. Observation and instruction retain their original conditioning paths. The policy constructs a fresh cache per chunk; there is no evolving video-cache trajectory within that chunk.",
         "evidenceIds": [
-          "e6"
-        ]
-      },
-      {
-        "name": "Generate and execute action chunks",
-        "detail": "The inherited action expert reads the same cache for all 10 action flow-matching steps and produces a 32-action chunk. Deployment performs one prefill per chunk. Closed-loop success evaluates simulator execution; decoded future images are separate diagnostics.",
-        "evidenceIds": [
-          "e3",
-          "e6",
-          "e9",
-          "e15"
+          "cache-method",
+          "configuration"
         ]
       }
     ],
     "training": [
       {
-        "text": "Each optimization step uses two forwards through the shared video expert. The first applies native video-flow supervision to a clean first frame and noised future latents, without anticipation tokens or action supervision. The second uses the deployment input [f0; E] for action and auxiliary future supervision.",
+        "text": "Each optimization step has two forwards through the shared video expert: ordinary clean-first-frame video flow training, and a deployment-matched observation-plus-anticipation forward. Action loss updates the action expert and cache producer; conditional FM updates the producer and its auxiliary head. The RMS-normalized linear probe receives stopped-gradient states and cannot shape the deployed representation.",
         "kind": "source",
         "evidenceIds": [
-          "e7"
+          "training"
         ]
       },
       {
-        "text": "Conditional flow matching trains a future-latent velocity head conditioned on final anticipation states S_phi. This shapes the producer without requiring direct regression to one observed future. The authors motivate it by the conditional-mean behavior of squared-error regression under multimodal futures.",
+        "text": "After 70% of the curriculum, first-frame perturbation probability and noise scale rise to 0.3 and 0.06 times latent standard deviation. Perturbed rows retain future losses but are excluded before action-loss reduction. Both auxiliary weights stay at 1 initially, then cosine-decay to 0.2. Thus action supervision always uses clean inputs.",
         "kind": "source",
         "evidenceIds": [
-          "e7"
-        ]
-      },
-      {
-        "text": "Action loss updates the action expert, video expert, and anticipation tokens; future FM updates the producer and FM head. An RMS-normalized linear probe receives stopped-gradient states, so its MSE updates only the probe. After 70% of training, observation perturbation increases only for future-supervised rows; perturbed rows are excluded from action loss. Auxiliary weights decay from 1 to 0.2 over the final 30%.",
-        "kind": "source",
-        "evidenceIds": [
-          "e7",
-          "e8"
+          "training"
         ]
       }
     ],
     "inference": [
       {
-        "text": "Policy-only inference retains the video-stack prefill, fixed future K/V, and action flow. It removes video denoising, VAE decoding, ground-truth futures, and both auxiliary heads. The latency measurement excludes the optional uncertainty monitor.",
+        "text": "Deployment retains one prefill and 10 action-flow steps, with guidance 1.0. Native video co-training, ground-truth futures and auxiliary heads are removed. Neither video denoising nor VAE decoding is needed; optional shadow monitoring is outside the reported policy-only latency.",
         "kind": "source",
         "evidenceIds": [
-          "e6",
-          "e9",
-          "e10",
-          "e14"
-        ]
-      },
-      {
-        "text": "The anticipation cache is an action-independent conditional future representation. The described controller does not evaluate candidate action-conditioned video rollouts or optimize actions through a simulator at deployment.",
-        "kind": "analysis",
-        "evidenceIds": [
-          "e6",
-          "e9"
+          "configuration",
+          "monitor"
         ]
       }
     ],
     "equations": [
       {
-        "expression": "C_phi(o,l) = {(K_E^(ell), V_E^(ell))}_{ell=1}^L = CachePrefill_phi([f0(o); E], o, l); a_hat_{1:H} = ActionDenoise(o,l; C_phi(o,l)).",
-        "explanation": "Equations (2)–(3) separate the cache producer from action generation. Phi includes the video expert and E; L is stack depth. C_phi has no action-flow index, so every denoising evaluation reads the same keys and values.",
+        "expression": "\\operatorname{EE\\!-\\!ADE}_i(I)=\\frac{1}{T_i}\\sum_{t=1}^{T_i}\\left\\|x^I_{i,t}-x^O_{i,t}\\right\\|_2",
+        "explanation": "I denotes an intervention and O the Original policy; x records episode i’s end-effector position after environment step t. T_i is their common executed prefix, excluding reset. Episode distances are averaged within tasks, then across tasks. This measures drift from Original, not distance to an optimal trajectory.",
         "evidenceIds": [
-          "e6"
+          "intervention"
         ]
       },
       {
-        "expression": "X_sigma = (1 − sigma)Y + sigma epsilon; v_sigma* = epsilon − Y; L_FM = E[w_vid(sigma) ||v_psi(X_sigma, sigma; S_phi) − v_sigma*||_2^2].",
-        "explanation": "Equations (4)–(5) interpolate clean future patches Y with Gaussian noise epsilon. The training-only head predicts the bridge velocity conditioned on anticipation states. Its gradients teach future information to the deployed producer.",
+        "expression": "C_\\phi(o,l)=\\left\\{\\left(K_E^{(\\ell)},V_E^{(\\ell)}\\right)\\right\\}_{\\ell=1}^{L}=\\operatorname{CachePrefill}_\\phi([f_0(o);E],o,l),\\qquad \\hat a_{1:H}=\\operatorname{ActionDenoise}(o,l;C_\\phi(o,l))",
+        "explanation": "f_0 encodes the observed frame; E contains anticipation tokens. Producer parameters phi include the video expert and E. L is video-stack depth; K/V are each layer’s anticipation keys/values. H is action horizon. The cache has no action-flow index.",
         "evidenceIds": [
-          "e7"
+          "cache-method"
         ]
       },
       {
-        "expression": "L = L_vid + L_act + lambda_FM L_FM + lambda_probe L_probe.",
-        "explanation": "Equation (6) combines native video learning, deployment-matched action learning, and auxiliary supervision. The probe term cannot alter the controller because its input is detached.",
+        "expression": "X_\\sigma=(1-\\sigma)Y+\\sigma\\epsilon,\\quad v_\\sigma^\\star=\\epsilon-Y,\\quad \\mathcal L_{\\mathrm{FM}}=\\mathbb E_{Y,\\epsilon,\\sigma}\\!\\left[w_{\\mathrm{vid}}(\\sigma)\\left\\|v_\\psi(X_\\sigma,\\sigma;S_\\phi)-v_\\sigma^\\star\\right\\|_2^2\\right]",
+        "explanation": "Y is aligned future latent patches, epsilon Gaussian noise, sigma flow time, and S_phi the final anticipation states. Training-only head v_psi predicts velocity with native video weight w_vid. This distributional supervision avoids direct L2’s conditional-mean target; it does not add sampled future generation to action inference.",
         "evidenceIds": [
-          "e7",
-          "e8"
-        ]
-      },
-      {
-        "expression": "EE-ADE_i(I) = (1/T_i) sum_{t=1}^{T_i} ||x^I_{i,t} − x^O_{i,t}||_2.",
-        "explanation": "Equation (1) measures intervention-induced end-effector drift over the common executed prefix, excluding reset pose. Recorded simulator positions are averaged within tasks and then across tasks. This measures deviation from Original, not distance to an optimal trajectory.",
-        "evidenceIds": [
-          "e3"
+          "training"
         ]
       }
     ]
   },
   "results": [
     {
-      "task": "Future-cache dependence",
-      "setting": "Fast-WAM-Joint; 2,000 paired simulator trials across all 40 LIBERO tasks for each intervention.",
-      "metric": "Task-macro EE-ADE in cm; task success rate",
-      "value": "Masked future: 18.725 cm, 9.7% SR; spatial shuffle: 14.306 cm, 65.2% SR; temporal swap: 15.606 cm, 0.7% SR.",
-      "comparison": "Original: 0 cm by definition and 98.4% SR.",
-      "interpretation": "Reported execution changes support sensitivity to future content and position assignments. Similar spatial/temporal drift accompanies very different completion rates; EE-ADE is not interchangeable with task success.",
+      "task": "LIBERO manipulation success and latency",
+      "setting": "40 tasks; one checkpoint per method; three evaluation seeds, 2,000 trials each. One A800, original denoising configurations.",
+      "metric": "Success mean±evaluation-seed std (%); ms/action chunk",
+      "value": "RIFT: 98.8±0.17%; 247.9 ms.",
+      "comparison": "Fast-WAM: 96.8±0.27%, 235.7 ms; PFD: 97.3±0.12%, 257.0 ms; Joint: 98.4±0.26%, 780.2 ms; IDM: 98.6±0.34%, 1081.2 ms; LingBot-VA: 98.5±0.08%, 2270.3 ms.",
+      "interpretation": "Reported success remains near rollout methods, with 68.2–89.1% lower latency. Error bars measure evaluation noise, not training-run variation; LingBot-VA has different embodied pretraining.",
       "evidenceIds": [
-        "e3",
-        "e4"
+        "libero"
       ]
     },
     {
-      "task": "Fixed-cache consumption",
-      "setting": "Final-clean K/V replay; 2,000 paired LIBERO trials per model. Intervals use task-cluster bootstrap.",
-      "metric": "EE-ADE with 95% confidence interval; success rate",
-      "value": "Joint: 1.908 cm [1.579, 2.260], 97.9% SR. Cosmos-2: 1.690 cm [0.260, 3.620], 98.2% SR.",
-      "comparison": "Both Original policies achieve 98.4% SR. IDM and LingBot-VA already consume fixed clean caches, making this intervention structurally N/A.",
-      "interpretation": "A complete fixed cache nearly preserves these policies' behavior. The cache still originates from iterative generation, and this intervention does not isolate keys from values.",
+      "task": "Final-clean cache replay",
+      "setting": "2,000 paired trials across 40 LIBERO tasks per supported intervention; task-cluster bootstrap.",
+      "metric": "EE-ADE (cm), 95% CI; success (%)",
+      "value": "Joint: 1.908 [1.579,2.260], 97.9%; Cosmos-2: 1.690 [0.260,3.620], 98.2%.",
+      "comparison": "Both Originals: 98.4% success. Joint masking: 18.725 cm and 9.7%.",
+      "interpretation": "A fixed rollout-produced cache nearly preserves execution. This establishes consumption-side sufficiency, not one-pass production or separate key/value contributions.",
       "evidenceIds": [
-        "e5"
+        "intervention",
+        "cache-results"
       ]
     },
     {
-      "task": "LIBERO manipulation",
-      "setting": "One checkpoint per method; three evaluation seeds, each with 2,000 episodes across 40 tasks.",
-      "metric": "Success rate, mean ± standard deviation across evaluation seeds",
-      "value": "RIFT: 98.8 ± 0.17%.",
-      "comparison": "Fast-WAM: 96.8 ± 0.27%; PFD: 97.3 ± 0.12%; Joint: 98.4 ± 0.26%; IDM: 98.6 ± 0.34%; LingBot-VA: 98.5 ± 0.08%.",
-      "interpretation": "RIFT has the highest reported mean, improving over current-only Fast-WAM by 2.0 percentage points. These deviations quantify evaluation variability, not uncertainty across independently trained models.",
-      "evidenceIds": [
-        "e10"
-      ]
-    },
-    {
-      "task": "Deployment cost",
-      "setting": "One A800 GPU; each method's original denoising configuration; policy-only action-chunk latency.",
-      "metric": "Milliseconds per action chunk",
-      "value": "RIFT: 247.9 ms.",
-      "comparison": "Fast-WAM: 235.7 ms; PFD: 257.0 ms; Joint: 780.2 ms; IDM: 1081.2 ms; LingBot-VA: 2270.3 ms.",
-      "interpretation": "Reported latency reductions versus rollout methods span 68.2–89.1%. This is an operational comparison under different native sampling configurations, not a comparison with equal denoising-step counts.",
-      "evidenceIds": [
-        "e10"
-      ]
-    },
-    {
-      "task": "LIBERO-Plus out-of-distribution control",
-      "setting": "No additional training; one rollout for each of 10,030 variants, environment/policy seed 42 and initial-state index 0.",
-      "metric": "Variant-micro success rate",
+      "task": "LIBERO-Plus OOD robustness",
+      "setting": "No further training; all 10,030 variants; one rollout each, seed 42, initial-state index 0.",
+      "metric": "Variant-micro success (%)",
       "value": "RIFT: 81.07%.",
-      "comparison": "Fast-WAM: 49.73%; Joint: 68.06%; IDM: 71.36%.",
-      "interpretation": "RIFT improves over IDM by approximately 9.7 percentage points and leads all seven perturbation categories. These are single-protocol point estimates, with no repeated-training uncertainty.",
+      "comparison": "Fast-WAM 49.73%; Joint 68.06%; IDM 71.36%.",
+      "interpretation": "The overall gain over IDM is 9.71 percentage points. RIFT leads across all seven perturbation categories, five labeled difficulty levels and four source suites. These are single-protocol point estimates.",
       "evidenceIds": [
-        "e11"
+        "ood"
       ]
     },
     {
       "task": "RoboTwin 2.0 bimanual manipulation",
-      "setting": "50 tasks; 100 trials per task in each clean/randomized setting; one checkpoint and single evaluation seed per method.",
-      "metric": "Closed-loop success rate, clean / randomized",
-      "value": "RIFT: 92.9% / 92.6%.",
-      "comparison": "PFD: 92.5% / 92.1%; Joint: 91.0% / 91.1%; LingBot-VA: 92.4% / 91.4%.",
-      "interpretation": "RIFT has the highest observed aggregate rates, but its small margins over PFD lack reported uncertainty. These remain simulated bimanual execution results.",
+      "setting": "50 tasks, clean/randomized scenes; 100 trials/task/setting; one checkpoint, single evaluation seed.",
+      "metric": "Clean/randomized success (%)",
+      "value": "RIFT: 92.9/92.6%.",
+      "comparison": "PFD 92.5/92.1%; Fast-WAM 91.9/91.6%; Joint 91.0/91.1%; LingBot-VA 92.4/91.4%.",
+      "interpretation": "Highest observed aggregate success among evaluated methods; no uncertainty is reported. Individual tasks can reverse the ranking.",
       "evidenceIds": [
-        "e12",
-        "e15"
+        "robotwin",
+        "per-task"
       ]
     },
     {
-      "task": "Anticipation supervision ablation",
-      "setting": "LIBERO; identical one-pass deployment graph and 247.9 ms action-chunk cost.",
-      "metric": "Success rate across three evaluation seeds",
-      "value": "Conditional-FM recipe: 98.8 ± 0.17%; direct-L2 recipe: 98.37 ± 0.12%.",
-      "comparison": "Approximately 0.4 percentage-point improvement for the full recipe.",
-      "interpretation": "The improvement is small, and the full recipe includes its conditioning curriculum. This comparison supports the recipe but does not cleanly isolate the FM objective alone.",
+      "task": "Anticipation supervision and token capacity",
+      "setting": "LIBERO; three evaluation seeds; L2 versus full conditional-FM recipe; token sweep 2–196.",
+      "metric": "Success (%); full-alignment chunk latency",
+      "value": "L2: 98.37±0.12%; full FM: 98.8±0.17%; both 247.9 ms.",
+      "comparison": "Full alignment is best for both; no-cache Fast-WAM reference is 96.75%. Figure 5’s FM peak is 98.78%, rounded in Table 1.",
+      "interpretation": "More interface capacity helps overall, but the small recipe gap does not isolate FM from its conditioning curriculum.",
       "evidenceIds": [
-        "e13"
+        "ablation"
       ]
     }
   ],
   "limitations": [
     {
-      "text": "Evaluation is simulation-only. Physical deployment and transfer to non-WAM fusion architectures remain untested.",
+      "text": "All evaluation is simulated. Qualitative future decodes diagnose representations and do not establish cache equivalence or physical-robot success.",
       "kind": "source",
       "evidenceIds": [
-        "e15"
+        "limits",
+        "decodes"
       ]
     },
     {
-      "text": "Shuffle and noise interventions are out of distribution. Their effects establish sensitivity at the cache interface, but should not be treated as a complete semantic account of future reasoning. The paper appropriately includes structured frozen-present and final-clean controls.",
+      "text": "The introduction’s final-values-under-original-keys description conflicts with the methods, Figure 2 and Table 3, which replace both K and V. This report follows the repeated explicit full-cache protocol while preserving the discrepancy. Destructive value edits can also be out of distribution.",
       "kind": "analysis",
       "evidenceIds": [
-        "e3",
-        "e4",
-        "e5"
+        "source-discrepancy",
+        "intervention"
       ]
     },
     {
-      "text": "The introduction describes final-clean values replayed under original keys, whereas the detailed protocol and Table 3 specify replacement of both K and V. This report follows the detailed full-cache definition; the inconsistency prevents treating that result as an isolated value-only experiment.",
+      "text": "Figure 7’s caption describes average alarm lead, while Appendix E reports threshold crossing of the mean failure curve. These are different statistics. The latter does not establish individual-episode detection quality; both heads may agree on a wrong future.",
       "kind": "analysis",
       "evidenceIds": [
-        "e16"
-      ]
-    },
-    {
-      "text": "The optional warning is not a calibrated failure probability. Appendix E reports that the mean CUSUM curve over 33 failed rollouts crosses threshold 210 steps before a common endpoint, which does not establish mean individual detection lead time despite stronger wording in Figure 7's caption. Both future estimators may agree on an incorrect future.",
-      "kind": "analysis",
-      "evidenceIds": [
-        "e14"
+        "monitor"
       ]
     }
   ],
   "reproduction": [
     {
-      "text": "Reproduction requires the inherited Wan2.2-5B video components and action expert, totaling approximately 6B parameters, exact future-position masks, latent patch alignment, and native flow-loss weighting. Reported settings include AdamW at 10^-4 learning rate, 0.01 weight decay, cosine annealing, gradient clipping at 1.0, and 20k LIBERO or 30k RoboTwin steps. RoboTwin training uses 2,500 clean and 25,000 randomized demonstrations.",
+      "text": "Reconstruction needs Wan2.2-5B/Fast-WAM, the 1B action expert, aligned future latents and original masks. Appendix A specifies AdamW at 1e-4, weight decay 0.01, cosine annealing, mixed precision and clipping 1.0; LIBERO/RoboTwin budgets are 20k/30k steps. RoboTwin uses 2,500 clean and 25,000 randomized demonstrations.",
       "kind": "source",
       "evidenceIds": [
-        "e9",
-        "e12"
+        "configuration",
+        "robotwin"
       ]
     },
     {
-      "text": "The supplied configuration does not establish batch size, training accelerator count, detailed FM-head architecture, or checkpoint-selection rules. No code was inspected and no experiments were reproduced in this review.",
+      "text": "Batch size, training GPU count, software versions and detailed FM-head architecture are not specified here. The optional monitor does not give numerical choices for sample count K, denominator stabilizer epsilon or the conformal calibration level. Proposed checks should isolate cache substitutions and supervision/curriculum effects.",
       "kind": "analysis",
       "evidenceIds": [
-        "e7",
-        "e9"
-      ]
-    },
-    {
-      "text": "A focused replication should first verify exact unedited replay and paired final-clean K/V replay. To test the producer mechanism, compare current-only, anticipation tokens without future supervision, L2, and FM using identical curricula and several training seeds; otherwise extra token capacity and curriculum remain alternative explanations.",
-      "kind": "analysis",
-      "evidenceIds": [
-        "e3",
-        "e6",
-        "e13"
+        "configuration",
+        "training",
+        "monitor"
       ]
     }
   ],
   "taxonomy": {
-    "assessment": "unclear",
-    "reasoning": {
-      "text": "The WAM and efficient-inference classifications are supported. The exact Dual-system × IDM quadrant is less secure: RIFT retains Fast-WAM-Joint's video/action architecture but replaces joint rollout with an action-independent prefill followed by cache-conditioned action flow. This resembles a sequential future-to-action interface, yet the text does not explicitly establish a conventional generated-future inverse-dynamics model. Separate experts alone do not resolve the system boundary, and joint training alone would not prove One Model. Latent prediction is explicit; the supplied objective does not establish JEPA. The recorded snapshot is therefore preserved without endorsing every label.",
-      "kind": "analysis",
-      "evidenceIds": [
-        "e6",
-        "e7",
-        "e17"
-      ]
-    },
     "recordedClassification": {
       "majorCategory": "WAM",
       "subcategories": [
@@ -382,117 +290,119 @@
       "classificationStatus": "Verified from primary sources",
       "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
       "fingerprint": "ccdd0329f728e0b78e25ca71c8780a15445891dea7e7391ff33e57a8b8f5b643"
+    },
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "WAM and efficient-inference labels are supported. Distinct video/cache and action experts support a dual-system reading. However, RIFT inherits Joint’s architecture and trains through the cache; fixed-cache consumption alone does not establish a separately defined inverse-dynamics model. The recorded IDM/Q4 assignment and JEPA subcategory therefore remain unverified by the architectural evidence.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "cache-method",
+        "training",
+        "configuration"
+      ]
     }
   },
   "discussionQuestions": [
-    "Would an equally sized anticipation interface trained only through action loss retain the gains, separating future supervision from added representational capacity? [e6, e7, e13]",
-    "Does conditional FM outperform L2 when both use exactly the same perturbation curriculum and multiple training seeds? [e13]",
-    "How does an action-independent cache handle tasks whose plausible futures depend strongly on alternative action choices? [e6]",
-    "What are the optional monitor's episode-level false-alarm rate and detection lead-time distribution on held-out trajectories? [e14]"
+    "Would RIFT retain success when its learned cache is subjected to the same paired interventions?",
+    "How much of the full-recipe gain survives a factorial control for late perturbations and auxiliary-weight decay?"
   ],
   "relatedPaperIds": [],
   "evidence": [
     {
-      "id": "e1",
+      "id": "identity",
       "sourceId": "primary",
-      "location": "PDF p. 1, title, author block, and arXiv version line",
-      "detail": "The supplied title and all five authors match the catalog. The artifact identifies itself as arXiv:2608.11521v2, dated 13 August 2026."
+      "location": "PDF p. 1, title block and arXiv margin",
+      "detail": "The title and five authors match the catalog. The artifact is arXiv:2608.11521v2, 13 August 2026. Yikai Wang has superscript 3, although only affiliations 1 and 2 are listed."
     },
     {
-      "id": "e2",
+      "id": "problem",
       "sourceId": "primary",
-      "location": "PDF pp. 1–2, Section 1 Introduction",
-      "detail": "The paper separates the future representation consumed by an action expert from iterative rollout that produces it, motivating explicit future conditioning without video generation."
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "The paper separates test-time future conditioning from the iterative video generation used to produce that conditioning."
     },
     {
-      "id": "e3",
+      "id": "intervention",
       "sourceId": "primary",
-      "location": "PDF pp. 3–4, Sections 3.1–3.3 and Eq. (1)",
-      "detail": "Video cannot attend action tokens. Recorded caches support replay with fixed non-target inputs. Paired episodes share initial state and policy seed. EE-ADE uses simulator positions over the common prefix and task-macro averaging; shuffle and noise are acknowledged as out of distribution."
+      "location": "PDF p. 3, Figure 2 and Section 3.1; p. 4, Sections 3.2–3.5, Eq. (1)",
+      "detail": "Each supported intervention uses 2,000 paired trials across 40 LIBERO tasks. Value edits retain recorded keys; final-clean replay fixes both K and V. EE-ADE uses recorded simulator positions over the common executed prefix, then task-macro averaging."
     },
     {
-      "id": "e4",
+      "id": "cache-results",
       "sourceId": "primary",
-      "location": "PDF p. 2, Section 1 intervention paragraph; p. 4, Section 3.4; p. 10, Table 3, Fast-WAM-Joint rows",
-      "detail": "Joint Original SR is 98.4%; masking, spatial shuffle, and temporal swap yield 9.7%, 65.2%, and 0.7%. Table 3 gives corresponding EE-ADEs of 18.725, 14.306, and 15.606 cm. Each estimate uses 2,000 paired trials across 40 tasks."
+      "location": "PDF p. 3, Figure 2, Joint and Cosmos-2 rows; p. 10, Table 3, corresponding final-clean rows",
+      "detail": "Joint masking yields 18.725 cm EE-ADE and 9.7% success. Joint final-clean replay yields 1.908 cm (95% task-cluster CI 1.579–2.260) and 97.9%; Cosmos-2 yields 1.690 cm (0.260–3.620) and 98.2%. Both Originals have 98.4% success."
     },
     {
-      "id": "e5",
+      "id": "source-discrepancy",
       "sourceId": "primary",
-      "location": "PDF p. 4, Section 3.5; p. 10, Table 3 caption and Final clean K/V rows",
-      "detail": "Full-cache replay fixes both K and V. Joint/Cosmos-2 SR is 97.9/98.2 versus 98.4/98.4 originally. Their EE-ADEs are 1.908 [1.579, 2.260] and 1.690 [0.260, 3.620] cm with task-bootstrap 95% intervals. Clean futures still come from rollout; IDM-style replay is structurally redundant."
+      "location": "PDF p. 2, Section 1, final-clean paragraphs and contribution 2; p. 3, Figure 2 caption; p. 4, Section 3.5; p. 10, Table 3 caption",
+      "detail": "The introduction describes final values under original keys and calls the result value-side. The figure caption, methods and appendix instead explicitly replace both keys and values with one fixed final-clean cache."
     },
     {
-      "id": "e6",
+      "id": "cache-method",
       "sourceId": "primary",
-      "location": "PDF pp. 4–5, Sections 4.1–4.2, Eqs. (2)–(3)",
-      "detail": "RIFT preserves Fast-WAM-Joint's architecture and future-read interface. Aligned E tokens produce a complete cache in one prefill, with m = 196/240 for LIBERO/RoboTwin and H = 32. Directional attention makes the cache action-independent and reusable throughout action denoising."
+      "location": "PDF p. 4, Sections 4.1–4.2, Eq. (2); p. 5, Figure 3(a), Eq. (3)",
+      "detail": "RIFT retains Fast-WAM-Joint architecture, uses position-aligned anticipation tokens and creates complete per-layer future K/V in one prefill. First-frame tokens read only the observed frame; anticipation tokens read that frame and each other; video cannot read actions. Full alignment uses 196/240 tokens on LIBERO/RoboTwin, with action horizon 32."
     },
     {
-      "id": "e7",
+      "id": "training",
       "sourceId": "primary",
-      "location": "PDF pp. 5–6, Section 4.3, Eqs. (4)–(6); p. 10, Appendix A loss normalization, perturbation, and gradient routes",
-      "detail": "Two shared-expert forwards provide native video supervision and deployment-matched action/future supervision. Conditional FM predicts epsilon minus Y along the stated bridge. Perturbed rows are excluded from action loss; perturbation reaches probability 0.3 and scale 0.06 latent standard deviations. Auxiliary weights decay from 1 to 0.2 after 70% of training."
+      "location": "PDF p. 5, Section 4.3, Figure 3(b), Eqs. (4)–(5); p. 6, Eq. (6) and gradient routes; p. 10, Appendix A",
+      "detail": "Two forwards share the video expert. Native video supervision uses no anticipation tokens or action supervision. Action and conditional-FM losses train the cache producer; stopped-gradient probe loss trains only the probe. Late perturbations exclude rows from action loss, and auxiliary weights decay."
     },
     {
-      "id": "e8",
+      "id": "configuration",
       "sourceId": "primary",
-      "location": "PDF pp. 5–6, Section 4.3 stopped-gradient linear probe; p. 10, Appendix A Diagnostic probe and Gradient routes",
-      "detail": "The linear probe reads RMS-normalized detached anticipation states and minimizes elementwise future-latent MSE. Only probe parameters receive its gradients; the probe does not feed policy control."
+      "location": "PDF p. 10, Appendix A, Architecture and training configuration; p. 6, Section 5.1",
+      "detail": "In-house models use Wan2.2-5B and a 1B action expert (6B total), action width 1024, horizon 32, 10 action-flow steps and guidance 1.0. AdamW uses learning rate 1e-4, weight decay 0.01, cosine annealing, mixed precision and clipping 1.0. Training budgets are 20k/30k steps. Batch size, training GPU count, software versions and detailed FM-head architecture are not specified."
     },
     {
-      "id": "e9",
+      "id": "libero",
       "sourceId": "primary",
-      "location": "PDF p. 6, Section 5.1 Implementation; p. 10, Appendix A Architecture and training configuration",
-      "detail": "Matched LIBERO models share Wan2.2-5B, data, and a 20k-step budget. The action expert has width 1024, about 1B parameters and 6B total. Appendix A specifies camera concatenation, native flow scheduling, 10 action steps, guidance 1.0, optimizer settings, and 20k/30k training budgets."
+      "location": "PDF p. 6, Section 5.1 and Table 1, all rows, SR/Lat./Rel. columns",
+      "detail": "LIBERO uses one checkpoint per method, three evaluation seeds and 2,000 trials per seed (50 per task). RIFT reports 98.8±0.17% and 247.9 ms/chunk; Fast-WAM 96.8±0.27%, 235.7 ms; PFD 97.3±0.12%, 257.0 ms; Joint 98.4±0.26%, 780.2 ms; IDM 98.6±0.34%, 1081.2 ms; LingBot-VA 98.5±0.08%, 2270.3 ms. Timing uses one A800 and each method’s original denoising configuration."
     },
     {
-      "id": "e10",
+      "id": "robotwin",
       "sourceId": "primary",
-      "location": "PDF p. 6, Section 5.1 Benchmarks, Table 1, and Section 5.2 LIBERO",
-      "detail": "Table 1 supplies all reported LIBERO success means, evaluation-seed deviations, and A800 chunk latencies. Three seeds evaluate one checkpoint with 2,000 trials each. Latencies use each method's original sampling configuration; RIFT excludes optional diagnostics."
+      "location": "PDF p. 6, Sections 5.1–5.2; p. 7, Table 2, all rows",
+      "detail": "RoboTwin 2.0 has 50 tasks and 100 trials per task per setting, with one checkpoint and single-seed evaluation. The matched family trains on 2,500 clean and 25,000 randomized demonstrations for 30k steps. Clean/randomized success is RIFT 92.9/92.6%, PFD 92.5/92.1%, Fast-WAM 91.9/91.6%, Joint 91.0/91.1%, LingBot-VA 92.4/91.4%."
     },
     {
-      "id": "e11",
+      "id": "ablation",
       "sourceId": "primary",
-      "location": "PDF p. 10, Appendix D; p. 11, Table 5 caption and panel (a)",
-      "detail": "The pinned OOD protocol evaluates 10,030 variants once without retraining, using seed 42 and initial-state index 0. Variant-micro SR is 49.73/68.06/71.36/81.07 for Fast-WAM/Joint/IDM/RIFT. RIFT leads all seven perturbation categories."
+      "location": "PDF pp. 6–7, Section 5.3 and Figure 5; p. 11, Table 4, RIFT-L2 and RIFT (full) rows",
+      "detail": "Full alignment gives the best mean for both recipes. The text gives RIFT-L2 98.37±0.12%, full recipe 98.8±0.17%, and FM peak 98.78%; Table 4 rounds L2 to 98.4%. Both full-alignment recipes cost 247.9 ms/chunk. The full recipe includes a conditioning curriculum."
     },
     {
-      "id": "e12",
+      "id": "ood",
       "sourceId": "primary",
-      "location": "PDF p. 6, Section 5.1 RoboTwin setup; p. 7, Table 2",
-      "detail": "The benchmark has 50 bimanual tasks and 100 trials per task per setting. The matched family trains on 2,500 clean and 25,000 randomized demonstrations. Single-seed aggregate clean/randomized rates are RIFT 92.9/92.6, PFD 92.5/92.1, Joint 91.0/91.1, and LingBot-VA 92.4/91.4."
+      "location": "PDF p. 6, Figure 4; p. 10, Appendix D; p. 11, Table 5(a–c) and caption",
+      "detail": "Without further training, four checkpoints are evaluated on 10,030 variants, one rollout each, environment/policy seed 42 and initial-state index 0. Overall variant-micro success is 49.73/68.06/71.36/81.07% for Fast-WAM/Joint/IDM/RIFT. RIFT leads every perturbation category, labeled difficulty level and source suite; unclassified difficulty is a separate 121-variant group."
     },
     {
-      "id": "e13",
+      "id": "monitor",
       "sourceId": "primary",
-      "location": "PDF pp. 6–7, Section 5.3 Anticipation-token supervision and token-count discussion; p. 11, Table 4",
-      "detail": "Direct L2 achieves 98.37 ± 0.12 versus full FM 98.8 ± 0.17 at identical 247.9 ms deployment cost. The paper notes the small difference and inclusion of the conditioning curriculum. The textual token sweep identifies full alignment as best for both recipes."
+      "location": "PDF p. 7, Section 5.4 and Figure 7 with caption; pp. 10–11, Appendix E, Eqs. (7)–(8)",
+      "detail": "The optional monitor compares the detached L2 probe with FM samples using normalized disagreement and CUSUM. Calibration uses 1,967 successes; the mean curve over 33 failures crosses threshold 210 steps before endpoint 420. The figure caption instead phrases this as average alarm lead. Heads do not control actions and are excluded from policy latency; agreement can be confidently wrong."
     },
     {
-      "id": "e14",
+      "id": "limits",
       "sourceId": "primary",
-      "location": "PDF p. 7, Section 5.4 and Figure 7 caption; pp. 10–11, Appendix E, Eqs. (7)–(8)",
-      "detail": "The optional monitor compares probe/FM mean disagreement with FM sample dispersion. Calibration uses 1,967 successes; 33 failures are excluded. Appendix E describes the average failed-rollout CUSUM crossing 210 steps before common endpoint 420, while the caption describes average alarm lead time. The statistic is not a failure probability and is excluded from policy latency."
+      "location": "PDF p. 11, Appendix F",
+      "detail": "Evaluation is simulation-only; physical robots and non-WAM fusion backbones are future work."
     },
     {
-      "id": "e15",
+      "id": "per-task",
       "sourceId": "primary",
-      "location": "PDF p. 11, Appendices F–G; pp. 13–14, Figures 8–9 captions",
-      "detail": "The authors identify simulation-only evaluation and leave physical robots and non-WAM fusion backbones to future work. Future decodes are diagnostic; the trained probe and VAE decoding are outside deployed action generation."
+      "location": "PDF p. 12, Table 6, Open Microwave row and Average row",
+      "detail": "RIFT reports Open Microwave success of 64/45% clean/randomized, compared with LingBot-VA 82/86%, despite RIFT’s higher overall averages."
     },
     {
-      "id": "e16",
+      "id": "decodes",
       "sourceId": "primary",
-      "location": "PDF p. 2, Section 1 final-clean paragraph; p. 3, Section 3.1; p. 4, Section 3.5; p. 10, Table 3 caption",
-      "detail": "The introduction describes final clean values under original keys. The detailed method and uncertainty-table caption instead define final-clean replay as replacing both keys and values with a fixed complete cache."
-    },
-    {
-      "id": "e17",
-      "sourceId": "primary",
-      "location": "PDF p. 2, Section 2 World action models; p. 4, Section 4.2; p. 10, Appendix A architecture",
-      "detail": "Related work distinguishes generated-video inverse dynamics from shared-attention joint denoising. RIFT retains the Joint architecture and its per-layer interface, with separate video and action experts, but changes deployment to one prefill followed by fixed-cache action denoising."
+      "location": "PDF p. 7, Figure 6; p. 13, Figure 8; p. 14, Figure 9 and captions",
+      "detail": "Matched future decodes are diagnostic, not proof of cache equivalence or executed behavior. Figure 9 compares Joint’s 20-step video rollout with one-pass RIFT states decoded by a trained linear diagnostic probe and frozen VAE, outside the deployed action path."
     }
   ]
 }
