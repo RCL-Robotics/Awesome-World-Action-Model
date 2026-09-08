@@ -1,0 +1,267 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.00793",
+  "shortTitle": "DynamicWAM",
+  "thesis": "DynamicWAM couples spatial flow history with image-plane motion statistics to improve interception, while cached video inference and asynchronous execution address a separate source of delay.",
+  "standfirst": "A robot trying to grasp a moving object needs to know both where motion occurs and how quickly the target will reach a contact point. DynamicWAM splits that evidence between a video expert and an action expert: normalized flow images describe spatial motion, while numerical tokens carry displacement and timing. Joint attention connects the two. The paper also separates learning better predictions from executing them promptly, using a compact distilled video branch, cached inference and real-time chunking. Read the simulation results as a motion-conditioning test and the physical experiments as a combined perception, prediction and execution test; their timing protocols differ.",
+  "evidenceIds": [
+    "e02",
+    "e03",
+    "e04",
+    "e05",
+    "e09",
+    "e10",
+    "e12",
+    "e20"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2608.00793/architecture.png",
+      "width": 1332,
+      "height": 741,
+      "sourceSha256": "39833e174e8732fd18c25c4a0b287fbc00b7c0567d5bdab88eda290173cd2acf",
+      "sourceUrl": "https://arxiv.org/pdf/2608.00793#page=3",
+      "crop": [
+        0.108,
+        0.069,
+        0.892,
+        0.406
+      ],
+      "alt": "Architecture diagram with VAE-encoded current and history-flow frames, text cross-attention, a kinematic-conditioned action stream, joint attention, two decoders and three training stages.",
+      "caption": "Motion enters two coupled experts before future latents and actions are predicted.",
+      "readingGuide": "Follow the left-side arrows into two token streams. Current and rendered history-flow frames enter the frozen VAE; the future-frame arrow represents the training target that is corrupted into noisy future tokens. Proprioception, noisy actions and kinematic descriptors enter the action side. The central joint-attention block lets queries from each expert attend to keys and values from both. Text reaches video cross-attention first and influences actions through that coupling. The separate decoders produce visual predictions and robot commands. The three-stage inset distinguishes video distillation, action pretraining with the video expert frozen, and joint refinement.",
+      "takeaway": "The architectural evidence supports a dual-system model with joint prediction: video and action experts remain distinct, yet exchange information within each layer. Kinematic tokens are conditioning inputs, not a replacement action space. During inference, video computation contributes through partial denoising and cached activations, so its role extends beyond a training-only auxiliary loss.",
+      "caution": "The figure's “7 DOF Action” and Section 3.1's seven-dimensional state shorthand differ from Appendix A.2/Table 5's eight real-robot dimensions including the gripper. Follow the appendix for that interface. Future ground truth is a training target, not an available inference observation.",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e07",
+        "e09",
+        "e12"
+      ]
+    },
+    {
+      "id": "motion-paths",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/2608.00793/motion-paths.png",
+      "width": 1336,
+      "height": 1206,
+      "sourceSha256": "39833e174e8732fd18c25c4a0b287fbc00b7c0567d5bdab88eda290173cd2acf",
+      "sourceUrl": "https://arxiv.org/pdf/2608.00793#page=4",
+      "crop": [
+        0.087,
+        0.068,
+        0.48,
+        0.342
+      ],
+      "alt": "Two pipelines: head-camera image pairs become consistency-filtered flow renderings above, while masked flow statistics and interval duration become twelve-dimensional kinematic tokens below.",
+      "caption": "One observed flow field supplies spatial appearance and numerical motion evidence.",
+      "readingGuide": "Read the upper row from the two endpoint images through Farnebäck estimation and the consistency filter to the RGB rendering. Its direction-to-hue and magnitude-to-intensity labels describe a normalized representation: Equation (4) divides magnitude by the interval's own 99th percentile. The lower row starts from the same masked field, retaining numerical displacement statistics and adding timestamp duration. Velocity divides displacement by duration; acceleration compares neighboring interval velocities. Standardization and an MLP map these twelve numbers into tokens. The main text additionally specifies position/type embeddings and learned handling for invalid intervals or unavailable acceleration predecessors.",
+      "takeaway": "The two outputs retain different information. Rescaling a flow field by a positive factor can leave its normalized picture unchanged, while the numerical descriptor changes. Duration is also absent from the picture. This construction explains why a separate token path could help estimate contact timing even when flow images already reveal the motion direction.",
+      "caution": "These statistics use flow-grid pixels and seconds, not calibrated metric-space target velocity. They summarize valid image regions without isolating the instructed object. Robot motion, distractors or occlusion can therefore contaminate both paths despite the consistency filter.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e08",
+        "e15"
+      ]
+    },
+    {
+      "id": "domino-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 5,
+      "asset": "report-assets/2608.00793/domino-results.png",
+      "width": 1272,
+      "height": 906,
+      "sourceSha256": "39833e174e8732fd18c25c4a0b287fbc00b7c0567d5bdab88eda290173cd2acf",
+      "sourceUrl": "https://arxiv.org/pdf/2608.00793#page=5",
+      "crop": [
+        0.096,
+        0.532,
+        0.47,
+        0.738
+      ],
+      "alt": "DOMINO comparison table listing twelve policies, query latency in milliseconds, success rate in percent and manipulation score; DynamicWAM reports 173.7, 38.2 and 53.2.",
+      "caption": "DynamicWAM leads the reported task metrics, with a measurable query-time cost.",
+      "readingGuide": "Read each row across three separate quantities: lower query latency is desirable, while higher success rate and manipulation score are desirable. MS records partial benchmark progress rather than binary completion. The common setup is thirty-five clean dynamic Level-1 tasks, one hundred accepted evaluation episodes per task with unseen instructions, and matched fine-tuning data of 10,500 demonstrations. Compare the final row with InternVLA-A1.5, the strongest listed competitor on SR and MS. Appendix A.4 measures latency over one thousand queries on one RTX 5090, including preprocessing and motion construction.",
+      "takeaway": "DynamicWAM reports 38.2% success and 53.2 MS, exceeding InternVLA-A1.5 by 8.9 percentage points and 10.7 MS points. Its 173.7 ms query takes longer than that baseline's 158.4 ms. The table therefore supports an accuracy advantage under the stated protocol, without supporting superiority on every efficiency measure.",
+      "caution": "Section 4.2's claim of a 3.2× speedup over InternVLA-A1.5 conflicts with these latency cells. The appendix's approximately 550-to-173.7 ms comparison concerns DynamicWAM caching instead. DOMINO also pauses during inference, so the table does not test target displacement during computation.",
+      "evidenceIds": [
+        "e10",
+        "e18",
+        "e20"
+      ]
+    },
+    {
+      "id": "motion-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 4",
+      "page": 5,
+      "asset": "report-assets/2608.00793/motion-ablation.png",
+      "width": 1343,
+      "height": 506,
+      "sourceSha256": "39833e174e8732fd18c25c4a0b287fbc00b7c0567d5bdab88eda290173cd2acf",
+      "sourceUrl": "https://arxiv.org/pdf/2608.00793#page=5",
+      "crop": [
+        0.52,
+        0.064,
+        0.915,
+        0.179
+      ],
+      "alt": "Paired bar charts show success rates 22.7, 27.2, 30.5 and 38.2, and manipulation scores 38.3, 41.6, 47.2 and 53.2, for neither path, flow only, tokens only and both.",
+      "caption": "The combined motion representation improves both aggregate task metrics.",
+      "readingGuide": "Decode the removal labels before comparing heights. “w/o flow and motion” removes both motion paths. “w/o motion” retains rendered flow but removes kinematic tokens. “w/o flow” retains the tokens while substituting constant black flow frames, preserving temporal input geometry. The hatched final bar uses both paths. The left panel reports percentage success and the right reports manipulation score; their identical vertical ranges do not make the units interchangeable. Appendix A.5 states that these variants share the backbone and training schedule, and the DOMINO experiment keeps RTC disabled.",
+      "takeaway": "Flow alone raises SR from 22.7% to 27.2%; tokens alone reach 30.5%; together they reach 38.2%. The corresponding MS values follow the same ordering. The full model gains 7.7 SR points and 6.0 MS points over the stronger single-path variant, supporting useful complementary information in the reported aggregate.",
+      "caution": "The chart provides no uncertainty bars or repeated-seed variation. Aggregate improvement is not universal task improvement: Table 8 reports 17% success for flow only but 7% for the full model on Put Object Cabinet. The proposed mechanism needs task-level scrutiny.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "id": "robot-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 6,
+      "asset": "report-assets/2608.00793/robot-results.png",
+      "width": 1354,
+      "height": 660,
+      "sourceSha256": "39833e174e8732fd18c25c4a0b287fbc00b7c0567d5bdab88eda290173cd2acf",
+      "sourceUrl": "https://arxiv.org/pdf/2608.00793#page=6",
+      "crop": [
+        0.086,
+        0.399,
+        0.484,
+        0.549
+      ],
+      "alt": "Real-world success-rate table groups external policies and four DynamicWAM variants across linear, circular and compound motion, with full-model averages of 70.00, 51.25, 18.75 and 46.67 percent.",
+      "caption": "Physical interception improves across motion levels, while compound trajectories remain challenging.",
+      "readingGuide": "Start with L1, L2 and L3: these denote linear, circular and compound motion, each containing four physical-robot tasks. The average column weights the twelve tasks equally. Every policy is fine-tuned on the same 1,200 demonstrations and evaluated for twenty trials per task. Appendix A.4 counts success only when the robot stably grasps and lifts the target within thirty seconds without a collision reset. Compare external baselines separately from the motion-path variants. The full DynamicWAM entry includes RTC asynchronous execution; Section 5.2 says external baselines follow their official synchronous deployment protocols.",
+      "takeaway": "The full model achieves 46.67% average success versus 23.75% for π0.5, a 22.92-percentage-point difference. Its rates are 70.00% on linear motion, 51.25% on circular motion and 18.75% on compound motion. The latter result exceeds the zero successes recorded by external baselines but still leaves most compound trials unsuccessful.",
+      "caution": "The external comparison includes execution differences, so it cannot attribute the entire gain to motion conditioning. Twenty trials per task give limited precision, and confidence intervals are not reported. Table 11 provides the more controlled comparison for the execution mechanism.",
+      "evidenceIds": [
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "id": "execution-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 11",
+      "page": 16,
+      "asset": "report-assets/2608.00793/execution-ablation.png",
+      "width": 1214,
+      "height": 300,
+      "sourceSha256": "39833e174e8732fd18c25c4a0b287fbc00b7c0567d5bdab88eda290173cd2acf",
+      "sourceUrl": "https://arxiv.org/pdf/2608.00793#page=16",
+      "crop": [
+        0.105,
+        0.066,
+        0.462,
+        0.134
+      ],
+      "alt": "Three-row execution table compares standard synchronous operation, RealCore only and RealCore with RTC, yielding 37.50, 42.08 and 46.67 percent average success.",
+      "caption": "Execution infrastructure and asynchronous chunking make separate contributions.",
+      "readingGuide": "Read the two binary columns as successive changes to deployment. The first row disables both RealCore and RTC. The second enables the real-time execution core while retaining synchronous chunking. The third adds RTC to that core. Appendix D.4 states that model weights, observation histories, action horizons and inference settings are held fixed. This table clarifies the main paper's Table 3: its 42.08% “w/o RTC” row is the RealCore-only setting, not the standard synchronous row shown here. RTC generates a new chunk while queued actions are still executing.",
+      "takeaway": "RealCore raises average success from 37.50% to 42.08%, a 4.58-point gain. RTC then raises it to 46.67%, another 4.59 points; the total improvement over standard synchronous execution is 9.17 points. These are changes in executed-task success, not measurements of faster individual model queries.",
+      "caution": "The three rows do not include RTC without RealCore, so they are not a complete factorial experiment. RealCore is not specified as a standalone implementation in this PDF. The result supports the reported sequence of execution changes; it does not isolate every possible interaction.",
+      "evidenceIds": [
+        "e09",
+        "e13"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Recover the information that normalized motion images discard",
+      "kind": "source",
+      "text": "Begin with an observed interval rather than a predicted future. The model computes displacement between two timestamped head-camera frames and rejects unreliable flow vectors. Rendering the remaining field makes direction and spatial extent visible to a pretrained video encoder. However, per-frame percentile normalization means a larger displacement can produce the same image, and no pixel color records the interval's elapsed time. DynamicWAM therefore computes statistics before rendering: signed mean displacement, mean and percentile magnitude, duration, velocity and acceleration. These become four learned kinematic tokens, one per history interval. Their units remain image-plane pixels and physical seconds. Learned invalid embeddings distinguish missing history from valid small motion. This explains the representation's intended complementarity without assuming that the statistics identify a particular object or recover three-dimensional dynamics.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e08"
+      ]
+    },
+    {
+      "heading": "Follow joint prediction from supervision to a robot command",
+      "kind": "source",
+      "text": "The architecture connects a compact video transformer to a narrower action transformer through joint attention. It does not first complete a video and then invoke an inverse-dynamics module. During training, clean future visual latents and clean actions are separately mixed with noise; both experts predict flow-matching vector fields. Video distillation precedes action pretraining, followed by joint refinement with a small visual-loss weight. During inference, future observations are unavailable: the model denoises predicted future latents and action tokens using current observations, history, language and state. To reduce computation, full video forwards run only during the first two of ten action denoising steps; later steps reuse cached video activations. The action decoder outputs the robot's existing command representation. Executing those commands and refreshing observations close the physical feedback loop.",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e07",
+        "e09"
+      ]
+    },
+    {
+      "heading": "Separate representation quality from the timing of execution",
+      "kind": "analysis",
+      "text": "Reader analysis: the cleanest representation comparison is the synchronous DOMINO ablation, because it holds the backbone and training schedule fixed while changing available motion information. Its black-flow control also preserves temporal input geometry. The physical-robot comparison answers a broader question: how well does the whole deployed system intercept a moving target? External baselines and DynamicWAM use different execution protocols there. Table 11 narrows that question by keeping full-model weights fixed and separating standard synchronous operation, RealCore-only execution and RTC. This distinction matters because DOMINO pauses while inference runs, whereas a real target keeps moving. The appearance-shift results add another boundary: DynamicWAM starts from higher in-distribution success and keeps an absolute advantage, but its retention ratio is similar to the comparators'. Better absolute OOD performance therefore does not demonstrate improved proportional robustness.",
+      "evidenceIds": [
+        "e11",
+        "e12",
+        "e13",
+        "e14",
+        "e20"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test whether the kinematic path actually distinguishes speed and duration",
+      "text": "Reader-proposed check, not performed: use paired simulated interception trajectories with the same direction and similar normalized flow patterns but different displacement magnitudes or timestamp durations. Hold the current view, task, motion-history length and synchronous execution protocol fixed as closely as the environment permits. Compare full conditioning with flow only, then intervene on the full model by shuffling kinematic descriptors between paired histories while preserving validity masks. Record contact-time error and success by speed, alongside rendering similarity. If correctly paired descriptors improve timing but shuffled descriptors remove that gain, the claimed scale/timing mechanism receives more specific support. No selective effect would weaken that interpretation.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e08",
+        "e11"
+      ]
+    },
+    {
+      "title": "Measure execution gains under matched target motion and measured observation age",
+      "text": "Reader-proposed check, not performed: use one fixed full-model checkpoint and replay matched target-trajectory conditions across standard synchronous, RealCore-only and RealCore-plus-RTC deployment. Match camera streams, action horizon, denoising/cache schedule and success criterion; randomize execution order and repeat trials. Log observation capture, query completion, action application, queue starvation and contact-time error, in addition to success. Repeat at several imposed inference delays without changing model outputs' representation. RTC should reduce pauses and observation-to-execution delay without reducing isolated query duration. A success gain unaccompanied by improved timing, or one explained by different observation histories, would challenge the proposed execution explanation.",
+      "evidenceIds": [
+        "e09",
+        "e12",
+        "e13",
+        "e20"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18
+    ],
+    "notes": "All 18 original PDF pages were rendered at 200 DPI and visually inspected, including the title/version block, complete method and equations, evaluation protocols, training/hardware details, appendices, all nine figures and all twelve tables. Six original crops were inspected individually: Figures 2–3, Table 1, Figure 4, Table 2 and Table 11. Narrow visuals were cropped from 400-DPI renders; the architecture uses 200 DPI. Their arrows, normalization labels, token paths, table units and removal labels were cross-checked against the text. The architecture's action-dimension discrepancy and Table 1's conflicting latency prose are disclosed. Figures 8–9 and their diagnostic protocols were inspected but not selected as crops. Separate supplements, code and external resources remain outside this reading."
+  },
+  "featuredResultTask": "Real-world dynamic interception and grasping"
+}

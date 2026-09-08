@@ -3,7 +3,7 @@
   "paperId": "2608.21402",
   "reportStatus": "full-text-reviewed",
   "resourceType": "paper",
-  "generatedAt": "2026-09-07T16:46:34.466Z",
+  "generatedAt": "2026-09-08T09:42:16.831Z",
   "sources": [
     {
       "id": "primary",
@@ -31,23 +31,28 @@
       "References"
     ],
     "omissions": [
-      "Figure images were not supplied or visually inspected; only their extracted captions and surrounding text were read.",
-      "No appendix appears in the supplied nine-page paper. Separate supplemental material availability was not verified.",
-      "The complete second-seed twelve-bucket table was not supplied; only the numerical summaries in the main text were reviewed.",
-      "Code was not inspected and experiments were not reproduced.",
+      "Reviewed revision: arXiv:2608.21402v1 [cs.RO], 7 August 2026. Title and all four authors match the catalog; no other revision was supplied for comparison.",
       "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
-      "Separate supplemental material availability has not been fully verified."
+      "The extraction-only visual gap has been addressed by inspecting all nine PDF pages and all six final crops.",
+      "Separate supplemental material availability has not been fully verified.",
+      "No appendix appears in the supplied nine-page paper. The complete second-seed twelve-bucket table is absent; only main-text summaries are available.",
+      "Code and linked works were not inspected; experiments were not reproduced."
     ],
     "identityVerified": true,
-    "figuresReviewed": [],
+    "figuresReviewed": [
+      "Figure 1a–b (p. 2): selective consistency architecture and camera carving protocol",
+      "Figure 2 (p. 4): wrong-coordinate future-scene diagnostic",
+      "Figure 3 (p. 6): wrist/scene masking audit",
+      "Figure 4 (p. 6): fidelity-control dissociation"
+    ],
     "tablesReviewed": [
-      "Table I: Consequence of the wrist confound on LIBERO-Plus",
-      "Table II: Held-out viewpoint evaluation"
+      "Table I (p. 6): wrist confound",
+      "Table II (p. 7): held-out viewpoint results"
     ],
     "appendix": "not-present"
   },
-  "synopsis": "SCVC regularizes a joint video-action denoiser to agree across camera views only on actions, future proprioception, and value; each future image retains its own camera-dependent supervision. [E02, E03] Its strongest evidence is improved simulated control at viewpoints beyond the training envelope, compared with an identically pair-trained control. Interpolation does not improve and significantly regresses in the second seed. [E12, E13] Controlled experiments support the predicted damage from forcing future images to agree, while a wrist-camera audit exposes a confound in camera-robustness evaluation. [E06, E10]",
-  "readingTimeMinutes": 11,
+  "synopsis": "SCVC trains a joint video-action denoiser to agree across camera views on actions, future proprioception, and value, while preserving camera-specific future images. [E02, E03] Matched simulated experiments support extrapolation gains beyond trained camera ranges; interpolation does not improve and regresses significantly in the second seed. [E12, E13] Wrong-coordinate and wrist-masking diagnostics explain the objective and its evaluation contract. [E06, E10]",
+  "readingTimeMinutes": 9,
   "problem": {
     "text": "A WAM predicts outputs with different transformation laws: changing the camera should change the future scene image but preserve base-frame actions and other physical targets. Uniform consistency therefore conflicts with correct video supervision. Evaluation must also distinguish benefits from camera exposure, the added consistency objective, and access to a stable wrist view.",
     "kind": "source",
@@ -97,17 +102,17 @@
     "steps": [
       {
         "name": "Establish action-equivalent pairs",
-        "detail": "Render the same state under two cameras. Shared labels are valid only when actions use the robot base frame, both views remain task-informative, and camera changes preserve task semantics. The authors report checking the action convention against the controller and asserting identical invariant targets during training.",
+        "detail": "Render nominal and perturbed observations from the same physical state. Label sharing assumes base-frame actions, task-informative views, and unchanged task semantics. The authors report checking the controller convention and asserting bitwise-identical invariant targets.",
         "evidenceIds": [
           "E02"
         ]
       },
       {
         "name": "Jointly encode prediction targets",
-        "detail": "The scene-only Cosmos sequence contains seven latent frames: blank, current proprioception, current scene conditioning, actions, future proprioception, future scene, and value. Both training branches use the same denoiser parameters.",
+        "detail": "The scene-only Cosmos sequence contains seven latent frames: blank, current proprioception, current scene conditioning, actions, future proprioception, future scene, and value. Both pair branches share one denoiser.",
         "evidenceIds": [
           "E02",
-          "E03"
+          "E20"
         ]
       },
       {
@@ -129,7 +134,7 @@
         ]
       },
       {
-        "text": "Both comparison arms initialize from a nominally trained scene-only Cosmos Policy reference. Each receives 10,000 steps, effective batch 720, 7.2 million sample presentations, learning rate 5 × 10^-5, and EMA; evaluation uses the final checkpoint. The control retains both supervised branches with λCV = 0.",
+        "text": "A nominal scene-only reference is trained from the released Cosmos Policy LIBERO checkpoint, frozen, then used to initialize both comparison arms. Each receives 10,000 steps, effective batch 720, 7.2 million presentations, learning rate 5 × 10⁻⁵, and EMA; evaluation uses the final checkpoint.",
         "kind": "source",
         "evidenceIds": [
           "E08",
@@ -157,30 +162,30 @@
     ],
     "equations": [
       {
-        "expression": "L = (1/2) Σ_{v∈{0,p}} w(σ)||D_v − x_v||² + λ(t)w(σ)||Π_I(D_0 − D_p)||²",
-        "explanation": "Equation (1): D_v predicts the clean target x_v for view v; w is the denoising weight and Π_I selects invariant frames. Setting λ to zero preserves identical pair exposure.",
+        "expression": "\\mathcal{L}=\\frac{1}{2}\\sum_{v\\in\\{0,p\\}}w(\\sigma)\\lVert D_v-x^v\\rVert^2+\\lambda(t)w(\\sigma)\\lVert\\Pi_I(D_0-D_p)\\rVert^2",
+        "explanation": "Equation (1): D_v predicts the clean target x^v for view v; σ is noise level, w the per-frame denoising weight, Π_I the invariant-frame selector, and λ(t) the training-dependent consistency weight. Both branches share the noise realization n. At λ = 0, both supervised branches remain.",
         "evidenceIds": [
           "E03"
         ]
       },
       {
-        "expression": "(1/2)(||D_0−u||² + ||D_p−u||²) + λ||D_0−D_p||² = ||D̄−u||² + (1+4λ)||δ||²",
-        "explanation": "With D̄ = (D_0+D_p)/2 and δ = (D_0−D_p)/2, consistency increases the penalty on cross-view residuals without changing the mean-target term. The identity also shows that supervision already penalizes residuals at unit weight.",
+        "expression": "\\frac{1}{2}\\left(\\lVert D_0-u\\rVert^2+\\lVert D_p-u\\rVert^2\\right)+\\lambda\\lVert D_0-D_p\\rVert^2=\\lVert\\bar D-u\\rVert^2+(1+4\\lambda)\\lVert\\delta\\rVert^2",
+        "explanation": "Lemma 1 defines the common target u, mean D̄ = (D_0 + D_p)/2, and residual δ = (D_0 − D_p)/2. Supervision already penalizes residuals; added consistency increases their weight without altering the mean-error term. This qualifies the prose claim that supervision constrains only the mean.",
         "evidenceIds": [
           "E04"
         ]
       },
       {
-        "expression": "(D_0−D_p)* = (u_0−u_p)/(1+4λ)",
-        "explanation": "For unequal camera-dependent targets, the pointwise quadratic optimum shrinks legitimate view differences. This establishes bias in the simplified objective, not an exact full-network performance law.",
+        "expression": "(D_0-D_p)^*=\\frac{u_0-u_p}{1+4\\lambda}",
+        "explanation": "Proposition 1: unequal view-specific targets u_0 and u_p yield a pointwise optimum (*) that shrinks legitimate differences. This quadratic result is not an exact full-network performance law.",
         "evidenceIds": [
           "E04",
           "E06"
         ]
       },
       {
-        "expression": "E_{n,n′}||D_0(n)−D_p(n′)||² = E_n||D_0(n)−D_p(n)||² + 2 tr Cov_n(D_0(n),D_p(n))",
-        "explanation": "At fixed σ, independent noise adds a covariance term. Under exact view invariance this becomes twice the noise-dependent prediction variance, penalizing legitimate denoising dependence. Away from invariance, its sign is not guaranteed.",
+        "expression": "\\mathbb{E}_{n,n'}\\lVert D_0(n)-D_p(n')\\rVert^2=\\mathbb{E}_n\\lVert D_0(n)-D_p(n)\\rVert^2+2\\operatorname{tr}\\operatorname{Cov}_n(D_0(n),D_p(n))",
+        "explanation": "Proposition 2 fixes σ and compares shared noise n with independent n and n′. Cov is cross-covariance and tr its trace. At exact invariance, the added term becomes twice the prediction-variance trace, penalizing legitimate noise dependence; its sign is not guaranteed generally.",
         "evidenceIds": [
           "E05"
         ]
@@ -284,9 +289,10 @@
       "metric": "Action success and relative camera-conditioned excess-FID",
       "value": "Action success falls from 53% to 3%, while relative excess-FID stays between −0.07 and +0.16.",
       "comparison": "The fidelity diagnostic subtracts an oracle floor from ground-truth replays under the same camera.",
-      "interpretation": "Distributional frame fidelity can remain stable while control fails. This diagnostic neither establishes semantic plan correctness nor constitutes robot-execution success.",
+      "interpretation": "Stable distributional image fidelity does not establish correct plans or successful control. The text supplies the severity ordering; Figure 4's upward-rotated severity annotation is ambiguous against that ordering.",
       "evidenceIds": [
-        "E11"
+        "E11",
+        "E22"
       ]
     }
   ],
@@ -306,12 +312,13 @@
       ]
     },
     {
-      "text": "Two seeds provide limited training-variation evidence, and paired task-bootstrap intervals do not capture that variation. The significant second-seed interpolation regression qualifies the conclusion's preservation language; endpoint interpolation and extrapolation also show no clear benefit.",
+      "text": "Two seeds provide limited training-variation evidence; task-bootstrap intervals do not capture it. Second-seed interpolation regression qualifies the conclusion's preservation wording. Endpoint effects are null, and elevation has only one extrapolation point, despite prose referring broadly to interpolation counterparts.",
       "kind": "analysis",
       "evidenceIds": [
         "E13",
         "E14",
-        "E17"
+        "E17",
+        "E23"
       ]
     },
     {
@@ -335,29 +342,32 @@
       ]
     },
     {
-      "text": "The supplied text leaves hardware, wall-clock cost, EMA decay, detailed optimizer settings, sampling steps, and action-replanning cadence unspecified. It promises a code/tooling release without supplying a concrete repository. Its shuffled-pair and real-robot corroboration references another work whose bibliography identifier remains the placeholder 2608.XXXXX.",
+      "text": "Hardware, wall-clock cost, EMA decay, detailed optimizer settings, frozen-module policy, denoising steps, and replanning cadence are unspecified. Code/tooling is promised without a repository. Shuffled-pair and real-robot corroboration comes from a separate flow-VLA work whose cited identifier remains 2608.XXXXX.",
       "kind": "analysis",
       "evidenceIds": [
+        "E03",
         "E09",
         "E18",
         "E19"
       ]
     },
     {
-      "text": "A small mechanism test should repeat the synthetic invariant/covariant experiment with selective and wrong-coordinate penalties, then vary shared versus independent noise while holding targets and optimization fixed. Successful toy verification would still require a separate matched simulator-control test to establish action benefits.",
+      "text": "Proposed checks: compare selective versus wrong-coordinate losses under shared versus independent noise on controlled targets, then repeat matched simulator evaluation with additional training seeds and suite-level reporting. Neither check has been run here.",
       "kind": "analysis",
       "evidenceIds": [
         "E04",
         "E05",
         "E06",
-        "E08"
+        "E08",
+        "E16",
+        "E17"
       ]
     }
   ],
   "taxonomy": {
     "assessment": "supports",
     "reasoning": {
-      "text": "The architecture supports One Model × Joint prediction: one denoiser directly predicts action, proprioception, future-image, and value frames in a shared latent sequence. The paired branches share parameters and are a training construction. SCVC introduces neither a separate inverse-dynamics model nor an inference-time controller. The multiview subcategory is supported by paired camera observations, but should not imply an explicit 3D representation, reconstruction system, or camera-conditioned deployment.",
+      "text": "One denoiser directly predicts actions, proprioception, future images, and value in a shared latent sequence, supporting One Model × Joint prediction. Paired branches are a training construction, not separate models or inverse dynamics. Multiview supervision supports the catalog subcategory, but the paper has no explicit 3D reconstruction or camera-conditioned deployment.",
       "kind": "analysis",
       "evidenceIds": [
         "E02",
@@ -391,7 +401,7 @@
       "id": "E01",
       "sourceId": "primary",
       "location": "PDF p. 1, title, author block, and arXiv footer",
-      "detail": "Title, four authors, and identifier match the catalog. The supplied artifact identifies itself as arXiv:2608.21402v1, dated 7 August 2026."
+      "detail": "The title and authors Bingqi Huang, Bingchuan Wei, Yingkai Cai, and Zhaokui Wang match the catalog. The affiliation is Tsinghua University. The supplied artifact identifies itself as arXiv:2608.21402v1 [cs.RO], dated 7 August 2026."
     },
     {
       "id": "E02",
@@ -420,7 +430,7 @@
     {
       "id": "E06",
       "sourceId": "primary",
-      "location": "PDF p. 4, Section IV-C",
+      "location": "PDF p. 4, Section IV-C and Figure 2 with caption",
       "detail": "Synthetic measured ratios are 0.715/0.337/0.116 versus 0.714/0.333/0.111 predictions. At 2,000 steps the 2B wrong-coordinate future-scene guard reaches 0.18 versus approximately 0.98 for selective/control runs; full-scale quantitative verification is deferred."
     },
     {
@@ -444,13 +454,13 @@
     {
       "id": "E10",
       "sourceId": "primary",
-      "location": "PDF p. 5, Section VI-B; PDF p. 6, Table I",
+      "location": "PDF p. 5, Section VI-B; PDF p. 6, Figure 3 with caption and Table I",
       "detail": "The 1,200-rollout masking conditions score 80.5% unmasked, 66.6% scene-black, 69.7% scene-noise, and 0.2% wrist-black. Table I separately gives released-policy ID/camera success of 98.5/79.5 and scene-only success of 93.2/26.0."
     },
     {
       "id": "E11",
       "sourceId": "primary",
-      "location": "PDF p. 6, Section VI-C",
+      "location": "PDF p. 6, Section VI-C and Figure 4 with caption",
       "detail": "Orbital severity lowers action success from 53% to 3% while relative excess-FID remains between −0.07 and +0.16. The metric subtracts a camera-matched replay floor and measures distributional fidelity rather than semantic plan correctness."
     },
     {
@@ -500,6 +510,36 @@
       "sourceId": "primary",
       "location": "PDF p. 7, Section VII; PDF p. 8, Section VIII and Reference [7]",
       "detail": "Shuffled-pair and real-robot corroboration are attributed to a separate flow-VLA study. Reference [7] contains the unresolved arXiv identifier 2608.XXXXX."
+    },
+    {
+      "id": "E20",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 1a–b and caption; PDF p. 3, Section III and Eq. (1)",
+      "detail": "Two same-state views feed a shared denoiser with shared θ and (σ,n). Blue action/proprioception/value outputs are linked by consistency; the orange future-scene link is crossed out and keeps per-view supervision. Panel b shows trained camera coverage, interpolation holes, and extrapolation regions."
+    },
+    {
+      "id": "E21",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 image grid and caption; Section IV-C",
+      "detail": "Each row compares ground truth, wrong-coordinate predictions, and selective predictions for views A and B. Both wrong-coordinate columns visibly blur scene details; the caption nevertheless describes both arms as tracking the near-nominal view A. The experiment is a short 2,000-step diagnostic, not a converged full-scale quantitative law."
+    },
+    {
+      "id": "E22",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 4, rotated severity label; Section VI-C, orbital severity paragraph",
+      "detail": "The rotated 'severity L1 → L5' text points upward on the page, while the prose reports orbital success falling from 53% to 3% across increasing severity with relative excess-FID between −0.07 and +0.16. Individual plotted markers lack explicit level labels."
+    },
+    {
+      "id": "E23",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section VI-D; PDF p. 7, Table II; PDF p. 8, Sections VIII–IX",
+      "detail": "The narrative mentions interpolation counterparts when discussing dolly/elevation extrapolation, but Table II has no elevation interpolation row and Section VIII specifies one elevation extrapolation point. The conclusion says interpolation is intact, whereas the second-seed result has a negative interval excluding zero."
+    },
+    {
+      "id": "E24",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section V-C; PDF p. 7, Table II caption and Section VI-D paragraphs immediately below the table",
+      "detail": "The protocol has twelve axis-level buckets, while Table II shows nine single-axis buckets plus nominal ID. Two compound buckets and the six-task ±2 endpoint bucket are summarized in prose. First-seed compound differences are +0.94 [−2.34,+4.38] and +4.85 [−2.63,+11.82]; the ±2 difference is −5.00 [−13.33,+3.33]. The complete second-seed twelve-bucket table is not present in the supplied PDF."
     }
   ]
 }
