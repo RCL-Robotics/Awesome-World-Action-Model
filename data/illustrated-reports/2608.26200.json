@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.26200",
+  "shortTitle": "GameWAM",
+  "thesis": "GameWAM turns video co-training into native game control through shared visual context, short action commitments and mode-specific decoding, while sampled sources remain a control vulnerability.",
+  "standfirst": "A game controller must decide both how to move and when to look again. GameWAM approaches this through two generative branches trained on aligned observations and native actions, with a shared representation of the world already observed. The important deployment detail is that its default policy denoises actions without generating future video. It then executes only part of each forecast and updates its context from real feedback. The figures below connect that design to benchmark results and component tests. They also expose a second story: low-frequency structure in the random action source can systematically steer camera motion, making source handling part of the controller’s behavior.",
+  "evidenceIds": [
+    "architecture",
+    "mask",
+    "control",
+    "mcu",
+    "ablations",
+    "lasi"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2608.26200/architecture.png",
+      "width": 1682,
+      "height": 766,
+      "sourceSha256": "0dc18fa7f9b64e069b98f604576f7910186478ce2fedb1b3f9c40b8261632255",
+      "sourceUrl": "https://arxiv.org/pdf/2608.26200#page=4",
+      "crop": [
+        0.17,
+        0.1,
+        0.83,
+        0.332
+      ],
+      "alt": "Training and inference diagrams with Video and Action DiTs, visual history, task/state inputs, a per-step router and gameplay/GUI action decoders.",
+      "caption": "Video supervision shapes the visual context that the action branch uses at deployment.",
+      "readingGuide": "Read each panel from its inputs at the bottom toward its outputs at the top. During training, ground-truth future observations and actions are separately corrupted, while history and current observations supply context. The Video DiT and Action DiT have distinct prediction streams. At the top, the router chooses gameplay or GUI action predictions. On the inference side, follow the current observation through the VAE encoder and the cached visual path into action generation. The missing future-video output is consequential: Appendix A.4 specifies that the default model omits future-video denoising but retains Video-DiT processing of realized observations.",
+      "takeaway": "The method can benefit from visual prediction during learning without generating an imagined video at every decision. Both objectives shape the clean visual context consumed by action generation. The two action heads specialize the same native control representation for gameplay and GUI, with a route selected independently at each action step.",
+      "caution": "The schematic labels an interaction “Joint Attn” and an output “Mixture.” Equations (5)–(6) and Appendix A.4 provide the operational details: noisy future modalities are decoupled, and rollout routing uses hard per-step selection. The picture alone should not determine the inference interpretation.",
+      "evidenceIds": [
+        "architecture",
+        "mask",
+        "routing"
+      ]
+    },
+    {
+      "id": "block-cycle",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 6,
+      "asset": "report-assets/2608.26200/block-cycle.png",
+      "width": 1682,
+      "height": 383,
+      "sourceSha256": "0dc18fa7f9b64e069b98f604576f7910186478ce2fedb1b3f9c40b8261632255",
+      "sourceUrl": "https://arxiv.org/pdf/2608.26200#page=6",
+      "crop": [
+        0.17,
+        0.1,
+        0.83,
+        0.216
+      ],
+      "alt": "Overlapping red plan bars exceed blue execution bars; the controller resets cycle K/V state and moves executed observations into recent and long-term history.",
+      "caption": "Predict beyond the committed prefix, then rebuild the next decision from actual feedback.",
+      "readingGuide": "Start with the red and blue legend on the left: a red forecast extends beyond the blue action prefix that actually executes. Each new observation arrives after execution and supports another overlapping forecast. At the boundary between cycles, history is compressed and the transient K/V cache is reset. The right panel distinguishes that cache from persistent recent and long history. Recent history stores compressed executed segments; overflow supplies attention-pooled long-term memory. Section C.2 instantiates the drawing with P=16 predicted actions, E=8 executed actions and three committed blocks per cycle. Its configured cross-cycle memory holds at most 40 tokens.",
+      "takeaway": "The controller separates how far it forecasts from how long it acts without new feedback. Persistent memory survives a cache reset, while fine-grained current-cycle context remains available until that reset. Crucially, only observations produced by executed actions are admitted into these stores; a predicted but unexecuted future never becomes factual history.",
+      "caution": "This diagram establishes information flow, not a uniform task benefit from memory. Table 2 reports a higher Embodied point estimate when history is removed, alongside worse GUI and Combat performance. Bounded persistent context therefore needs task-specific evaluation.",
+      "evidenceIds": [
+        "control",
+        "history",
+        "configuration",
+        "ablations"
+      ]
+    },
+    {
+      "id": "mcu-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 8,
+      "asset": "report-assets/2608.26200/mcu-results.png",
+      "width": 1650,
+      "height": 618,
+      "sourceSha256": "0dc18fa7f9b64e069b98f604576f7910186478ce2fedb1b3f9c40b8261632255",
+      "sourceUrl": "https://arxiv.org/pdf/2608.26200#page=8",
+      "crop": [
+        0.177,
+        0.225,
+        0.824,
+        0.412
+      ],
+      "alt": "MCU comparison of instruction-conditioned policies, VLM agents and GameWAM, with steps, Mini/All success rates and category averages.",
+      "caption": "GameWAM leads the reported overall averages while category-level comparisons remain mixed.",
+      "readingGuide": "Within each task category, read Steps alongside ASR Mini and ASR All. Steps average native environment actions only over successful episodes; they do not count denoising calls. Mini uses ten runs per task and All uses five. Section C.6 identifies the displayed uncertainty as standard deviation across per-task success rates. The two rightmost columns summarize the reported category averages. Game PT. identifies interaction pretraining spanning many games; a cross does not mean an absence of foundation-model pretraining. The paper uses red and blue for its first- and second-ranked comparable entries, so inspect actual values as well as color.",
+      "takeaway": "GameWAM reports 50.7% Mini and 46.6% All average success, compared with OpenHA’s 36.8% Mini and Game-TARS’s 42.5% All. It uses 138, 155 and 203 steps per successful Embodied, GUI and Combat episode. The All category values also show why average leadership is narrower than universal leadership: Game-TARS exceeds GameWAM on Embodied and Combat.",
+      "caution": "These systems differ in training data, supervision, available inputs and action representations. Successful-only step counts can also compare different subsets of solved episodes. Read this as a system benchmark, not a controlled estimate of architecture or training-data efficiency.",
+      "evidenceIds": [
+        "mcu",
+        "protocol",
+        "configuration"
+      ]
+    },
+    {
+      "id": "mask-comparison",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 6",
+      "page": 28,
+      "asset": "report-assets/2608.26200/mask-comparison.png",
+      "width": 1658,
+      "height": 172,
+      "sourceSha256": "0dc18fa7f9b64e069b98f604576f7910186478ce2fedb1b3f9c40b8261632255",
+      "sourceUrl": "https://arxiv.org/pdf/2608.26200#page=28",
+      "crop": [
+        0.175,
+        0.17,
+        0.825,
+        0.222
+      ],
+      "alt": "Two attention-mask variants compared on MCU category success, successful-episode steps and model-side execution frequency.",
+      "caption": "Removing direct noisy-future coupling improves overall control and reduces online computation in this comparison.",
+      "readingGuide": "Compare the two rows within each column before looking at the far-right frequency measurement. Both variants use the same realized clean prefix; the joint alternative additionally exchanges noisy future-video and action information, requiring future-video denoising online. The default can omit that future-video stream. Mini and All are separate evaluations, while Steps again includes successful episodes only. Section C.6 measures frequency separately on one H200, averaging ten episodes and including model-side replanning computation while excluding environment simulation and execution. It should therefore be kept distinct from the native-action counts beside each success-rate column.",
+      "takeaway": "Default masking reports 50.7% versus 46.3% Mini ASR, 46.6% versus 39.6% All ASR, and 12.51 versus 8.12 Hz. The latter is approximately 1.54 times the model-side execution frequency. The joint variant still has a slightly better GUI Mini result, 45.0% versus 43.0%, so direct coupling is not worse in every column.",
+      "caution": "The joint variant’s smaller successful-episode step counts on GUI and Combat accompany different success rates. They cannot by themselves show a better controller. The reported comparison also does not identify a unique internal mechanism causing the overall performance gap.",
+      "evidenceIds": [
+        "mask",
+        "mask-results",
+        "protocol"
+      ]
+    },
+    {
+      "id": "ablations",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 9,
+      "asset": "report-assets/2608.26200/ablations.png",
+      "width": 1478,
+      "height": 419,
+      "sourceSha256": "0dc18fa7f9b64e069b98f604576f7910186478ce2fedb1b3f9c40b8261632255",
+      "sourceUrl": "https://arxiv.org/pdf/2608.26200#page=9",
+      "crop": [
+        0.21,
+        0.126,
+        0.79,
+        0.253
+      ],
+      "alt": "Seven MCU Mini rows compare the full model with removed video supervision, coarser sampling, no event sampling, unified actions, matched horizons and no history.",
+      "caption": "Video co-training and temporal sampling have the largest measured ablation effects.",
+      "readingGuide": "Use the full model as the reference row, then compare each variant’s rightmost average before inspecting its category pattern. “Action-only supervision” changes training: it removes the future-video learning signal, unlike the default action-only deployment path that still benefits from video co-training. “Matched prediction–execution horizon” sets P=E, eliminating forecast extension beyond the committed interval. “Unified action distribution” removes the mode-specific formulation. Finally, inspect the history row across all three categories rather than reading its average alone. Its Embodied result rises, while GUI and Combat fall. The table’s uncertainty values should not be read as confidence intervals on the average differences.",
+      "takeaway": "Removing video supervision lowers average Mini ASR from 50.7% to 35.7%, a 15.0 percentage-point drop. Coarser sampling gives 36.7%; removing event-anchored clip sampling gives 38.0%. Matching prediction and execution horizons gives 41.3%. Together these results support the training and timing choices, while the history result shows that component benefits can depend on task category.",
+      "caution": "These are reported component comparisons, not significance tests or a complete factorial study. In particular, the unified-action row evaluates a combined formulation involving prediction and normalization; it does not isolate their individual contributions.",
+      "evidenceIds": [
+        "ablations",
+        "routing",
+        "mask",
+        "control",
+        "protocol"
+      ]
+    },
+    {
+      "id": "lasi",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 5",
+      "page": 9,
+      "asset": "report-assets/2608.26200/lasi.png",
+      "width": 1663,
+      "height": 498,
+      "sourceSha256": "0dc18fa7f9b64e069b98f604576f7910186478ce2fedb1b3f9c40b8261632255",
+      "sourceUrl": "https://arxiv.org/pdf/2608.26200#page=9",
+      "crop": [
+        0.175,
+        0.266,
+        0.827,
+        0.417
+      ],
+      "alt": "Three panels show fixed-condition source/action correlation, donor-follow rates and variance removed by low-frequency source zeroing; blue denotes pitch and green yaw.",
+      "caption": "Controlled source interventions change the coarse camera trajectory even when conditioning stays fixed.",
+      "readingGuide": "Follow one row across all three panels, such as Y0. P0–P2 and Y0–Y2 denote pitch and yaw temporal DCT modes 0–2 in eight-step camera chunks. The first panel measures association while varying sources within each fixed condition. The middle panel replaces only source modes 0–2 with a donor’s coefficients; donor-follow means the new output is closer to the donor output than the base output. The last panel zeros those source modes and measures how much within-condition source-induced output variance disappears. The controlled suite uses 24 conditions and 16 sources per condition on the final Minecraft checkpoint.",
+      "takeaway": "Yaw DCT0 has correlation 0.890, donor-follow rate 94.8%, and 99.25% variance removal under zeroing. The interventions support a causal effect of low-frequency source structure on coarse generated motion. They sharpen the diagnosis beyond correlation alone, since visual and other conditioning are held fixed while the source coefficients change.",
+      "caution": "Variance removal is not task success. These diagnostics neither establish that zeroing preserves useful camera control nor identify the internal cause of LASI. The deployed mitigation refreshes sources between replans; the paper states that underlying sensitivity remains.",
+      "evidenceIds": [
+        "lasi",
+        "limitations"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "How video learning reaches an action-only controller",
+      "text": "Begin with a completed training trajectory and a decision boundary. Earlier observations form clean context; future observations and actions remain prediction targets. The two modalities are independently corrupted for flow training. Under the default mask, each target stream reads the clean prefix and its own noisy variables, so action prediction cannot obtain an answer from a simultaneously denoised future frame. The connection instead runs through the Video DiT’s clean-prefix K/V states: both objectives backpropagate through the path that constructs those states. At deployment, the same visual path encodes actual observations and supplies the Action DiT. Future-video denoising can therefore be omitted without removing learned visual context. This also explains why the action-only-supervision ablation asks a different question from action-only inference: one removes a training signal, while the other removes an online computation.",
+      "kind": "source",
+      "evidenceIds": [
+        "mask",
+        "architecture",
+        "ablations"
+      ]
+    },
+    {
+      "heading": "One mouse interface, two conditional action distributions",
+      "text": "Camera control and cursor control reuse physical mouse channels, but the meaning and scale of a movement change when a GUI opens. GameWAM keeps a shared action representation and specializes its prediction rather than introducing a separate high-level policy. The Action DiT supplies gameplay and GUI flow predictions together with a mode logit for every native action step. During training, the observed mode chooses the supervised head and supplies the router target. During rollout, the predicted mode selects the entire action vector for that step; the route may change within a forecast. Continuous controls use the corresponding normalization, while binary coordinates retain their shared treatment. The reported unified-distribution ablation evaluates this package of specialization choices, so it does not tell us how much of the gain comes from routing versus normalization alone.",
+      "kind": "source",
+      "evidenceIds": [
+        "routing",
+        "objective",
+        "ablations"
+      ]
+    },
+    {
+      "heading": "Forecasts, committed actions and stochastic continuity",
+      "text": "Consider the reported 16-action forecast with an eight-action commitment. After eight actions execute, new observations update the clean context and the previous unexecuted suffix is discarded. A later forecast may thus respond to a state that differs from what the earlier prediction anticipated. Across three committed blocks, the cache accumulates realized context; at the cycle boundary, persistent visual memory carries information into a fresh cache. Reader interpretation: this design addresses two different forms of continuity—retaining useful past observations and avoiding a long commitment before feedback. LASI adds another consideration. Reusing one sampled action source can repeat a directional camera tendency across decisions even as context changes. Refreshing the source reduces that coherent accumulation, but the fixed-condition experiments show why this is a mitigation rather than evidence that the underlying source sensitivity has disappeared.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "control",
+        "history",
+        "configuration",
+        "lasi",
+        "limitations"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate the value of video supervision from the cost of noisy-future coupling",
+      "text": "Reader-proposed check, not performed: train the default decoupled model, the joint-mask variant and the action-only-supervision variant with the same data mixture, initialization procedure, update count and task protocol. Fix P=16, E=8 and fresh-source inference. Evaluate paired MCU Mini tasks and seeds, reporting category success and uncertainty across independent training runs. Time realized-observation encoding separately from action and future-video denoising on one H200. The paper’s interpretation would be weakened if the default’s advantage over action-only supervision disappears across runs, or if removing future-video denoising fails to explain the measured model-side timing difference.",
+      "evidenceIds": [
+        "mask",
+        "configuration",
+        "ablations",
+        "mask-results",
+        "protocol"
+      ]
+    },
+    {
+      "title": "Test whether refreshing sources reduces drift without sacrificing useful motion",
+      "text": "Reader-proposed check, not performed: use the final checkpoint with paired task states and compare one fixed source reused throughout an episode against independently refreshed sources at each replan. Keep the ten-step deployment sampler, task budget and P/E geometry identical; repeat across many source seeds. Measure task success, cumulative signed camera rotation, and low-DCT source/action association, including failed episodes. Use low-band zeroing only as a diagnostic third condition, not an assumed remedy. The mitigation claim predicts fewer persistent rotation failures after refreshing, even if source/action association remains. A decline in task success or loss of needed smooth turns would expose a practical trade-off.",
+      "evidenceIds": [
+        "training",
+        "lasi",
+        "limitations",
+        "protocol"
+      ]
+    }
+  ],
+  "featuredResultTask": "MCU task completion",
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      20,
+      21,
+      25,
+      26,
+      27,
+      28,
+      37,
+      38,
+      43
+    ],
+    "notes": "Visually inspected the v1 title/author page; Figures 2–5; Tables 1–2 and 5–7; and the declared method, objective, implementation, evaluation and LASI pages needed to interpret the six crops. All final crops were viewed, including revised table crops. The complete supplied text and appendices were read; other figure images, external artifacts and separate supplements were not visually inspected or verified."
+  }
+}
