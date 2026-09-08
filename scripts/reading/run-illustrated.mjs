@@ -91,6 +91,18 @@ await lock.close();
 const active = new Set();
 let stopping = false, interrupted = false, draining = false, failureLimitReached = false, completed = 0, unavailable = 0, failed = 0, consecutiveFailures = 0, scheduled = 0;
 let publication = Promise.resolve();
+function queuePublication(action) {
+  const operation = publication.then(action);
+  publication = operation.catch(() => {});
+  return operation;
+}
+function recordFailure() {
+  failed++; consecutiveFailures++;
+  if (consecutiveFailures >= 3 && !failureLimitReached) {
+    failureLimitReached = true;
+    console.error('Stopping scheduling after three consecutive failures; draining active readers.');
+  }
+}
 function terminate(child) {
   if (child.exitCode !== null || child.signalCode !== null || child.terminating) return;
   child.terminating = true;
@@ -289,23 +301,24 @@ async function one(paper, manifest, previous) {
     const bundle = await validateWithRepair(attempt, context, statusPath);
     await writeJSON(join(attempt, 'accepted.json'), { outcome: bundle.receipt.outcome, sourceSha256: manifest.sha256, sourceOmissionsAdded: bundle.sourceOmissionsAdded, validatedAt: new Date().toISOString() });
     state = { ...state, ...await readJSON(statusPath), state: 'publishing', phase: 'publishing', sourceOmissionsAdded: bundle.sourceOmissionsAdded }; await writeJSON(statusPath, state);
-    const publish = publication.then(async () => {
+    await queuePublication(async () => {
       if (stopping) throw new Error('Reader interrupted before publication');
       await verifySource(manifest, workDir);
       const published = await publishBundle(repository, attempt, bundle);
-      state = { ...state, state: bundle.edition ? 'complete' : 'illustration-unavailable', phase: 'complete', reason: bundle.receipt.reason, evidenceIds: bundle.receipt.evidenceIds, completedAt: new Date().toISOString(), ...published };
+      state = { ...state, reason: bundle.receipt.reason, evidenceIds: bundle.receipt.evidenceIds, ...published };
+      await writeJSON(statusPath, state);
+      await updateReadingIndex({ repository, workDir });
+      state = { ...state, state: bundle.edition ? 'complete' : 'illustration-unavailable', phase: 'complete', completedAt: new Date().toISOString() };
       await writeJSON(statusPath, state);
     });
-    publication = publish.catch(() => {}); await publish;
     if (bundle.edition) completed++; else unavailable++;
     consecutiveFailures = 0;
     console.log(`${paper.id}: ${state.state}`);
   } catch (error) {
-    failed++; consecutiveFailures++;
+    recordFailure();
     const latest = await optionalJSON(statusPath);
     await writeJSON(statusPath, { ...state, ...latest, phase: latest?.phase || state.state, state: interrupted ? 'interrupted' : 'error', error: error.message, failedAt: new Date().toISOString() });
     console.error(`${paper.id}: ${error.message}`);
-    if (consecutiveFailures >= 3) { failureLimitReached = true; console.error('Stopping scheduling after three consecutive failures; draining active readers.'); }
   }
 }
 async function recoverPublication(paper, manifest, previous) {
@@ -316,14 +329,29 @@ async function recoverPublication(paper, manifest, previous) {
   await verifyStoredContext(context, manifest, { python, pdftoppm });
   context.repository = repository;
   const bundle = await validateBundle({ attempt, context: { ...context, paperIds }, reviewImages: independentReview });
-  const published = await exists(join(repository, `data/illustrated-reports/${paper.id}.json`)) ? await publishedReceipt(repository, bundle) : await publishBundle(repository, attempt, bundle);
-  await writeJSON(join(runDir, paper.id, 'status.json'), { ...previous, ...published, state: bundle.edition ? 'complete' : 'illustration-unavailable', reason: bundle.receipt.reason, evidenceIds: bundle.receipt.evidenceIds, completedAt: new Date().toISOString() });
+  await queuePublication(async () => {
+    if (stopping) throw new Error('Reader interrupted before publication recovery');
+    await verifySource(manifest, workDir);
+    const published = await exists(join(repository, `data/illustrated-reports/${paper.id}.json`)) ? await publishedReceipt(repository, bundle) : await publishBundle(repository, attempt, bundle);
+    const pending = { ...previous, ...published, state: 'publishing', phase: 'publishing', reason: bundle.receipt.reason, evidenceIds: bundle.receipt.evidenceIds };
+    await writeJSON(join(runDir, paper.id, 'status.json'), pending);
+    await updateReadingIndex({ repository, workDir });
+    await writeJSON(join(runDir, paper.id, 'status.json'), { ...pending, state: bundle.edition ? 'complete' : 'illustration-unavailable', phase: 'complete', completedAt: new Date().toISOString() });
+  });
   console.log(`${paper.id}: recovered accepted publication without another reader`);
   return true;
 }
-let group = [];
+const inFlight = new Set();
+async function finishNext() {
+  const { task, error } = await Promise.race(inFlight);
+  inFlight.delete(task);
+  if (error) throw error;
+}
 try {
   for (const paper of selected) {
+    // Refill a free slot as soon as an entry finishes its accepted publication
+    // and index update, without waiting for the other reader in the pool.
+    while (inFlight.size >= concurrency) await finishNext();
     if (stopping || draining || failureLimitReached || scheduled >= limit) break;
     const statusPath = join(runDir, paper.id, 'status.json');
     const previous = await optionalJSON(statusPath);
@@ -337,23 +365,24 @@ try {
       const upgradedSource = previous?.state === 'illustration-unavailable' && (previous.sourceSha256 !== manifest.sha256 || previous.textSha256 !== manifest.textSha256);
       if (!upgradedSource && await verifyCompletion(repository, previous, manifest) || await existingEdition(paper, manifest)) continue;
     } catch (error) {
-      scheduled++; failed++; consecutiveFailures++;
-      await writeJSON(statusPath, { schemaVersion: 1, paperId: paper.id, state: manifest && !['full-text', 'partial-text'].includes(manifest.accessStatus) ? 'source-unavailable' : 'error', phase: 'preflight', error: error.message, sourceSha256: manifest?.sha256, textSha256: manifest?.textSha256, failedAt: new Date().toISOString(), ...(previous ? { previous } : {}) });
+      scheduled++; recordFailure();
+      const latest = await optionalJSON(statusPath);
+      const pendingPublication = latest?.state === 'publishing' || latest?.phase === 'publishing';
+      await writeJSON(statusPath, { ...(pendingPublication ? latest : previous ? { previous } : {}), schemaVersion: 1, paperId: paper.id, state: manifest && !['full-text', 'partial-text'].includes(manifest.accessStatus) ? 'source-unavailable' : 'error', phase: pendingPublication ? 'publishing' : 'preflight', error: error.message, sourceSha256: manifest?.sha256, textSha256: manifest?.textSha256, failedAt: new Date().toISOString() });
       console.error(`${paper.id}: source preflight: ${error.message}`);
-      if (consecutiveFailures >= 3) failureLimitReached = true;
       continue;
     }
     if (stopping || draining || failureLimitReached) break;
     scheduled++;
-    group.push(one(paper, manifest, previous));
-    if (group.length === concurrency) { await Promise.all(group); group = []; await updateReadingIndex({ repository, workDir }); }
+    const task = one(paper, manifest, previous).then(() => ({ task }), error => ({ task, error }));
+    inFlight.add(task);
   }
-  await Promise.all(group);
+  while (inFlight.size) await finishNext();
   await publication;
-  if (scheduled) await updateReadingIndex({ repository, workDir });
+  if (scheduled) await queuePublication(() => updateReadingIndex({ repository, workDir }));
 } finally {
   for (const child of active) terminate(child);
-  await Promise.allSettled(group);
+  await Promise.allSettled(inFlight);
   await publication;
   if ((await optionalJSON(lockPath))?.token === token) await unlink(lockPath);
 }

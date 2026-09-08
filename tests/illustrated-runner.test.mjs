@@ -180,6 +180,7 @@ let calls = 0; try { calls = Number(await fs.readFile(path.join(d, c.paper.id + 
 calls++;
 await fs.writeFile(path.join(d, c.paper.id + '.calls'), String(calls));
 await fs.writeFile(path.join(d, c.paper.id + '.prompt-' + calls), prompt);
+await fs.appendFile(path.join(d, 'worker-lifecycle.jsonl'), JSON.stringify({ paperId: c.paper.id, event: 'start' }) + '\\n');
 await fs.writeFile(path.join(d, c.paper.id + '.started'), JSON.stringify(process.argv));
 if (process.env.WAIT_WORKER === 'yes') while (true) {
   try { await fs.access(path.join(d, c.paper.id + '.release')); break; }
@@ -194,6 +195,7 @@ await fs.writeFile('report.json', JSON.stringify(r));
 await fs.writeFile('metadata.json', JSON.stringify({ title: c.manifest.observedTitle, authors: 'Fixture Author', sourceSha256: c.manifest.sha256, location: 'Title heading' }));
 await fs.writeFile('source-audit.jsonl', c.config.chunks.map((x,i) => JSON.stringify({ operation: 'read', chunk: i + 1, sha256: x.sha256 })).join('\\n'));
 await fs.writeFile('receipt.json', JSON.stringify({ schemaVersion: 1, paperId: c.paper.id, outcome: 'illustration-unavailable', reason: 'The supplied text has no PDF.', evidenceIds: calls <= (plan.invalidUntil || 0) ? ['missing-evidence'] : [r.evidence[0].id], baseReportPath: 'report.json', editionPath: null, metadataPath: 'metadata.json' }));
+await fs.appendFile(path.join(d, 'worker-lifecycle.jsonl'), JSON.stringify({ paperId: c.paper.id, event: 'finish' }) + '\\n');
 console.log(JSON.stringify({ type: 'turn.completed' }));
 `);
   await chmod(fake, 0o755);
@@ -408,6 +410,122 @@ test('mock workers drain, resume and preserve unavailable outcomes without repea
   const third = await f.run().completion; assert.match(third.output, /"scheduled":0/);
   const argumentsUsed = JSON.parse(await readFile(join(f.control, 'fixture-a.started'), 'utf8'));
   assert.ok(argumentsUsed.includes('workspace-write')); assert.ok(!argumentsUsed.includes('--model')); assert.ok(argumentsUsed.includes('sandbox_workspace_write.network_access=false'));
+});
+test('a free slot starts paper three while paper two remains busy, without exceeding the cap or limit', async t => {
+  const f = await runnerFixture(t, ['fixture-a', 'fixture-b', 'fixture-c', 'fixture-d']);
+  const running = f.run(['--concurrency', '2', '--limit', '3'], true);
+  await until(async () => await exists(join(f.control, 'fixture-a.started')) && await exists(join(f.control, 'fixture-b.started')));
+  assert.equal(await exists(join(f.control, 'fixture-c.started')), false);
+  await writeFile(join(f.control, 'fixture-a.release'), '');
+  await until(() => exists(join(f.control, 'fixture-c.started')));
+  assert.equal((await readJSON(join(f.work, 'illustrated-runs/fixture-b/status.json'))).state, 'running');
+  const index = await readJSON(join(f.repo, 'data/reading-index.json'));
+  assert.equal(index.entries.find(entry => entry.paperId === 'fixture-a').readingStatus, 'partial');
+  assert.equal(index.entries.find(entry => entry.paperId === 'fixture-b').readingStatus, 'queued');
+  await writeFile(join(f.control, 'fixture-c.release'), '');
+  await until(async () => (await readJSON(join(f.work, 'illustrated-runs/fixture-c/status.json'))).state === 'illustration-unavailable');
+  assert.equal(await exists(join(f.control, 'fixture-d.started')), false);
+  await writeFile(join(f.control, 'fixture-b.release'), '');
+  const result = await running.completion;
+  assert.equal(result.code, 0, result.output);
+  assert.match(result.output, /"scheduled":3/);
+  assert.equal(await exists(join(f.control, 'fixture-d.started')), false);
+  const live = new Set(); let peak = 0;
+  for (const event of (await readFile(join(f.control, 'worker-lifecycle.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse)) {
+    if (event.event === 'start') { live.add(event.paperId); peak = Math.max(peak, live.size); }
+    else assert.equal(live.delete(event.paperId), true);
+  }
+  assert.equal(peak, 2);
+  assert.equal(live.size, 0);
+  const metadata = await readJSON(join(f.repo, 'data/illustrated-report-metadata.json'));
+  assert.deepEqual(Object.keys(metadata).sort(), ['fixture-a', 'fixture-b', 'fixture-c']);
+});
+test('new and recovered publications serialize the whole bundle with reading-index updates', async t => {
+  const f = await runnerFixture(t, ['fixture-a', 'fixture-b', 'fixture-c']);
+  const draft = await retainedDraft(f, 'fixture-b');
+  const statusPath = join(f.work, 'illustrated-runs/fixture-b/status.json');
+  await writeJSON(statusPath, { ...await readJSON(statusPath), state: 'publishing', phase: 'publishing' });
+  // Delay the real fixture mutations and reject overlap across both modules.
+  // This also catches an index snapshot taken halfway through another bundle.
+  await writeFile(join(f.repo, 'scripts/lib/write-test-guard.mjs'), `
+import { appendFile } from 'node:fs/promises';
+import { join } from 'node:path';
+let busy = false;
+export async function guardedWrite(name, action) {
+  if (busy) throw new Error('Concurrent repository mutation: ' + name);
+  busy = true;
+  const trace = join(process.env.ILLUSTRATED_CONTROL, 'repository-writes.jsonl');
+  await appendFile(trace, JSON.stringify({ name, event: 'start' }) + '\\n');
+  try {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return await action();
+  } finally {
+    await appendFile(trace, JSON.stringify({ name, event: 'finish' }) + '\\n');
+    busy = false;
+  }
+}
+`);
+  for (const [file, name] of [['illustrated-runner.mjs', 'publishBundle'], ['reports.mjs', 'updateReadingIndex']]) {
+    const path = join(f.repo, 'scripts/lib', file);
+    const source = await readFile(path, 'utf8');
+    const declaration = `export async function ${name}(`;
+    assert.ok(source.includes(declaration));
+    await writeFile(path, `import { guardedWrite } from './write-test-guard.mjs';\n` + source.replace(declaration, `export async function ${name}(...args) { return guardedWrite('${name}', () => ${name}Impl(...args)); }\nasync function ${name}Impl(`));
+  }
+  const result = await f.run(['--concurrency', '2']).completion;
+  assert.equal(result.code, 0, result.output);
+  assert.equal(await exists(join(f.control, 'fixture-b.started')), false);
+  const recovered = await readJSON(statusPath);
+  assert.equal(recovered.state, 'illustration-unavailable');
+  assert.equal(recovered.phase, 'complete');
+  assert.equal(recovered.attempt, draft.attempt);
+  const events = (await readFile(join(f.control, 'repository-writes.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
+  assert.equal(events.filter(event => event.name === 'publishBundle' && event.event === 'start').length, 3);
+  assert.ok(events.some(event => event.name === 'updateReadingIndex'));
+  for (let i = 0; i < events.length; i += 2) {
+    assert.equal(events[i].event, 'start');
+    assert.deepEqual(events[i + 1], { name: events[i].name, event: 'finish' });
+  }
+  const index = await readJSON(join(f.repo, 'data/reading-index.json'));
+  assert.ok(index.entries.every(entry => entry.readingStatus === 'partial'));
+  const metadata = await readJSON(join(f.repo, 'data/illustrated-report-metadata.json'));
+  assert.deepEqual(Object.keys(metadata).sort(), ['fixture-a', 'fixture-b', 'fixture-c']);
+});
+test('index failures retain accepted publication context across retries without another reader', async t => {
+  const f = await runnerFixture(t, ['fixture-a']);
+  const reportsPath = join(f.repo, 'scripts/lib/reports.mjs');
+  const source = await readFile(reportsPath, 'utf8');
+  await writeFile(reportsPath, source.replace('export async function updateReadingIndex({ repository, workDir }) {', `export async function updateReadingIndex({ repository, workDir }) {
+    try { await readFile(join(process.env.ILLUSTRATED_CONTROL, 'allow-index')); }
+    catch { throw new Error('Injected reading-index failure'); }
+  `));
+  const first = await f.run().completion;
+  assert.equal(first.code, 1, first.output);
+  const statusPath = join(f.work, 'illustrated-runs/fixture-a/status.json');
+  const initial = await readJSON(statusPath);
+  assert.equal(initial.state, 'error');
+  assert.equal(initial.phase, 'publishing');
+  assert.match(initial.error, /Injected reading-index failure/);
+  assert.ok(initial.files.length);
+  const reportPath = join(f.repo, 'data/reports/fixture-a.json');
+  const acceptedHash = await fileHash(reportPath);
+  const second = await f.run(['--retry-errors']).completion;
+  assert.equal(second.code, 1, second.output);
+  const retried = await readJSON(statusPath);
+  assert.equal(retried.phase, 'publishing');
+  assert.equal(retried.attempt, initial.attempt);
+  assert.deepEqual(retried.files, initial.files);
+  assert.equal(await readFile(join(f.control, 'fixture-a.calls'), 'utf8'), '1');
+  await writeFile(join(f.control, 'allow-index'), '');
+  const third = await f.run(['--retry-errors']).completion;
+  assert.equal(third.code, 0, third.output);
+  const recovered = await readJSON(statusPath);
+  assert.equal(recovered.state, 'illustration-unavailable');
+  assert.equal(recovered.phase, 'complete');
+  assert.equal(recovered.attempt, initial.attempt);
+  assert.equal(await readFile(join(f.control, 'fixture-a.calls'), 'utf8'), '1');
+  assert.equal(await fileHash(reportPath), acceptedHash);
+  assert.equal((await readJSON(join(f.repo, 'data/reading-index.json'))).entries[0].readingStatus, 'partial');
 });
 test('preflight hash failure is private and does not prevent the next readable paper', async t => {
   const f = await runnerFixture(t, ['fixture-a', 'fixture-b']);
