@@ -1,0 +1,253 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.10107",
+  "shortTitle": "4D-WAM",
+  "thesis": "4D-WAM improves joint video-and-trajectory prediction by supervising generated futures with a frozen geometric teacher and emphasizing early decision timesteps, while keeping that teacher outside inference.",
+  "standfirst": "A driving model can draw a convincing future frame while placing a moving vehicle at the wrong distance. When video and trajectory predictions interact, that error can also distort the planned maneuver. 4D-WAM addresses this connection through training: a frozen VGGT-Ω compares the geometric features and depth inferred from predicted and recorded futures. A second change directs more training samples toward the high-noise region where action predictions stabilize. The figures below trace these mechanisms into NAVSIM results and ablations. Read the planning improvements alongside their boundaries: geometric targets are teacher estimates, and early agreement with a final trajectory does not itself establish that the trajectory is correct.",
+  "evidenceIds": [
+    "ev-problem",
+    "ev-architecture",
+    "ev-teacher",
+    "ev-early",
+    "ev-navtest-v2",
+    "ev-navhard"
+  ],
+  "featuredResultTask": "NAVSIM v2 navhard two-stage trajectory planning",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2608.10107/architecture.png",
+      "width": 1412,
+      "height": 566,
+      "sourceSha256": "97751f41743c415f9e13ecb1bbe30ca0a2575dd7398f75b8d5ee36ec767b19e0",
+      "sourceUrl": "https://arxiv.org/pdf/2608.10107#page=3",
+      "crop": [
+        0.085,
+        0.067,
+        0.915,
+        0.324
+      ],
+      "alt": "Separate action and video branches exchange attention representations. Predicted and recorded future frames enter a frozen geometric teacher, whose feature and depth losses send gradients back to the backbone. A three-group attention mask protects condition tokens.",
+      "caption": "Two interacting prediction experts receive geometric supervision during training.",
+      "readingGuide": "Start at the lower left: noisy actions and history-plus-noisy-video tokens enter different experts, then meet in the central MoT attention block. Outputs return to modality-specific processing. In the lower-right mask, C, V and A denote conditions, future video and actions. Reading rows as attending queries, the C row permits only C; V and A permit all groups, matching the caption and method text. Follow predicted frames into the orange training-only branch. Equation (6) clarifies that both predicted and recorded videos produce both features and depth. The snowflake freezes teacher parameters, while the dashed red arrow carries loss gradients back toward the backbone.",
+      "takeaway": "The geometry model supervises the video-producing pathway during training, while mixed attention connects that pathway to trajectory prediction. This architecture explains how a geometric training objective can influence planning without adding a geometric teacher to the inference sequence. The backbone still predicts both video and actions.",
+      "caution": "The teacher’s responses to recorded RGB frames are estimated targets, not measured physical ground truth. The schematic is consistent with the stated attention mask, but it does not specify exact checkpoint sizes or how the two branches’ sampled noise levels are coupled.",
+      "evidenceIds": [
+        "ev-architecture",
+        "ev-teacher"
+      ]
+    },
+    {
+      "id": "early-decision",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/2608.10107/early-decision.png",
+      "width": 1412,
+      "height": 267,
+      "sourceSha256": "97751f41743c415f9e13ecb1bbe30ca0a2575dd7398f75b8d5ee36ec767b19e0",
+      "sourceUrl": "https://arxiv.org/pdf/2608.10107#page=4",
+      "crop": [
+        0.085,
+        0.067,
+        0.915,
+        0.188
+      ],
+      "alt": "A future frame and ego trajectory after denoising step one resemble those after step twenty. An orange action-to-final MSE curve drops sharply near noise level one, with a marked decision boundary at 0.90 and separate decision and refinement regions.",
+      "caption": "Most trajectory change occurs near the start of the illustrated denoising process.",
+      "readingGuide": "Compare the left pair of future-frame and trajectory panels with the middle pair: they show clean estimates after steps one and twenty, not observations at different driving times. Both future images concern the four-second horizon. Then read the curve from left to right: the horizontal noise coordinate decreases from one to zero. Its vertical quantity is mean squared difference from the final twenty-step action prediction, aggregated over 1,000 NAVSIM validation scenes. The marked boundary at 0.90 separates the high-noise decision region from later refinement. Equation (11) assigns the boundary itself to the decision region, consistent with the sampling formulation.",
+      "takeaway": "The diagnostic supports the authors’ interpretation that the model selects much of its maneuver early, with later steps refining an already similar prediction. It motivates allocating more geometric supervision to high-noise training examples. This is an empirical observation about the examined rollout and validation sample.",
+      "caution": "Action-to-final MSE measures agreement with the model’s own final output. A wrong maneuver can converge early too. The illustrated frame pair and averaged curve do not show maneuver-specific exceptions, seed variability or ground-truth trajectory error at the decision boundary.",
+      "evidenceIds": [
+        "ev-early",
+        "ev-sampler"
+      ]
+    },
+    {
+      "id": "navtest-v2",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 5,
+      "asset": "report-assets/2608.10107/navtest-v2.png",
+      "width": 1412,
+      "height": 770,
+      "sourceSha256": "97751f41743c415f9e13ecb1bbe30ca0a2575dd7398f75b8d5ee36ec767b19e0",
+      "sourceUrl": "https://arxiv.org/pdf/2608.10107#page=5",
+      "crop": [
+        0.085,
+        0.066,
+        0.915,
+        0.416
+      ],
+      "alt": "NAVSIM v2 navtest comparison across vision methods, VLAs and WAMs. The 4D-WAM row reports one camera and EPDMS 90.6, compared with DriveFine 89.7 and Metis 89.5. All component columns and the ranking/RL note are retained.",
+      "caption": "The strongest learned aggregate score comes with uneven component performance.",
+      "readingGuide": "Begin with the rightmost EPDMS column, then trace each candidate back through its component scores and sensor entry. Bold and underline mark the best and second-best learned results; the human row is a separate reference. The retained note identifies reinforcement-learning fine-tuning through the RL superscript. NC concerns at-fault collisions; DAC, DDC and TLC concern drivable area, driving direction and traffic lights. EP and TTC describe progress and time to collision. LK is lane keeping; HC and EC concern history and extended comfort. The 4D-WAM row uses a single camera, but other rows differ in sensor configuration and training approach.",
+      "takeaway": "4D-WAM reaches 90.6 EPDMS, ahead of DriveFine’s 89.7 by 0.9 points and Metis’s 89.5 by 1.1 points. Its strong collision, direction, progress and time-to-collision components support the aggregate result. The 94.5 human reference remains higher, and several learned competitors lead individual components.",
+      "caution": "The table does not establish uniform superiority: 4D-WAM’s traffic-light compliance is 97.3 and lane keeping is 86.9. Different sensors and training regimes prevent a controlled architectural comparison; no confidence intervals accompany the reported scores.",
+      "evidenceIds": [
+        "ev-navtest-v2",
+        "ev-metrics"
+      ]
+    },
+    {
+      "id": "navhard-v2",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 6,
+      "asset": "report-assets/2608.10107/navhard-v2.png",
+      "width": 1412,
+      "height": 918,
+      "sourceSha256": "97751f41743c415f9e13ecb1bbe30ca0a2575dd7398f75b8d5ee36ec767b19e0",
+      "sourceUrl": "https://arxiv.org/pdf/2608.10107#page=6",
+      "crop": [
+        0.085,
+        0.066,
+        0.915,
+        0.483
+      ],
+      "alt": "Paired S1 and S2 rows compare real-observation and synthetic follow-up planning on NAVSIM v2 navhard. The final EPDMS column reports 35.9 for 4D-WAM, 32.2 for Metis, 30.6 for DriveLaW and 30.5 for DriveFine; the stage-definition note is retained.",
+      "caption": "4D-WAM’s largest highlighted benchmark gain appears in the two-stage navhard setting.",
+      "readingGuide": "Read each method as a pair of rows. S1 evaluates the real-observation stage; S2 evaluates the synthetic follow-up stage. The far-right EPDMS entry summarizes the full two-stage protocol, so it is neither an S1-only nor an S2-only score. First compare these aggregate entries, then inspect the paired component values to see where gains or losses occur. For example, 4D-WAM’s collision score is lower than DriveFine’s in S1 but higher in S2. This structure matters for the paper’s argument: the authors associate its synthetic-follow-up performance with coherent predicted geometry and motion. The table establishes planning scores, while that causal explanation also depends on the ablations.",
+      "takeaway": "The final score is 35.9, exceeding Metis’s 32.2 by 3.7 points. 4D-WAM also leads several S2 components, including collision, direction, progress, time-to-collision and lane keeping. These results strengthen the case for improved planning under the benchmark’s difficult follow-up observations.",
+      "caution": "4D-WAM’s S1 collision score is 92.8 versus DriveFine’s 97.6, so the aggregate gain should not be described as universal safety improvement. Navhard’s two-stage benchmark also does not establish performance in unrestricted physical driving.",
+      "evidenceIds": [
+        "ev-navhard",
+        "ev-metrics",
+        "ev-components"
+      ]
+    },
+    {
+      "id": "component-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 7,
+      "asset": "report-assets/2608.10107/component-ablation.png",
+      "width": 1275,
+      "height": 440,
+      "sourceSha256": "97751f41743c415f9e13ecb1bbe30ca0a2575dd7398f75b8d5ee36ec767b19e0",
+      "sourceUrl": "https://arxiv.org/pdf/2608.10107#page=7",
+      "crop": [
+        0.095,
+        0.395,
+        0.47,
+        0.495
+      ],
+      "alt": "Cumulative component ablation with rows for base WAM, history, feature loss, depth loss and sampling. EPDMS increases through 88.8, 89.6, 90.1, 90.4 and 90.6; collision, drivable-area, progress, lane-keeping and comfort columns remain visible.",
+      "caption": "Geometric supervision and timestep sampling add gains after historical conditioning.",
+      "readingGuide": "Read downward as cumulative additions, as specified by the source caption. The feature-loss row already contains historical conditioning, and the sampling row includes both geometric losses. Follow the EPDMS column to separate the increments associated with each addition. Then inspect component columns: adding feature loss raises NC from 98.4 to 99.0, while depth loss raises EPDMS from 90.1 to 90.4. The last row is the complete reported configuration. Sampling means the decision-oriented training distribution, not a change to the camera history or the number of inference steps. The component values help reveal that a higher aggregate need not improve every individual metric.",
+      "takeaway": "The sequence improves EPDMS from 88.8 to 90.6. After history reaches 89.6, feature and depth consistency bring the score to 90.4; sampling then reaches 90.6. This supports contributions beyond historical conditioning, though the cumulative design alone does not identify independent effects or interactions.",
+      "caution": "Table 5’s uniform-sampling configuration scores 90.2, whereas this table’s row before adding sampling scores 90.4. The source does not explain that difference. Preserve both values; neither table reports variability sufficient to reconcile them statistically.",
+      "evidenceIds": [
+        "ev-components",
+        "ev-sampling"
+      ]
+    },
+    {
+      "id": "sampling-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 5",
+      "page": 7,
+      "asset": "report-assets/2608.10107/sampling-ablation.png",
+      "width": 1064,
+      "height": 255,
+      "sourceSha256": "97751f41743c415f9e13ecb1bbe30ca0a2575dd7398f75b8d5ee36ec767b19e0",
+      "sourceUrl": "https://arxiv.org/pdf/2608.10107#page=7",
+      "crop": [
+        0.127,
+        0.579,
+        0.44,
+        0.637
+      ],
+      "alt": "Six decision-region allocations from 10% to 60%, corresponding noise-shift parameters, and EPDMS scores. The 50% allocation with s=9 peaks at 90.6; 10% yields 90.2 and 60% yields 90.1.",
+      "caption": "A balanced emphasis on high-noise training outperforms the most aggressive tested allocation.",
+      "readingGuide": "Each column is a training distribution. The top row gives the probability mass ρ_dec assigned to noise levels at or above the 0.90 decision boundary; the second row gives the corresponding shift parameter s from Equation (12). Uniform sampling is the first column: because the decision interval occupies the upper tenth of the noise range, its probability is 10%. Moving right reallocates training examples toward that interval. The third row reports EPDMS for each choice. These percentages are not fractions of inference steps executed, and s is not a denoising-step count. Compare the peak column with both the uniform baseline and the more concentrated 60% setting.",
+      "takeaway": "The best tested allocation is 50%, with s=9 and EPDMS 90.6, compared with 90.2 under uniform sampling. Increasing the decision-region mass to 60% lowers the score to 90.1. The reported trend favors emphasizing early decision formation while retaining substantial training coverage for refinement.",
+      "caution": "The explanation that excessive high-noise emphasis harms refinement is the authors’ interpretation of the score drop. The table does not directly measure refinement quality or establish a universal optimum; uncertainty and a separate hyperparameter-selection protocol are not reported.",
+      "evidenceIds": [
+        "ev-early",
+        "ev-sampler",
+        "ev-sampling"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Protect observed history while letting video and actions interact",
+      "text": "Start from the information the planner actually receives: three historical front-view frames, the current observation, ego state and a textual instruction. The VAE turns the visual history into clean conditioning latents. Future-video latents and trajectory tokens begin noisy, so permitting them to rewrite the conditioning representation would mix predictions back into the observed anchor. The paper’s mask prevents that particular attention path: condition queries see conditions, while video and action queries can see all groups. Separate DiT experts preserve modality-specific processing, but concatenated query, key and value representations allow joint reasoning at each layer. This is the architectural basis for the Dual-system × Joint prediction assessment. The term dual refers here to the video and action experts; the geometric teacher is a training component outside their inference loop.",
+      "kind": "source",
+      "evidenceIds": [
+        "ev-architecture",
+        "ev-training"
+      ]
+    },
+    {
+      "heading": "Make generated futures comparable to geometric targets",
+      "text": "The geometry teacher expects clean RGB, while a training example contains noisy video latents. The model therefore first subtracts predicted velocity scaled by the noise level to estimate a clean latent, then decodes it. Both that decoded future and the recorded future pass separately through frozen VGGT-Ω. Their features supervise broad scene structure, and their depth responses supervise local geometric relationships. The supplement makes the objective concrete: feature distances cover layers 11, 17 and 23 and camera, register and pooled patch tokens; depth supervision excludes invalid pixels and each frame’s lowest-confidence portion. Both geometric terms have weight one and enter gradually during Stage II. Reader interpretation: this teaches the backbone to agree with a particular geometry estimator. It does not independently prove that the predicted scene satisfies physical dynamics.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-teacher",
+        "ev-feature-impl",
+        "ev-depth-impl",
+        "ev-training"
+      ]
+    },
+    {
+      "heading": "Connect early convergence to training allocation and inference cost",
+      "text": "Figure 3 defines early decision through agreement with the model’s final twenty-step trajectory. The authors place the decision boundary at noise level 0.90, then adjust a rational transform of uniform samples so half the training mass falls above that boundary. Table 5 supplies the empirical reason for choosing that allocation: its 90.6 EPDMS exceeds both uniform sampling and the more concentrated 60% setting. Training allocation and inference truncation are separate choices. Table 6 tests the latter and reports 90.5 EPDMS at two steps versus 90.6 at ten, with RTX 4090 latency falling from 0.79 to 0.31 seconds. Reader interpretation: the results suggest an economical operating point, but the convergence diagnostic should also be checked against ground-truth errors and collision outcomes before early stability is treated as evidence of a correct decision.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-early",
+        "ev-sampler",
+        "ev-sampling",
+        "ev-latency"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate geometric supervision from timestep allocation",
+      "text": "Reader-proposed experiment, not performed: start every run from the same Stage-I checkpoint and hold historical input, Stage-II duration, optimizer schedule and inference settings fixed. Cross four geometric objectives—none, feature only, depth only and both—with uniform versus 50% decision-region sampling. Use several matched seeds and the same held-out NAVSIM scenes; report EPDMS and its safety/progress components with paired uncertainty. First resolve why Tables 4 and 5 give different presampling/uniform scores. A repeatable interaction in which geometric supervision benefits more under shifted sampling would support the proposed mechanism. Similar sampling gains without geometry would weaken the claim that its benefit specifically comes from directing 4D supervision toward decisions.",
+      "evidenceIds": [
+        "ev-training",
+        "ev-feature-impl",
+        "ev-depth-impl",
+        "ev-components",
+        "ev-sampling"
+      ]
+    },
+    {
+      "title": "Test whether early stability identifies correct trajectories",
+      "text": "Reader-proposed experiment, not performed: reproduce the twenty-step diagnostic on a fixed NAVSIM validation sample, stratified by maneuver and difficult interactions. At every step, record both action-to-final MSE and error to the recorded trajectory, then evaluate collision and progress outcomes using the same benchmark protocol. Compare the full model with its variant without geometric supervision, holding the sampled initial noise fixed, and separately compare two-step with ten-step inference. Stable trajectories that remain wrong or collision-prone would falsify using early convergence as a correctness indicator. Report latency with explicit batch size, included operations and repeated measurements, rather than assuming Table 6’s timing transfers to another setup.",
+      "evidenceIds": [
+        "ev-early",
+        "ev-metrics",
+        "ev-qualitative",
+        "ev-latency"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      10,
+      11,
+      12
+    ],
+    "notes": "Visually inspected the title/authors/version and Figure 1 on p. 1; motivation and method opening on p. 2; architecture, attention mask and equations on p. 3; teacher losses and early-decision diagnostic on p. 4; Tables 1–2, metrics and training hardware/schedule on p. 5; Table 3 and ablation discussion on p. 6; Figure 4, Tables 4–6 and conclusion on p. 7; all loss implementation and Epona protocol details on p. 10; Figure S1 on p. 11; and Figure S2, qualitative case interpretation and Waymo scope on p. 12. All six final crops were inspected. Table 1 and Table 3 retain their short explanatory notes for ranking/RL and stage definitions. Figure 2’s arrows, frozen-teacher marker and attention mask were checked against its caption and Eqs. (1)–(9); Figure 3’s decreasing noise axis and region boundary were checked against Eqs. (10)–(13). Reference pages 8–9 were read as text only. No separate supplementary artifact or code was inspected."
+  }
+}
