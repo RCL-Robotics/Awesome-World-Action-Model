@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.14997",
+  "shortTitle": "AeroAct",
+  "thesis": "AeroAct uses one Transformer to learn trajectory actions and their visual consequences, then removes future-video prediction for flight; temporal history is strongly supported in simulation, while physical evidence remains a short indoor demonstration.",
+  "standfirst": "A quadrotor's camera moves with every action, so recognizing a requested object is only part of the problem: the policy must also infer motion and produce a trajectory the controller can follow. AeroAct addresses this through a video-model backbone trained on paired observations and flight actions. Its crucial design choice is directional information flow. Future-image prediction can learn from actions, but actions cannot read future-image tokens. That lets deployment keep action prediction and discard video generation. Read the architecture alongside the history ablations: the former explains what is possible, while the latter establishes which reported change most clearly improves closed-loop behavior.",
+  "evidenceIds": [
+    "E02",
+    "E04",
+    "E05",
+    "E13",
+    "E16"
+  ],
+  "featuredResultTask": "Closed-loop target tracking with temporal history",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2607.14997/architecture.png",
+      "width": 1602,
+      "height": 855,
+      "sourceSha256": "feed93b669c5deb741b7296f2e373f7cfbb67d738ed90f33794905d4e2920255",
+      "sourceUrl": "https://arxiv.org/pdf/2607.14997#page=4",
+      "crop": [
+        0.182,
+        0.091,
+        0.81,
+        0.35
+      ],
+      "alt": "A shared DiT receives state, reference-image, action and future-image tokens. A query-by-key attention matrix blocks future-image keys from action queries. A dashed box marks future-video components disabled at inference.",
+      "caption": "The attention mask makes visual consequence learning compatible with action-only deployment.",
+      "readingGuide": "Begin with the bottom encoders and follow their outputs into the shared DiT bar. Language enters through the left cross-attention arrow. Then read the matrix by query row and key column: Ts denotes state tokens, To reference observations, Ta actions and Tf future observations. Solid cells allow attention; hatched cells block it. The Ta row cannot read Tf, while the Tf row can read every group. This matches Section 3.2 on page 5. Snowflakes mark frozen text/VAE components; flames identify trained components. Finally, follow the action decoder upward and contrast its retained path with the dashed future-video branch disabled for inference.",
+      "takeaway": "The architecture provides a verifiable basis for the One Model classification: modalities share a DiT, and action prediction does not require future-image tokens. The visual loss can still shape shared parameters during training. This mechanism explains why removing the future branch at deployment is consistent with the model's information dependencies.",
+      "caution": "The mask establishes a dependency constraint, not the size of the visual loss's benefit. The reported experiments do not isolate auxiliary video supervision from temporal history and pretrained representations. The mask and prose agree; no graphic correction has been applied.",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05",
+        "E13",
+        "E14"
+      ]
+    },
+    {
+      "id": "self-guidance",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 6,
+      "asset": "report-assets/2607.14997/self-guidance.png",
+      "width": 1582,
+      "height": 393,
+      "sourceSha256": "feed93b669c5deb741b7296f2e373f7cfbb67d738ed90f33794905d4e2920255",
+      "sourceUrl": "https://arxiv.org/pdf/2607.14997#page=6",
+      "crop": [
+        0.19,
+        0.09,
+        0.81,
+        0.209
+      ],
+      "alt": "A timeline shows overlapping results from inference calls n and n+1, filled triangles for inference starts, open triangles for completion, and an upward overwrite arrow between the old suffix and new prefix.",
+      "caption": "The next action chunk inherits an overlapping reference while the previous chunk remains in control.",
+      "readingGuide": "Read left to right along the time axis. Filled triangles mark inference starts and open triangles mark completion; the braces above indicate which result controls the vehicle. Result n still supplies commands while inference n+1 runs. The upward overwrite arrow transfers information from the older chunk into the new chunk's overlapping prefix. Equations (6a)–(6b) specify this operation during denoising: inference latency determines the prefix length, the inference interval selects the older suffix, and the remaining horizon follows the model's sampling update. The figure's arrow direction agrees with that formulation. The diagram is schematic and carries no measured time scale.",
+      "takeaway": "Self-guidance addresses disagreement between consecutive samples without adding a Transformer expert or changing the action representation. The intended benefit is continuity when control switches to a newly completed chunk. It connects the policy's sampling procedure to the practical fact that an older prediction must remain usable during inference.",
+      "caution": "The figure and equations describe a sampler operation; they do not report measured jerk reduction or a guidance-on/off ablation. The prefix update should not be interpreted as simply overwriting the quadrotor's measured physical velocity. Latency and action timestamps remain implementation-critical.",
+      "evidenceIds": [
+        "E08",
+        "E09",
+        "E15"
+      ]
+    },
+    {
+      "id": "tracking-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 13,
+      "asset": "report-assets/2607.14997/tracking-ablation.png",
+      "width": 1558,
+      "height": 561,
+      "sourceSha256": "feed93b669c5deb741b7296f2e373f7cfbb67d738ed90f33794905d4e2920255",
+      "sourceUrl": "https://arxiv.org/pdf/2607.14997#page=13",
+      "crop": [
+        0.193,
+        0.657,
+        0.804,
+        0.827
+      ],
+      "alt": "Tracking table compares one-frame AeroAct, nine-frame AeroAct and nine-frame AeroAct-FT at 1, 2 and 5 Hz, with visibility, centering, final-distance and collision metrics.",
+      "caption": "Visual history changes tracking outcomes more decisively than increasing query frequency in the single-frame policy.",
+      "readingGuide": "First compare rows at the same frequency across the three checkpoint groups. Each setting uses 20 trajectories. View success is the percentage of trajectories with the target visible for at least 80% of their duration; In-view averages visibility, while Centered uses the stricter image-offset threshold of 0.25. Those columns and collision are percentages; distance is in meters. At 1 Hz, compare the first and fourth rows to isolate the reported history contrast. Next move within the nine-frame block to inspect frequency effects. AeroAct-FT is the checkpoint after real-world finetuning. The source holds scenes, camera, controller and inference-server interface fixed.",
+      "takeaway": "At 1 Hz, nine-frame AeroAct raises view success from 20% to 100% and lowers collision from 90% to zero. Increasing its frequency from 1 to 5 Hz raises the centered-target rate from 64.2% to 78.7%, but the 5 Hz row also records 5% collision. Visibility and safety are distinct outcomes.",
+      "caution": "A 100% view-success entry does not certify collision-free tracking. These are small reported evaluation sets without repeated-seed uncertainty. The history contrast does not separately identify the effects of the pretrained video model, visual loss or self-guidance.",
+      "evidenceIds": [
+        "E10",
+        "E13",
+        "E05",
+        "E08"
+      ]
+    },
+    {
+      "id": "searching-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 14,
+      "asset": "report-assets/2607.14997/searching-ablation.png",
+      "width": 1451,
+      "height": 558,
+      "sourceSha256": "feed93b669c5deb741b7296f2e373f7cfbb67d738ed90f33794905d4e2920255",
+      "sourceUrl": "https://arxiv.org/pdf/2607.14997#page=14",
+      "crop": [
+        0.214,
+        0.394,
+        0.783,
+        0.563
+      ],
+      "alt": "Searching table reports success, collision and final distance for three checkpoints at 1, 2 and 5 Hz. Both nine-frame checkpoints have 100% success and zero collision in every row.",
+      "caption": "Nine-frame context sustains object-search performance across the tested query frequencies.",
+      "readingGuide": "Use the same row-group structure as the tracking table, but change the meaning of success. Appendix A.2 on page 13 requires either environment success or entry within 2.0 meters of the object, together with no collision. Percentages are computed over 20 search episodes per setting, and final distance is measured in meters. The first block shows the single-frame policy; the next two show nine-frame AeroAct before and after real-world finetuning. Compare frequency-matched rows before comparing frequencies within one model. The near-two-meter distances should be read in the context of this stopping/success criterion rather than as object-contact accuracy.",
+      "takeaway": "Nine-frame AeroAct and AeroAct-FT each achieve 100% success with zero collision at 1, 2 and 5 Hz. Single-frame success falls from 90% to 75% between 1 and 5 Hz. The reported results support the usefulness of history and show retained simulation search performance after real-world finetuning.",
+      "caution": "The table concerns the specified simulation search protocol, not a physical-flight success rate or unrestricted language generalization. The source gives no confidence intervals. Appendix collision formulas include termination events, so exact reproduction requires matching the environment's termination semantics.",
+      "evidenceIds": [
+        "E10",
+        "E11",
+        "E14"
+      ]
+    },
+    {
+      "id": "unseen-objects",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "asset": "report-assets/2607.14997/unseen-objects.png",
+      "width": 1362,
+      "height": 264,
+      "sourceSha256": "feed93b669c5deb741b7296f2e373f7cfbb67d738ed90f33794905d4e2920255",
+      "sourceUrl": "https://arxiv.org/pdf/2607.14997#page=7",
+      "crop": [
+        0.231,
+        0.28,
+        0.765,
+        0.36
+      ],
+      "alt": "Unseen-object search table shows one-frame AeroAct at 3.819 meters, 75% success and 25% collision; nine-frame AeroAct at 1.983 meters, 100% and zero; and the finetuned model at 1.988 meters, 100% and zero.",
+      "caption": "The separate unseen-object comparison favors temporal context, although its split is incompletely specified.",
+      "readingGuide": "Read the first two columns to identify the checkpoint and reference-frame count, then compare distance, success and collision across rows. The surrounding results text supplies meters for final distance; success and collision are percentages. The one-frame model ends at an average 3.819 meters, while the nine-frame model ends at 1.983 meters. Both nine-frame checkpoints reach the reported 100% success and zero-collision outcomes. Do not use boldface as a ranking rule: the source also bolds the poorer single-frame values. Keep this table separate from the frequency sweep in Appendix Table 4 because its table-specific frequency and episode count are not given.",
+      "takeaway": "For the reported unseen targets, nine reference frames improve success from 75% to 100% and reduce average final distance from 3.819 to 1.983 meters. The finetuned checkpoint preserves the same success and collision percentages, with 1.988 meters average final distance. This supports transfer within the paper's reported object-search setting.",
+      "caution": "The identities and construction of the unseen-object split are unspecified, as are this table's episode count and query frequency. The faithful crop preserves the inconsistent emphasis; the numerical values, column directions and surrounding text determine the interpretation.",
+      "evidenceIds": [
+        "E12",
+        "E14"
+      ]
+    },
+    {
+      "id": "physical-flight",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 6",
+      "page": 8,
+      "asset": "report-assets/2607.14997/physical-flight.png",
+      "width": 1565,
+      "height": 442,
+      "sourceSha256": "feed93b669c5deb741b7296f2e373f7cfbb67d738ed90f33794905d4e2920255",
+      "sourceUrl": "https://arxiv.org/pdf/2607.14997#page=8",
+      "crop": [
+        0.192,
+        0.326,
+        0.806,
+        0.46
+      ],
+      "alt": "Two views of a netted laboratory show a quadrotor flight sequence and a red trajectory leading toward a vertical yellow foam mat.",
+      "caption": "The physical demonstration connects the learned trajectory interface to a quadrotor in a laboratory.",
+      "readingGuide": "Locate the yellow mat and follow the red trajectory and overlaid quadrotor positions in each view. The accompanying text identifies the instruction as flying to the yellow foam mat; the figure itself has no metric axes or timing scale. Read it together with the hardware description on page 7 and Figure 5: observations and state feed a remote inference process, returned action chunks become local trajectories, and on-manifold MPC tracks them. The experiment uses motion capture for state measurement and safety monitoring. This is evidence of execution on a physical platform, while quantitative comparisons elsewhere in the paper come from simulation.",
+      "takeaway": "The authors demonstrate that the learned action interface can guide a physical quadrotor toward a language-specified target. The figure makes the full perception-to-trajectory-to-controller connection concrete. It supports feasibility in the displayed indoor setting, alongside the source's explicit reliance on offboard inference and short trajectories.",
+      "caution": "The montage supplies no repeated-trial success rate, calibrated tracking error or measured speed. The flight configuration reports roughly 0.8-second inference latency, distinct from the four-step action-only timing comparison. Outdoor, aggressive and multistage flight are not established by this demonstration.",
+      "evidenceIds": [
+        "E15",
+        "E16",
+        "E17"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Understand what the action decoder actually commands",
+      "text": "Start with Appendix A.1 rather than interpreting the action decoder as a motor-command head. The input state contains velocity, acceleration and the body-z direction in a yaw-aligned local frame. Each nine-dimensional action gives a displacement through r, theta and psi, then endpoint velocity and acceleration. Those endpoint conditions, together with the starting state, determine a fifth-order position polynomial for a two-second segment in each spatial coordinate. The negative sign in the vertical displacement formula must be preserved. The policy predicts a chunk of these specifications; the controller subsequently tracks local trajectories. Reader interpretation: this interface places part of the execution structure outside the learned decoder. Smooth segment parameterization alone does not prove obstacle avoidance or guarantee that independently sampled neighboring chunks agree, which motivates the separate self-guidance procedure.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E03",
+        "E09",
+        "E08",
+        "E15"
+      ]
+    },
+    {
+      "heading": "Separate shared training from future-video dependence",
+      "text": "During training, state, reference-image, action and future-image tokens share one DiT, while language supplies cross-attention context. The action and visual prediction losses both train the shared system. But shared parameters do not imply unrestricted token access: the action-query row cannot read future-image keys, and context queries cannot read either predicted group. Future queries can read the action group, giving visual forecasting an action-conditioned role. At deployment, removing future tokens therefore preserves the action branch's declared inputs. The source reports a four-denoising-step time reduction from 0.296 to 0.184 seconds, but separately gives about 0.8 seconds for the flight setup. Reader interpretation: the architecture supports the proposed dependency separation; the size of the training benefit still requires a controlled loss ablation, and the timing numbers require distinct protocol labels.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E04",
+        "E05",
+        "E17",
+        "E15",
+        "E13",
+        "E14"
+      ]
+    },
+    {
+      "heading": "Read history, frequency and success as separate variables",
+      "text": "The appendix compares three checkpoints under shared scenes, camera, controller and inference-server conditions, sweeping policy queries at 1, 2 and 5 Hz. Begin with matched-frequency one-frame versus nine-frame rows. For tracking at 1 Hz, view success changes from 20% to 100%; however, tracking success only requires visibility during at least 80% of the trajectory. The nine-frame 5 Hz row can consequently show 100% view success alongside 5% collision. Searching uses a different success definition: entering a two-meter radius or receiving environment success, with no collision. This explains why search endpoints near two meters should not be read as precise docking. Reader interpretation: temporal context has the clearest reported controlled support, while general language competence, visual-loss necessity and physical-flight reliability remain separate questions requiring additional evidence.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E10",
+        "E13",
+        "E14",
+        "E16"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does visual consequence supervision add value after history is fixed?",
+      "text": "Reader-proposed comparison, not performed: start matched training runs from the same Wan checkpoint, using identical nine-frame histories, demonstrations, action representation, optimizer steps and random seeds. Compare the reported joint objective against an action-only objective with the visual-loss weight set to zero. Keep the action attention mask and deployment sampler unchanged, and report training compute separately. Evaluate both on identical saved tracking trajectories and object-search episodes at a fixed query frequency. Log visibility, search success and collision using the appendix definitions over repeated seeds. A reproducible closed-loop advantage for joint training would support the auxiliary-supervision mechanism; indistinguishable outcomes would leave the history explanation sufficient for these tasks.",
+      "evidenceIds": [
+        "E04",
+        "E05",
+        "E07",
+        "E10",
+        "E13",
+        "E14"
+      ]
+    },
+    {
+      "title": "Does overlap guidance improve continuity without delaying recovery?",
+      "text": "Reader-proposed comparison, not performed: use one trained checkpoint and identical simulation starts, controller settings, random draws and measured server latency, toggling only Equations (6a)–(6b)'s prefix guidance. Record each inference start/completion timestamp and compare the old and new trajectory references at handoff in position, velocity and acceleration; also record controller tracking error, target visibility and collision. Sweep imposed latency and include a repeatable target-direction change just before replanning. Guidance should reduce handoff discontinuity if the claimed mechanism works. If it preserves stale motion long enough to increase collisions or impair target reacquisition, continuity would reveal a responsiveness tradeoff rather than an unconditional control improvement.",
+      "evidenceIds": [
+        "E08",
+        "E09",
+        "E10",
+        "E13",
+        "E15"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      12,
+      13,
+      14
+    ],
+    "notes": "Actually inspected the title/author/version page; Figures 1–6; Tables 1–4; method, loss, sampler and local-polynomial equations; training/hardware/timing paragraphs; metric definitions; and limitations/conclusion on the declared PDF pages. Figure 2's query/key mask and Figure 4's overwrite direction were cross-checked against their captions and method equations. All six final original crops were viewed, including the corrected architecture crop. Table 2's boldface inconsistency is preserved and explained. Full text, including reference-only pages 10–11 and Appendix A.1–A.3, was read across all four supplied chunks. Separate supplemental availability remains unverified; code and experiments were not inspected or reproduced."
+  }
+}
