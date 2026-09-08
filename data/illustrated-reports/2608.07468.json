@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.07468",
+  "shortTitle": "SimWAM",
+  "thesis": "SimWAM uses future-video prediction to train a direct trajectory policy, trading explicit test-time imagination for dependence on the quality of learned current-observation features.",
+  "standfirst": "A driving planner can benefit from learning how scenes evolve without rendering those futures every time it acts. SimWAM makes that separation explicit with two diffusion transformers and an attention mask: future video and trajectories are supervised together, but action tokens cannot read future-frame tokens. This edition follows the information flow before examining what the experiments establish. The strongest NAVSIM result includes reinforcement learning, the harder NAVSIM-v2 evaluation uses imitation alone, and nuScenes transfer measures open-loop predictions. The central lesson is a useful training/inference separation, supported by component and timing studies whose small differences and deployment implications need careful interpretation.",
+  "evidenceIds": [
+    "e04",
+    "e07",
+    "e09",
+    "e10",
+    "e11",
+    "e13",
+    "e16",
+    "e19"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "width": 1091,
+      "height": 564,
+      "crop": [
+        0.18,
+        0.102,
+        0.822,
+        0.358
+      ],
+      "alt": "SimWAM diagram with a video VAE and video DiT above an action encoder and action DiT, text and ego encoders below, isolated training and inference attention matrices in the center, and future video outputs marked removed during inference and RL.",
+      "caption": "Separate video and action experts share attention to the present, while the mask blocks future-to-action dependence.",
+      "readingGuide": "Start with the left-hand inputs: the current frame and training-time future frames enter the video VAE, noisy actions enter the action encoder, and text and ego state provide conditioning. In the center, f0 marks current-frame tokens, f1 through fn mark future frames, and a1 through an mark actions. Follow the colored attention cells: future tokens and action tokens can use f0, but their cross-block cells are empty. The smaller inference matrix keeps the current frame and actions only. The right-hand dashed video outputs are removed during inference and RL; the trajectory output and reward branch remain relevant to action generation and policy training.",
+      "takeaway": "The diagram makes the deployment simplification concrete. Future-video prediction is a supervised training task whose influence passes through learned current-observation features. It is not a required intermediate prediction before each trajectory. The two DiTs retain separate parameters despite their common attention interface, supporting the paper's modular architecture claim.",
+      "caution": "Removing future-frame generation does not mean removing every computation inherited from the video expert. Current-image representation is still required. The reward symbols depict policy training, not a claim that the learned video generator supplies the NAVSIM reward.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e07",
+        "e08"
+      ],
+      "asset": "report-assets/2608.07468/architecture.png",
+      "sourceSha256": "6f55da6df120d809adf3d739a3b03b6d385d49a126445836a06ccd189303abcf",
+      "sourceUrl": "https://arxiv.org/pdf/2608.07468#page=4"
+    },
+    {
+      "id": "navsim-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "width": 1385,
+      "height": 696,
+      "crop": [
+        0.173,
+        0.141,
+        0.825,
+        0.394
+      ],
+      "alt": "NAVSIM comparison table grouped into traditional, VLM-based and world-model-based planners, with sensor inputs, five driving submetrics and PDMS. The shaded SimWAM row reports 91.5 PDMS.",
+      "caption": "The reinforced model leads the listed learned planners in aggregate NAVSIM score.",
+      "readingGuide": "Read the sensor column before ranking methods: C denotes camera and L denotes LiDAR, so some rows use more views or another sensor modality. SimWAM uses one front camera. Move across its shaded row from NC, no collision, through DAC, drivable-area compliance, EP, ego progress, TTC, time-to-collision, and C, comfort, to the aggregate PDMS. These metrics are higher-is-better. The reported setup trains on 103,288 navtrain scenes and evaluates all 12,146 navtest scenes. This table uses SimWAM after reinforcement learning; its score should not be exchanged with the imitation-checkpoint values in the attention, timing or NAVSIM-v2 experiments.",
+      "takeaway": "SimWAM reports 91.5 PDMS versus 91.1 for SGDrive, 90.1 for DriveWAM and 89.1 for DriveLaW. The gain over DriveWAM is 1.4 score points. Human Agent remains higher at 94.8. SimWAM's strongest aggregate result does not mean it leads every individual submetric.",
+      "caution": "NAVSIM is a non-reactive planning benchmark. The rows differ in sensors, pretraining and optimization, so this ranking does not isolate the attention mask's causal effect or establish physical driving safety. The table supplies no repeated-run uncertainty.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e13"
+      ],
+      "asset": "report-assets/2608.07468/navsim-results.png",
+      "sourceSha256": "6f55da6df120d809adf3d739a3b03b6d385d49a126445836a06ccd189303abcf",
+      "sourceUrl": "https://arxiv.org/pdf/2608.07468#page=6"
+    },
+    {
+      "id": "navhard-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 7,
+      "width": 1385,
+      "height": 602,
+      "crop": [
+        0.173,
+        0.355,
+        0.825,
+        0.574
+      ],
+      "alt": "NAVSIM-v2 navhard table with paired S1 and S2 rows per method. SimWAM has overall EPDMS 37.6, with stage-two no-collision 81.8, drivable-area compliance 78.6 and lane keeping 49.5.",
+      "caption": "The two-stage benchmark reveals both a comparative gain and substantial remaining difficulty.",
+      "readingGuide": "Each method occupies two rows. S1 evaluates real-world scenarios; S2 re-evaluates corresponding synthesized scenarios with reactive traffic agents, as described in the benchmark setup. Read each submetric vertically to see the change between stages, then use the rightmost EPDMS entry as the overall two-stage score. It is not a separate S2 score or an arithmetic average of the visible columns. Focus on NC for no collision, DAC for drivable-area compliance, DDC for driving-direction compliance, TTC for time-to-collision, and LK for lane keeping. SimWAM uses its imitation checkpoint here, before the RL stage that supplies the headline NAVSIM result.",
+      "takeaway": "SimWAM's overall 37.6 EPDMS exceeds DriveLaW's 30.6 by 7.0 points. Its S2 DAC of 78.6 and LK of 49.5 exceed DriveLaW's 67.6 and 45.8. Yet SimWAM's own NC falls from 98.0 to 81.8 and LK from 97.3 to 49.5 between stages.",
+      "caution": "The benchmark has a specified two-stage structure, rather than unrestricted physical deployment. The large changes across stages are not an isolated test of reactivity because the scenarios also change. EPDMS values here should not be compared numerically with NAVSIM PDMS.",
+      "evidenceIds": [
+        "e09",
+        "e11"
+      ],
+      "asset": "report-assets/2608.07468/navhard-results.png",
+      "sourceSha256": "6f55da6df120d809adf3d739a3b03b6d385d49a126445836a06ccd189303abcf",
+      "sourceUrl": "https://arxiv.org/pdf/2608.07468#page=7"
+    },
+    {
+      "id": "components-and-mask",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Tables 5–6",
+      "page": 8,
+      "width": 1387,
+      "height": 239,
+      "crop": [
+        0.173,
+        0.226,
+        0.826,
+        0.313
+      ],
+      "alt": "Two adjacent ablation tables: adding video and then RL raises PDMS from 86.6 to 90.3 to 91.5; bidirectional, Action-to-video and isolated masks report 90.2, 90.1 and 90.3.",
+      "caption": "Training-stage gains are much larger than the reported score differences between attention masks.",
+      "readingGuide": "Treat the left table as a cumulative sequence: Action-only is the starting configuration, +Video adds joint video supervision, and +RL refines the co-trained policy. Compare PDMS first, then inspect NC, DAC, EP and TTC to see which driving attributes move together. The right table answers a different question using attention configurations: bidirectional, the paper's Action-to-video alternative, and isolated attention. The surrounding method discussion states that the first two require future-frame representations at inference, while the isolated configuration does not. These mask scores belong to the imitation configuration; the shaded 91.5 on the left includes an additional RL training stage.",
+      "takeaway": "Video co-training adds 3.7 PDMS points and RL adds 1.2. RL increases EP from 83.9 to 86.4 and DAC from 98.0 to 98.7, while NC and TTC decline slightly. Isolated attention reaches 90.3, only 0.1–0.2 points above the alternatives, while removing the future-token dependency.",
+      "caution": "The component comparison does not establish a capacity- or compute-matched control for the video expert. The small mask gaps lack uncertainty estimates. The strongest supported mask conclusion is compatibility with good planning scores and a simpler inference dependency.",
+      "evidenceIds": [
+        "e07",
+        "e13",
+        "e14"
+      ],
+      "asset": "report-assets/2608.07468/components-and-mask.png",
+      "sourceSha256": "6f55da6df120d809adf3d739a3b03b6d385d49a126445836a06ccd189303abcf",
+      "sourceUrl": "https://arxiv.org/pdf/2608.07468#page=8"
+    },
+    {
+      "id": "zero-shot-transfer",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 9",
+      "page": 9,
+      "width": 1387,
+      "height": 586,
+      "crop": [
+        0.173,
+        0.1,
+        0.826,
+        0.313
+      ],
+      "alt": "nuScenes table with fine-tuning flags, sensor and auxiliary-supervision columns, L2 errors in meters and collision rates in percent. The zero-shot SimWAM row has average L2 0.96 and collision 0.05.",
+      "caption": "Transfer improves the reported collision metric without leading trajectory-imitation accuracy.",
+      "readingGuide": "First separate rows by the Finetune column. The bottom three methods are evaluated without nuScenes fine-tuning; upper rows include target-dataset adaptation and often auxiliary supervision. The retained asterisk note marks front-camera-only input. Read the two metric groups independently: L2 is displacement from logged expert trajectories in meters, while collision rate is a percentage evaluated against logged surrounding-agent futures. Each group reports 1-, 2- and 3-second horizons plus the paper's average. SimWAM's model is transferred from NAVSIM. Compare it primarily with the other zero-shot rows, while keeping their unstandardized pretraining histories in mind.",
+      "takeaway": "SimWAM reports 0.96 m average L2 and 0.05% average collision. DriveWAM has the same average L2 and 0.06% collision; DriveVA has better L2 at 0.84 m and 0.06% collision. Thus the table supports a favorable collision metric under domain shift, rather than uniform superiority on both measures.",
+      "caution": "These are open-loop predictions against logged futures, not collisions observed during executed autonomous driving. The 0.01-percentage-point average difference has no accompanying event counts or uncertainty, and the rounded zero values do not establish zero underlying risk.",
+      "evidenceIds": [
+        "e16"
+      ],
+      "asset": "report-assets/2608.07468/zero-shot-transfer.png",
+      "sourceSha256": "6f55da6df120d809adf3d739a3b03b6d385d49a126445836a06ccd189303abcf",
+      "sourceUrl": "https://arxiv.org/pdf/2608.07468#page=9"
+    },
+    {
+      "id": "sampling-steps",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 13",
+      "page": 10,
+      "width": 1140,
+      "height": 554,
+      "crop": [
+        0.515,
+        0.1,
+        0.813,
+        0.212
+      ],
+      "alt": "Action sampling table comparing one, five, ten and twenty steps. PDMS values are 68.9, 90.1, 90.3 and 90.2, with corresponding latency 115, 297, 518 and 968 milliseconds.",
+      "caption": "Five steps recover most reported accuracy; extra integration beyond ten adds cost without a gain.",
+      "readingGuide": "Read downward to increase the action sampler's integration budget. The middle columns report navtest driving submetrics and PDMS, while the right column reports latency in milliseconds. Section 5.4 specifies an imitation-trained model for configuration ablations and one NVIDIA A100 for timing; the default input is 384×672. The one-step row shows that cheap inference can still be inaccurate when the flow is insufficiently integrated. Compare five and ten steps for a practical tradeoff, then compare ten and twenty to look for saturation. The shaded ten-step row identifies the adopted balance rather than a universal optimum for all hardware and checkpoints.",
+      "takeaway": "Five steps yield 90.1 PDMS at 297 ms versus 90.3 at 518 ms for ten steps, saving 221 ms for a 0.2-point reduction. Twenty steps cost 968 ms and score 90.2. One step is faster at 115 ms but falls sharply to 68.9 PDMS.",
+      "caution": "These measured pairs concern the imitation checkpoint; they do not directly pair 518 ms with the reinforced 91.5 score. Batch size, timing boundaries and variance are unspecified, so a deployed control frequency cannot be inferred confidently from this table alone.",
+      "evidenceIds": [
+        "e06",
+        "e19",
+        "e21"
+      ],
+      "asset": "report-assets/2608.07468/sampling-steps.png",
+      "sourceSha256": "6f55da6df120d809adf3d739a3b03b6d385d49a126445836a06ccd189303abcf",
+      "sourceUrl": "https://arxiv.org/pdf/2608.07468#page=10"
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "How future supervision can help an action branch that cannot see futures",
+      "text": "During co-training, the current frame is the common conditioning input for two supervised problems: predicting future visual latents and predicting the expert trajectory. Both use rectified flow, which asks a network to recover a velocity field from a noisy target. The losses are added with equal weight in the NAVSIM setup. The attention mask prevents action tokens from reading future-frame tokens, and the current-frame row in Figure 2 does not read those future tokens either. My interpretation is that this separates two routes of influence: future-video errors can shape observation-processing parameters through training gradients, while actual future representations cannot enter the action computation during a forward pass. This explains why removing future tokens at inference need not create a missing conditioning input. It also motivates checking both the mask and the claimed training benefit separately.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06",
+        "e07",
+        "e13"
+      ]
+    },
+    {
+      "heading": "What the two experts retain when future generation is removed",
+      "text": "The video expert begins with Wan2.2-5B, its VAE and T5 encoder, while the action expert is a distinct diffusion transformer. Navigation and ego state join the current visual representation as action conditions. At inference, integrating the action flow produces position-and-heading waypoints directly; there is no need to extract actions from a generated movie. This modularity is narrower than discarding the entire visual backbone: the planner still needs the representation of the current observation. The source tests the interface with several video backbones and action-model sizes, but those comparisons also change capacity or pretraining. My reading is that they establish practical replaceability within the tested family, while leaving open how much benefit comes specifically from learned temporal dynamics. Joint optimization should therefore not be mistaken for a single shared-parameter architecture.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e07",
+        "e15"
+      ]
+    },
+    {
+      "heading": "Why reinforcement changes the training sampler and the driving tradeoff",
+      "text": "Imitation matching rewards agreement with logged trajectories. The RL stage instead evaluates groups of candidate trajectories with NAVSIM's compositional PDM reward. To obtain per-step stochastic transitions with tractable likelihoods, the paper replaces the flow ODE with a marginal-preserving SDE and uses group-relative clipped policy updates. Determinism here should be understood conditional on an ODE's starting noise; the SDE adds transition noise useful for this policy-gradient construction. Only the action expert's LoRA adapters are updated, and future-frame generation remains absent. The authors concentrate training on scenes whose imitation PDMS is below 90, with the strongest reported point at 15k updates. The component table then shows the tradeoff: aggregate score and progress improve, while no-collision and time-to-collision metrics fall slightly. A reward gain is therefore not evidence that every safety dimension improved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e08",
+        "e13",
+        "e18"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test the promised independence from future tokens",
+      "text": "Reader-proposed check: hold the checkpoint, current image, ego state, navigation, action-noise seed and integration schedule fixed in evaluation mode. Compare trajectory outputs with future-token slots populated by normal noised targets, replaced by unrelated future tokens, and removed using the inference mask. The isolated model should agree within a predefined numerical tolerance. Run the same interventions on a deliberately unmasked or bidirectional control to verify that the perturbation reaches an available attention path. Any systematic action change in the isolated model would falsify the claimed forward-pass independence or expose an implementation leak. This checks the inference mechanism; it does not by itself establish the value of video supervision.",
+      "evidenceIds": [
+        "e07",
+        "e14"
+      ]
+    },
+    {
+      "title": "Separate hard-scene selection from additional RL effort",
+      "text": "Reader-proposed check: start several seeds from the same imitation checkpoint and freeze the hard subset using only its navtrain scores below 90. Compare hard-subset SDE RL with full-navtrain SDE RL at equal numbers of candidate-trajectory reward evaluations, keeping eight candidates, LoRA rank, learning rate and update schedule fixed. Use a prespecified validation rule for checkpoint selection and then evaluate the complete held-out navtest split. Report PDMS plus NC, DAC, EP and TTC with uncertainty at the planned 5k, 10k, 15k and 20k checkpoints. If the subset advantage disappears under matched budgets, the claimed benefit of more informative hard-scene rewards weakens; if progress gains repeatedly coincide with safety losses, report that tradeoff explicitly.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e13",
+        "e18"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "notes": "Visually inspected the title/author/version page, all method and experiment pages, Figures 1–4 and Tables 1–13. Six original crops were individually inspected, including a revised Table 9 crop retaining the front-camera asterisk note. Pages 3, 5 and 7 supply equations and training settings used in the explanations; page 9 supplies the imitation/A100 timing protocol. All five text chunks, including reference-only pages 12–15, were read. No separate supplement, code or experiments were inspected or executed."
+  },
+  "featuredResultTask": "NAVSIM navtest trajectory planning"
+}

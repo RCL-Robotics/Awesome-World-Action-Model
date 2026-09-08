@@ -1,0 +1,245 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2608.25956",
+  "shortTitle": "4DGS-WAM",
+  "thesis": "4DGS-WAM forecasts actor motion and transports existing object Gaussians, gaining persistent scene structure while inheriting perception, camera and unseen-content limitations.",
+  "standfirst": "A driving video contains moving cars, a moving camera and much background that persists across frames. 4DGS-WAM turns that distinction into its representation: observed images become an object-associated Gaussian scene, a policy predicts actor motion, and a separate world model updates dynamic splats while retaining static content. This illustrated reading follows the state from reconstruction to future rendering, then examines what the KITTI-MOT comparisons actually test. Camera choice matters, and the reported images include a frozen fusion underlay. The strongest reconstruction scores concern already observed views; the short-horizon prediction evidence does not establish collision handling or closed-loop driving.",
+  "evidenceIds": [
+    "e-overview",
+    "e-perception",
+    "e-world",
+    "e-future",
+    "e-reconstruction",
+    "e-limits"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 2,
+      "asset": "report-assets/2608.25956/architecture.png",
+      "width": 1392,
+      "height": 269,
+      "sourceSha256": "5f26d51df62eae84b8fe520a151ce073fc043bce47e03ed4e50189820827d14f",
+      "sourceUrl": "https://arxiv.org/pdf/2608.25956#page=2",
+      "crop": [
+        0.173,
+        0.1,
+        0.828,
+        0.198
+      ],
+      "alt": "Past RGB feeds four perception blocks, an object-associated Gaussian state, a policy and world model, then future splats and rendered RGB.",
+      "caption": "A persistent scene connects observed images to predicted object motion.",
+      "readingGuide": "Follow the arrows from left to right. Past RGB is processed by 4DGS reconstruction, segmentation, depth/pose estimation and optical flow. These complementary estimates form the state s_t: observed Gaussians, object trajectories and object associations. The policy π uses the trajectory information to predict actor motion; the world model W receives the observed state and the predicted action. The second blue box represents the future scene, containing both transformed object splats and background splats. Rendering produces the final RGB view. Section 3.1 clarifies that current object masks associate splats with dynamic objects, while the remaining Gaussians form the persistent static bank.",
+      "takeaway": "The key architectural choice is to predict changes to an explicit scene. Previously observed background content remains available while the learned transition focuses on object splats. This provides a concrete representation of scene persistence, but the diagram alone establishes neither an efficiency gain nor an improvement in physical reasoning.",
+      "caution": "The static bank retains observed content; it cannot generate newly revealed background. Section 6 also excludes newly appearing objects and shape completion. The quantitative render pipeline adds a frozen fusion underlay to fill remaining holes.",
+      "evidenceIds": [
+        "e-overview",
+        "e-perception",
+        "e-world",
+        "e-future",
+        "e-limits"
+      ]
+    },
+    {
+      "id": "policy-world-model",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/2608.25956/policy-world-model.png",
+      "width": 1326,
+      "height": 779,
+      "sourceSha256": "5f26d51df62eae84b8fe520a151ce073fc043bce47e03ed4e50189820827d14f",
+      "sourceUrl": "https://arxiv.org/pdf/2608.25956#page=4",
+      "crop": [
+        0.24,
+        0.1,
+        0.76,
+        0.336
+      ],
+      "alt": "Two upward-flowing networks: trajectory, memory and horizon tokens feed a policy action head; actions, splats and horizon feed part tokens, geometric attention, and geometry/appearance heads.",
+      "caption": "Actor prediction and Gaussian transport use different information and separate networks.",
+      "readingGuide": "Read each panel upward from its inputs. In panel (a), trajectories, a learned memory token m and horizon h enter temporal attention followed by actor kNN attention. The action head reads the memory feature. Appendix A.2 specifies eight center-state observations and k=4 neighboring actors. In panel (b), observed splats and category-specific part tokens enter geometric layers conditioned by the action and horizon. The geometry branch composes residual motion with the supplied actor transform; the appearance branch mixes residual updates into source attributes. Appendix A.3 makes this concrete: part-node twists are blended onto splats, while local source-color transport contributes to appearance changes.",
+      "takeaway": "Interactions among nearby actors occur in the policy, whereas W updates each object's Gaussian subset separately. These are distinct modeling choices: trajectory context can influence predicted actor motion, but per-object splat transport does not implement collision response. The two panels therefore should not be read as a unified image/action backbone.",
+      "caution": "W receives teacher actions during training and policy predictions at inference. The source reports no controlled ablation of that conditioning difference, the part-token counts or residual motion heads, so their individual benefits remain unmeasured.",
+      "evidenceIds": [
+        "e-policy",
+        "e-world",
+        "e-appearance",
+        "e-evaluation-scope"
+      ]
+    },
+    {
+      "id": "future-metrics",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "asset": "report-assets/2608.25956/future-metrics.png",
+      "width": 1392,
+      "height": 459,
+      "sourceSha256": "5f26d51df62eae84b8fe520a151ce073fc043bce47e03ed4e50189820827d14f",
+      "sourceUrl": "https://arxiv.org/pdf/2608.25956#page=6",
+      "crop": [
+        0.173,
+        0.105,
+        0.828,
+        0.272
+      ],
+      "alt": "Five-row KITTI-MOT prediction table with camera protocol, PSNR, SSIM and LPIPS; separate given-camera and predicted-camera rows for 4DGS-WAM.",
+      "caption": "Camera choice changes the comparison, and the predicted-camera metrics disagree on the winner.",
+      "readingGuide": "Start with the Camera column before comparing scores. Epona and DriveDreamer-2 use the given future camera; Envision4D uses its predicted camera. The two 4DGS-WAM rows render the same policy-fed scene prediction at different cameras. PSNR and SSIM increase with quality; LPIPS decreases. The retained table note defines the small evaluation: horizons h=1,3, six target frames per method, and mean±standard deviation over three sequence-level means. Bold marks apply only to given-camera rows. The dagger identifies KITTI-adapted DriveDreamer-2 conditioning, so that row is not an evaluation using its native nuScenes inputs.",
+      "takeaway": "At the given camera, WAM reports 18.80 PSNR, 0.596 SSIM and 0.161 LPIPS, ahead of both video baselines. At predicted cameras, WAM has lower PSNR and SSIM than Envision4D, but better LPIPS: 0.245 versus 0.307. Thus the text's unqualified statement that it trails Envision4D is too broad for the displayed numbers.",
+      "caution": "Only WAM composites its prediction over the frozen NeoVerse fusion underlay; baselines use native outputs. The table does not isolate the underlay's contribution. Sequence-level variation is not a confidence interval or evidence from repeated training seeds.",
+      "evidenceIds": [
+        "e-future",
+        "e-predicted-camera",
+        "e-evaluation-scope"
+      ]
+    },
+    {
+      "id": "reconstruction-metrics",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "asset": "report-assets/2608.25956/reconstruction-metrics.png",
+      "width": 1392,
+      "height": 583,
+      "sourceSha256": "5f26d51df62eae84b8fe520a151ce073fc043bce47e03ed4e50189820827d14f",
+      "sourceUrl": "https://arxiv.org/pdf/2608.25956#page=7",
+      "crop": [
+        0.173,
+        0.119,
+        0.828,
+        0.331
+      ],
+      "alt": "Reconstruction table grouped into point-cloud, 3DGS and 4DGS methods, with three full-frame metrics and two dynamic-region metrics; WAM has the best reported entries.",
+      "caption": "Observed-view reconstruction is strong, with different fusion settings for full-frame and dynamic-region scores.",
+      "readingGuide": "The row groups identify three reconstruction families: point clouds, static Gaussian methods and dynamic Gaussian methods. Compare the first three columns for full-frame image quality, then read the two dyn columns separately for dynamic-object regions. The retained note is essential: WAM's full-frame values include a frozen NeoVerse fusion underlay, whereas its dynamic-region values come from no-fusion evaluation. Point-cloud rows contain dashes in the dynamic columns, indicating absent values rather than zeros. Section 4.3 restricts this experiment to observed input views at their given past cameras. These are reconstruction scores, separate from the future-prediction task in Table 1.",
+      "takeaway": "WAM reports full-frame PSNR 27.63±2.07 against MonoGS's 20.42±5.55. Its dynamic-region PSNR is 25.53±3.58 and dynamic LPIPS 0.025±0.006, with no fusion. All five WAM values lead their reported columns, supporting strong observed-view reconstruction under the stated settings rather than establishing unseen-future accuracy.",
+      "caution": "Full-frame fusion scores and dynamic-region no-fusion scores use different image regions. Their coexistence is not a controlled underlay ablation. The paper gives no matched full-frame fusion-off row, and reconstruction of observed views cannot establish novel-view generalization.",
+      "evidenceIds": [
+        "e-reconstruction",
+        "e-evaluation-scope"
+      ]
+    },
+    {
+      "id": "future-examples",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 4",
+      "page": 8,
+      "asset": "report-assets/2608.25956/future-examples.png",
+      "width": 1670,
+      "height": 333,
+      "sourceSha256": "5f26d51df62eae84b8fe520a151ce073fc043bce47e03ed4e50189820827d14f",
+      "sourceUrl": "https://arxiv.org/pdf/2608.25956#page=8",
+      "crop": [
+        0.173,
+        0.1,
+        0.828,
+        0.201
+      ],
+      "alt": "Three driving scenes shown across GT, Epona, DriveDreamer-2, Envision4D and Ours columns: a red car, an intersection and a tree-lined road.",
+      "caption": "Qualitative prediction panels mix given and predicted camera protocols.",
+      "readingGuide": "Read each row as one target scene and each column as a method. The columns are ground truth, Epona, DriveDreamer-2, Envision4D and Ours. The caption assigns horizons h=1, h=2 and h=1 from top to bottom; these examples therefore should not be mistaken for the exact h=1,3 quantitative sample in Table 1. Epona and DriveDreamer-2 use given future cameras, while Envision4D and WAM use predicted cameras. Compare road markings and vehicle positions as well as local sharpness. WAM's static content is reconstructed from the prefix, and its displayed output includes the frozen fusion underlay.",
+      "takeaway": "The examples make the representational idea visible: a predicted image can retain recognizable road and building structure while placing dynamic actors in a future scene. As reader analysis, sharp background detail here is consistent with scene reuse, but these composite images cannot attribute that detail separately to the static bank, object transport or fusion.",
+      "caution": "Camera differences can produce apparent misalignment independently of object dynamics. These selected panels, resized to native aspect ratio for display where needed, do not establish a quantitative ranking, long-horizon stability or successful physical action execution.",
+      "evidenceIds": [
+        "e-qualitative",
+        "e-future",
+        "e-limits",
+        "e-evaluation-scope"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Build a scene memory before predicting motion",
+      "kind": "source",
+      "text": "Begin with what the state remembers. The reconstructed 4DGS contains spatial Gaussian attributes together with lifespans and motion twists describing the observed interval. Reconstruction alone does not identify which primitives belong to which moving object. Segmentation, depth, camera pose and optical flow supply the associations and world-space trajectories that make the state object-centric. At the last observed time, masks partition active Gaussians into dynamic-object subsets and a static remainder. The policy consumes center histories; flow correspondences supervise the world model. This distinction also fixes the temporal boundary: target-time masks, centers and correspondences may be extracted from future observations during training, but none is an inference input. Retaining static content preserves observations; it does not complete background that has never been seen.",
+      "evidenceIds": [
+        "e-perception",
+        "e-world",
+        "e-limits"
+      ]
+    },
+    {
+      "heading": "Ask for one horizon, then compose object and part motion",
+      "kind": "source",
+      "text": "A query supplies h, the interval from current time t to target time t′. The policy processes the observed history once, even when h exceeds one. Its action head predicts a bounded correction to a constant-velocity prior in per-step-equivalent coordinates, and the horizon map converts that result into cumulative translation and rotation. Ego motion provides the future camera; other actor actions condition their object updates. The world model then predicts residual twists at part nodes, blends them onto splats and composes them after the supplied action. A car uses one part token as a rigid fallback, while a person uses five. These part counts are architectural prescriptions, not experimentally isolated improvements. At initialization the residual motion decoder is zero, so transport starts from the supplied rigid action.",
+      "evidenceIds": [
+        "e-policy",
+        "e-action",
+        "e-world",
+        "e-evaluation-scope"
+      ]
+    },
+    {
+      "heading": "Train transport and appearance without conflating their supervision",
+      "kind": "analysis",
+      "text": "The source trains the policy and world network separately. Appendix A.4 is essential because it replaces schematic losses with the implemented normalization, confidence weighting and auxiliary terms. Policy regression compares bounded predictions with teacher residuals normalized around constant velocity. For W, dense-flow supervision asks where matched surface points move; center transport asks whether their mean displacement agrees with teacher translation. Masked RGB error supervises appearance, while missing-alpha loss penalizes unexplained object pixels and a geometry anchor discourages parameter drift. Reader analysis: these constraints act on different failure modes, so a good image score alone cannot identify which one contributed. Another unresolved issue is the conditioning change from teacher actions during training to predicted actions at inference. A controlled comparison is needed before attributing the final rendering gains to learned dynamics.",
+      "evidenceIds": [
+        "e-training",
+        "e-policy-loss",
+        "e-world-loss",
+        "e-world",
+        "e-evaluation-scope"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does the learned policy improve on its constant-velocity prior?",
+      "text": "Reader-proposed, not executed: use identical held-out prefixes, horizons and perceived splats, and fix the render camera to the given pose. Compare constant-velocity actions, learned policy actions and teacher actions while holding the trained world model and underlay fixed. Score actor translation/heading error against the same teachers, plus dynamic-region image metrics on identical masks; report each horizon and sequence separately. The learned policy should improve over constant velocity and approach the teacher-action condition. If it does not, the present image evidence cannot attribute gains to learned actor forecasting. A further frozen zero-residual W control can distinguish supplied rigid motion from learned transport, without retraining either network.",
+      "evidenceIds": [
+        "e-action",
+        "e-policy",
+        "e-world",
+        "e-future",
+        "e-evaluation-scope"
+      ]
+    },
+    {
+      "title": "Separate camera error from fusion coverage",
+      "text": "Reader-proposed, not executed: render the same predicted Gaussian state in a two-by-two comparison of given/predicted camera and fusion on/off. Hold the state, target images, rendering settings and evaluation masks fixed; explicitly document how uncovered pixels are scored. Report full-frame and dynamic-region PSNR/SSIM/LPIPS, and stratify pixels by splat coverage before adding fusion. The camera effect is the paired change at fixed fusion; the underlay effect is the paired change at fixed camera. If the advantage concentrates in previously uncovered background pixels, it supports a coverage explanation rather than improved dynamic transport. The published dynamic-region no-fusion scores alone cannot answer this matched full-frame question.",
+      "evidenceIds": [
+        "e-future",
+        "e-predicted-camera",
+        "e-reconstruction",
+        "e-limits"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      11,
+      12,
+      13,
+      14
+    ],
+    "notes": "Visually inspected the title/author/version page, Figures 1–5, Tables 1–3 and method/training equations on the declared pages. All five final original crops were viewed after extraction. Table 1 retains its combined evaluation-protocol and footnote block because the bold marks and dagger depend on it; Table 2 retains its fusion/no-fusion note. Figure captions and body prose are excluded from figure crops. The experimental pages contain no controlled ablation; Appendix A supplies implementation details only. References on pages 9–10 were read in text and were not visually inspected. No separate supplement was supplied."
+  },
+  "featuredResultTask": "Future RGB prediction at the given camera",
+  "visualLimitations": {
+    "kind": "analysis",
+    "text": "The complete supplied paper has architecture figures, two quantitative comparisons and qualitative examples, but no controlled ablation of policy residuals, part tokens, loss terms or the fusion underlay. Five visuals cover the available mechanism and results evidence; no ablation visual is invented. Table 2's full-frame fusion and dynamic-region no-fusion columns change the scored region and therefore do not supply the missing matched underlay experiment. No physical-control or long-horizon result is reported.",
+    "evidenceIds": [
+      "e-evaluation-scope",
+      "e-reconstruction",
+      "e-limits"
+    ]
+  }
+}
