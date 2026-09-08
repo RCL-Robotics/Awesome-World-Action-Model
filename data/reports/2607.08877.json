@@ -1,0 +1,466 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.08877",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T11:46:55.897Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2607.08877",
+      "title": "FlowDAgger: Human-in-the-Loop Adaptation of Generative Robot Policies in Latent Space",
+      "kind": "pdf",
+      "sha256": "0f7fc3c1792ef4645ef866526736a83a5e2cf4f55be513158bb2e165c62df1dd",
+      "wordCount": 6899,
+      "accessedAt": "2026-09-07T13:56:19.187104+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title/author page and Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Background",
+      "4 Method, including 4.1–4.3",
+      "5 Experiments, including 5.1–5.5",
+      "6 Limitations",
+      "7 Conclusion",
+      "References",
+      "Appendix A.1–A.3: World-Action Model Inversion Details",
+      "Appendix B.1–B.4: Additional Experiments"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The image-extraction limitation was addressed by inspecting PDF pages 1–8 and 11–14, all six figures, all six tables, and every final crop. Reference pages 9–10 were read as text.",
+      "Only arXiv:2607.08877v1, dated 9 July 2026, was supplied. Its title and ten authors match the catalog; no other edition was available for comparison. Appendix A.2 describes an earlier inverter implementation, not an established separate paper revision.",
+      "Code, linked websites and separate supplements were not inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figures 2–3 (p. 6)",
+      "Figure 4 (p. 7)",
+      "Figure 5 (p. 13)",
+      "Figure 6 (p. 14)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (p. 7)",
+      "Tables 3–4 (p. 8)",
+      "Table 5 (p. 12)",
+      "Table 6 (p. 13)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "FlowDAgger converts expert corrections into noise targets for a small policy that steers a frozen generative robot controller. It supports action-head models and joint world-action diffusion. Experiments report efficient adaptation and better retention than the tested alternatives, with meaningful residual forgetting and limited implementation disclosure.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Deployment exposes manipulation failures outside pretraining coverage. Full-policy fine-tuning is costly and can impair existing skills; autonomous latent-space reinforcement learning needs exploration and rewards. FlowDAgger asks whether corrective actions can directly supervise a frozen policy's noise input on states encountered during deployment.",
+    "kind": "source",
+    "evidenceIds": [
+      "overview",
+      "generative-map"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Per-step action inversion supplies latent targets from ordinary expert actions, allowing interactive imitation through an existing generative policy's noise interface.",
+      "kind": "source",
+      "evidenceIds": [
+        "inversion",
+        "adaptation"
+      ]
+    },
+    {
+      "text": "The extension to Cosmos-Policy inverts joint action, future-state and value latents. The experiments span action-head VLAs, a world-action model and a diffusion policy.",
+      "kind": "source",
+      "evidenceIds": [
+        "joint-inversion",
+        "families",
+        "gr00t",
+        "diffusion"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Full policy observation s, potentially including sensor history.",
+      "Expert corrective action chunk a* during adaptation; a frozen generative base."
+    ],
+    "outputs": [
+      "Predicted noise w and an executed action chunk from the frozen base.",
+      "For Cosmos, joint noise also determines predicted future-state and value frames."
+    ],
+    "steps": [
+      {
+        "name": "Undo action generation",
+        "detail": "Start from the corrective action and reverse each Euler step by fixed-point iteration. Repeatedly reevaluate the velocity at the candidate preceding latent rather than using one explicit reverse pass. The default is five inner iterations; the sufficient convergence condition is conditional, not a measured global guarantee.",
+        "evidenceIds": [
+          "generative-map",
+          "inversion",
+          "iterations"
+        ]
+      },
+      {
+        "name": "Invert Cosmos jointly",
+        "detail": "Construct a target from the base clean latent, adding the expert-minus-base action delta only to its action frame. Keep state/value targets at the base predictions, but invert the full 16×9×28×28 tensor through the shared denoiser. This uses predicted world states without requiring expert future-state labels.",
+        "evidenceIds": [
+          "joint-inversion"
+        ]
+      },
+      {
+        "name": "Handle the terminal denoise",
+        "detail": "Cosmos's EDM schedule runs from noise level 80 to 4 before a terminal denoise. A local Adam solve reverses that terminal transform, backpropagating through one denoiser call per iteration while keeping weights frozen. Thus the introduction's forward-passes-only statement does not cover the full Cosmos implementation.",
+        "evidenceIds": [
+          "edm"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "A separate observation encoder and MLP regress inverted noise targets. Corrections aggregate across deployment rounds. Each batch mixes intervention targets and generating noises from successful autonomous rollouts equally; the latter provide rehearsal on already successful behavior. The base parameters never update.",
+        "kind": "source",
+        "evidenceIds": [
+          "adaptation"
+        ]
+      },
+      {
+        "text": "Action-head noise is regressed directly. Cosmos defaults to predicting 64 PCA coefficients using a basis fitted on inverted targets from a brief base-policy warmup. Inversion still operates on full joint noise; the basis's stability advantage over full regression is qualitative.",
+        "kind": "source",
+        "evidenceIds": [
+          "wam-parameterization"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "For each observation, the deterministic noise policy supplies the frozen generator's input, which produces the action to execute. New observations close the interaction loop. Inversion supplies training labels when corrections occur; it is not a separate deployment planner. Figure 1 uses sampling notation, but Equation (4) explicitly specifies deterministic noise selection.",
+        "kind": "source",
+        "evidenceIds": [
+          "overview",
+          "adaptation"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "x_{k+1}=x_k+\\Delta t\\,v_\\theta(x_k,t_k,s),\\quad x_0=w,\\quad a=x_K,\\quad \\Delta t=1/K",
+        "explanation": "Equation (2): x_k is the evolving action latent, s the observation, w initial noise, v_theta the frozen learned velocity, and t_k=k delta-t the integration time. K steps generate action chunk a.",
+        "evidenceIds": [
+          "generative-map"
+        ]
+      },
+      {
+        "expression": "x_k^{(m+1)}=x_{k+1}-\\Delta t\\,v_\\theta(x_k^{(m)},t_k,s),\\quad x_k^{(0)}=x_{k+1}",
+        "explanation": "Equation (3): m indexes fixed-point refinement at reverse step k. Begin with x_K=a*, work backward, and take w*=x_0. Convergence is sufficient when delta-t L<1, with L the velocity field's Lipschitz constant in its first argument.",
+        "evidenceIds": [
+          "inversion"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}(\\phi)=\\mathbb{E}_{(s,w^*)\\sim\\mathcal{D}}\\left\\|\\pi^{w}(s)-w^*\\right\\|_2^2,\\qquad a=\\pi_{\\mathrm{gp}}(s,\\pi^{w}(s))",
+        "explanation": "Equations (5) and (4): phi parameterizes the noise policy pi^w, D is its aggregated supervision set, and pi_gp is the frozen noise-to-action map. Training regresses targets; deployment composes the two policies.",
+        "evidenceIds": [
+          "adaptation"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "MetaWorld adaptation across twelve tasks",
+      "setting": "pi0.5; 50 additional rollouts; three seeds, 25 evaluation rollouts each. SFT uses demonstrations; DAgger methods use corrections; DSRL uses autonomous reward.",
+      "metric": "Mean success rate",
+      "value": "0.78; +0.25 over base 0.53.",
+      "comparison": "SFT 0.71; LoRA-DAgger 0.68; Residual-DAgger 0.64; DSRL 0.55.",
+      "interpretation": "Best reported mean and eight task wins; a 25-percentage-point gain. Matching episodes does not equalize human information or labor.",
+      "evidenceIds": [
+        "protocol",
+        "metaworld"
+      ]
+    },
+    {
+      "task": "Cosmos-Policy adaptation across seven shared MetaWorld tasks",
+      "setting": "Table 2's seven-task subset; default Section 5.1 protocol.",
+      "metric": "Mean success rate",
+      "value": "0.74 versus base 0.53; +0.21.",
+      "comparison": "pi0.5 improves from 0.53 to 0.79 on this subset.",
+      "interpretation": "Supports compatibility with joint world-action generation; does not measure future-state prediction accuracy.",
+      "evidenceIds": [
+        "protocol",
+        "families",
+        "joint-inversion"
+      ]
+    },
+    {
+      "task": "Held-out skill retention after Hammer adaptation",
+      "setting": "pi0.5 adapted on Hammer for 50 episodes; five held-out tasks; SFT uses 50 demonstrations and matched gradient-step budget.",
+      "metric": "Held-out mean success; Hammer success",
+      "value": "Held-out 0.88 versus base 0.96; Hammer 0.84 versus 0.40.",
+      "comparison": "Held-out means: Residual-DAgger 0.69, LoRA-DAgger 0.30, SFT 0.02.",
+      "interpretation": "Best tested retention, with an eight-point mean loss. Push declines from 0.96 to 0.56, so frozen weights do not guarantee preserved behavior.",
+      "evidenceIds": [
+        "protocol",
+        "retention"
+      ]
+    },
+    {
+      "task": "Real-world Toolbox Packing",
+      "setting": "Table 4; ten additional episodes; caption specifies 30 evaluation rollouts. Per-task base-model/platform assignment is not supplied.",
+      "metric": "Task success rate",
+      "value": "0.80 versus base 0.13; reported +0.67.",
+      "comparison": "SFT 0.63.",
+      "interpretation": "Physical manipulation evidence. Episodes must not be equated with individual corrections; uncertainty and exact aggregation are unspecified.",
+      "evidenceIds": [
+        "hardware"
+      ]
+    },
+    {
+      "task": "Action-inversion procedure comparison",
+      "setting": "Same 29 scripted Assembly chunks; pi0.5, K=10; warmed-up RTX 5090; downstream three-seed, 25-rollout evaluations.",
+      "metric": "Action MSE; median milliseconds per chunk; downstream success",
+      "value": "Per-step M=5: 0.00168 MSE, 456 ms; Assembly/Hammer 0.87/0.96.",
+      "comparison": "Euler: 0.0329, 315 ms, 0.59/0.71. Trajectory FP: 0.0228, 1662 ms. Adam: 0.0275, 1350 ms.",
+      "interpretation": "More accurate labels accompany better execution. Per-step inversion is slower than Euler but faster than the two stronger alternatives; this ablation is a separate protocol from Table 1.",
+      "evidenceIds": [
+        "ablation"
+      ]
+    },
+    {
+      "task": "Gr00t N1.7 adaptation on LIBERO-90 task 57",
+      "setting": "LIBERO-10 checkpoint; held-out cream-cheese-to-tray task; 50 episodes; one seed, 15 rollouts per point.",
+      "metric": "Success-rate trajectory",
+      "value": "Reaches 1.00 at episode 20 from base 0.60, with later declines.",
+      "comparison": "DSRL fluctuates near 0.70.",
+      "interpretation": "Suggestive transfer across action-head VLAs; the curve does not establish sustained ceiling performance or seed robustness.",
+      "evidenceIds": [
+        "gr00t"
+      ]
+    },
+    {
+      "task": "Diffusion Policy adaptation on robomimic LIFT",
+      "setting": "State-only DDPM policy; 50 episodes; one seed, 15 rollouts per point.",
+      "metric": "Success-rate trajectory",
+      "value": "Caption reports approximately 0.97 by episode 25 versus approximately 0.48 base.",
+      "comparison": "DSRL levels near 0.80.",
+      "interpretation": "A second generative family shows gains; values are approximate caption/curve summaries, not pooled multi-seed estimates.",
+      "evidenceIds": [
+        "diffusion"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The frozen generator bounds representable corrections. Sparse or biased interventions limit coverage; ill-conditioned or multimodal dynamics can impair inversion.",
+      "kind": "source",
+      "evidenceIds": [
+        "limits"
+      ]
+    },
+    {
+      "text": "Table 4 ties SFT on Button Push and loses on Jenga, qualifying the surrounding claim of outperforming SFT except on Jenga. Plug Insertion's 0.72 cannot be reconstructed as a simple success count out of 30; aggregation remains unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "hardware"
+      ]
+    },
+    {
+      "text": "No confidence intervals accompany the main tables. Figure 3 shading is seed min/max. Neither reduced forgetting nor staying on a behavioral manifold is a universal guarantee from these comparisons.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "metaworld",
+        "retention",
+        "learning-curves",
+        "limits"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A minimal reconstruction check needs the frozen pi0.5 decoder, its ten-step schedule, expert chunks and action normalization. Preserve separate inverter timing and downstream evaluation. Table 6 lists 60 default model evaluations, whereas Section 4.1 counts KM=50 velocity calls; the difference is not explicitly reconciled.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "inversion",
+        "ablation",
+        "iterations"
+      ]
+    },
+    {
+      "text": "Reported pi0.5 adaptation memory is approximately 8 GB; the inversion microbenchmark uses an RTX 5090. Neither establishes Cosmos memory or full control-loop latency. Exact noise-encoder architecture, regression optimizer, update schedule, checkpoint identifiers for the main bases, warmup size and terminal-Adam settings remain insufficiently specified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "compute",
+        "ablation",
+        "adaptation",
+        "protocol",
+        "edm",
+        "wam-parameterization"
+      ]
+    },
+    {
+      "text": "Proposed controls should compare inversion procedures on identical corrections and independently remove successful-rollout rehearsal while measuring Hammer improvement and every held-out task. These would test label fidelity and retention mechanisms separately.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ablation",
+        "adaptation",
+        "retention"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded foundational-method classification fits a training/adaptation technique applied to several base architectures. FlowDAgger itself is neither a single new world-action backbone nor inverse dynamics: it reverses a generator numerically to obtain noise labels. Cosmos's shared denoiser jointly predicts world/action quantities, but that property cannot classify the entire framework as One Model. Architecture, prediction paradigm and quadrant being not applicable is supported.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "generative-map",
+        "inversion",
+        "joint-inversion",
+        "adaptation",
+        "families"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Training optimization & distillation",
+        "Action policy foundations"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "b64b292aa202bcf65a52ebf7cbc47237c21a955c7ea214391e084f7411da1dbf"
+    }
+  },
+  "discussionQuestions": [
+    "How much retention comes from frozen weights versus successful-rollout rehearsal?",
+    "When a corrected action changes the future, how consistent are Cosmos's retained base state/value targets?",
+    "Would the advantage persist under matched human intervention time rather than matched episodes?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin",
+      "detail": "The title matches the catalog. The ten authors, in order, are Michael Murray, Daphne Chen, Simran Bagaria, Dean Fortier, Tess Hellebrekers, Galen Mullins, Harshavardhan Gajarla, Oier Mees, Maya Cakmak, and Andrey Kolobov. Affiliations are Microsoft Research, Microsoft, ETH Zurich, and University of Washington. The margin identifies arXiv:2607.08877v1 [cs.RO], 9 July 2026."
+    },
+    {
+      "id": "overview",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract, Section 1 and Figure 1/caption",
+      "detail": "FlowDAgger maps corrective actions into the noise space of a frozen generative robot policy and trains a separate latent policy. Figure 1 routes expert actions through inversion and noise targets through supervised training; its update arrow returns to the latent policy. The diagram shows sampling notation, whereas Section 4.3 specifies deterministic deployment."
+    },
+    {
+      "id": "generative-map",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3, Equations (1)–(2)",
+      "detail": "The observation s is the full policy input, possibly including sensor history; a is an action chunk of horizon H. A learned velocity field maps initial noise w to an action through an ODE, discretized into K Euler steps with step size 1/K."
+    },
+    {
+      "id": "inversion",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 4.1, Equation (3)",
+      "detail": "Each forward Euler step is inverted by fixed-point iteration starting from the next latent. The stated sufficient contraction condition is delta-t times L less than one. The default uses M=5, with K=10 in the discussed action-head regime. This inverse uses KM velocity evaluations and no base-model backpropagation."
+    },
+    {
+      "id": "joint-inversion",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 4.2",
+      "detail": "Cosmos-Policy jointly generates action, future-state and value frames in a 16×9×28×28 latent tensor with a shared denoiser. The inversion target starts from the base clean latent and adds the expert-minus-base action delta only to the action frame; the state/value target frames remain at the base predictions. Inversion nevertheless recovers full joint noise."
+    },
+    {
+      "id": "adaptation",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.3, Equations (4)–(5)",
+      "detail": "The only trained component is a separate observation encoder plus MLP noise policy. Deployment uses its deterministic output as input to the frozen base. Corrections are inverted and aggregated across rounds; regression batches contain equal shares of intervention targets and generating noises from successful autonomous rollouts."
+    },
+    {
+      "id": "protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 5.1 and Baselines and protocol",
+      "detail": "Simulation uses MetaWorld; real experiments use FR3 Duo and Dual UR5e platforms. The default adaptation budget is 50 additional rollouts, with three seeds and 25 evaluation rollouts per seed. SFT receives offline demonstrations, correction-based methods receive human-gated corrections, and DSRL receives autonomous experience and sparse reward."
+    },
+    {
+      "id": "metaworld",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, task rows, Mean SR and delta rows; p. 6, Section 5.2",
+      "detail": "Across twelve MetaWorld tasks with pi0.5, reported mean success is 0.53 base, 0.71 SFT, 0.68 LoRA-DAgger, 0.64 Residual-DAgger, 0.55 DSRL and 0.78 FlowDAgger. FlowDAgger wins eight rows. Door Lock favors Residual-DAgger, 0.85 versus 0.75; Assembly is 0.89 versus base 0.64."
+    },
+    {
+      "id": "families",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2 and Section 5.3",
+      "detail": "On seven shared MetaWorld tasks, pi0.5 improves from 0.53 to 0.79 mean success, while Cosmos-Policy improves from 0.53 to 0.74. Their reported gains are 0.26 and 0.21 respectively. These means use a different task subset from Table 1."
+    },
+    {
+      "id": "retention",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5.4; p. 8, Table 3, Hammer and held-out columns",
+      "detail": "Adaptation is on Hammer for 50 episodes; SFT uses 50 demonstrations with matched gradient-step budget. FlowDAgger raises Hammer success from 0.40 to 0.84 and has held-out mean 0.88 versus base 0.96. Residual-DAgger, LoRA-DAgger and SFT have held-out means 0.69, 0.30 and 0.02. FlowDAgger's Push score drops from 0.96 to 0.56. The caption bolds held-out scores described as within base noise or above, without defining that uncertainty threshold."
+    },
+    {
+      "id": "hardware",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5.5 and Table 4, caption and all task rows; p. 5, Section 5.1",
+      "detail": "Table 4 reports real-hardware success over 30 rollouts and five to twenty additional episodes. Toolbox Packing is 0.13 base, 0.63 SFT and 0.80 FlowDAgger with ten additional episodes. Button Push ties SFT at 0.73; Jenga Stacking is 0.86 versus SFT 0.90. Plug Insertion is reported as 0.72 with twenty episodes. Section 5.5 also calls Toolbox's ten episodes ten corrections, without specifying their within-episode count."
+    },
+    {
+      "id": "limits",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 6",
+      "detail": "The authors limit adaptation by the frozen policy's representable behavior, intervention quality and state coverage, and inversion reliability under multimodal or poorly conditioned generative dynamics. They acknowledge that additional data or weight adaptation may be needed."
+    },
+    {
+      "id": "edm",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Appendix A.1; p. 2, Section 1",
+      "detail": "Cosmos uses an EDM schedule from sigma_max=80 to sigma_min=4 followed by a terminal denoise. Fixed-point reversal handles Euler integration, but a local Adam solve recovers the terminal denoiser input and backpropagates through one denoiser call per step. Base weights remain frozen. This is an explicit exception to the introduction's forward-passes-only description."
+    },
+    {
+      "id": "wam-parameterization",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Appendices A.2–A.3",
+      "detail": "The earlier action-frame-only optimizer has reported reconstruction floors of about 0.04 on base actions and 0.076 on expert actions, with insufficient metric/protocol detail for comparison to Table 5. Current inversion acts on full joint noise. The default Cosmos noise policy predicts 64 PCA coefficients from a basis fitted to inverted-noise warmup targets. Full regression also worked; the claimed stability advantage of the basis is qualitative."
+    },
+    {
+      "id": "ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Table 5/caption and Appendix B.1",
+      "detail": "Inversion comparison uses the same 29 scripted-expert Assembly chunks with pi0.5 and a K=10 Euler sampler. Action MSE is measured in four-dimensional environment actions ranging from -1 to 1 per dimension. Median warmed-up RTX 5090 times are 315 ms Euler reverse, 1350 ms Adam, 1662 ms trajectory fixed point and 456 ms per-step fixed point. Corresponding MSEs are 0.0329, 0.0275, 0.0228 and 0.00168. Per-step downstream Assembly/Hammer success is 0.87/0.96, versus Euler 0.59/0.71; evaluation uses three seeds and 25 rollouts."
+    },
+    {
+      "id": "iterations",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, Appendix B.2 and Table 6",
+      "detail": "Per-step M=3,5,10 gives MSE 0.00397, 0.00168, 0.00147 and time 405,456,614 ms, respectively. Table 6 lists 40,60,110 model evaluations. At 110 listed evaluations, trajectory k=5 gives MSE 0.0228 and 1662 ms. The table's default 60 evaluations is not explicitly reconciled with Section 4.1's KM velocity-call count."
+    },
+    {
+      "id": "gr00t",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix B.3 and Figure 5/caption",
+      "detail": "Gr00t N1.7 uses the authors' LIBERO-10 checkpoint and is adapted on held-out LIBERO-90 task 57, cream cheese into tray. The comparison allocates 50 episodes, scripted interventions for FlowDAgger and reward for DSRL. The source describes a ten-component DCT-II projection of 40×132 chunk noise. Figure 5 is single-seed, 15 rollouts per point, with a 60% base. FlowDAgger reaches the ceiling at episode 20 but later declines; DSRL fluctuates near 70%."
+    },
+    {
+      "id": "diffusion",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Appendix B.4 and Figure 6/caption",
+      "detail": "The additional DDPM-based Diffusion Policy experiment uses robomimic LIFT with low-dimensional state observations, 50 adaptation episodes, one seed and 15 evaluation rollouts per point. The caption reports approximately 48% base and approximately 97% FlowDAgger by episode 25; DSRL levels near 80%."
+    },
+    {
+      "id": "compute",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Compute efficiency; p. 7, Figure 4/caption",
+      "detail": "The pi0.5 adaptation footprint is reported as approximately 8 GB, similar to deploying that base model. Figure 4 compares Assembly success at 50 episodes against peak training VRAM. This is not a Cosmos memory or end-to-end latency benchmark."
+    },
+    {
+      "id": "learning-curves",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 3 and caption",
+      "detail": "Five MetaWorld learning curves compare FlowDAgger, Residual-DAgger and DSRL against dashed frozen-base rates. Curves average three seeds with 25 rollouts per evaluation; shaded regions denote per-seed minima and maxima, not confidence intervals."
+    }
+  ]
+}
