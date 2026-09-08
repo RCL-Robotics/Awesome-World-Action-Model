@@ -1,0 +1,281 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.14482",
+  "shortTitle": "V-JEPA 2.1",
+  "thesis": "Supervising visible patches at multiple encoder depths makes video features substantially more useful for dense vision, while extra supervision and scaling recover much of the recognition performance lost to local reconstruction.",
+  "standfirst": "A video encoder can recognize an action while producing patch features that are difficult to use for locating objects or estimating depth. V-JEPA 2.1 targets that gap by changing which tokens receive a prediction loss and how deeply that loss reaches into the encoder. Follow the architecture first, then the cumulative recipe and the appendix test of final-layer information. The dense-task and anticipation tables show what becomes accessible through frozen features. Finally, the robot table tests an embodied application, with an important distinction between changing the representation and changing the planner. The strongest lesson is about representation quality; task-specific training and search still determine downstream behavior.",
+  "evidenceIds": [
+    "feature-hypothesis",
+    "architecture",
+    "recipe-ablation",
+    "layer-diagnostic",
+    "dense-results",
+    "sta-results",
+    "manipulation"
+  ],
+  "featuredResultTask": "Short-term object interaction anticipation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 5,
+      "asset": "report-assets/2603.14482/architecture.png",
+      "width": 1326,
+      "height": 605,
+      "sourceSha256": "b40580916242ade00e2ac177cb01473d511f021d5a25f7552fd17512b3a72bbb",
+      "sourceUrl": "https://arxiv.org/pdf/2603.14482#page=5",
+      "crop": [
+        0.11,
+        0.078,
+        0.89,
+        0.353
+      ],
+      "alt": "A two-branch JEPA diagram with image/video patchifiers, a masked context encoder, multi-level fusion and predictor above, and an unmasked EMA target encoder below. Blue context and orange masked predictions meet separate L1 losses through stopped-gradient target paths.",
+      "caption": "Both visible and masked tokens receive multi-level feature targets.",
+      "readingGuide": "Read left to right along the upper branch. The input takes either the 2D image patchifier or the 3D video patchifier, receives a modality embedding, and loses the masked tokens before entering the x-encoder. Several encoder depths feed the fusion MLP. Mask tokens are then appended, and the predictor emits features at several levels. Now trace the lower branch: the y-encoder sees the complete input and supplies targets. Blue dashed connections terminate at the weighted context loss; orange connections terminate at the masked prediction loss. The stop-gradient marks belong to the target paths. The distance weighting is defined precisely by Equations (2)–(3), rather than by the diagram's shorthand.",
+      "takeaway": "The added context branch asks visible-token predictions to agree with locally indexed clean-input targets. Deep supervision repeats this constraint at several representation depths. Together, these operations give a direct training signal for patch structure that the original masked-only loss did not impose on visible outputs. This is feature pretraining; no robot action is emitted by this diagram.",
+      "caution": "The caption describes predictor outputs as masked-token predictions, but the blue branch, Equation (2) and the architecture paragraph on page 6 explicitly require visible-token predictions too. The crop preserves that wording boundary; the two-loss formulation governs this explanation.",
+      "evidenceIds": [
+        "architecture",
+        "jepa-objective",
+        "weighted-context",
+        "deep-supervision"
+      ]
+    },
+    {
+      "id": "recipe-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 1",
+      "page": 7,
+      "asset": "report-assets/2603.14482/recipe-ablation.png",
+      "width": 1275,
+      "height": 519,
+      "sourceSha256": "b40580916242ade00e2ac177cb01473d511f021d5a25f7552fd17512b3a72bbb",
+      "sourceUrl": "https://arxiv.org/pdf/2603.14482#page=7",
+      "crop": [
+        0.115,
+        0.215,
+        0.49,
+        0.333
+      ],
+      "alt": "A seven-row cumulative ablation table with ImageNet and SSv2 accuracy, NYUv2 depth RMSE and ADE20K segmentation mIoU, progressing from V-JEPA 2 to context loss, multi-level prediction, data, tokenizer, model scaling and cooldown.",
+      "caption": "Dense supervision introduces a measurable recognition cost before multi-level prediction recovers it.",
+      "readingGuide": "Each plus sign adds to the preceding recipe, so read downward rather than treating the rows as independent alternatives. Higher IN1K and SSv2 accuracy and ADE20K mIoU are better; lower NYU RMSE is better. Compare the first three rows before considering scale: context loss changes ADE20K from 22.2 to 33.8 but SSv2 from 72.8 to 62.5. Multi-level prediction then reaches 38.6 and 72.1. The remaining rows add broader data, native modality tokenization, larger model capacity and cooldown. Figure 5 identifies the starting architecture as ViT-L; the model-scaling row moves to ViT-G.",
+      "takeaway": "The dense-loss idea alone does not satisfy the paper's joint local/global goal. Deep supervision recovers most of the lost SSv2 performance while further improving segmentation. The final 47.9 ADE20K and 77.7 SSv2 scores belong to the full scaled recipe, whose effect cannot be assigned solely to the context-loss term.",
+      "caution": "These are cumulative changes, not a factorial causal test. Table 1 gives context-only ADE20K 33.8 and NYU 0.474; nearby prose gives 33.9 and 0.473. This edition retains the table values and records the discrepancy.",
+      "evidenceIds": [
+        "recipe-ablation",
+        "weighted-context",
+        "deep-supervision",
+        "data-tokenizer",
+        "pretraining"
+      ]
+    },
+    {
+      "id": "layer-diagnostic",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 13",
+      "page": 37,
+      "asset": "report-assets/2603.14482/layer-diagnostic.png",
+      "width": 1320,
+      "height": 218,
+      "sourceSha256": "b40580916242ade00e2ac177cb01473d511f021d5a25f7552fd17512b3a72bbb",
+      "sourceUrl": "https://arxiv.org/pdf/2603.14482#page=37",
+      "crop": [
+        0.112,
+        0.14,
+        0.888,
+        0.239
+      ],
+      "alt": "Two rows marked cross and check compare training without and with deep self-supervision. Each task has last-layer and four-layer probe columns for ADE20K, NYU and Diving-48.",
+      "caption": "Deep supervision strengthens the final layer and reduces, but does not erase, the benefit of reading intermediate layers.",
+      "readingGuide": "The cross and check describe whether deep self-supervision was used during pretraining. Within either row, the paired columns change only which encoder features reach the evaluation probe: the final layer or four concatenated layers. This is the paper's scratch-trained ViT-L diagnostic. For ADE20K, the unsupervised-depth row improves from 34.9 to 39.1 when the probe reads four layers; with deep supervision, the corresponding scores are 42.0 and 43.9. For NYU, remember that lower error is better: the pairs are 0.513/0.463 and 0.381/0.370. The rightmost columns repeat the comparison for Diving-48 recognition.",
+      "takeaway": "Calculated from the displayed ADE20K entries, the benefit of four-layer evaluation falls from 4.2 to 1.9 mIoU points. More strikingly, the deeply supervised model's final layer already exceeds the other model's four-layer score. This supports the claim that training makes useful information more accessible at the output, rather than merely allowing a richer downstream probe to retrieve it.",
+      "caution": "Four-layer evaluation still improves every displayed task. The result supports reduced dependence on intermediate features, not their universal redundancy. The source does not provide repeated-run uncertainty for these differences or a matched probe-parameter analysis.",
+      "evidenceIds": [
+        "layer-diagnostic",
+        "dense-protocol",
+        "recognition-appendix"
+      ]
+    },
+    {
+      "id": "dense-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 8",
+      "page": 15,
+      "asset": "report-assets/2603.14482/dense-results.png",
+      "width": 1320,
+      "height": 482,
+      "sourceSha256": "b40580916242ade00e2ac177cb01473d511f021d5a25f7552fd17512b3a72bbb",
+      "sourceUrl": "https://arxiv.org/pdf/2603.14482#page=15",
+      "crop": [
+        0.112,
+        0.2,
+        0.888,
+        0.419
+      ],
+      "alt": "A comparison of visual encoders across two depth datasets, three segmentation datasets and two video object segmentation datasets, with parameter/patch-size labels and separate 7B and smaller-model groups.",
+      "caption": "Large dense-task gains over V-JEPA 2 coexist with stronger segmentation and tracking scores from DINOv3.",
+      "readingGuide": "Start with the two V-JEPA 2.1 rows at the bottom and the V-JEPA 2 row just above them. The first two numeric columns are depth RMSE, where smaller is better. The next three are segmentation mIoU, followed by video-mask J&F means, where larger is better. For dense images, the evaluation fits a linear head to frozen final-layer features; tracking instead propagates a supplied first-frame mask. The parameter field also records patch size. Compare DINOv3's 7B row separately: it nearly matches ViT-G on NYUv2 while remaining stronger in KITTI, all three segmentation columns and both tracking columns.",
+      "takeaway": "ViT-G cuts NYUv2 RMSE from V-JEPA 2's 0.642 to 0.307 and raises ADE20K mIoU from 24.4 to 47.9. The outcome is a much more useful general video representation for dense tasks. It is not a clean sweep: DINOv3 7B scores 55.9 on ADE20K and 74.1 on YouTube-VOS versus 47.9 and 72.7 here.",
+      "caution": "Comparisons vary in model scale and pretraining. YouTube-VOS uses a custom 80/20 division of its training videos, not the official hidden test set. Table 14 lists 72.6 for high-resolution ViT-G YouTube-VOS, whereas this table gives 72.7; neither reports uncertainty.",
+      "evidenceIds": [
+        "dense-results",
+        "dense-protocol",
+        "vos-protocol",
+        "resolution-ablation"
+      ]
+    },
+    {
+      "id": "interaction-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 11,
+      "asset": "report-assets/2603.14482/interaction-results.png",
+      "width": 1308,
+      "height": 374,
+      "sourceSha256": "b40580916242ade00e2ac177cb01473d511f021d5a25f7552fd17512b3a72bbb",
+      "sourceUrl": "https://arxiv.org/pdf/2603.14482#page=11",
+      "crop": [
+        0.115,
+        0.157,
+        0.885,
+        0.327
+      ],
+      "alt": "Ego4D anticipation results separated into literature systems and encoders using the authors' protocol. Columns add bounding-box, noun, verb and time-to-contact requirements; the final column is Top-5 mAP All.",
+      "caption": "The 7.71 score measures a joint forecast of object, action and contact time.",
+      "readingGuide": "Read the column subscripts as progressively stricter event requirements. The paper defines b as the next active object's box, N as its noun class, V as the upcoming verb, and δ as time to contact. The rightmost mAP All column requires these aspects jointly, so it is the principal score. The upper block contains published systems; the lower block evaluates frozen encoders with the authors' detection/attention protocol. Compare the final ViT-G row with V-JEPA 2 and DINOv3 within this lower block before using the literature comparison. Appendix C.4 says each encoder is reported with its best respective configuration.",
+      "takeaway": "ViT-G reaches 7.71 mAP All versus 6.02 for V-JEPA 2 and 5.68 for DINOv3 7B. Its box AP is 50.7 and box-plus-contact-time AP is 20.2. The joint improvement therefore accompanies useful localization and timing predictions, while DINOv3 remains stronger in some noun-sensitive columns. This is supervised forecasting from frozen features, not an executed interaction.",
+      "caution": "The Top-5 metric discounts four high-scoring false positives; 7.71 is not a robot success rate. The main text specifies eight frames over 0.5 seconds, while Appendix C.4 selects 16 frames at 2 fps. That configuration conflict remains unresolved.",
+      "evidenceIds": [
+        "sta-protocol",
+        "sta-results",
+        "sta-appendix"
+      ]
+    },
+    {
+      "id": "robot-planning",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 6",
+      "page": 13,
+      "asset": "report-assets/2603.14482/robot-planning.png",
+      "width": 1348,
+      "height": 220,
+      "sourceSha256": "b40580916242ade00e2ac177cb01473d511f021d5a25f7552fd17512b3a72bbb",
+      "sourceUrl": "https://arxiv.org/pdf/2603.14482#page=13",
+      "crop": [
+        0.112,
+        0.806,
+        0.905,
+        0.906
+      ],
+      "alt": "Three planning rows compare V-JEPA 2 with two V-JEPA 2.1 configurations. Columns report CEM samples, iterations, horizon, time and success for reach, grasp and pick-and-place.",
+      "caption": "Matched planning yields a 10-point grasp gain; the 20-point gain also changes planning settings.",
+      "readingGuide": "Read the planning details before reading success rates. The first two rows use 800 CEM samples, ten optimization iterations, horizon one and three seconds of planning. That pair is the closest comparison of the learned representation: grasp rises from 60% to 70%, with reach and pick-and-place unchanged. The final row changes several settings together: 300 samples, 15 iterations, horizon eight and 14 seconds. It reaches 80% grasp. The caption places all results on a Franka Panda cup-manipulation setup with ten tasks per skill and one A100 GPU for planning. The predictor was separately trained on DROID, as described on page 12.",
+      "takeaway": "This is direct closed-loop robot evidence, beyond visual plausibility or offline feature probes. The matched planner gains ten percentage points in grasp success, while the longer, slower planner gains twenty points over the original baseline. The authors associate remaining failures with gripper timing and opening, showing that better spatial features do not solve every component of manipulation.",
+      "caution": "The caption's '20% improvement' corresponds to 60%→80%, a 20-percentage-point change under a different planner. Ten tasks per skill and absent confidence intervals limit precision; the reported long-horizon degradation of V-JEPA 2 has no numerical row here.",
+      "evidenceIds": [
+        "manipulation"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Why supervise a patch the encoder already saw?",
+      "kind": "analysis",
+      "text": "The original objective only scores predictions at missing positions. A visible token can help solve that task by summarizing the scene, even if its own spatial location becomes difficult to decode. This is the authors' proposed explanation for fragmented feature maps, rather than a proof about every JEPA solution. The context term adds a different obligation: after passing through the predictor, each visible token must match the clean-view target at its own index. Equation (3) gives stronger weight near masked regions, where continuity between observed and hidden content matters. Reader interpretation: this redistributes training pressure toward spatially anchored features, but may compete with global aggregation. Table 1 makes that competition observable through the immediate SSv2 drop, so dense-looking PCA maps alone would be insufficient evidence of a successful recipe.",
+      "evidenceIds": [
+        "jepa-objective",
+        "feature-hypothesis",
+        "weighted-context",
+        "recipe-ablation"
+      ]
+    },
+    {
+      "heading": "Why training at four depths differs from probing four depths",
+      "kind": "source",
+      "text": "V-JEPA 2.1 changes the training information flow before choosing a downstream head. Four encoder levels are concatenated and compressed into the predictor input, and both losses supervise predictions against the corresponding target levels. The final model can therefore be evaluated with only its output layer for dense images. Table 13 separates that training choice from the later choice to concatenate four layers at evaluation. Deep supervision raises last-layer ADE20K performance above the unsupervised-depth model's four-layer performance, although using four layers still helps. This distinction also explains why the smaller distilled models use a different recipe: the fixed ViT-G teacher supplies final-layer targets, deep supervision is removed, and a separately averaged student becomes the released representation. Distillation transfers the teacher's learned structure without repeating its multi-level target construction.",
+      "evidenceIds": [
+        "deep-supervision",
+        "layer-diagnostic",
+        "dense-protocol",
+        "distillation"
+      ]
+    },
+    {
+      "heading": "From representation prediction to actions in the world",
+      "kind": "analysis",
+      "text": "There are several different uses of prediction in this paper. Ego4D trains a detection head to forecast a human's next interaction; its boxes, classes and contact times are evaluation outputs. EK100 uses the pretrained predictor's future features in a classifier. Robot manipulation instead learns action-conditioned dynamics from DROID and searches candidate actions with CEM, then executes the selected behavior through model-predictive control. Navigation uses yet another downstream model: diffusion over latent features, evaluated through open-loop trajectory errors. Reader interpretation: improvements across these tasks support the usefulness of the representation, but they do not identify one universal action-generating architecture. Table 6 is especially instructive because representation and planning changes are visible in separate rows, and its strongest grasp result spends more time planning as well as using the newer features.",
+      "evidenceIds": [
+        "sta-protocol",
+        "ek100",
+        "manipulation",
+        "navigation",
+        "architecture"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate context weighting from supervision depth",
+      "text": "Reader-proposed experiment, not executed: train four ViT-L conditions crossing context loss off/on with final-layer-only/four-level supervision. Hold data mixture, masks, updates, predictor depth and width, learning-rate schedule and evaluation search budget fixed; report compute and repeat with independent seeds. Use the documented distance weighting and modality coefficients in the context-on runs, with an explicitly recorded warmup-to-step conversion. Evaluate frozen features on ADE20K and NYUv2 using both final-layer and four-layer probes, plus a fixed SSv2 protocol. The central prediction is that context loss improves dense scores and deep supervision reduces its recognition penalty. If the interaction disappears under matched capacity and compute, the cumulative ablation would not isolate the proposed explanation. Record the SSv2 frame-count choice because the source gives conflicting specifications.",
+      "evidenceIds": [
+        "recipe-ablation",
+        "weighted-context",
+        "pretraining",
+        "layer-diagnostic",
+        "dense-protocol",
+        "recognition",
+        "recognition-appendix"
+      ]
+    },
+    {
+      "title": "Factor representation and planner budget in cup grasping",
+      "text": "Reader-proposed experiment, not executed: evaluate both V-JEPA 2 and V-JEPA 2.1 with both complete planner settings from Table 6: (800 samples, 10 iterations, horizon 1) and (300 samples, 15 iterations, horizon 8). Train the action-conditioned predictors on the same DROID subset and losses, pair initial/goal cup configurations, randomize run order, and repeat trials beyond the source's ten-task setup. Record grasp success, planning latency, premature closure, dropped objects and confidence intervals. Add a latency-matched search comparison to separate longer prediction horizons from extra decision time. A representation-specific long-horizon benefit should appear as a reproducible interaction between encoder and horizon, not only as a gain available to either encoder when planning longer. This would also quantify the paper's un-tabulated claim that V-JEPA 2 degrades at longer horizons.",
+      "evidenceIds": [
+        "manipulation"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      33,
+      34,
+      35,
+      36,
+      37
+    ],
+    "notes": "Visually inspected the title/author block, all 15 numbered figures and all 14 numbered tables, the method and evaluation text, and Appendices A–D. Cross-checked Figure 4's two loss paths and target-side stop-gradient against Equations (1)–(3) and the architecture text. All six final original PDF crops were inspected; Table 13's crop was corrected to retain both full rows. Table 1 uses a 400-DPI original render for legibility. Other crops and declared pages use 200-DPI renders. Reference pages 25–32 were read as text; separate supplements, code and external resources were outside this supplied reading. Protocol and numerical disagreements are disclosed rather than silently reconciled."
+  }
+}

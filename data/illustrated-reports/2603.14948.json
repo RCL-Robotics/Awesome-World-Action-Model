@@ -1,0 +1,270 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.14948",
+  "shortTitle": "WorldDrive",
+  "thesis": "WorldDrive transfers trajectory-conditioned video representations into a separate planner and distills future latents into a fast candidate scorer, trading online video simulation for learned future estimation.",
+  "standfirst": "A driving video model can imagine a changing street without learning the motion distinctions needed to choose a trajectory. WorldDrive gives its video model a structured trajectory vocabulary, then reuses the resulting vision and motion encoders for planning. A second transfer happens inside the Future-aware Rewarder: candidate-conditioned future latents become training targets for a lightweight scorer. The important reading question is which part supplies the planning gain—generic video pretraining, driving-specific representation transfer, candidate quality, or future-aware selection. The architecture and two ablation tables help separate these contributions, while the benchmark footnotes keep deployable selection distinct from an oracle upper bound.",
+  "evidenceIds": [
+    "e-motivation",
+    "e-architecture",
+    "e-far",
+    "e-representation",
+    "e-reward-ablation",
+    "e-navsim"
+  ],
+  "featuredResultTask": "NAVSIM navtest trajectory planning",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2603.14948/architecture.png",
+      "width": 1376,
+      "height": 653,
+      "sourceSha256": "77aeebcb970deeae322e86cb082b9b4c6bf1c931cae124bc7b4b1420ad82c603",
+      "sourceUrl": "https://arxiv.org/pdf/2603.14948#page=3",
+      "crop": [
+        0.095,
+        0.09,
+        0.905,
+        0.387
+      ],
+      "alt": "Two stacked pipelines show video diffusion above and planning below. Frozen encoders recur in the lower pipeline, and the world model inside the rewarder is explicitly marked train-only.",
+      "caption": "Scene-generation training supplies reusable encoders; planning uses a separate candidate generator and rewarder.",
+      "readingGuide": "Read each band from left to right. In the upper band, historical images pass through the frozen VAE and trainable adapter, while the trajectory vocabulary and expert path enter the motion encoder. Their representations condition TA-DiT, whose future latents can be decoded into video. In the lower band, snowflakes mark inherited frozen encoders. The planner additionally receives ego status and produces candidate trajectories. Follow these candidates into FAR, but notice that the enclosed TA-DWM is labeled train-only. The flame icons summarize trainable components across phases; the implementation text further separates planner training from FAR training, freezing the planner before optimizing FAR.",
+      "takeaway": "The bridge is representation reuse plus distillation. WorldDrive does not run the upper video-generation pipeline for every planning decision. Its lower pipeline preserves candidate-conditioned future reasoning through a learned approximation, which is why world-model training can affect planning without appearing as online diffusion sampling.",
+      "caution": "Shared encoders do not make this a single jointly generating action/video model. The figure compresses sequential training stages, and its final car icon denotes a selected trajectory rather than evidence of physical vehicle execution.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-motion",
+        "e-planner",
+        "e-far",
+        "e-implementation",
+        "e-training",
+        "e-protocol"
+      ]
+    },
+    {
+      "id": "future-rewarder",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/2603.14948/future-rewarder.png",
+      "width": 1309,
+      "height": 554,
+      "sourceSha256": "77aeebcb970deeae322e86cb082b9b4c6bf1c931cae124bc7b4b1420ad82c603",
+      "sourceUrl": "https://arxiv.org/pdf/2603.14948#page=4",
+      "crop": [
+        0.52,
+        0.09,
+        0.905,
+        0.216
+      ],
+      "alt": "A training-only diffusion teacher on the left supplies a future latent. On the right, scene queries attend to visual and motion features, then motion queries attend to estimated future features before an MLP predicts reward.",
+      "caption": "Two attention steps turn a candidate trajectory into an estimated future and then a reward.",
+      "readingGuide": "Start at the bottom right: green future-scene queries are Q, while the combined pink motion and yellow visual features provide K and V. The Future-scene Decoder produces the green estimated future features. Move upward: the pink candidate-motion embedding now supplies Q, and those estimated futures become K and V for the Future-aware Decoder. A reward MLP finishes the candidate score. On the left, TA-DiT generates the teacher target only during training. The dashed MSE connector has arrowheads at both ends; Equation (6), however, explicitly stops gradients into the teacher. Read it as a feature-matching link, not reciprocal model updating.",
+      "takeaway": "FAR remains sensitive to each candidate because motion enters both future estimation and future-feature querying. Removing diffusion from inference therefore does not remove every future-oriented computation: the student directly estimates the representations on which its ranking depends. This is a learned approximation to the teacher's foresight.",
+      "caution": "Latent alignment and preference ranking do not guarantee calibrated safety probabilities. The diagram omits the Bradley–Terry supervision path, and the text leaves preference-pair orientation ambiguous when planner rankings and oracle scores disagree.",
+      "evidenceIds": [
+        "e-far",
+        "e-loss",
+        "e-pairs"
+      ]
+    },
+    {
+      "id": "navsim-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "asset": "report-assets/2603.14948/navsim-results.png",
+      "width": 1389,
+      "height": 794,
+      "sourceSha256": "77aeebcb970deeae322e86cb082b9b4c6bf1c931cae124bc7b4b1420ad82c603",
+      "sourceUrl": "https://arxiv.org/pdf/2603.14948#page=6",
+      "crop": [
+        0.093,
+        0.09,
+        0.91,
+        0.451
+      ],
+      "alt": "NAVSIM navtest comparison table grouped by sensor and training/oracle setting. Three shaded WorldDrive rows report PDMS 88.1, 89.0 and 93.6 with different footnote conditions.",
+      "caption": "The three WorldDrive scores answer three different evaluation questions.",
+      "readingGuide": "Read the sensor and footnote columns before comparing the rightmost PDMS column. SV means one camera view, MV multiple views, and L LiDAR. The unmarked WorldDrive row is the ordinary reported setting; its 88.1 can be compared with the unmarked single-view ImagiDrive row at 87.4. Dagger rows use the full navtrain split: WorldDrive reaches 89.0, against 88.1 for PWM and 88.4 for DriveVLA-W0. Double-dagger rows instead use an oracle to choose the best of six candidates. The retained footnotes are essential because the 93.6 row measures candidate-set potential under privileged selection, not FAR's ordinary decision quality.",
+      "takeaway": "WorldDrive reports strong single-view planning in both ordinary and full-navtrain settings. Its oracle result also shows that candidate generation contains better trajectories than the learned selection result alone reveals. These are complementary findings, but combining their conditions would exaggerate practical planning performance.",
+      "caution": "The table mixes sensor suites and training scopes and supplies no uncertainty estimates. PDMS is a benchmark aggregate, not a physical-road safety certificate; the paper explicitly excludes oracle selection from inference.",
+      "evidenceIds": [
+        "e-navsim",
+        "e-protocol"
+      ]
+    },
+    {
+      "id": "representation-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 7,
+      "asset": "report-assets/2603.14948/representation-ablation.png",
+      "width": 1299,
+      "height": 426,
+      "sourceSha256": "77aeebcb970deeae322e86cb082b9b4c6bf1c931cae124bc7b4b1420ad82c603",
+      "sourceUrl": "https://arxiv.org/pdf/2603.14948#page=7",
+      "crop": [
+        0.1,
+        0.319,
+        0.482,
+        0.416
+      ],
+      "alt": "Four-row pretraining ablation toggles CogVideoX VAE pretraining, TA-DWM vision transfer and TA-DWM motion transfer. PDMS rises from 31.4 to 84.9, 85.8 and 86.9.",
+      "caption": "Generic video pretraining supplies the largest gain; driving-specific vision and motion transfer add smaller increments.",
+      "readingGuide": "Follow the checkmarks down the first three columns. VAE Pretrain means CogVideoX 3D-VAE initialization. TA-DWM Vision and TA-DWM Motion mean inheriting the corresponding encoders learned through scene generation. The all-cross row scores 31.4 PDMS, and VAE initialization alone raises it to 84.9. Adding the driving-adapted visual representation gives 85.8; adding motion transfer gives 86.9. Read the rightmost aggregate alongside NC, DAC, TTC and EP, which describe collision avoidance, drivable-area compliance, time-to-collision and progress. The last step improves the aggregate while EP changes from 80.7 to 80.4, so the gain is not uniform across every component.",
+      "takeaway": "This table supports a specific incremental claim: after a strong generic visual foundation is present, transferring the motion representation contributes another 1.1 PDMS points. Attributing the entire rise from 31.4 to 86.9 to trajectory-aware world modeling would erase the much larger contribution of existing video pretraining.",
+      "caution": "The sequential ablation does not isolate every training-budget or representation-capacity effect, and no run-to-run variability is given. The motion-transfer increment supports usefulness in this setup, not a unique causal explanation for all planning improvements.",
+      "evidenceIds": [
+        "e-representation",
+        "e-protocol",
+        "e-training"
+      ]
+    },
+    {
+      "id": "rewarder-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 5",
+      "page": 7,
+      "asset": "report-assets/2603.14948/rewarder-ablation.png",
+      "width": 1302,
+      "height": 308,
+      "sourceSha256": "77aeebcb970deeae322e86cb082b9b4c6bf1c931cae124bc7b4b1420ad82c603",
+      "sourceUrl": "https://arxiv.org/pdf/2603.14948#page=7",
+      "crop": [
+        0.522,
+        0.089,
+        0.905,
+        0.159
+      ],
+      "alt": "Rewarder ablation compares neither feature, trajectory features alone, and trajectory plus future features, with PDMS 86.9, 87.0 and 88.1.",
+      "caption": "Trajectory features alone barely change the aggregate; the future-feature configuration supplies the larger gain.",
+      "readingGuide": "Read the first two columns as switches for the scoring inputs. Traj feat. means candidate trajectory features from the planner. Future feat. is a bundled setting that introduces the future-scene queries and future-latent distillation. The first row is the 86.9-PDMS baseline. Trajectory features alone yield 87.0, with a small decline in NC and TTC despite improved progress. The final row adds the future-feature machinery and reaches 88.1 while recovering or improving the listed safety-related scores. Keep this experiment separate from Table 4: it studies selection after the inherited representations are in place, rather than the value of representation pretraining itself.",
+      "takeaway": "The rewarder's useful change is associated with its future-feature configuration, not merely another trajectory-feature scoring head. The adjacent 87.0-to-88.1 comparison contributes 1.1 PDMS points. This supports the motivation for future-aware selection while leaving the individual roles of decoder capacity and teacher supervision unresolved.",
+      "caution": "Future feat. changes both the query-based feature path and its distillation training. A matched-capacity scorer with no teacher or shuffled teacher targets would be needed to isolate whether dynamics-specific information causes the gain.",
+      "evidenceIds": [
+        "e-reward-ablation",
+        "e-representation",
+        "e-far",
+        "e-loss"
+      ]
+    },
+    {
+      "id": "controlled-scenes",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 6, first scenario",
+      "page": 9,
+      "asset": "report-assets/2603.14948/controlled-scenes.png",
+      "width": 1685,
+      "height": 412,
+      "sourceSha256": "77aeebcb970deeae322e86cb082b9b4c6bf1c931cae124bc7b4b1420ad82c603",
+      "sourceUrl": "https://arxiv.org/pdf/2603.14948#page=9",
+      "crop": [
+        0.102,
+        0.089,
+        0.895,
+        0.239
+      ],
+      "alt": "A curved-road scene and trajectory plot precede three generated video rows. Green marks the expert trajectory, blue non-expert trajectory I, and orange non-expert trajectory II; the camera views evolve differently across rows.",
+      "caption": "Changing the supplied trajectory changes the generated view of the same road bend.",
+      "readingGuide": "Use the small trajectory plot at left as the key to the three video rows. The green expert path bends toward the positive horizontal side, the blue alternative remains comparatively straight in the plot, and the orange alternative bends toward the opposite side. Match those colors to the labels at the right edge, then compare the road boundary, chevron signs and building position as each row advances from left to right. This crop preserves one complete scenario from Figure 6, including all three conditions and their legend; the other scenarios remain on the inspected page. The differing views illustrate the model's response to motion conditioning.",
+      "takeaway": "The video generator can express different visual consequences for alternative trajectory inputs, complementing the planner's use of the same motion representation. This is the interpretable scene-generation capability retained by the framework even though ordinary planning relies on distilled latent features rather than these decoded videos.",
+      "caution": "These are selected synthetic futures, not recorded outcomes of executing the alternatives. Apparent geometric responsiveness cannot establish counterfactual dynamics accuracy or collision prediction. No numeric physical-error metric can be read from this visual.",
+      "evidenceIds": [
+        "e-qualitative",
+        "e-motion",
+        "e-far"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Make motion reusable before asking it to plan",
+      "text": "The motion encoder is the important connection between the two tasks. During scene-generation training, the expert trajectory is represented relative to nearby vocabulary anchors: the anchor supplies a coarse motion template and the residual supplies its adjustment. Their embeddings are added before conditioning the diffusion transformer. During planning, the complete vocabulary's anchor embeddings become queries that search visual history and ego state for relevant context. Learned heads then score and refine those anchors. Reader interpretation: this transfers a motion coordinate system learned while explaining visual change, rather than merely attaching a generic image encoder to a trajectory regressor. Table 4 supplies the corresponding incremental evidence, but it also shows why generic VAE pretraining must remain a separate part of the explanation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-motion",
+        "e-planner",
+        "e-representation"
+      ]
+    },
+    {
+      "heading": "Distill candidate consequences, then learn preferences",
+      "text": "FAR performs two different learning jobs. First, its scene decoder predicts a future representation from historical visual features and a candidate trajectory. Squared-error alignment compares that prediction with a stopped target from the frozen world model. Second, the future-aware decoder and reward MLP must turn those features into a useful ordering of candidates, trained with a Bradley–Terry preference objective. Accurate imitation of a teacher latent alone does not mathematically guarantee the right planning order. The implementation freezes the planner before training FAR, making selection a distinct stage. Reader interpretation: Table 5's future-feature gain is consistent with helpful foresight, but could also include benefits from the added decoder path. The unresolved pair-label details matter because a mistaken preference order would train a competent feature predictor to choose the wrong candidate.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-far",
+        "e-loss",
+        "e-implementation",
+        "e-pairs",
+        "e-reward-ablation"
+      ]
+    },
+    {
+      "heading": "Separate candidate quality, selected behavior and video quality",
+      "text": "Three evaluation questions should remain separate. The ordinary NAVSIM result evaluates the selected trajectory. Oracle best-of-six evaluates whether a stronger candidate exists in the set under privileged scoring. The generation metrics evaluate decoded videos and do not measure the selected trajectory's driving success. A fourth check, NAVSIM-v2, adds reactive pseudo-simulation: its aggregate EPDMS improves, yet progress and some comfort scores expose remaining tradeoffs. The supplement's candidate sweep is especially informative because five candidates outperform ten under the learned rewarder. Reader interpretation: the next useful improvement may concern ranking robustness rather than simply producing more alternatives. Finally, the reported 53 ms belongs to the encoder–planner–FAR forward pass on one A800; it does not include video generation, training, or a complete vehicle control stack.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-navsim",
+        "e-protocol",
+        "e-navhard",
+        "e-generation",
+        "e-candidates",
+        "e-latency"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does the teacher contribute useful dynamics beyond scorer capacity?",
+      "text": "Reader-proposed experiment, not performed: freeze one planner checkpoint and its same five candidates per scene. Train equal-capacity FAR variants with correct teacher latents, shuffled candidate-to-latent targets, and no alignment loss while keeping the future-decoder path, preference labels, data and optimization budget fixed. Resolve the paper's preference-pair orientation first. Compare navtest PDMS, NC/TTC/EP and the difference between learned selection and oracle selection over those identical candidates across repeated seeds. If correct alignment consistently improves selection while shuffled and absent alignment do not, that supports dynamics-specific transfer. Similar performance among variants would weaken the claim that the Table 5 gain comes from teacher foresight itself.",
+      "evidenceIds": [
+        "e-far",
+        "e-loss",
+        "e-pairs",
+        "e-reward-ablation",
+        "e-candidates",
+        "e-navsim"
+      ]
+    },
+    {
+      "title": "Does anchor-residual conditioning create a transferable motion representation?",
+      "text": "Reader-proposed experiment, not performed: hold the VAE initialization, video datasets, training iterations, anchor vocabulary and planner capacity fixed. Compare TA-DWM trained with anchor-plus-residual conditioning against an anchor-only variant, then evaluate each planner both with its inherited motion encoder and with a newly initialized encoder under the same planner-training protocol. Report selected PDMS and oracle quality over an identical candidate-count budget. Also measure latent sensitivity to small and large trajectory perturbations using the paper's Figure 4 diagnostic. A selective advantage from inheriting the residual-trained encoder, together with improved selected planning, would support transferable motion detail. Greater latent sensitivity without planning benefit would show that controllability and decision utility can diverge.",
+      "evidenceIds": [
+        "e-motion",
+        "e-training",
+        "e-representation",
+        "e-motion-diagnostic",
+        "e-navsim"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      13,
+      14,
+      15,
+      16
+    ],
+    "notes": "Inspected the title/version/author page, main method and loss pages, every quantitative table (Tables 1–9), the motion-sensitivity plot, and qualitative Figures 5–6 and 8–9. Supplementary pages 13–14 supply the retained training, hardware, sampling and inference details. Figure 7(b) is visible; the upper Figure 7(a) panel is blank/obscured at both 200 and 300 DPI, so its extracted labels were not treated as a visually verified diagram. Its readable Section 6.1 text and the legible Figures 2–3 support the method account. Figure 3's MSE arrow was checked against the explicit stop-gradient in Equation (6). All six final original crops were individually viewed, including legends and the main-results footnotes. Pages 10–12 were read in the text chunks (conclusion continuation and references) but were not part of the visual pass; no retained method or numerical claim depends on their images. No external videos, code or separate supplemental artifact was inspected."
+  }
+}
