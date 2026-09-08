@@ -1,0 +1,410 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.16666",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T18:51:54.223Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2603.16666",
+      "title": "Fast-WAM: Do World Action Models Need Test-time Future Imagination?",
+      "kind": "pdf",
+      "sha256": "4eea24883dcc4d8a5c0f760870f501baabb07db4eb65e5fd6c3b4b500601be8d",
+      "wordCount": 7009,
+      "accessedAt": "2026-09-07T14:04:45.180064+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "identityVerified": true,
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Method: 3.1 Problem Formulation, 3.2 Model Architecture, 3.3 Controlled Variants",
+      "4 Experiment: 4.1 Implementation Details, 4.2 Experiment Setup, 4.3.1–4.3.3 Main Results",
+      "5 Conclusion",
+      "References",
+      "A Appendix: A.1 RoboTwin Detailed Results, Table 3"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The supplied title page identifies arXiv:2603.16666v2 [cs.CV], 23 March 2026. Title and all four authors match the catalog. The catalog submission date is 17 March 2026; v1 was not supplied, so changes between revisions cannot be established.",
+      "All four text chunks covering the complete 13-page PDF were read. PDF pages 1–9 and 13 were visually inspected; reference pages 10–12 were read as text.",
+      "The acquisition's text-extraction omission concerns figure images and equation/table layout; this reading addresses it through inspection of the retained PDF and all six final crops.",
+      "Separate supplemental material availability has not been fully verified; no separate supplement was supplied.",
+      "Linked code and project resources were not inspected. No paper scripts or experiments were run."
+    ],
+    "figuresReviewed": [
+      "Figure 1: three WAM paradigms, p. 2",
+      "Figure 2: architecture and attention masks, p. 5",
+      "Figure 3: towel-folding photographs, p. 7",
+      "Figure 4: real-world effectiveness and latency, p. 9"
+    ],
+    "tablesReviewed": [
+      "Table 1: RoboTwin aggregate results, p. 7",
+      "Table 2: LIBERO results and ablations, p. 8",
+      "Table 3: RoboTwin per-task results, p. 13"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Fast-WAM trains a video transformer and an action expert together, then uses the video transformer only to encode the current observation during deployment. Action generation still uses iterative denoising. Controlled comparisons associate larger performance gains with the video training objective than with explicit test-time future generation, within the evaluated manipulation tasks (e-architecture, e-variants, e-robotwin, e-libero, e-real-results).",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Video-based robot policies can entangle two benefits: learning from future-video supervision and conditioning actions on generated futures. Fast-WAM asks whether the latter is necessary enough to justify its latency. The relevant outcome is executed manipulation success and efficiency, rather than generated-video plausibility; the paper studies single action chunks and omits the outer autoregressive rollout from its formulation.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-question",
+      "e-interface"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Repurpose a pretrained video DiT as a single-pass observation encoder at inference while retaining future-video supervision during policy training.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-architecture"
+      ]
+    },
+    {
+      "text": "Compare this design with joint video/action denoising, video-then-action inference, and an otherwise unchanged policy trained without the video objective.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-variants"
+      ]
+    },
+    {
+      "text": "The authors interpret the larger no-video-training degradation as evidence that representation learning explains much of WAMs' benefit. This is an empirical interpretation, not a direct measurement of physical understanding.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-robotwin",
+        "e-libero",
+        "e-real-results"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current camera observation o; multiple camera images are concatenated before VAE encoding.",
+      "Task instruction l encoded with the pretrained T5 encoder.",
+      "Training additionally uses demonstrated action chunks and future video frames."
+    ],
+    "outputs": [
+      "An action chunk with horizon 32.",
+      "During training, velocity predictions for both noisy action tokens and future video latents; no future-video output at deployment."
+    ],
+    "steps": [
+      {
+        "name": "Encode visual and language context",
+        "detail": "Wan2.2-5B supplies the video DiT, pretrained VAE and text encoder. Language reaches both branches through cross-attention. A 1B action expert with hidden dimension 1024 brings the reported total to 6B parameters. Temporal downsampling by four gives nine video frames per training chunk.",
+        "evidenceIds": [
+          "e-architecture",
+          "e-config"
+        ]
+      },
+      {
+        "name": "Separate supervision from accessible information",
+        "detail": "The shared-attention Mixture-of-Transformer contains clean first-frame, noisy future-video and action token groups. Future tokens see the video context; action tokens see other actions and the first frame. Actions cannot attend to future tokens, and first-frame tokens cannot attend to future or action tokens. Figure 2's row-wise visibility pattern agrees with this description.",
+        "evidenceIds": [
+          "e-architecture"
+        ]
+      },
+      {
+        "name": "Construct controlled alternatives",
+        "detail": "Joint permits video/action attention and denoises both together. IDM generates future video first, then conditions actions on it; its training augments ground-truth video tokens with noise with probability 0.5. The no-video variant removes the video loss while retaining Fast-WAM's architecture and inference procedure.",
+        "evidenceIds": [
+          "e-variants",
+          "e-config"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Optimize action and future-latent flow-matching losses together. The recipe uses logit-normal noise times, AdamW at learning rate 10⁻⁴, weight decay 0.01, cosine annealing, mixed precision and gradient clipping at 1.0. LIBERO training lasts 20k steps; RoboTwin and towel folding use 30k. No embodied pretraining is reported, but general video-model pretraining is explicitly used.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-objective",
+          "e-config",
+          "e-sim-protocol",
+          "e-real-protocol"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Retain only clean observation-frame latent tokens, run the video backbone once and pass its cached context to the action expert. Denoise actions for 10 steps with classifier-free guidance scale 1.0. 'Single forward pass' describes video encoding, not the complete action sampler. The paper does not specify how many predicted actions execute before observations are refreshed.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-question",
+          "e-architecture",
+          "e-config",
+          "e-reproduction-gaps"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "p_{\\theta}(a_{1:H}\\mid o,l)=p_{\\theta}(a_{1:H}\\mid z(o,l))",
+        "explanation": "Equation (4): o is the current observation, l the instruction, a₁:H the action chunk of horizon H, and z(o,l) the video backbone's context representation. Unlike the future-observation integral in Eq. (2), this interface requires no sampled future.",
+        "evidenceIds": [
+          "e-interface"
+        ]
+      },
+      {
+        "expression": "\\begin{aligned}y_t&=(1-t)y+t\\epsilon,\\\\\\mathcal{L}_{\\mathrm{FM}}(y)&=\\mathbb{E}_{y,\\epsilon,t}\\!\\left[\\left\\|f_\\theta(y_t,t,o,l)-(\\epsilon-y)\\right\\|_2^2\\right],\\\\\\mathcal{L}&=\\mathcal{L}_{\\mathrm{act}}+\\lambda\\mathcal{L}_{\\mathrm{vid}}.\\end{aligned}",
+        "explanation": "Equations (5)–(9): y is an action chunk or VAE future latents z₁:T; ε is Gaussian noise, t∈(0,1) the noise time, and fθ predicts velocity ε−y. The two target choices define the action and video losses; λ weights video supervision. Its numerical value is not supplied.",
+        "evidenceIds": [
+          "e-objective",
+          "e-reproduction-gaps"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboTwin 2.0 bimanual manipulation",
+      "setting": "Multi-task training on 2,500 clean and 25,000 randomized demonstrations; 30k steps; 100 evaluation trials per task in each setting.",
+      "metric": "Success rate (%)",
+      "value": "Fast-WAM: 91.88 clean, 91.78 randomized, 91.8 reported average.",
+      "comparison": "Joint 90.6; IDM 91.3; no video co-training 83.8; pretrained LingBot-VA 92.2; pretrained Motus 87.8 (reported averages).",
+      "interpretation": "Removing the video objective costs 8.0 percentage points in reported averages. External baselines differ in pretraining. LingBot-VA from Wan2.2 reports 80.60 clean, no randomized value, and 80.6 'Average'; that is not a matched two-setting average.",
+      "evidenceIds": [
+        "e-sim-protocol",
+        "e-robotwin"
+      ]
+    },
+    {
+      "task": "LIBERO four-suite manipulation",
+      "setting": "500 demonstrations and 10 tasks per suite; 20k training steps; 2,000 evaluation trials across 40 tasks with different random seeds.",
+      "metric": "Success rate (%)",
+      "value": "Fast-WAM: Spatial 98.2, Object 100.0, Goal 97.0, Long 95.2; average 97.6.",
+      "comparison": "Joint 98.5; IDM 98.0; no video co-training 93.5; pretrained LingBot-VA 98.5; Motus 97.7; π0.5 96.9 (averages).",
+      "interpretation": "The no-video gap is 4.1 percentage points, versus 0.9 and 0.4 deficits to Joint and IDM. No uncertainty is reported; the small gaps do not establish statistical equivalence.",
+      "evidenceIds": [
+        "e-sim-protocol",
+        "e-libero"
+      ]
+    },
+    {
+      "task": "Real-world towel-folding effectiveness",
+      "setting": "Galaxea R1 Lite; 60 hours of teleoperated demonstrations; 30k training steps. Evaluation trial count and precise timeout/success criteria are unstated.",
+      "metric": "Success rate and average completion time",
+      "value": "Figure 4 places Fast-WAM at approximately 0.75 success and 150 seconds; IDM near 0.90 and 177 seconds. These are plot readings, not tabulated exact values. The text explicitly reports 10% success without video co-training.",
+      "comparison": "Pretrained π0.5 is best on both plotted metrics; Fast-WAM completes faster than IDM but succeeds less often.",
+      "interpretation": "The real-world evidence concerns one task. It supports a speed–success tradeoff, not equal effectiveness across variants; treatment of failed episodes in completion-time averaging is unspecified.",
+      "evidenceIds": [
+        "e-real-protocol",
+        "e-real-results"
+      ]
+    },
+    {
+      "task": "Towel-folding policy inference latency",
+      "setting": "Reported inference measurements on one NVIDIA RTX 5090D V2 32GB GPU.",
+      "metric": "Latency (ms; lower is better)",
+      "value": "Fast-WAM 190; no video co-training 190; Joint 580; IDM 810; π0.5 180.",
+      "comparison": "Calculated from the plotted values: IDM/Fast-WAM ≈4.26×; Joint/Fast-WAM ≈3.05×.",
+      "interpretation": "The headline 'over 4×' holds against IDM, not Joint. Model-call latency differs from task completion time and is not a demonstrated end-to-end control frequency.",
+      "evidenceIds": [
+        "e-config",
+        "e-latency"
+      ]
+    },
+    {
+      "task": "RoboTwin task-level diagnostic",
+      "setting": "Table 3, clean/randomized evaluation, under the RoboTwin protocol.",
+      "metric": "Success rate (%)",
+      "value": "Move Stapler Pad: Fast-WAM 77/64 versus IDM 89/85. Press Stapler: Fast-WAM 90/97 versus IDM 50/57.",
+      "comparison": "The direction of the Fast-WAM–IDM difference reverses across these tasks.",
+      "interpretation": "Aggregate competitiveness hides substantial task dependence; these rows do not identify the causal source of each failure.",
+      "evidenceIds": [
+        "e-sim-protocol",
+        "e-task-diagnostic"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The controls align backbone, tokenization and training recipe 'as much as possible'; Joint and IDM still change attention and inference structure, and IDM has noise augmentation. This is not a complete factorial isolation of every source of benefit.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-variants",
+        "e-config"
+      ]
+    },
+    {
+      "text": "Tables and plots omit confidence intervals. Real-world evidence is limited to towel folding, and the conclusion leaves larger-scale pretraining and model scaling for future work. General necessity or uselessness of future imagination remains untested.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-robotwin",
+        "e-libero",
+        "e-real-results",
+        "e-conclusion"
+      ]
+    },
+    {
+      "text": "Section 4.2 describes RoboTwin as spanning more than 50 tasks, while Table 3 lists 50 task rows. The exact evaluated task list should be resolved rather than silently equating these descriptions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-sim-protocol",
+        "e-task-diagnostic"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction needs the Wan2.2-5B components, action expert, exact attention mask, demonstrated actions and synchronized future frames, and the stated benchmark data and robot platform. The PDF does not specify λ, batch size, image resolution, exact action parameterization/normalization, frozen modules, training hardware/time, solver details, software versions or real-world train/test partitioning.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-objective",
+        "e-config",
+        "e-sim-protocol",
+        "e-real-protocol",
+        "e-reproduction-gaps"
+      ]
+    },
+    {
+      "text": "Proposed checks: repeat the video-loss ablation with matched initialization and multiple training seeds, and compare action-only versus future-conditioned policies under matched deployment timing. These would test reproducibility of the representation benefit and separate inference delay from policy quality; neither check was run here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-variants",
+        "e-config",
+        "e-robotwin",
+        "e-real-results",
+        "e-latency"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Efficient inference & real-time control",
+        "Latent prediction & JEPA"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "4355c2b9a6f179563521a4b4d330755d79f012f72c65d6f99aa234985795c78f"
+    },
+    "reasoning": {
+      "text": "The catalog is broadly supported: distinct video and action experts support Dual-system at the branch level, although they share attention and train jointly rather than operating independently. At inference, future prediction is neither joint with actions nor an inverse-dynamics conditioning input, supporting Other mechanisms / Outside quadrants. Efficient inference is directly measured. Latent prediction & JEPA fits only the latent-prediction portion: the objective is flow matching, with no JEPA-specific mechanism established.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-objective",
+        "e-variants",
+        "e-latency"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Would the video-loss advantage persist across training seeds and data scales?",
+    "Which tasks benefit from future conditioning once deployment delay is controlled?",
+    "Does the learned context encode dynamics beyond what an equally expensive auxiliary objective would learn?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author/affiliation block and arXiv margin stamp",
+      "detail": "Fast-WAM: Do World Action Models Need Test-time Future Imagination?; Tianyuan Yuan, Zibin Dong, Yicheng Liu, Hang Zhao; IIIS, Tsinghua University and Galaxea AI. Stamp: arXiv:2603.16666v2 [cs.CV], 23 Mar 2026."
+    },
+    {
+      "id": "e-question",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract, Introduction and Figure 1(A–C) with caption",
+      "detail": "The paper separates video co-training from test-time future generation. Figure 1(C) shows a single video pass followed by action denoising through a KV-cache connection; its caption abbreviates this as single-pass prediction."
+    },
+    {
+      "id": "e-interface",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1, Eqs. (1)–(4) and surrounding paragraphs",
+      "detail": "Defines observation, instruction, action horizon and future observations; contrasts future-conditioned factorization with conditioning on z(o,l). The outer autoregressive loop is omitted."
+    },
+    {
+      "id": "e-architecture",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.2 Architecture, Figure 2(a–b), and inference paragraph",
+      "detail": "Wan2.2 video DiT, VAE and T5 serve the MoT policy with an action expert. Language cross-attention reaches all tokens. Mask rows allow action-to-first-frame and action-to-action attention but block future-to-action leakage; first-frame tokens only see themselves within the visual/action mask. Inference removes future tokens."
+    },
+    {
+      "id": "e-objective",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2 Training objective, Eqs. (5)–(9)",
+      "detail": "Interpolation y_t=(1−t)y+tε yields velocity target ε−y. The joint objective is action flow matching plus λ times future-VAE-latent flow matching."
+    },
+    {
+      "id": "e-variants",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.3 Controlled Variants",
+      "detail": "Joint co-denoises video/actions; IDM generates video before action conditioning; no-video removes the video objective while leaving architecture and inference unchanged. The shared implementation aligns training choices as much as possible."
+    },
+    {
+      "id": "e-config",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1 Implementation Details",
+      "detail": "Reports 1B action expert, 1024 hidden dimension, 6B total, 32-action horizon, fourfold video downsampling to nine frames, camera concatenation, logit-normal noise, 10 denoising steps, CFG 1.0, optimizer settings and one RTX 5090D V2 32GB for latency. IDM noise augmentation probability is 0.5."
+    },
+    {
+      "id": "e-sim-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.2 LIBERO and RoboTwin 2.0 paragraphs",
+      "detail": "LIBERO has 500 demonstrations per 10-task suite, 20k training steps and 2,000 trials across 40 tasks. RoboTwin uses 2,500 clean plus 25,000 randomized demonstrations, 30k steps and 100 trials per task/setting; prose says more than 50 tasks."
+    },
+    {
+      "id": "e-robotwin",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, Clean/Rand./Average columns, all baseline and variant rows",
+      "detail": "Fast-WAM 91.88/91.78/91.8; Joint 90.84/90.32/90.6; IDM 91.16/91.34/91.3; no-video 82.76/84.80/83.8. Pretrained LingBot-VA averages 92.2 and Motus 87.8. Non-embodied-pretrained LingBot-VA omits randomized results."
+    },
+    {
+      "id": "e-libero",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2, Spatial/Object/Goal/Long/Average columns and Section 4.3.2",
+      "detail": "Fast-WAM 98.2/100.0/97.0/95.2/97.6; Joint average 98.5; IDM 98.0; no-video 89.2/99.2/95.4/90.0/93.5. External baseline averages include LingBot-VA 98.5, Motus 97.7 and π0.5 96.9."
+    },
+    {
+      "id": "e-real-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 3 and Real-World Evaluation paragraph in Section 4.2",
+      "detail": "Towel folding uses Galaxea R1 Lite, 60 hours of teleoperated demonstrations and 30k training steps. Success measures eventual completion; average completion time evaluates efficiency. Trial count and handling of failures are not specified."
+    },
+    {
+      "id": "e-real-results",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 4.3.3 and Figure 4 left panel/caption",
+      "detail": "Pretrained π0.5 has highest success and shortest completion time. Fast-WAM lies near 0.75/150 s and IDM near 0.90/177 s on plotted axes; these coordinates are approximate. Text reports 10% success without video co-training and the longest completion time. No error bars are shown."
+    },
+    {
+      "id": "e-latency",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 4 right panel and Section 4.3.3 runtime paragraph; p. 6, Section 4.1 hardware statement",
+      "detail": "Bars explicitly label π0.5 180 ms, Fast-WAM 190, no-video 190, Joint 580 and IDM 810; hardware is one NVIDIA RTX 5090D V2 32GB."
+    },
+    {
+      "id": "e-task-diagnostic",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix Table 3, task rows and Average row",
+      "detail": "Table lists 50 tasks. Move Stapler Pad is 77/64 for Fast-WAM and 89/85 for IDM; Press Stapler is 90/97 versus 50/57. All methods have paired clean/randomized columns; the bottom row reproduces aggregate setting means."
+    },
+    {
+      "id": "e-conclusion",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5 Conclusion",
+      "detail": "The authors propose future study of larger-scale pretraining data and model scaling; current conclusions concern the reported benchmark and real-world comparisons."
+    },
+    {
+      "id": "e-reproduction-gaps",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–7, Sections 3.2–4.2, model/objective/implementation/evaluation specifications",
+      "detail": "The supplied method and implementation sections do not give a numerical λ, batch size, image resolution, exact action representation, module-freezing policy, training hardware or duration, detailed solver/software versions, execution/reobservation schedule or real-world split. Section 4.1's named GPU is for latency measurements."
+    }
+  ]
+}

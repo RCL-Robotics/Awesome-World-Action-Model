@@ -1,0 +1,400 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.16860",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T18:51:04.526Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2603.16860",
+      "title": "DreamPlan: Efficient Reinforcement Fine-Tuning of Vision-Language Planners via Video World Models",
+      "kind": "pdf",
+      "sha256": "7b19c6a4c2b785434e74630607229eef55bd46ca2237c3b972e4c047e637c094",
+      "wordCount": 5918,
+      "accessedAt": "2026-09-07T14:04:42.464804+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "PDF p. 1: title, author credits, version stamp, abstract and Figure 1",
+      "PDF pp. 1–2: I. Introduction",
+      "PDF pp. 2–3: II. Related Work, A–B",
+      "PDF pp. 3–5: III. Method, A–C, Equations (1)–(5), Figure 2",
+      "PDF pp. 5–8: IV. Experiments, A–D, Figures 3–6 and Tables I–III",
+      "PDF p. 8: V. Conclusion and VI. Acknowledgement",
+      "PDF pp. 8–9: References"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction limitation was addressed by visually inspecting all nine supplied PDF pages and all six final crops. No separate supplemental material was supplied; no appendix appears in this PDF.",
+      "The inspected title and all six authors match the catalog. The title-page stamp identifies arXiv:2603.16860v1 [cs.RO], 17 March 2026. Only this supplied version was reviewed; no revision or edition comparison was possible.",
+      "Code, project-page content and external references were not inspected. No experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, p. 1",
+      "Figure 2, p. 4",
+      "Figures 3 and 4, p. 5",
+      "Figure 5, p. 6",
+      "Figure 6, p. 7"
+    ],
+    "tablesReviewed": [
+      "Tables I and II, p. 6",
+      "Table III, p. 7"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "DreamPlan adapts a Qwen3-VL-8B manipulation planner using preferences derived from an action-conditioned video world model. Exploratory robot interactions train the dynamics predictor; predicted outcomes then support offline action ranking and planner fine-tuning. Deployment uses the adapted planner directly. On three physical deformable-object tasks, the reported mean score rises from 0.33 to 0.60 relative to the same zero-shot backbone, under a single-action evaluation that awards partial credit. The results support task-specific adaptation, while leaving verifier calibration and broader generalization unresolved.",
+  "readingTimeMinutes": 11,
+  "problem": {
+    "text": "A semantically sensible grasp-and-place decision can deform cloth, rope or a soft toy in the wrong way. The authors seek physical grounding for image-goal planning without repeatedly updating a large VLM through costly robot interaction or constructing a high-fidelity deformable simulator. Their solution still requires initial physical exploration; only subsequent planner adaptation is performed entirely offline.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem",
+      "e-data",
+      "e-preference"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Rendered robot-motion videos condition a pretrained video diffusion model through a residual control branch, while object-focused prediction reduces irrelevant scene reconstruction.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-world"
+      ]
+    },
+    {
+      "text": "Best-of-K outcome ranking produces reusable preference pairs, separating expensive video generation from planner optimization and eventual action inference.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-preference",
+        "e-efficiency"
+      ]
+    },
+    {
+      "text": "The authors interpret improved robot scores as internalization of physical dynamics. The experiments demonstrate improved decisions on the tested tasks; they do not directly measure an internal physics representation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-task",
+        "e-interpretation"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current RGB observation and target image, annotated with independently sampled object keypoints",
+      "For world-model training: exploratory action–observation trajectories and rendered robot-arm motions"
+    ],
+    "outputs": [
+      "Planner: discrete grasp/placement keypoints and, in the execution pipeline, an arm choice",
+      "World model: predicted object-deformation video used to rank candidate actions"
+    ],
+    "steps": [
+      {
+        "name": "Ground the action vocabulary",
+        "detail": "SAM2 propagates the current-object mask after one manual bounding-box prompt; the goal mask is annotated offline. Farthest Point Sampling supplies candidate points in each mask. The VLM selects source and goal points without explicit correspondence matching between images, avoiding direct continuous-coordinate regression.",
+        "evidenceIds": [
+          "e-planner",
+          "e-execution"
+        ]
+      },
+      {
+        "name": "Execute exploration through a primitive",
+        "detail": "Selected pixels are unprojected to 3D waypoints. The chosen arm moves from home to grasp, closes its gripper, transports, releases and returns home, using joint-space interpolation. Reobserving and repeating this cycle collects trajectories; the video predictor itself does not execute robot actions.",
+        "evidenceIds": [
+          "e-execution"
+        ]
+      },
+      {
+        "name": "Learn action-conditioned deformation",
+        "detail": "CogVideoX-5B image-to-video supplies the frozen diffusion backbone specified in Equation (2). A ControlNet-style residual branch receives rendered arm trajectories. Training predicts noise with squared error and targets cropped object-only videos on a white background. Figure 2 sketches the stages but depicts dark backgrounds in its object-output examples.",
+        "evidenceIds": [
+          "e-world",
+          "e-architecture"
+        ]
+      },
+      {
+        "name": "Turn predictions into preferences",
+        "detail": "For each collected observation–goal input, sample K action candidates and generate their outcomes. GPT-4o compares rollout images with the goal to select the preferred action; other candidates become negatives. Qwen3-VL-8B is fine-tuned on these comparisons using the paper's ORPO formulation, without repeated world-model queries during updates.",
+        "evidenceIds": [
+          "e-preference"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The method section describes several hundred action sequences collected in approximately four hours; the collection section instead reports 2,056 trajectories. The paper does not explain whether these are different units or subsets, so neither count should silently replace the other.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-data"
+        ]
+      },
+      {
+        "text": "Adaptation follows world-model fitting and offline preference construction. No separate value function is required. The supplied description does not specify training K, rollout length, optimization hyperparameters or preference-pair counts.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-preference",
+          "e-repro-gaps"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "DreamPlan directly predicts an action without sampling video futures at deployment. The explicit-verification comparator instead samples N actions from the zero-shot planner, predicts each outcome and uses GPT-4o to choose. Both ultimately rely on the robot primitive for execution. Evaluation tests one primitive per trial, despite the method's general sequential notation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-efficiency",
+          "e-execution",
+          "e-evaluation"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\hat{o}_{t+1:t+H}=W_{\\phi}(o_t,g,a_{t:t+H-1})",
+        "explanation": "The method defines W_phi as the learned video world model, o_t as the current observation, g as the goal image, a as the action sequence and H as the rollout horizon. The output is a predicted observation sequence, not a measured physical outcome.",
+        "evidenceIds": [
+          "e-planner"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{ORPO}}=\\log\\sigma\\!\\left(\\log\\pi_{\\theta}(a^{*}\\mid s^{i})-\\log\\pi_{\\theta}(a^{-}\\mid s^{i})\\right)",
+        "explanation": "Equation (5), as printed: s^i is an observation–goal input, a* the preferred action, a− a negative action, pi_theta the planner and sigma the sigmoid. The accompanying prose describes increasing preference for a*, so this displayed log-sigmoid is treated as an objective to increase. The equation shows log probabilities; additional odds-normalization or supervised-loss terms are not specified and are not assumed here.",
+        "evidenceIds": [
+          "e-preference"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Real-world deformable manipulation across three tasks",
+      "setting": "Rope straightening, cloth folding and toy arm repositioning; 10 randomized-initial-state trials per task; one executed action primitive per trial. Scores are 0 for failure, 0.5 for meaningful progress and 1 for complete success. A held-out split is not specified.",
+      "metric": "Average ordinal task score, higher is better",
+      "value": "DreamPlan: rope 0.60, cloth 0.35, toy arm 0.85; overall 0.60.",
+      "comparison": "Zero-shot Qwen3-VL-8B: 0.20, 0.10, 0.70; overall 0.33. Qwen3-VL-32B has the highest baseline overall score, 0.35; GPT-4o has 0.28 and Qwen3-VL-4B has 0.22.",
+      "interpretation": "The within-backbone gains are 0.40, 0.25 and 0.15 score units. Figure 5 labels equivalent values as success percentages, but the protocol includes partial credit; binary completion rates cannot be recovered. No uncertainty estimates are reported.",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-task",
+        "e-score-plot"
+      ]
+    },
+    {
+      "task": "Object-only world-model prediction ablation",
+      "setting": "Two action-conditioned models trained under stated identical settings, using the same rendered trajectories; evaluation on the cropped object region of the final rollout frame. Test-set size and split are unspecified.",
+      "metric": "PSNR, higher is better; table does not print a unit",
+      "value": "Object-only prediction: 26.25.",
+      "comparison": "Full-scene prediction: 24.70; arithmetic difference 1.55.",
+      "interpretation": "The result supports improved final-frame reconstruction under this protocol. It does not establish better preference ranking or higher downstream robot scores for this particular design change.",
+      "evidenceIds": [
+        "e-ablation"
+      ]
+    },
+    {
+      "task": "Direct planning versus explicit world-model verification",
+      "setting": "Table III compares DreamPlan to zero-shot candidate sampling followed by world-model rollout and GPT-4o selection, with N=4 or N=8. Detailed timing boundaries are not specified.",
+      "metric": "Average task score; decision time in seconds; reported computational overhead in TFLOPs",
+      "value": "DreamPlan: 0.60; 1.12 s; 15.14 TFLOPs.",
+      "comparison": "N=4: 0.48; 926.32 s; 7.82 × 10^4 TFLOPs. N=8: 0.50; 2605.56 s; 1.56 × 10^5 TFLOPs.",
+      "interpretation": "Reported decision-time cost strongly favors transferring verification into training. These values do not include a disclosed amortization of offline fitting and preference generation, nor establish total physical execution time.",
+      "evidenceIds": [
+        "e-efficiency"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Three task types and ten trials each provide narrow evidence. No explicit held-out-object protocol, confidence intervals or multi-primitive completion evaluation is reported. The paper has no dedicated limitations section.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-task",
+        "e-repro-gaps"
+      ]
+    },
+    {
+      "text": "Figure 3 compares rendered-motion conditioning and task-specific adaptation against text-conditioned video baselines. This changes multiple factors; its selected plausible examples do not isolate the conditioning mechanism or calibrate the verifier's action ranking.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-generation"
+      ]
+    },
+    {
+      "text": "GPT-4o preferences inherit errors in predicted rollouts and visual goal judgment. The supplied evaluation gives no direct predicted-versus-real ranking agreement or judge-reliability measurement.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-preference",
+        "e-generation",
+        "e-ablation",
+        "e-task"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "The reported setup uses two opposing Franka FR3 arms with Franka hands, a RealSense D435i recording 960 × 540 RGB at 30 Hz, Cartesian end-effector pose control at 30 Hz and a workstation with a 32 GB RTX 5090. Reproduction also needs mask initialization, camera-to-robot mapping, motion rendering and the fixed primitive.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-hardware",
+        "e-execution",
+        "e-world"
+      ]
+    },
+    {
+      "text": "Resolve the dataset-count discrepancy and obtain the actual split, candidate count, video horizon, diffusion settings, optimizer schedule, planner update configuration and GPT-4o judging prompt/version. The local-workstation statement does not explain how GPT-4o execution was provided or accounted for. Proposed checks should record these choices explicitly.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-data",
+        "e-preference",
+        "e-hardware",
+        "e-repro-gaps",
+        "e-efficiency"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "Dual-system is supported by separate planner and video-model modules. The world model predicts action-conditioned futures and supplies offline preference supervision; it neither jointly emits executable actions with futures nor extracts actions by inverse dynamics. Policy post-training and Other mechanisms therefore fit the recorded outside-quadrants classification. Removing the world model at inference does not make the training architecture a unified One Model.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-world",
+        "e-preference",
+        "e-efficiency"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Policy post-training & WM-RL"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "8f268110c9ee1a72a50955783f176830fd4d7b1eb083bd4e8cbdead2f48bf111"
+    }
+  },
+  "discussionQuestions": [
+    "Does the object-only model's PSNR advantage improve action-ranking agreement on real outcomes?",
+    "How much of the planner improvement survives when preference labels are shuffled or generated without a world model?",
+    "Would the same gains hold for unseen objects and sequences requiring several corrective actions?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and arXiv margin stamp",
+      "detail": "The exact DreamPlan title and six authors match the catalog. Credits name USC Physical Superintelligence Lab and Toyota Research Institute. The stamp reads arXiv:2603.16860v1 [cs.RO], 17 Mar 2026."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and I. Introduction",
+      "detail": "The motivation concerns physically ineffective zero-shot VLM plans for deformable manipulation, expensive physical RL and initial exploratory data followed by offline world-model-assisted adaptation."
+    },
+    {
+      "id": "e-planner",
+      "sourceId": "primary",
+      "location": "PDF p. 3, III. Method and III-A, Equation (1)",
+      "detail": "The paper defines observation/goal-conditioned planning and an action-conditioned future-observation model. Keypoints are independently detected, not explicitly matched, and the planner selects source and goal keypoints."
+    },
+    {
+      "id": "e-world",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, III-B, Equations (2)–(4)",
+      "detail": "Rendered robot trajectories condition a residual branch added to a frozen pretrained noise predictor. Training uses squared noise-prediction error and white-background object-only videos; CogVideoX-5B image-to-video is the backbone."
+    },
+    {
+      "id": "e-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and caption; III-B below the figure",
+      "detail": "The three stages are zero-shot collection, world-model learning and preference-guided ORPO updates to the VLM. Plus/minus branches indicate preferred/disfavored predictions. The diagram's object-output examples show dark scene backgrounds although III-B specifies white-background training videos."
+    },
+    {
+      "id": "e-data",
+      "sourceId": "primary",
+      "location": "PDF p. 4, III-B final paragraph; p. 6, IV-A.2 end of Pipeline Formulation",
+      "detail": "III-B reports several hundred action sequences from approximately four hours of interaction; IV-A.2 reports 2,056 trajectories for world-model training without reconciling the counts."
+    },
+    {
+      "id": "e-preference",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, III-C, Best-of-K construction, Equation (5) and implementation paragraph",
+      "detail": "Candidate rollouts yield a positive action and negatives, used without more video generation during updates. Qwen3-VL-8B is the planner and GPT-4o compares predicted images with the goal. Equation (5) prints a log-sigmoid of positive-minus-negative log probabilities; the text describes increasing preferred-action likelihood and requires no separate value function."
+    },
+    {
+      "id": "e-hardware",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 4 and IV-A.1 Hardware Setup",
+      "detail": "Two Franka FR3 arms and Franka hands, RealSense D435i, 960 × 540 RGB at 30 Hz, Cartesian pose control at 30 Hz and a local workstation with a 32 GB NVIDIA RTX 5090 are specified."
+    },
+    {
+      "id": "e-execution",
+      "sourceId": "primary",
+      "location": "PDF p. 6, IV-A.2, Action primitive and Pipeline Formulation",
+      "detail": "Goal masks are annotated offline; SAM2 propagates a current mask from one bounding-box prompt. Farthest Point Sampling supplies keypoints; the VLM chooses an arm and grasp/target points, unprojected to 3D for a fixed grasp–transport–release sequence and return home."
+    },
+    {
+      "id": "e-evaluation",
+      "sourceId": "primary",
+      "location": "PDF p. 6, IV-A.3 Evaluation Protocol",
+      "detail": "Each of three tasks has ten randomized-initial-state trials. Each trial executes one action primitive and receives 0, 0.5 or 1 for failure, meaningful progress or complete success; average score is the primary metric."
+    },
+    {
+      "id": "e-task",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table I, all method rows and task/average columns",
+      "detail": "DreamPlan scores 0.60/0.35/0.85 and 0.60 overall. Qwen3-VL-8B scores 0.20/0.10/0.70 and 0.33 overall; Qwen3-VL-32B averages 0.35, GPT-4o 0.28 and Qwen3-VL-4B 0.22. No uncertainty columns are given."
+    },
+    {
+      "id": "e-score-plot",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 5, axis, bars and annotations; IV-A.3",
+      "detail": "Figure 5 labels the bars Success Rate (%) and marks +40%, +25% and +15% for rope, cloth and toy. The corresponding Table I values arise from the partial-credit average-score protocol, not a separately defined binary success metric."
+    },
+    {
+      "id": "e-generation",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 3; p. 6, IV-B.1 Qualitative Comparison",
+      "detail": "The figure compares selected toy, cloth and rope rollouts. All start from cropped object images, but CogVideoX and Wan receive text descriptions whereas DreamPlan receives rendered robot trajectories. The authors describe DreamPlan predictions as action-consistent and physically plausible."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table II; p. 7, IV-B.2 Ablation on Object-Only Video Prediction",
+      "detail": "Full-scene and object-only action-conditioned models use stated identical settings and the same rendered trajectories. PSNR on the final-frame cropped object region is 24.70 versus 26.25; a sample count, test split and downstream ablation score are not provided."
+    },
+    {
+      "id": "e-robot-examples",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 6 and caption",
+      "detail": "Initial and target scenes accompany toy, rope and cloth execution sequences. Green-bordered fine-tuned rows show selected successes; pink-bordered zero-shot rows show typical failures, with colored arrows indicating proposed actions."
+    },
+    {
+      "id": "e-interpretation",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, IV-C World-Model RL Enhances VLM Planning",
+      "detail": "The authors interpret improved scores and execution examples as the planner internalizing physical dynamics through world-model-derived preference pairs."
+    },
+    {
+      "id": "e-efficiency",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table III, all rows; p. 8, IV-D Efficient Inference without World Model Sampling",
+      "detail": "DreamPlan reports average score/time/TFLOPs of 0.60/1.12/15.14; explicit verification N=4 reports 0.48/926.32/7.82 × 10^4 and N=8 reports 0.50/2605.56/1.56 × 10^5. IV-D contrasts direct planner inference with zero-shot proposals, video rollouts and GPT-4o selection. Timing boundaries and offline amortization are not detailed."
+    },
+    {
+      "id": "e-repro-gaps",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–8, III-A–C and IV-A–D; p. 8, V–VI; p. 9, end of References",
+      "detail": "The supplied method and experiment sections give named model components, hardware and the action/scoring protocol but omit training K, rollout length, pair counts, optimizer schedule, detailed split and judge prompt/version. The nine-page paper ends in references without an appendix or dedicated limitations section."
+    }
+  ]
+}

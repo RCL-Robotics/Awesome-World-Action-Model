@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.16666",
+  "shortTitle": "Fast-WAM",
+  "thesis": "Future-video supervision can improve an action policy even when deployment uses only current-observation features, avoiding video denoising while retaining iterative action sampling.",
+  "standfirst": "Fast-WAM separates what a robot learns to predict from what it must generate during deployment. Its video backbone learns alongside an action expert, but a carefully restricted attention mask prevents the action branch from depending on future frames. At test time, the video backbone becomes an observation encoder. The decisive comparisons therefore involve both inference structure and the presence of video supervision during training. Read the aggregate tables alongside the real-world tradeoff and the task-level appendix: the training objective helps substantially on average, while explicit future conditioning still improves some tasks and towel-folding success. Lower latency does not by itself establish equal policy quality.",
+  "evidenceIds": [
+    "e-architecture",
+    "e-variants",
+    "e-robotwin",
+    "e-libero",
+    "e-real-results",
+    "e-task-diagnostic"
+  ],
+  "featuredResultTask": "RoboTwin 2.0 bimanual manipulation",
+  "visuals": [
+    {
+      "id": "paradigms",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 2,
+      "asset": "report-assets/2603.16666/paradigms.png",
+      "width": 1607,
+      "height": 914,
+      "sourceSha256": "4eea24883dcc4d8a5c0f760870f501baabb07db4eb65e5fd6c3b4b500601be8d",
+      "sourceUrl": "https://arxiv.org/pdf/2603.16666#page=2",
+      "crop": [
+        0.19,
+        0.09,
+        0.82,
+        0.367
+      ],
+      "alt": "Three columns compare joint video/action denoising, video-then-action generation, and Fast-WAM, with separate training and inference rows and KV-cache arrows.",
+      "caption": "Follow which visual tokens survive the transition from training to inference.",
+      "readingGuide": "Read the top row as the training arrangement and the bottom row as the computation performed for an action chunk. Blue tokens represent frames and yellow tokens actions; the legends distinguish clean targets, noisy tokens and denoised outputs. Column A keeps video and action denoising coupled. Column B first generates future video, then passes a KV cache toward the action transformer. Column C keeps video prediction during training but retains only the first observation token group at inference. Its cache arrow runs from the video DiT toward the action DiT. The numbered boxes distinguish one video encoding pass from subsequent action denoising.",
+      "takeaway": "Fast-WAM removes the expensive need to instantiate and iteratively denoise future video tokens at deployment. It still uses a video-derived representation and an action sampler. The diagram explains where the saved computation comes from; the measured magnitude of the latency change appears separately in Figure 4.",
+      "caution": "The caption's phrase 'single forward pass' is broader than the implemented sampler. Section 4.1 specifies 10 denoising steps, and the diagram itself labels a second action-denoising stage. Treat the single-pass claim as applying to video encoding.",
+      "evidenceIds": [
+        "e-question",
+        "e-interface",
+        "e-architecture",
+        "e-config",
+        "e-latency"
+      ]
+    },
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2(a–b)",
+      "page": 5,
+      "asset": "report-assets/2603.16666/architecture.png",
+      "width": 1479,
+      "height": 838,
+      "sourceSha256": "4eea24883dcc4d8a5c0f760870f501baabb07db4eb65e5fd6c3b4b500601be8d",
+      "sourceUrl": "https://arxiv.org/pdf/2603.16666#page=5",
+      "crop": [
+        0.22,
+        0.09,
+        0.8,
+        0.344
+      ],
+      "alt": "A language encoder, VAE encoder, video DiT and action DiT appear beside training and inference attention matrices; action rows cannot see future-frame columns.",
+      "caption": "The attention mask lets future frames supervise learning without becoming action inputs.",
+      "readingGuide": "Start with the current frame and future frames entering the VAE, and the instruction entering the text encoder. The noisy future tokens and noisy action tokens have separate transformer branches. Next read each attention-matrix row as the querying token group and each column as a possible information source, as verified against Section 3.2. The clean first-frame row has only its own visible block. Future-video rows see the first frame and other future tokens. Action rows see the first frame and actions, with blank future-video columns. In the inference matrix, those future rows and columns disappear entirely; the remaining action access pattern stays intact.",
+      "takeaway": "The mask blocks both direct access to future tokens and an indirect route through the first-frame representation. This makes removing future tokens at inference compatible with the action branch's training-time context. Future prediction remains a learning objective for the shared video backbone, rather than a required intermediate prediction for the action branch.",
+      "caution": "The mask and accompanying prose agree on these information paths. They specify visibility, not the exact gradient-freezing policy. The paper does not report which pretrained modules are frozen, and the figure should not be read as supplying that missing implementation detail.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-objective",
+        "e-reproduction-gaps"
+      ]
+    },
+    {
+      "id": "robotwin-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 7,
+      "asset": "report-assets/2603.16666/robotwin-results.png",
+      "width": 1320,
+      "height": 676,
+      "sourceSha256": "4eea24883dcc4d8a5c0f760870f501baabb07db4eb65e5fd6c3b4b500601be8d",
+      "sourceUrl": "https://arxiv.org/pdf/2603.16666#page=7",
+      "crop": [
+        0.241,
+        0.353,
+        0.759,
+        0.558
+      ],
+      "alt": "RoboTwin success-rate table with embodied-pretraining flags, clean and randomized evaluations, and four Fast-WAM variants in a separate lower block.",
+      "caption": "Compare controlled variants before interpreting the broader baseline ranking.",
+      "readingGuide": "Begin with the Clean and Rand. columns, then read their reported Average. The upper block mixes methods with and without embodied pretraining, so its ranking combines architectural and data differences. The lower block is the paper's more direct test: Fast-WAM, Joint and IDM all retain video co-training, while the last row removes it. Section 4.2 specifies 2,500 clean and 25,000 randomized training demonstrations, 30k training steps and 100 evaluation trials per task in each setting. Keep the dash in the non-pretrained LingBot-VA row visible: its randomized result is absent, despite the displayed Average entry.",
+      "takeaway": "Fast-WAM reports 91.8% average success, versus 90.6% for Joint and 91.3% for IDM. Removing video co-training yields 83.8%, an 8.0-point reduction from the rounded averages. Fast-WAM's aggregate result is also near pretrained LingBot-VA's 92.2%, although that comparison does not isolate the training objective.",
+      "caution": "The 80.6 entry for LingBot-VA from Wan2.2 is supported only by its clean result; it is not a matched clean/randomized average. No uncertainty estimates accompany these rows, and external methods have different pretraining histories.",
+      "evidenceIds": [
+        "e-variants",
+        "e-sim-protocol",
+        "e-robotwin"
+      ]
+    },
+    {
+      "id": "libero-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 8,
+      "asset": "report-assets/2603.16666/libero-ablation.png",
+      "width": 1570,
+      "height": 620,
+      "sourceSha256": "4eea24883dcc4d8a5c0f760870f501baabb07db4eb65e5fd6c3b4b500601be8d",
+      "sourceUrl": "https://arxiv.org/pdf/2603.16666#page=8",
+      "crop": [
+        0.192,
+        0.139,
+        0.808,
+        0.327
+      ],
+      "alt": "LIBERO results across Spatial, Object, Goal and Long suites, with a lower block contrasting Fast-WAM, Joint, IDM and no-video co-training.",
+      "caption": "The strongest ablation change is unevenly distributed across LIBERO suites.",
+      "readingGuide": "Read horizontally to see how a model's behavior changes across the four suites, and vertically within the lower block to compare the controlled designs. Each suite supplies 500 demonstrations for 10 tasks; the reported evaluation totals 2,000 trials across 40 tasks after 20k training steps. Fast-WAM reaches 100.0 on Object, but its Long score is lower. The no-video row makes the distribution of the supervision benefit clearer: Spatial falls from 98.2 to 89.2 and Long from 95.2 to 90.0, whereas Object changes only from 100.0 to 99.2. Average alone hides this concentration of the gap.",
+      "takeaway": "Fast-WAM averages 97.6%, compared with 98.5% for Joint, 98.0% for IDM and 93.5% without video co-training. The calculated 4.1-point no-video gap exceeds either future-generation advantage. This supports the training-objective interpretation across a second benchmark, while also showing that the future-generating variants have higher aggregate LIBERO scores.",
+      "caution": "The small differences among the three co-trained models have no reported uncertainty or repeated-training analysis. Near-ceiling Object results also limit how much that suite can discriminate among methods; the table does not establish statistical equivalence.",
+      "evidenceIds": [
+        "e-sim-protocol",
+        "e-libero",
+        "e-variants"
+      ]
+    },
+    {
+      "id": "real-world-tradeoff",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 4",
+      "page": 9,
+      "asset": "report-assets/2603.16666/real-world-tradeoff.png",
+      "width": 1568,
+      "height": 620,
+      "sourceSha256": "4eea24883dcc4d8a5c0f760870f501baabb07db4eb65e5fd6c3b4b500601be8d",
+      "sourceUrl": "https://arxiv.org/pdf/2603.16666#page=9",
+      "crop": [
+        0.193,
+        0.093,
+        0.808,
+        0.281
+      ],
+      "alt": "A scatter plot places towel-folding success against completion time; adjacent bars label policy latency as 180, 190, 190, 580 and 810 milliseconds.",
+      "caption": "Separate task-level effectiveness from model-call latency.",
+      "readingGuide": "In the left panel, higher success and shorter completion time make the upper-left region preferable. Read each point label rather than assuming a single ranking: pretrained π0.5 is best on both axes, while Fast-WAM has shorter completion time but lower success than IDM. The right panel answers a different question with explicit latency labels. All reported latency measurements use one RTX 5090D V2 32GB GPU. The task setup on page 7 uses 60 hours of Galaxea R1 Lite demonstrations and 30k training steps. Scatter coordinates are approximate readings from axes; the bar values are explicitly printed.",
+      "takeaway": "Fast-WAM takes 190 ms versus Joint's 580 ms and IDM's 810 ms, giving calculated speedups of about 3.05× and 4.26×. Its plotted towel-folding success is approximately 75%, below IDM's roughly 90%. Removing video co-training preserves the 190 ms latency but drops success to the text-confirmed 10%, separating cheap inference from effective behavior.",
+      "caution": "The paper omits real-world trial counts, confidence intervals, exact success/timeout criteria and how failed episodes enter average completion time. Latency is not the same as the robot's control period. The 'over 4×' claim is comparison-specific and does not hold against Joint.",
+      "evidenceIds": [
+        "e-real-protocol",
+        "e-real-results",
+        "e-latency",
+        "e-config"
+      ]
+    },
+    {
+      "id": "robotwin-diagnostics",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Appendix Table 3",
+      "page": 13,
+      "asset": "report-assets/2603.16666/robotwin-diagnostics.png",
+      "width": 1652,
+      "height": 1872,
+      "sourceSha256": "4eea24883dcc4d8a5c0f760870f501baabb07db4eb65e5fd6c3b4b500601be8d",
+      "sourceUrl": "https://arxiv.org/pdf/2603.16666#page=13",
+      "crop": [
+        0.176,
+        0.228,
+        0.824,
+        0.795
+      ],
+      "alt": "Full RoboTwin per-task table with clean/randomized columns for Fast-WAM and six comparators, followed by average success rates.",
+      "caption": "Task-level reversals qualify the aggregate claim that future generation is unnecessary.",
+      "readingGuide": "Use the paired Clean and Rand. columns to keep evaluation conditions aligned, then follow one task across the method groups. Move Stapler Pad provides a counterweight to the overall Fast-WAM advantage: IDM scores 89/85, compared with Fast-WAM's 77/64. Press Stapler reverses the comparison, with Fast-WAM at 90/97 and IDM at 50/57. The final row returns to the setting-level means used in the main results. This appendix is therefore a diagnostic of where aggregate rankings hide variation, not a separate experiment isolating a new component. It also gives the explicit task list needed for a reproduction.",
+      "takeaway": "The table supports a narrower conclusion than universal dispensability of future conditioning. Different tasks favor different inference designs even when the average scores are close. These reversals motivate testing which task properties predict a benefit from explicit futures, rather than assuming a single best design for all manipulation problems.",
+      "caution": "Individual rows have no uncertainty estimates and do not explain their own failure mechanisms. Table 3 contains 50 task rows, whereas Section 4.2 describes the benchmark/setup as spanning more than 50 tasks; the exact evaluated list needs clarification.",
+      "evidenceIds": [
+        "e-task-diagnostic",
+        "e-sim-protocol",
+        "e-variants"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Why learning a future need not require generating it",
+      "kind": "analysis",
+      "text": "The key distinction is between information used as supervision and information supplied to an action predictor. During training, Fast-WAM sees demonstrated future frames because it must learn their flow-matching velocity field. Yet its action tokens cannot inspect those future tokens. The clean observation tokens also cannot inspect them, closing an indirect information route. The paper's interpretation is that video prediction improves the video backbone through learning, leaving a useful representation of the present observation after future tokens are removed. Reader analysis: this explains why a training objective can matter despite disappearing from deployment computation. It does not show that the latent features explicitly simulate a future or encode a verified physical state. Figure 2 and the two-part loss support the supervision mechanism; the ablation tests its behavioral value.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-objective",
+        "e-robotwin",
+        "e-libero"
+      ]
+    },
+    {
+      "heading": "Turn a video generator into a context provider",
+      "kind": "source",
+      "text": "At deployment, the language instruction is encoded and the current camera observation enters the pretrained VAE. Fast-WAM retains only the clean first-frame latent tokens, processes them once with the video transformer, and supplies the resulting context to the action expert. Figure 1 depicts this connection as a KV cache. The action expert still performs denoising: the implementation uses 10 steps and classifier-free guidance scale 1.0 for a horizon of 32 actions. This is why the computational claim is specifically about eliminating future-video generation. The PDF's formulation focuses on one action chunk and omits the outer autoregressive loop. It does not establish how many actions are executed before a fresh observation is encoded, so an exact closed-loop execution schedule cannot be recovered from these equations.",
+      "evidenceIds": [
+        "e-question",
+        "e-interface",
+        "e-architecture",
+        "e-config",
+        "e-reproduction-gaps"
+      ]
+    },
+    {
+      "heading": "Read the controls as a bounded causal argument",
+      "kind": "analysis",
+      "text": "The no-video variant is the closest control for the training objective because the paper says it leaves architecture and inference unchanged. Joint and IDM instead test alternative routes through future generation, while changing attention and, for IDM, adding noise augmentation during training. On RoboTwin and LIBERO, deleting video supervision hurts more than switching among the three co-trained designs changes the aggregate result. Reader analysis: this favors retaining the video objective when choosing an efficient policy, but it is not a complete factorial decomposition of every design choice. The physical task makes the boundary especially clear: Fast-WAM has lower latency and completion time than IDM, yet IDM succeeds more often. The appendix likewise shows task-level reversals. A useful reproduction should measure these tradeoffs rather than test only the headline average.",
+      "evidenceIds": [
+        "e-variants",
+        "e-config",
+        "e-robotwin",
+        "e-libero",
+        "e-real-results",
+        "e-latency",
+        "e-task-diagnostic"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does the video-loss benefit survive matched repeated training?",
+      "text": "Reader-proposed check, not performed: train Fast-WAM and its no-video-loss control from matched pretrained weights and action-expert initialization, using identical demonstration order, masks, optimizer, update count and action sampler. First resolve and record the unspecified video-loss weight, batch size and module-freezing policy. Repeat paired runs across multiple training seeds, then evaluate with matched environment seeds under the stated clean/randomized RoboTwin protocol. Report task-level paired differences and uncertainty as well as the aggregate. A consistently positive co-training advantage would support the paper's interpretation; disappearance or reversal across seeds would weaken it. Record training compute because an extra objective may change cost even at fixed update count.",
+      "evidenceIds": [
+        "e-variants",
+        "e-objective",
+        "e-config",
+        "e-sim-protocol",
+        "e-robotwin",
+        "e-reproduction-gaps"
+      ]
+    },
+    {
+      "title": "Separate future conditioning from deployment delay",
+      "text": "Reader-proposed check, not performed: compare Fast-WAM, Joint and IDM on towel folding using matched initial towel configurations, success criteria, episode limits and action-execution schedules. Measure native end-to-end latency, then repeat with a common decision interval at least as long as the slowest measured policy call, inserting explicit waits for faster policies. Report success, time to completion, failure handling and correction counts separately, with repeated trials. If Fast-WAM's completion-time advantage shrinks under matched timing while IDM's success advantage persists, latency and policy quality explain different parts of the original plot. If the ranking changes, the native timing difference was a material confound. Document the previously unspecified execution/reobservation schedule.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-config",
+        "e-real-protocol",
+        "e-real-results",
+        "e-latency",
+        "e-reproduction-gaps"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      13
+    ],
+    "notes": "Visually inspected the title/authors/affiliations and v2 stamp on page 1; Figure 1 on page 2; formulation on pages 3–4; architecture, masks and all objective equations on pages 4–5; variants, configuration, hardware and simulation protocol on page 6; Figure 3, Table 1 and real-world setup on page 7; Table 2 and comparison text on page 8; Figure 4 and conclusion on page 9; and all of Appendix Table 3 on page 13. All six final original crops were separately viewed. Figure 2 visibility was checked against Section 3.2; Figure 1's single-pass caption was checked against its action-denoising box and page 6's 10-step specification. References and the appendix heading on pages 10–12 were read in the text chunks but are outside the visual pass. Separate supplements were not supplied."
+  }
+}

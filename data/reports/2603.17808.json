@@ -1,0 +1,494 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2603.17808",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T18:46:17.147Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2603.17808",
+      "title": "EVA: Aligning Video World Models with Executable Robot Actions via Inverse Dynamics Rewards",
+      "kind": "pdf",
+      "sha256": "28ae84944459f6b19195eccf574e49c235252b865121eb54df535342e046861c",
+      "wordCount": 9226,
+      "accessedAt": "2026-09-07T14:04:36.849859+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "1 Introduction",
+      "2 Related Works",
+      "3 Preliminaries",
+      "3.1 Flow-matching-based Video Generation",
+      "3.2 Group Relative Policy Optimization",
+      "4 Method",
+      "4.1 Inverse Dynamics Model",
+      "4.2 IDM-based Executability Reward",
+      "5 Experiments",
+      "5.1 Experimental Settings",
+      "5.2 Visual Rollout Quality",
+      "5.3 Simulation Policy Execution on RoboTwin",
+      "5.4 Real-World Deployment",
+      "5.5 IDM evaluation",
+      "5.6 Failure Modes",
+      "6 Conclusion",
+      "References",
+      "A Detailed Experimental Results",
+      "B Reward Validity",
+      "C Detailed Training Analysis",
+      "D Ablation Study on the IDM",
+      "E Real-World Experimental Setup",
+      "E.1 Robot Platform Setup",
+      "E.2 Task Descriptions",
+      "F Scaling Embodied Data via Zero-Shot Generation",
+      "Abstract",
+      "Limitations and Future Work"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The complete supplied text, including the embedded supplement on PDF pp. 20–26 (S1–S7), was read. Figures and tables were inspected from the PDF; reference-only pp. 15–19 were read as text without page-image inspection. No separate supplement was supplied.",
+      "Identity/version note (e-identity): the title page prints “Aligning Video World Models with Executable Robot Actions via Inverse Dynamics Rewards”; the catalog and supplied primary-source title prepend “EVA:”. The descriptive title, exact identifier, six authors, and the abstract’s explicit EVA acronym establish the same work. This prefix discrepancy is preserved without inferring an undocumented title revision. The inspected artifact is arXiv:2603.17808v2, dated 24 March 2026; the catalog submission date is 18 March 2026. Version 1 and revision history were not supplied, so differences between revisions cannot be assessed.",
+      "The supplied source fields are preserved verbatim. Metadata retains the supplied observedTitle and identifies the printed-title prefix discrepancy in its verified location note.",
+      "Code, linked project pages, external citations and external accounts were not inspected. No model training or robot experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 8)",
+      "Figure 3 (p. 10)",
+      "Figure 4 (p. 12)",
+      "Figure 5 (p. 13)",
+      "Figure 6 (p. 14)",
+      "Figure S1 (p. 21 / S2)",
+      "Figures S2 and S3 (p. 22 / S3)",
+      "Figure S4 (p. 24 / S5)",
+      "Figure S5 (p. 26 / S7)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 10)",
+      "Tables 2 and 3 (p. 11)",
+      "Table 4 (p. 12)",
+      "Table S1 (p. 20 / S1)",
+      "Table S2 (p. 23 / S4)",
+      "Table S3 (p. 24 / S5)",
+      "Table S4 (p. 25 / S6)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Executable Video Alignment (EVA) post-trains a video planner using a frozen inverse dynamics model to penalize rough or limit-violating decoded actions. Reported robot success improves, but smoothness remains an imperfect proxy for completing a task (e-overview, e-reward, e-real-results, e-hacking).",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A plausible manipulation video can contain deformed arms, ambiguous joints or temporal jumps that an inverse dynamics model translates into unstable commands. EVA targets this executability gap by changing the generator’s distribution during training, avoiding reliance on expensive inference-time rejection sampling.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-overview"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The central intervention repurposes a supervised action decoder as a reward model: generated videos are evaluated through their implied joint trajectories, and GRPO updates the video generator while the IDM stays frozen.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-idm",
+        "e-reward",
+        "e-backbone"
+      ]
+    },
+    {
+      "text": "The authors support alignment with human-rated rollouts, executed simulation and physical-robot trials, reward diagnostics, and an IDM spatial-softmax ablation. These tests address different links in the video-to-action pipeline.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-visual-results",
+        "e-sim-results",
+        "e-real-results",
+        "e-reward-validity",
+        "e-ablation"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current camera observation/history and a language task instruction",
+      "Paired robot videos and executed actions for embodiment-specific supervised learning"
+    ],
+    "outputs": [
+      "A generated future visual trajectory",
+      "IDM-decoded per-step robot commands; an action-derived scalar reward during alignment"
+    ],
+    "steps": [
+      {
+        "name": "Generate a latent visual plan",
+        "detail": "EVA starts from the LVP checkpoint with a Wan2.1-14B Diffusion Transformer and diffusion forcing. Embodiment-specific supervised fine-tuning produces the unaligned comparison model. A pretrained 3D VAE connects pixel videos to the flow-matching latent representation.",
+        "evidenceIds": [
+          "e-flow",
+          "e-backbone"
+        ]
+      },
+      {
+        "name": "Decode video windows into actions",
+        "detail": "The IDM stacks temporal frames, extracts convolutional features, converts each channel to an expected 2D coordinate using spatial softmax, and predicts an action through an MLP. Supervised regression uses ground-truth robot commands.",
+        "evidenceIds": [
+          "e-idm"
+        ]
+      },
+      {
+        "name": "Score the implied motion",
+        "detail": "Finite differences of decoded commands yield velocity, acceleration and jerk. Huber penalties discourage acceleration and jerk; squared excess penalties enforce velocity and acceleration bounds. Weighted penalties become a decreasing reward. The displayed objective contains no explicit task-completion, contact-force or joint-position-limit term.",
+        "evidenceIds": [
+          "e-reward",
+          "e-limitations",
+          "e-hacking"
+        ]
+      },
+      {
+        "name": "Align the generator",
+        "detail": "Flow-GRPO introduces stochastic sampling for policy optimization, normalizes rewards within each prompt’s candidate group, and applies clipped updates with KL regularization. The learned change is in the generator’s LoRA parameters; the base weights and trained IDM remain frozen.",
+        "evidenceIds": [
+          "e-flow",
+          "e-backbone",
+          "e-training"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Simulation training uses 1,050 trajectories across 21 tasks, or 50 demonstrations per task. Real training uses 250 teleoperated trajectories across five tasks for the video model and IDM. The visual-quality comparison uses held-out instruction paraphrases.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-eval-protocol",
+          "e-real-protocol"
+        ]
+      },
+      {
+        "text": "SFT uses 49-frame clips, eight NVIDIA A800 GPUs, FSDP/bf16 and effective batch size 32. Simulation uses about 4,500 steps at 640×480; real data uses about 2,580 at 832×480. AdamW learning rates are 0.000008 for SFT and 0.0002 for GRPO.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training"
+        ]
+      },
+      {
+        "text": "GRPO uses eight candidates, LoRA rank 32, clipping 0.001 and KL coefficient 0.004. Simulation runs 136 optimization steps with four inner epochs, taking about six days; real alignment uses 46 steps with two inner epochs, taking about three days. Validation-based checkpoint selection and early stopping mitigate reward hacking.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training",
+          "e-hacking"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The updated generator returns to the original flow sampler. The IDM decodes generated temporal windows into actions for execution. For long tasks, each new rollout conditions on the latest four camera frames after the previous segment executes. Thus deployment includes observation feedback between segments, despite the earlier description of an open-loop IDM extractor.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-flow",
+          "e-inference",
+          "e-open-loop"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{IDM}}=\\mathbb{E}\\!\\left[\\sum_t\\left\\|f_\\phi(I_{t-k:t+k})-a_t^{\\mathrm{gt}}\\right\\|_2^2\\right]",
+        "explanation": "Equation (3): f_phi is the IDM; I denotes video frames, t indexes time, k is the temporal context radius, and a_t^{gt} is the recorded action. Future frames here belong to a generated plan or demonstration.",
+        "evidenceIds": [
+          "e-idm"
+        ]
+      },
+      {
+        "expression": "\\mathcal{P}(A)=\\lambda_j\\mathcal{P}_j+\\lambda_\\alpha\\mathcal{P}_\\alpha+\\lambda_{v\\text{-lim}}\\mathcal{P}_{\\mathrm{vel}}+\\lambda_{a\\text{-lim}}\\mathcal{P}_{\\mathrm{acc}},\\qquad R(V)=\\left(1+\\frac{\\mathcal{P}(A)}{P_0}\\right)^{-\\gamma}",
+        "explanation": "Equations (8)–(9): V is the video and A its decoded commands. P_j and P_alpha penalize jerk and acceleration; P_vel and P_acc penalize bound violations. The lambdas weight terms, P_0 sets scale from pretrained rollouts, and gamma controls decay. The equations use alpha_t for acceleration although nearby prose reuses a_t.",
+        "evidenceIds": [
+          "e-reward"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Human-rated visual rollout quality",
+      "setting": "210 prompts: ten per RoboTwin task, with anonymized, shuffled videos and held-out paraphrases.",
+      "metric": "Kinematic / interaction / instruction / perfect rating rates (%)",
+      "value": "91.4 / 86.2 / 89.5 / 83.8",
+      "comparison": "Without RL: 70.5 / 83.3 / 90.5 / 68.1. Vidar: 67.6 / 66.7 / 87.6 / 62.9.",
+      "interpretation": "Kinematic plausibility rises 20.9 percentage points; instruction adherence falls 1.0 point. “Perfect” is a human judgment of generated video, not executed robot success.",
+      "evidenceIds": [
+        "e-eval-protocol",
+        "e-visual-results"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0 executed manipulation",
+      "setting": "21 randomized bimanual tasks, 20 episodes each. EVA is multi-task; ACT, DP, RDT and pi0 are trained separately per task.",
+      "metric": "Average executed task success (%)",
+      "value": "52.6 reported in Table 2; 52.62 in Table S1",
+      "comparison": "Unaligned EVA 46.2; pi0 45.7; RDT 37.1; DP 29.5; ACT 29.0 in Table 2.",
+      "interpretation": "The printed EVA gain is 6.4 percentage points. OpenLaptop disagrees between Table 2 (12/20) and S1 (10/20); S1’s caption says real-robot although its section describes simulation. StampSeal decreases from 5/20 to 4/20.",
+      "evidenceIds": [
+        "e-eval-protocol",
+        "e-sim-results"
+      ]
+    },
+    {
+      "task": "Real-robot execution on five OOD tasks",
+      "setting": "CobotMagic; PlaceBlock, PourWater, WipeTray, FoldCloth and PlaceToy; 20 trials per task. Success requires completion without safety interruption or human intervention.",
+      "metric": "Average executed task success (%)",
+      "value": "60.0",
+      "comparison": "Unaligned EVA 42.0; Vidar 34.0; pi0 11.0; GE-Act 3.0; ACT not reported.",
+      "interpretation": "An 18-percentage-point gain over unaligned EVA on this specific task set. No confidence intervals or repeated-training-seed results are supplied.",
+      "evidenceIds": [
+        "e-real-protocol",
+        "e-real-results"
+      ]
+    },
+    {
+      "task": "Real-robot execution on five seen tasks",
+      "setting": "Same physical protocol; StackBowl, HangCable, Place2Basket, Place2Tray and FoldTowel.",
+      "metric": "Average executed task success (%)",
+      "value": "64.0",
+      "comparison": "Unaligned EVA is printed as 52.0, but its counts 12+8+12+14+5 sum to 51 successes in 100 trials.",
+      "interpretation": "The baseline average is internally inconsistent; both printed average and row arithmetic are preserved. HangCable stays at 8/20.",
+      "evidenceIds": [
+        "e-real-protocol",
+        "e-real-results"
+      ]
+    },
+    {
+      "task": "Inverse-dynamics decoding and spatial-softmax ablation",
+      "setting": "Ground-truth video decoding and simulated execution across 21 tasks, 20 episodes each; prediction accuracy uses the ±0.05-radian tolerance.",
+      "metric": "Action test accuracy (fraction) / execution success (%)",
+      "value": "0.9864 / 89.52",
+      "comparison": "Replacing spatial softmax with global average pooling: 0.7738 / 84.29.",
+      "interpretation": "The ablation supports spatial localization for action decoding. Ground-truth-video performance does not establish reward reliability on arbitrary generated artifacts.",
+      "evidenceIds": [
+        "e-idm-execution",
+        "e-ablation"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The reward omits forces, friction and torques; expensive video diffusion limits fast reactive control. Prolonged GRPO can produce high-reward static behavior, wrong interactions and unrealistic link lengths because task completion is not directly rewarded.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-limitations",
+        "e-hacking"
+      ]
+    },
+    {
+      "text": "Reward-validity plots compare ten examples per group for three tasks, with overlapping success/failure distributions. They support an association, not calibrated success probabilities. Figure 2 reports rewards 7.94 and 3.04 and appendix plots exceed one; Equation (9), with nonnegative penalties and positive scale/decay, would be at most one. No conversion is specified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-reward-validity",
+        "e-reward-scale"
+      ]
+    },
+    {
+      "text": "Different backbones and single-task versus multi-task training complicate cross-method attribution. The within-EVA comparison is more direct. Appendix F illustrates synthetic-scene video generation, but supplies no downstream policy-training benefit or execution benchmark for that augmentation pipeline.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-backbone",
+        "e-eval-protocol",
+        "e-synthetic"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the LVP initialization, paired embodiment-specific trajectories, frozen IDM, RoboTwin setup and matching physical platform. The supplement identifies AgileX PiPER arms with six arm degrees of freedom plus grippers; this distinguishes the hardware from Figure 2’s seven plotted channels including the gripper.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-backbone",
+        "e-real-protocol",
+        "e-hardware",
+        "e-reward-scale"
+      ]
+    },
+    {
+      "text": "Unspecified details include numeric IDM context radius, control interval, reward weights, Huber thresholds, acceleration limits, P_0/gamma values, IDM optimizer schedule, inference sampling/segment settings and software versions. Joint maximum speeds are listed, but their exact mapping into reward configuration is not. Rater count/agreement, validation partition and checkpoint-selection rules remain incomplete.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-idm",
+        "e-reward",
+        "e-eval-protocol",
+        "e-training",
+        "e-hacking",
+        "e-hardware"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Policy post-training & WM-RL",
+        "Visual planning & IDM"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "223e6cdd7a8f2ea5bda5833512bb22610ed2f2ea79419654a473256bb3671fa6"
+    },
+    "reasoning": {
+      "text": "Architecture and inference support Q4, Dual-system × IDM: a separate video generator predicts future observations, and an independently trained IDM extracts actions. IDM-derived post-training feedback couples their objectives without making them one joint future/action predictor. The reward optimizes training; the IDM also remains an inference-time action decoder.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-overview",
+        "e-idm",
+        "e-reward",
+        "e-backbone",
+        "e-inference"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Can a held-out task-completion signal detect when higher kinematic reward stops predicting better execution? (e-hacking)",
+    "Does spatial softmax improve reward ranking on generated videos as well as decoding ground-truth demonstrations? (e-ablation, e-reward-validity)"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block, arXiv margin and abstract",
+      "detail": "Printed title: Aligning Video World Models with Executable Robot Actions via Inverse Dynamics Rewards. Authors: Ruixiang Wang, Qingming Liu, Yueci Deng, Guiliang Liu, Zhen Liu, Kui Jia. Affiliations: The Chinese University of Hong Kong, Shenzhen; DexForce Technology Co., Ltd. Margin: arXiv:2603.17808v2, 24 Mar 2026. Abstract defines Executable Video Alignment (EVA)."
+    },
+    {
+      "id": "e-overview",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Figure 1 and Section 1",
+      "detail": "The separate video model and inverse dynamics model form a visual-planning/action-decoding pipeline. Figure 1 directs the IDM reward back to the generator for post-training; the introduction defines the executability gap and discusses rejection-sampling cost."
+    },
+    {
+      "id": "e-open-loop",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 2, Embodied Visuomotor Policies",
+      "detail": "The discussion calls the IDM an open-loop extractor unable to correct upstream generated-video errors; this describes the decoder, while p. 7 specifies segment-wise observation feedback."
+    },
+    {
+      "id": "e-flow",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Sections 3.1–3.2, Equations (1)–(2)",
+      "detail": "Video latents come from a pretrained 3D VAE. Flow matching learns noise-to-data transport; Flow-GRPO uses a stochastic process for group-relative clipped optimization with KL regularization, then returns to the original flow sampler."
+    },
+    {
+      "id": "e-idm",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, Equations (3)–(4)",
+      "detail": "A temporal-window IDM is trained by squared action error. A convolutional backbone, spatial softmax expected coordinates and MLP predict actions. The context radius k is symbolic without a supplied numeric value."
+    },
+    {
+      "id": "e-reward",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.2, Equations (5)–(9)",
+      "detail": "Huber acceleration/jerk penalties and squared excess velocity/acceleration penalties form a weighted sum, mapped to reward by a negative power. P_0 is estimated from pretrained rollouts; gamma controls decay. Numerical reward configuration is not specified."
+    },
+    {
+      "id": "e-inference",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5 opening paragraph",
+      "detail": "At deployment a generated visual rollout is decoded into per-step actions. Long-horizon execution conditions the next rollout on the most recent four camera frames after the previous segment."
+    },
+    {
+      "id": "e-backbone",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5.1, Base model and Baselines",
+      "detail": "EVA uses LVP initialization, Wan2.1-14B, diffusion forcing and embodiment-specific SFT before GRPO with a frozen IDM. Vidar uses Wan2.2-5B with the same fine-tuning data/protocol."
+    },
+    {
+      "id": "e-eval-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Sections 5.2–5.3",
+      "detail": "The RoboTwin subset has 21 tasks and 1,050 training trajectories. Visual evaluation uses ten prompts per task, held-out paraphrases and anonymized/shuffled human ratings. Simulation baselines train separate policies using 50 demonstrations per task; EVA uses one multi-task policy."
+    },
+    {
+      "id": "e-visual-results",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 1, all rows and four metric columns; p. 9, rubric",
+      "detail": "EVA with RL: 91.4/86.2/89.5/83.8 for kinematic/interaction/instruction/perfect ratings. Without RL: 70.5/83.3/90.5/68.1. Vidar: 67.6/66.7/87.6/62.9. Perfect requires a visually completed task satisfying the other criteria."
+    },
+    {
+      "id": "e-sim-results",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 2, Average/OpenLaptop/StampSeal columns; p. 20 (S1), Section A and Table S1",
+      "detail": "Table 2 averages are ACT 29.0, DP 29.5, RDT 37.1, pi0 45.7, unaligned EVA 46.2, aligned EVA 52.6 percent. S1 reports 46.19 and 52.62 for EVA. Aligned OpenLaptop is 12/20 in Table 2 versus 10/20 in S1; StampSeal falls 5/20 to 4/20. S1’s caption says real-robot, contradicting Section A’s simulation description."
+    },
+    {
+      "id": "e-real-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 5.4; p. 25 (S6), Table S4",
+      "detail": "CobotMagic training uses 50 demonstrations for each of five seen tasks. Five additional OOD tasks are evaluated. Twenty physical trials per task count success only without safety interruption or human intervention. Table S4 lists task goals and arm configurations."
+    },
+    {
+      "id": "e-real-results",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 3, seen/OOD averages and EVA task rows",
+      "detail": "Aligned EVA averages 64.0 percent seen and 60.0 OOD; unaligned averages are printed as 52.0 and 42.0. Unaligned seen counts are 12,8,12,14,5 out of 20 each, totaling 51/100 rather than the printed 52 percent. Aligned OOD counts are 10,15,11,12,12. Vidar OOD is 34, pi0 11, GE-Act 3 percent; ACT OOD is N/A."
+    },
+    {
+      "id": "e-idm-execution",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Table 4 and Section 5.5",
+      "detail": "The IDM decodes ground-truth demonstration videos and executes predicted actions in RoboTwin, reporting 89.52 percent average success over 21 tasks, with 20 episodes per task."
+    },
+    {
+      "id": "e-failures",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Figure 5 and Section 5.6",
+      "detail": "Unaligned rollout failures include implausible kinematics (deformation, joint ambiguity, temporal discontinuity), wrong contact and incorrect goals."
+    },
+    {
+      "id": "e-limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Limitations and Future Work",
+      "detail": "The authors identify absent explicit contact dynamics (forces, friction, torques) and costly diffusion sampling that limits high-frequency reactive control."
+    },
+    {
+      "id": "e-reward-validity",
+      "sourceId": "primary",
+      "location": "PDF p. 21 (S2), Figure S1 and Appendix B",
+      "detail": "Box plots compare reward by visual artifacts and by simulation outcome for OpenLaptop, PlaceObjStand and PlaceBurger, with ten rollouts per group per task. Higher rewards generally accompany plausible/successful rollouts, but distributions overlap."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF p. 9, implementation details; pp. 21–23 (S2–S4), Appendix C",
+      "detail": "Training uses eight A800 GPUs, batch 32, FSDP/bf16 and 49-frame SFT clips. SFT: 4,500 simulation steps at 640×480, 2,580 real steps at 832×480, AdamW 0.000008, batch one per device with four accumulation steps. GRPO: AdamW 0.0002, eight candidates, rank-32 LoRA only, clip 0.001, advantage clip 5, gradient norm 1, KL 0.004; 136 steps/four inner epochs/about six days in simulation, 46/two/about three days on real data."
+    },
+    {
+      "id": "e-hacking",
+      "sourceId": "primary",
+      "location": "PDF p. 22 (S3), Figure S2; p. 23 (S4), Appendix C, Reward Hacking",
+      "detail": "Prolonged optimization can produce high-reward wrong interactions, unrealistic links and static behavior without task completion. The authors use early stopping and checkpoint selection based on validation rollout quality and downstream execution."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 23 (S4), Table S2 and Appendix D",
+      "detail": "Spatial softmax achieves test accuracy 0.9864 and execution success 89.52 percent; global average pooling achieves 0.7738 and 84.29 percent. Accuracy uses a ±0.05-radian ground-truth action tolerance per dimension; success follows the main simulator protocol."
+    },
+    {
+      "id": "e-hardware",
+      "sourceId": "primary",
+      "location": "PDF pp. 23–24 (S4–S5), Appendix E.1, Figure S4 and Table S3",
+      "detail": "The physical setup uses AgileX Cobot Magic with PiPER arms, six degrees of freedom per arm and two-finger grippers. Table S3 gives joint ranges and maximum speeds but no acceleration-limit configuration for the reward."
+    },
+    {
+      "id": "e-synthetic",
+      "sourceId": "primary",
+      "location": "PDF p. 25 (S6), Appendix F; p. 26 (S7), Figure S5",
+      "detail": "A text-to-image generator synthesizes initial scenes, then EVA generates videos. Examples illustrate synthetic OOD rollouts; no downstream augmentation-training performance is quantified."
+    },
+    {
+      "id": "e-reward-scale",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Equation (9); p. 8, Figure 2 and caption; p. 21, Figure S1; p. 22, Figure S3",
+      "detail": "Equation (9) has no displayed multiplicative rescaling. Figure 2 assigns 7.94 and 3.04 to two examples and labels seven left-arm action channels including the gripper. Appendix reward plots also exceed one. The source provides no mapping reconciling these plotted/captioned scores with the bounded formula."
+    }
+  ]
+}
