@@ -1,0 +1,224 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2607.02501",
+  "shortTitle": "Embodied.cpp",
+  "thesis": "Embodied.cpp unifies deployment around a C++ runtime, with reported latency and memory gains whose control-quality cost depends on model and precision.",
+  "standfirst": "A robot policy needs more than a fast neural-network forward pass: observations must enter, model components must exchange state, and outputs must reach a control interface. Embodied.cpp organizes those responsibilities into a common runtime for vision-language-action and world-action models. Its strongest evidence is a set of backend and precision comparisons, including a substantial HY-VLA latency reduction and lower WAM memory use. Read the figures as architectural proposals and the tables as measured trade-offs under incompletely specified protocols. The useful question is which deployment costs the runtime can share across models, and which quality losses or timing guarantees still require direct testing.",
+  "evidenceIds": [
+    "e02",
+    "e03",
+    "e07",
+    "e09",
+    "e10",
+    "e13",
+    "e14",
+    "e15",
+    "e16"
+  ],
+  "featuredResultTask": "HY-VLA 4-bit deployment",
+  "visuals": [
+    {
+      "id": "model-taxonomy",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 3,
+      "asset": "report-assets/2607.02501/model-taxonomy.png",
+      "width": 1364,
+      "height": 679,
+      "sourceSha256": "6a105e5c018dd51c045a27ea4de9dd69d41c7d2691a11e5dc5d3beee93de66db",
+      "sourceUrl": "https://arxiv.org/pdf/2607.02501#page=3",
+      "crop": [
+        0.099,
+        0.138,
+        0.901,
+        0.447
+      ],
+      "alt": "Eight model diagrams: four VLA structures above four WAM structures, with purple inputs, green intermediate representations, orange outputs and gray model blocks.",
+      "caption": "Different prediction-to-action dependencies motivate explicit modules and runtime state.",
+      "readingGuide": "Read each panel downward, using the color legend to distinguish inputs, intermediate representations, outputs and model blocks. The top row moves from an autoregressive action transformer to a separate action head, hierarchical planning and multiple encoder branches. In the WAM row, panel (e) sends a predicted future into policy/inverse dynamics; panel (f) branches one autoregressive backbone into future-image and action tokens. Panel (g) branches the video/world backbone into future video and a separate action decoder, while panel (h) places a latent future or subgoal before the action expert. The arrows agree with the architectural descriptions in Section 2.1 and Table 1.",
+      "takeaway": "The runtime must accommodate different dependency structures. A predicted future is an intermediate input to the action path in panels (e) and (h), whereas panels (f) and (g) depict branching from a common backbone. This supports exposing model-specific modules and state instead of assuming every hosted model has the same inference graph.",
+      "caution": "This is the authors' taxonomy of cited systems, not a new jointly trained architecture. Panel (d) does not draw refresh clocks or buffers; its asynchronous interpretation comes from Section 2.1 and Table 1, not the arrows alone.",
+      "evidenceIds": [
+        "e03",
+        "e07"
+      ]
+    },
+    {
+      "id": "runtime-overview",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 9,
+      "asset": "report-assets/2607.02501/runtime-overview.png",
+      "width": 1362,
+      "height": 730,
+      "sourceSha256": "6a105e5c018dd51c045a27ea4de9dd69d41c7d2691a11e5dc5d3beee93de66db",
+      "sourceUrl": "https://arxiv.org/pdf/2607.02501#page=9",
+      "crop": [
+        0.1,
+        0.138,
+        0.901,
+        0.47
+      ],
+      "alt": "Sensor and dataset inputs flank a central runtime containing a model gallery, future-world/action outputs and three execution subsystems, with hardware backends below and deployment platforms on the right.",
+      "caption": "A stable deployment interface surrounds model-specific computation and execution services.",
+      "readingGuide": "Start at the left, where sensor modalities and dataset examples sit beside the input adapter. The center groups the model gallery with the runtime library; arrows from its inputs lead to execution and then branch to future-world and action outputs. Below are three supporting services: modular multi-rate execution, batch-1 heterogeneous-hardware execution and the kernel warehouse. CPU, GPU and NPU backends sit underneath, while the output adapter borders the simulator/robot platforms on the right. Section 3.2 explains these as deployment interfaces and reusable execution services. The five named layers in the introduction are a finer organizational description than the boxes drawn here.",
+      "takeaway": "The figure identifies what the runtime intends to reuse: input/output boundaries, scheduling support, device execution and operators. Future prediction and action generation remain properties of the hosted models. The common runtime is consequently infrastructure for several architectures, rather than evidence that all models share one learned world representation.",
+      "caution": "The platform logos and hardware pictures do not identify evaluated devices. Section 4 omits hardware and adapter configurations. The figure also gives no executable scheduling rule, synchronization protocol or guarantee that its future-world output is consumed before every action.",
+      "evidenceIds": [
+        "e02",
+        "e07",
+        "e08",
+        "e09",
+        "e16"
+      ]
+    },
+    {
+      "id": "vla-precision",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 10,
+      "asset": "report-assets/2607.02501/vla-precision.png",
+      "width": 1364,
+      "height": 227,
+      "sourceSha256": "6a105e5c018dd51c045a27ea4de9dd69d41c7d2691a11e5dc5d3beee93de66db",
+      "sourceUrl": "https://arxiv.org/pdf/2607.02501#page=10",
+      "crop": [
+        0.099,
+        0.202,
+        0.901,
+        0.305
+      ],
+      "alt": "Normalized latency, success and VRAM for pi0.5, GR00T N1.7 and HY-VLA, each with Python, C++, 8-bit, 6-bit and 4-bit columns.",
+      "caption": "A precision sweep reveals model-dependent quality costs beneath the efficiency gains.",
+      "readingGuide": "Choose one model row and read the same configuration across all three metric groups. Every Python entry is independently normalized to 1.00, so values are ratios within a model and metric, not absolute milliseconds or absolute success percentages. Lower latency and VRAM are favorable; higher success is favorable. For HY-VLA, the 4-bit column gives 0.37 latency, 0.99 success and 0.23 VRAM. Now compare pi0.5 at 8-bit and 4-bit: latency stays at 0.88, while success changes from 0.90 to 0.70 and VRAM from 0.41 to 0.30. The original caption defines latency per generated action step before normalization.",
+      "takeaway": "HY-VLA's 4-bit ratios imply approximately 2.70× speedup and 77% less VRAM versus its Python baseline, while retaining 99% of baseline success. The pi0.5 comparison is a counterexample to a uniformly benign precision reduction: additional memory savings accompany lower success without a reported latency benefit over 8-bit.",
+      "caution": "This is a configuration diagnostic, not an isolated scheduling or fusion ablation. Hardware, task protocols, quantization recipes and uncertainty are absent. In particular, a 0.70 success ratio is a 30% relative loss, not a 30-percentage-point loss.",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e12",
+        "e13",
+        "e16"
+      ]
+    },
+    {
+      "id": "wam-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 10,
+      "asset": "report-assets/2607.02501/wam-results.png",
+      "width": 1364,
+      "height": 185,
+      "sourceSha256": "6a105e5c018dd51c045a27ea4de9dd69d41c7d2691a11e5dc5d3beee93de66db",
+      "sourceUrl": "https://arxiv.org/pdf/2607.02501#page=10",
+      "crop": [
+        0.099,
+        0.346,
+        0.901,
+        0.43
+      ],
+      "alt": "Four WAM deployment rows compare Python and C++ success percentages and VRAM in GB for Cosmos3 and LingBot-VA.",
+      "caption": "Two WAM backend comparisons report lower memory with small absolute success decreases.",
+      "readingGuide": "Read the two rows for each model as a backend pair. Unlike Table 3, these success values are absolute percentages and the memory values are GB. Cosmos3 moves from 49.00% success and 21.84 GB in Python to 48.00% and 19.49 GB in C++. LingBot-VA moves from 100.00% and 24.75 GB to 98.00% and 16.44 GB. The surrounding WAM evaluation paragraph identifies the metrics as closed-loop success and peak VRAM. Compare backends within each model; the table supplies no shared task protocol that would justify ranking Cosmos3 against LingBot-VA by their success rates.",
+      "takeaway": "The reported backend changes reduce success by 1 percentage point for Cosmos3 and 2 percentage points for LingBot-VA while using less memory. The authors report a 33.6% memory reduction for LingBot-VA. These are numerical deployment comparisons, even though the conclusion characterizes the revision's WAM evidence as architectural positioning.",
+      "caution": "No WAM latency, video-quality metric, hardware, trial count or physical-versus-simulated setting is specified. The conclusion on page 11 conflicts with Section 4's numerical WAM evidence; the edition preserves that discrepancy without inferring results for another revision.",
+      "evidenceIds": [
+        "e14",
+        "e15",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Separate the model's dependency graph from the runtime's shared path",
+      "text": "Begin with the lower row of Figure 1. A predict-then-act model must produce a future representation before its policy or inverse-dynamics component can use it. A unified autoregressive model instead places future and action generation under one backbone, while the shared-backbone panel exposes separate future-video and action-decoder branches. These differences explain why Embodied.cpp names head plugins alongside sequence construction and backbone execution: a portable runtime needs to preserve each hosted model's dependencies. Figure 2 then adds input and deployment adapters around that computation. Reader interpretation: the reusable object is the execution infrastructure, not one universal learned policy. The source does not provide token layouts, tensor contracts or a model-specific graph, so the five-layer description cannot by itself be converted into an implementation recipe.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e09"
+      ]
+    },
+    {
+      "heading": "Treat multi-rate execution as a state-management problem",
+      "text": "Section 3.1 gives the motivating asymmetry: perception need not refresh at the action head's rate, and a predictive branch may run only when future estimation is required. Section 3.2 therefore calls for explicit execution units, shared state or feature pools and configurable refresh policies. Its latency-first principle additionally lists graph replay, buffer reuse, fusion and device dispatch. Reader interpretation: reducing computation and deciding which state is fresh enough are separate responsibilities. Faster kernels can shorten an invocation, while a refresh policy changes which invocation happens at all. The paper does not specify the synchronization or stale-state rules connecting those decisions. Its evaluation reports aggregate backend results without jitter distributions or a scheduling ablation, leaving predictable closed-loop timing an intended capability that still needs direct verification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09",
+        "e16"
+      ]
+    },
+    {
+      "heading": "Read efficiency and control quality on their own scales",
+      "text": "For Table 3, first keep the model fixed, then compare a single configuration across latency, success and memory. HY-VLA at 4-bit has ratios 0.37, 0.99 and 0.23: the reciprocal latency ratio gives approximately 2.70× speedup, while the memory ratio means 77% less VRAM. These calculations say nothing about the absolute control frequency because the baseline milliseconds are absent. Next examine pi0.5: 8-bit and 4-bit have identical reported latency ratios, but success retention falls from 0.90 to 0.70. Finally, change interpretation for Table 4, where success is reported as an absolute percentage. LingBot-VA's 100% to 98% change is two percentage points. Reader interpretation: a deployment choice must consider the joint trade-off and measurement protocol, not a single speedup headline.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e13",
+        "e15",
+        "e16"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Isolate pi0.5's precision cost from the backend change",
+      "text": "Reader-proposed experiment, not performed: first document one exact pi0.5 checkpoint, device, manipulation task, preprocessing pipeline and success criterion. Use 100 paired initial conditions with the same rollout horizon for Python, C++ at matching precision, and C++ at 8-bit and 4-bit. Keep scheduling and execution options fixed, and record absolute per-action-step latency, peak VRAM, success counts and uncertainty. The discriminating observation is whether 4-bit again loses success relative to 8-bit without lowering latency. If the loss disappears under a matched protocol, Table 3's pi0.5 trade-off does not generalize to that setting; if it persists, selectively restoring module precision can localize the sensitivity. The task and trial count here are proposed controls, not recovered paper settings.",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e16"
+      ]
+    },
+    {
+      "title": "Test whether slower refresh improves latency without stale-state failures",
+      "text": "Reader-proposed experiment, not performed: after specifying the missing module interfaces, hold one modular checkpoint, precision, hardware and action cadence fixed. Compare refreshing all components every action step against refreshing perception every second or fourth step through a shared feature pool; keep graph replay and fusion settings identical. Use paired episodes containing a documented scene change and log observation timestamps, feature age, sensor-to-action latency distributions, peak VRAM and success. The hypothesis is that reduced refresh lowers latency while preserving task success. Lower median latency accompanied by stale-feature failures or worse tail latency would falsify the stronger claim of improved stable control for that schedule. The refresh intervals are proposed experimental settings, since the paper supplies no concrete policy.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09",
+        "e16"
+      ]
+    }
+  ],
+  "visualLimitations": {
+    "kind": "analysis",
+    "text": "The source contains two architecture/overview figures, an architectural comparison table, a capability matrix and two quantitative deployment tables. Section 4 supplies no dedicated mechanism ablation, latency/jitter plot, heterogeneous co-execution benchmark or WAM latency/prediction-quality evaluation. Table 3 is included as a precision/configuration diagnostic, not evidence isolating scheduling, replay, buffering or fusion. The four selected crops cover the method overview, dependency taxonomy and both quantitative tables.",
+    "evidenceIds": [
+      "e03",
+      "e04",
+      "e07",
+      "e08",
+      "e09",
+      "e10",
+      "e14",
+      "e15",
+      "e16"
+    ]
+  },
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "notes": "Visually inspected the title/author/affiliation/version page, every body page through the conclusion, Figures 1–2 and Tables 1–4. All numerical, method, training-omission, evaluation and reproduction statements in the bundle are supported by these declared pages. Figure 1's relevant dependency arrows were checked against Section 2.1 and Table 1; Figure 2 was checked against its caption and Section 3.2, with no claim-relevant arrow conflict observed. Both numerical tables were checked directly, including all precision columns and WAM units. Each of the four final original crops was viewed after extraction; labels and the Figure 1 legend are retained and long captions excluded. The text reading covered all five chunks and references through page 18; reference-only pages 12–18 were not separately viewed. No appendix was present, and separate supplement availability remains unverified."
+  }
+}
