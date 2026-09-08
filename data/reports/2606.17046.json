@@ -1,0 +1,492 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2606.17046",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T14:07:38.397Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2606.17046",
+      "title": "Geometric Action Model for Robot Policy Learning",
+      "kind": "pdf",
+      "sha256": "19b79e58aac413f80c3eac7d34c7c570abc921ace4ba79a42b12aeda5ff61a42",
+      "wordCount": 11141,
+      "accessedAt": "2026-09-07T13:58:44.894133+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title page and abstract, PDF p. 1: arXiv:2606.17046v2 [cs.RO], 22 June 2026",
+      "Sections 1–3: Introduction, Related Work, Geometric Foundation Models, pp. 2–4",
+      "Sections 4.1–4.4: observation encoding, causal prediction, decoding, training and inference, pp. 4–6",
+      "Sections 5.1–5.5 and 6: implementation, evaluation, results, ablations, analysis and limitations, pp. 6–9",
+      "Acknowledgments, p. 9",
+      "Appendix A.1–A.6: data, training, simulation, physical setup, baselines, runtime and parameters, pp. 10–14",
+      "Appendix B.1–B.3: RoboCasa-Kitchen, LIBERO breakdowns and future depth, pp. 14–17",
+      "Appendix C.1–C.2: direct action-token ablation and attention analysis, p. 18",
+      "References, pp. 19–22; all six supplied text chunks read individually"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The supplied PDF is v2; its exact title and all ten authors match the catalog after name-order normalization. The catalog URL is versionless. Earlier revisions were not supplied, so revision-to-revision changes cannot be established.",
+      "Text extraction does not reconstruct figure images; this limitation was addressed by visually inspecting PDF pages 1–18 and all six final original crops. Reference pages 19–22 were read as text.",
+      "Separate supplemental material availability has not been fully verified; none was supplied.",
+      "Code, project website and external references were not inspected; no experiments were reproduced.",
+      "The appendix roadmap mentions backbone variants, but the supplied Appendix C contains direct action-token supervision and attention analyses, without a corresponding backbone-variant results table."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, p. 1",
+      "Figure 2, p. 3",
+      "Figure 3, p. 4",
+      "Figure 4, p. 8",
+      "Figure 5, p. 9",
+      "Figure 6, p. 11",
+      "Figures 7–8, p. 12",
+      "Figure 9, p. 15",
+      "Figure 10, p. 17",
+      "Figure 11, p. 18"
+    ],
+    "tablesReviewed": [
+      "Table 1, p. 7",
+      "Tables 2–4, p. 8",
+      "Table 5, p. 11",
+      "Tables 6–8, p. 13",
+      "Tables 9–11, p. 14",
+      "Table 12, p. 15",
+      "Table 13, p. 16",
+      "Table 14, p. 18"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "GAM turns a pretrained geometric transformer into a language-conditioned manipulation policy by inserting temporal prediction between its shallow and deep blocks. Future geometry and action tokens share the decoder. Camera robustness is its clearest reported gain; ablations, runtime settings and internal reporting discrepancies qualify the broader claims.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "The authors argue that policies built on image or video representations leave depth, scale and occlusion implicit. GAM instead reuses a geometric foundation model throughout perception, temporal prediction and action decoding, aiming to preserve manipulation performance when viewpoints change.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A causal predictor inserted inside a pretrained geometric backbone jointly predicts future geometric features and an action token; the remaining backbone refines both before lightweight output heads.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "Simulation perturbations, physical execution and decoder ablations test complementary aspects of the design. These support geometric-policy utility, while causal attribution to each future loss remains conditional on pretraining.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e13",
+        "e14",
+        "e20"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Multi-view RGB observations; typically external and wrist views at 224 × 224",
+      "Seven-dimensional proprioception and previous action chunks",
+      "Episode-constant language instruction and a context window of H timesteps"
+    ],
+    "outputs": [
+      "Executable action chunk: normally C = 8 commands in a seven-dimensional end-effector space",
+      "Predicted next-step geometric latent tokens and optionally decoded future depth"
+    ],
+    "steps": [
+      {
+        "name": "Encode observations at an intermediate layer",
+        "detail": "DA3-Giant, fine-tuned on Track4World, supplies patch and camera tokens. Shallow blocks encode each timestep independently. The split L_s = 12 must precede the earliest DPT feature tap so predicted tokens can traverse every required geometry-decoding layer.",
+        "evidenceIds": [
+          "e03",
+          "e07"
+        ]
+      },
+      {
+        "name": "Predict action and future features together",
+        "detail": "A 12-layer, width-1024 transformer receives frozen-T5 language tokens followed by blocks containing projected robot state, previous action and geometric tokens. Geometry slots predict the next latent state; the previous-action slot predicts an action token. The prose specifies block-causal attention, with a diagram discrepancy discussed below.",
+        "evidenceIds": [
+          "e04",
+          "e07",
+          "e23"
+        ]
+      },
+      {
+        "name": "Propagate before regressing commands",
+        "detail": "The predicted action token is replicated across views, appended to their predicted geometry tokens, and processed by the remaining GFM blocks. Global attention also receives a causal mask. The action head aggregates action tokens to regress commands; the original depth head decodes future geometry.",
+        "evidenceIds": [
+          "e05"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Pretraining uses 784K trajectories, sampled 72% OXE, 18% MimicGen and 10% RoboCasa365. Future depth targets are teacher pseudo-depth for OXE and simulator depth for simulation data. Real-robot post-training also uses pseudo-depth. Context changes from H = 4 during pretraining to H = 1 during benchmark post-training.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e08",
+          "e12"
+        ]
+      },
+      {
+        "text": "AdamW uses constant learning rates; Table 5 gives 5.16 × 10⁻⁵ for the backbone and 5.16 × 10⁻⁴ for predictor/action head. Table 9 freezes blocks 0–12 and DPT, trains blocks 13–39, predictor and action head, and reports about 983.2M trainable parameters within 1.4B. T5 remains frozen.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e09",
+          "e24"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Online key-value caching supports a single feed-forward update from new observations and previous actions. The deployed benchmark configuration uses single-step observations, predicts eight commands and executes all eight open-loop before observing again. Future latent computation remains in the action pathway; optional depth decoding is not a search over candidate plans.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e05",
+          "e06",
+          "e09"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{total}}=\\lambda_{\\mathrm{act}}\\mathcal{L}_{\\mathrm{act}}+\\lambda_{\\mathrm{feat}}\\mathcal{L}_{\\mathrm{feat}}+\\lambda_{\\mathrm{depth}}\\mathcal{L}_{\\mathrm{depth}}",
+        "explanation": "Equation (8): action imitation, future-feature prediction and depth supervision are weighted by λ_act = 3, λ_feat = 1 and λ_depth = 3. Action loss is L1 regression against expert chunks; depth uses scale-invariant and gradient-matching penalties inherited from the GFM.",
+        "evidenceIds": [
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{feat}}=\\sum_{t'\\in\\mathcal{H}}\\left\\|\\widetilde{Z}_{t'+1}^{(L_s)}-Z_{t'+1}^{(L_s)}\\right\\|_1",
+        "explanation": "Equation (9): over context indices 𝓗 = {t − H + 1, …, t}, predicted next-frame tokens at split layer L_s are aligned to actual next-frame tokens extracted from the frozen GFM. The tilde denotes prediction, not an observed future input.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO and zero-shot LIBERO-Plus manipulation",
+      "setting": "Separate policies for four ten-task suites; original evaluation uses 50 trials/task, Plus one rollout per perturbed instance. Baselines mix re-evaluated and published results.",
+      "metric": "Task success rate (%)",
+      "value": "GAM: original 97.6; Plus 85.5; camera perturbations 83.1.",
+      "comparison": "Cosmos-Policy: 98.5 / 82.4 / 73.4; π0.5: 96.9 / 84.6 / 72.0.",
+      "interpretation": "Camera gain over Cosmos is 9.7 percentage points. GAM is not best on nominal performance or every perturbation; no uncertainty accompanies Table 1.",
+      "evidenceIds": [
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "Physical stack milk and cube",
+      "setting": "Four tasks jointly trained; stacking has 202 demonstrations. Ten ID and ten OOD trials/task; external camera translated 85 cm and rotated 45°.",
+      "metric": "Task success rate, ID / OOD (%)",
+      "value": "GAM 80 / 60.",
+      "comparison": "π0.5 70 / 10; Spatial Forcing 30 / 10, from Figure 4.",
+      "interpretation": "These are executed physical tasks. Small trial counts and different action-chunk lengths limit precision and strict architectural isolation.",
+      "evidenceIds": [
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "task": "LIBERO-Object component ablation",
+      "setting": "Post-training ablation; H = 1 except history comparisons.",
+      "metric": "LIBERO-Plus Object success rate (%)",
+      "value": "Full pretrained GAM 89.7; pretrained without both future losses 89.5; no pretraining with both 73.4; no pretraining without both 50.0.",
+      "comparison": "Without pretraining, depth-only reaches 80.0 and feature-only 66.5; pretrained H = 2 / 4 yields 84.4 / 85.1.",
+      "interpretation": "Future supervision helps without policy pretraining, but the losses are not uniformly additive. Their marginal post-training benefit is small after pretraining.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "LIBERO-Object action-token decoding",
+      "setting": "Same setting as the component ablation; action loss applied before versus after deep GFM propagation.",
+      "metric": "Original / Plus success rate (%)",
+      "value": "Full GAM 99.6 / 89.7.",
+      "comparison": "Direct-action supervision 98.4 / 84.1.",
+      "interpretation": "The 5.6-point Plus gain supports retaining deep geometric decoding; it does not isolate geometry from added decoder computation.",
+      "evidenceIds": [
+        "e20"
+      ]
+    },
+    {
+      "task": "Model-only inference latency",
+      "setting": "Single GH200, bf16, official PyTorch paths and Torch Compile; loading and preprocessing excluded.",
+      "metric": "Milliseconds per action prediction",
+      "value": "GAM 17.5 without CUDA Graphs; 6.9 with CUDA Graphs.",
+      "comparison": "Without CUDA Graphs: π0.5 29.2, OpenVLA-OFT 70.1, Cosmos-Policy 382.4.",
+      "interpretation": "The 55.4× headline compares GAM's graph-enabled deployment with Cosmos without graphs. Table 4 instead lists OpenVLA-OFT at 77.8 ms. Neither timing establishes end-to-end physical control frequency.",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "task": "RoboCasa-Kitchen manipulation",
+      "setting": "24 tasks; three views, 16-step chunks, successful trajectories from 300 demonstrations/task.",
+      "metric": "Average success rate (%)",
+      "value": "69.4.",
+      "comparison": "Cosmos Policy 67.1; FLARE 66.4.",
+      "interpretation": "A distinct adaptation protocol, not the two-view LIBERO setting. Evaluation rollout counts and uncertainty are not specified in B.1.",
+      "evidenceIds": [
+        "e17"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify frozen-text-encoder limits on language reasoning and commonsense. Future-depth and attention examples are qualitative; they provide neither calibrated depth error nor causal proof of contact reasoning.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e19",
+        "e21",
+        "e22"
+      ]
+    },
+    {
+      "text": "Figure 3(b) lets language queries attend to every temporal block, while earlier blocks attend back to language. If updated this way across layers, language could relay future information, conflicting with the no-leakage prose. The implementation is unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e23"
+      ]
+    },
+    {
+      "text": "Internal summaries disagree: Figure 1 gives GAM OOD physical success as 52.5%, while Figure 4's four OOD bars average 50%; Tables 12 and 13 give original Object success as 99.6% and 99.0%. These values are preserved separately, not reconciled.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13",
+        "e18"
+      ]
+    },
+    {
+      "text": "Table 1 also contains inconsistent parenthetical drops: Spatial Forcing prints 58.3 despite 94.0 − 25.7 = 68.3; ROCKET prints 46.6 despite 95.3 − 47.5 = 47.8. Comparisons here use the explicit success cells.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reported pretraining requires 64 GH200 GPUs, batch 1024 and about 96 hours. Appendix A reports simulation post-training on 16 GH200s for about 48 hours, whereas Table 5 lists eight GH200s. Table 9's frozen blocks also qualify Appendix A's loose 'entire model' wording.",
+      "kind": "source",
+      "evidenceIds": [
+        "e09",
+        "e24"
+      ]
+    },
+    {
+      "text": "Reproduction needs the Track4World-adapted DA3 checkpoint, dataset/action conversion, filtered successful LIBERO demonstrations and depth targets. Exact action normalization, no-op threshold, T5 variant, optimizer betas/weight decay, software versions, seed counts and timing repetition counts are not specified in the supplied recipes.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09",
+        "e10",
+        "e16"
+      ]
+    },
+    {
+      "text": "Proposed checks: perturb future input blocks while holding the prefix fixed to audit leakage, then compare deep geometric decoding with direct-action decoding under matched training and compute controls. These are proposed experiments, not reproduced findings.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e23",
+        "e20",
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "The shared GFM encoder/decoder supports One Model, and predicted geometric futures support WAM and multiview modeling. The IDM label is not supported by the described information flow: action and future tokens are jointly predicted, then jointly refined, rather than actions being inferred from a separately specified current/future state pair. No planning search is described. The recorded Q2 snapshot is retained unchanged.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e20"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "3D multiview modeling",
+        "Visual planning & IDM"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q2 · One Model × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "e61bb7714c1613515ba68f6f75ca413c22c5de02469a667a668cea376cc33339"
+    }
+  },
+  "discussionQuestions": [
+    "Does blocking temporal information from flowing back into language tokens change multi-step pretraining or downstream robustness?",
+    "Does the deep decoder help because of geometric pretraining, extra trainable computation, or both?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block and arXiv margin",
+      "detail": "Exact title; all ten catalog authors; KAIST AI, ETH Zurich and ETH AI Center; arXiv:2606.17046v2, 22 June 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Section 1 and Figure 2",
+      "detail": "Motivates explicit geometric priors and distinguishes GAM's shared geometric backbone from video WAMs and feature-distilled VLAs."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Sections 3–4.1, Eqs. (1)–(5)",
+      "detail": "Multi-view camera/patch tokens; policy context and open-loop action chunks; shallow/deep split before the first DPT feature tap."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.2, Eq. (6) and prediction-slot paragraphs",
+      "detail": "Language, robot-state and previous-action conditioning; geometric slots predict future tokens while the previous-action slot predicts an action token."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.3, Eq. (7)",
+      "detail": "Replicate action token per view, propagate with predicted future features through deep GFM blocks, extend causal masking, then decode action and depth."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.4, Eqs. (8)–(9) and inference paragraph",
+      "detail": "Weighted action/feature/depth objectives; frozen-GFM future targets; scale-invariant and gradient-matching depth supervision; cached feed-forward inference."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 5.1",
+      "detail": "DA3-Giant adapted on Track4World; 12-layer width-1024 predictor at split 12; frozen T5; H = 4/1, C = 8, seven-dimensional state/action; AdamW; loss weights 3/1/3."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Appendix A.1 and Figure 6",
+      "detail": "784K-trajectory mixture, source weights 72/18/10; common action compatibility filtering, original instructions, two views when available, depth/pseudo-depth targets and image augmentation."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Appendix A opening paragraphs and Table 5",
+      "detail": "Pretraining 64 GH200s, batch 1024, approximately 96 hours; prose post-training 16 GH200s, batch 160, approximately 48 hours; Table 5 instead lists eight GH200s and gives learning rates, eight executed commands and augmentation settings."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Appendix A.2 and paragraph after Table 5",
+      "detail": "Four ten-task LIBERO suites, separate policies, successful/no-op-filtered training; 50 original trials/task; one Plus rollout/instance; up to 110k training steps; selected baselines re-evaluated, others imported."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, GAM, Cosmos-Policy, π0.5 and geometry-aware VLA rows",
+      "detail": "GAM original/Plus/camera 97.6/85.5/83.1; Cosmos 98.5/82.4/73.4; π0.5 96.9/84.6/72.0. Parenthetical Spatial Forcing and ROCKET drops do not match their success cells; Fast-WAM's 47.5 drop also differs from 97.6 − 50.0 = 47.6."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5.2; p. 12, Appendix A.3 and Figures 7–8; p. 13, Tables 6–7 and A.4",
+      "detail": "Real targets use GFM pseudo-depth; wrist ZED/external RealSense; task demonstrations 284/202/184/169; joint training; 10 ID and 10 OOD trials/task with 85 cm/45° external-camera change. Baselines execute 10-step chunks versus GAM's eight."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 4, four task groups and caption; p. 1, Figure 1(b), physical-results bars",
+      "detail": "Figure 4 GAM ID/OOD values: 100/80, 80/60, 30/20, 50/40. Stacking baselines are π0.5 70/10 and Spatial Forcing 30/10. Light bars denote ID, dark OOD. Figure 1 prints GAM ID/OOD averages 65/52.5, although Figure 4's OOD bars average 50."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5.4, Table 2, all rows",
+      "detail": "Pretraining/loss/history factorial comparisons on Object. Pretrained full and no-future-loss Plus rates 89.7/89.5; unpretrained full/none/depth-only/feature-only 73.4/50.0/80.0/66.5; H = 2/4 pretrained 84.4/85.1."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3 and Split Layer Selection paragraph",
+      "detail": "Predictor reinitialized at different splits; depth loss excluded. Original/Plus: split 0 5.4/1.8; 12 99.6/70.1; 19 95.6/63.4; 27 1.2/1.6; 33 and 39 0/0."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4; p. 9, Section 5.5; p. 13, Table 8 and Appendix A.5",
+      "detail": "Single-GH200 model-only latency with bf16/Torch Compile: GAM 17.5 ms without graphs, 6.9 with; π0.5 29.2, OpenVLA-OFT 70.1, Cosmos 382.4 without graphs. Main Table 4 instead gives OpenVLA-OFT 77.8. Loading and preprocessing excluded."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix B.1 and Tables 10–11",
+      "detail": "RoboCasa-Kitchen: 24 tasks, three-view adaptation, 16-step chunks, successful training trajectories from 300 demos/task. Average success GAM 69.4, Cosmos 67.1, FLARE 66.4."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Table 12(b,d) and Figure 9; p. 16, Table 13, suite headers",
+      "detail": "Table 12 reports GAM Object original 99.6 and Plus 90.6; Table 13 reports Object original 99.0. Long-suite Plus is GAM 78.0 versus Cosmos 81.0, showing a boundary to aggregate dominance."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–17, Appendix B.3 and Figure 10(a–d)",
+      "detail": "Current RGB/current depth/GT future/predicted future grids across four suites. Panel (a) follows bowl transfer, with current T = 0/2/4/7/9 paired to future T = 1/3/5/8/10. No quantitative depth-error table or calibrated color scale is provided."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix C.1 and Table 14",
+      "detail": "Action supervision directly at predictor output versus after deep GFM blocks: original/Plus 98.4/84.1 versus 99.6/89.7; same Object setting as component ablation."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Figure 11 and Appendix C.2",
+      "detail": "Action-token attention visualizations at layers 13, 26, 33 and 39, with author interpretation of saliency near task-relevant objects/contact regions."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 6, final paragraph",
+      "detail": "Frozen text encoder bounds language reasoning and commonsense; LLM or external reasoning module proposed as future work."
+    },
+    {
+      "id": "e23",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 3(b), Key/Query axes and yellow/gray legend; pp. 5–6, Sections 4.2–4.3",
+      "detail": "The diagram's language-query row permits attention to all temporal blocks; temporal rows can attend to language. Temporal-to-temporal cells are block-causal. Prose says there is no future leakage; no language-row exception is explained."
+    },
+    {
+      "id": "e24",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Appendix A.6 and Table 9; p. 10, Appendix A",
+      "detail": "Table 9: backbone blocks 0–12 frozen, 13–39 trainable; DPT frozen; predictor 210.2M and action head 8.0M trainable; about 1404.8M total and 983.2M trainable. T5 is not itemized in the parameter breakdown; Appendix A's 'entire model' wording is broader."
+    }
+  ]
+}
