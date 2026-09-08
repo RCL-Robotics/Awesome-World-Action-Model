@@ -1,0 +1,259 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2510.11682",
+  "shortTitle": "Ego-Vision Contact Planning",
+  "thesis": "A short-horizon latent planner turns offline random humanoid interactions into purposeful contact, trading greedy value selection for a biased but potentially less variable sequence score.",
+  "standfirst": "A humanoid facing a wall, a flying ball or a low arch needs different kinds of contact reasoning: brace, intercept or avoid. This paper learns the consequences of posture commands from simulated random interactions, then searches those consequences at deployment. Its central choice is to score short imagined sequences with a learned action-value instead of relying on sparse predicted rewards. The figures below separate representation learning, online search and executed behavior. Read the evidence at three levels: simulation reward comparisons, qualitative prediction diagnostics and physical demonstrations. Their conclusions differ, particularly because a human supplies base velocity in the hardware tests. This edition reviews the supplied March 2026 arXiv v2.",
+  "evidenceIds": [
+    "e-identity",
+    "e-problem",
+    "e-data",
+    "e-mpc",
+    "e-real"
+  ],
+  "featuredResultTask": "Traverse the Arch",
+  "visuals": [
+    {
+      "id": "world-model-training",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 2,
+      "asset": "report-assets/2510.11682/world-model-training.png",
+      "width": 1412,
+      "height": 528,
+      "sourceSha256": "b1afc98e21f7c356b34f3de34b0496f76ecdd803d218dc56f2c12b4d0b867dfd",
+      "sourceUrl": "https://arxiv.org/pdf/2510.11682#page=2",
+      "crop": [
+        0.085,
+        0.063,
+        0.915,
+        0.303
+      ],
+      "alt": "Random hand-position and body-height commands generate an offline dataset. An encoder–decoder and recurrent latent chain feed predicted-latent, termination and value heads, with a legend identifying each component.",
+      "caption": "The model learns command consequences under an already-trained tracking controller.",
+      "readingGuide": "Begin with panel (a): the robot explores end-effector position and body height, and stores observation, action, reward and termination. Panel (b) separates blue dynamics memory h_t from purple observation latent z_t. Follow the horizontal action-conditioned arrows to the next memory state, then the downward branches to the prior latent, failure probability and surrogate value. The value branch receives the action as well as the latents; the termination branch receives the latents, consistent with Equations (4)–(5). The upper reconstruction path supplies training supervision. Equations (2)–(3) additionally condition encoding and decoding on h_t, connections abbreviated in that upper cartoon.",
+      "takeaway": "The predictive representation serves several objectives at once: reconstruct observations, anticipate latent changes, detect termination and evaluate candidate commands. Offline data can therefore train a planner-relevant model without a demonstration trajectory for each successful contact. The controller that makes the commands executable is trained separately before this collection stage.",
+      "caution": "The figure is a training schematic, not a full implementation specification. Its upper bottleneck omits explicit h_t inputs present in the equations; it also supplies no layer widths or complete optimization settings.",
+      "evidenceIds": [
+        "e-controller",
+        "e-data",
+        "e-latent",
+        "e-training"
+      ]
+    },
+    {
+      "id": "value-guided-mpc",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 3,
+      "asset": "report-assets/2510.11682/value-guided-mpc.png",
+      "width": 1412,
+      "height": 378,
+      "sourceSha256": "b1afc98e21f7c356b34f3de34b0496f76ecdd803d218dc56f2c12b4d0b867dfd",
+      "sourceUrl": "https://arxiv.org/pdf/2510.11682#page=3",
+      "crop": [
+        0.085,
+        0.064,
+        0.915,
+        0.236
+      ],
+      "alt": "A real camera observation initializes latent memory. Batches of candidate actions drive predicted future latents, whose values are accumulated before choosing an action sequence; termination heads accompany each value.",
+      "caption": "Imagine several steps, score their values, execute one command and observe again.",
+      "readingGuide": "Follow the real camera observation into z_t at the left. Later purple blocks carry hats because they come from the model's prior, without future camera frames. Each sampled command advances the recurrent dynamics; the lower value heads contribute to a sequence score searched by CEM. The plus signs denote accumulation, while Equation (17) specifies an average over the horizon. The crossed-circle icons denote termination predictions, not an explicit multiplication instruction. The caption and page 5 supply the actual rule: when termination probability exceeds 0.9, subsequent values become zero. The reported default searches 1,024 trajectories over four steps and executes only the first selected action.",
+      "takeaway": "Prediction is open-loop inside each candidate sequence, but control is closed-loop across planning cycles. A fresh observation corrects the latent estimate before another search. Averaging several surrogate values is the paper's proposed way to reduce sensitivity to a noisy single value estimate, with an acknowledged change in optimization objective.",
+      "caution": "Equation (17) writes predicted latents throughout, whereas the figure and accompanying text initialize the current step from the observation posterior. The termination gate is specified in prose. Neither the schematic nor CEM supplies an optimality guarantee.",
+      "evidenceIds": [
+        "e-latent",
+        "e-mpc",
+        "e-theory",
+        "e-real"
+      ]
+    },
+    {
+      "id": "reward-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table I",
+      "page": 6,
+      "asset": "report-assets/2510.11682/reward-ablation.png",
+      "width": 1422,
+      "height": 866,
+      "sourceSha256": "b1afc98e21f7c356b34f3de34b0496f76ecdd803d218dc56f2c12b4d0b867dfd",
+      "sourceUrl": "https://arxiv.org/pdf/2510.11682#page=6",
+      "crop": [
+        0.086,
+        0.344,
+        0.504,
+        0.541
+      ],
+      "alt": "Table of wall, ball and arch rewards for planning horizons one through six, an autoregressive world model, reward MPC and TD-MPC. Values include reported standard deviations and higher-is-better arrows.",
+      "caption": "Four steps performs well across tasks, while the wall column favors other settings.",
+      "readingGuide": "Read within each task column because reward scales differ. The upper block changes planning horizon: N=1 is greedy value selection, while larger N averages values along predicted futures. The middle block replaces the world-model training approach with ARWM. The final block changes the objective to predicted rewards or rewards plus a terminal value. For arch traversal, N=4 reports 0.0157 ± 0.0015, compared with −0.0396 ± 0.0121 at N=1. The experimental text identifies mean and standard deviation from ten independent trials across three random seeds; it does not specify how those trials are distributed among seeds.",
+      "takeaway": "The ball and arch columns favor multistep planning, and both show poorer means at six steps than four. Wall support is an exception: N=6 slightly exceeds N=4, and TD-MPC reaches 0.0699 ± 0.0035 versus 0.0614 ± 0.0027. The evidence supports a useful cross-task default, not uniform dominance.",
+      "caution": "These are simulation rewards, not success rates. Standard deviations do not establish statistical significance. The authors' explanations involving overfitting and model bias are not isolated causal measurements, and the tested TD-MPC variant should not stand for every implementation.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-table",
+        "e-ablation"
+      ]
+    },
+    {
+      "id": "sample-efficiency",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 5",
+      "page": 5,
+      "asset": "report-assets/2510.11682/sample-efficiency.png",
+      "width": 1411,
+      "height": 310,
+      "sourceSha256": "b1afc98e21f7c356b34f3de34b0496f76ecdd803d218dc56f2c12b4d0b867dfd",
+      "sourceUrl": "https://arxiv.org/pdf/2510.11682#page=5",
+      "crop": [
+        0.086,
+        0.063,
+        0.916,
+        0.204
+      ],
+      "alt": "Three plots show average step reward against millions of data transitions for wall support, ball blocking and arch traversal. Red offline-model curves plateau early; blue PPO curves improve later. Shaded regions and the shared legend are retained.",
+      "caption": "The offline planner reaches useful rewards with fewer transitions in the tested PPO comparison.",
+      "readingGuide": "Red denotes the proposed method trained from random offline interactions; blue denotes PPO collecting new on-policy data. Compare rewards at a common transition count before asking where the blue curve eventually catches up. The horizontal spacing changes around the dashed one-million-step marker, so visual slopes across that point are not directly comparable. Vertical scales also differ by task. The caption caps the offline dataset at one million steps; Section IV.A claims task completion using half a million. Wall and ball show that giving PPO more data can close or reverse the reward gap. Arch traversal retains the clearer advantage in the plotted range.",
+      "takeaway": "The benefit is earlier useful contact behavior under the tested data budget, especially when the robot's viewpoint changes during arch traversal. The plot also prevents an overstatement: a fixed offline model need not achieve the highest reward once PPO receives substantially more interaction data.",
+      "caution": "Transition count is not wall-clock training cost, and this plot does not account for the full low-level-controller training budget. Off-policy alternatives are not compared. The paper does not provide exact raw curve values or a numerical success criterion for its completion claim.",
+      "evidenceIds": [
+        "e-controller",
+        "e-efficiency",
+        "e-protocol"
+      ]
+    },
+    {
+      "id": "value-maps-rollouts",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 7",
+      "page": 7,
+      "asset": "report-assets/2510.11682/value-maps-rollouts.png",
+      "width": 1270,
+      "height": 382,
+      "sourceSha256": "b1afc98e21f7c356b34f3de34b0496f76ecdd803d218dc56f2c12b4d0b867dfd",
+      "sourceUrl": "https://arxiv.org/pdf/2510.11682#page=7",
+      "crop": [
+        0.128,
+        0.058,
+        0.875,
+        0.232
+      ],
+      "alt": "Six right-hand X–Z position value maps at steps 30–80 share a purple-to-yellow color scale. Below them, an original depth image is reconstructed and decoded latent rollouts are shown at horizons two, six, ten, fourteen and sixteen.",
+      "caption": "A changing contact preference and a long rollout illustrate what the latent model has retained.",
+      "readingGuide": "The upper row maps candidate right-hand positions in the X–Z plane. Yellow indicates higher plotted value, with a shared color bar from zero to one; the figure does not establish physical coordinate units. Around steps 60–70, the preferred region shifts as the ball approaches. The lower row begins with a real depth image, then its reconstruction, then imagined frames decoded from future latents. These frames illustrate a longer rollout than the deployed planning horizon. The caption calls the upper panels Q-value maps, while Section IV.D identifies the quantity as the Equation (11) objective; treat them as a planning-value visualization rather than calibrated returns.",
+      "takeaway": "The visual supports the authors' interpretation that the model changes its preferred hand target with context and retains aspects of the ball's motion in its latent predictions. It also makes reconstruction error visible before any long rollout: the decoded horizon-zero image already differs from the original observation.",
+      "caution": "The exact map normalization and construction are not specified. Sixteen-step images are a qualitative diagnostic, not evidence of sixteen-step control or measured physical accuracy. The actual controller replans using a four-step horizon.",
+      "evidenceIds": [
+        "e-diagnostic",
+        "e-theory",
+        "e-mpc",
+        "e-table"
+      ]
+    },
+    {
+      "id": "physical-contact-tasks",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 4",
+      "page": 4,
+      "asset": "report-assets/2510.11682/physical-contact-tasks.png",
+      "width": 1396,
+      "height": 614,
+      "sourceSha256": "b1afc98e21f7c356b34f3de34b0496f76ecdd803d218dc56f2c12b4d0b867dfd",
+      "sourceUrl": "https://arxiv.org/pdf/2510.11682#page=4",
+      "crop": [
+        0.092,
+        0.065,
+        0.913,
+        0.344
+      ],
+      "alt": "Physical humanoid demonstrations show arch traversal followed by box blocking, hand bracing against a wall after a kick, blocking a ball or box, and crouching beneath an arch. Time-overlaid poses show movement.",
+      "caption": "The hardware examples show purposeful hand contact alongside head-contact avoidance.",
+      "readingGuide": "Panel (a) combines two contexts in sequence: lower the body to traverse the arch, then intercept a box. Panel (b) contrasts desired hand contact against the wall with undesired head collision during a disturbance. Panel (c) compares blocking a training-like ball and an unseen box; panel (d) isolates low-clearance traversal. The repeated translucent poses show motion over time, not multiple simultaneous robots. Read these photographs with Section IV.E: the Unitree G1 runs the planner at 25 Hz using 1,024 candidate trajectories and four-step predictions. A human operator supplies desired base velocity while the planner selects posture and end-effector commands.",
+      "takeaway": "The demonstrations extend the evidence beyond simulated reward and show both contact exploitation and avoidance on a physical humanoid. The unseen box is a concrete example of transfer beyond the training object type. Sequential task behavior is also shown, although the publication does not provide a numerical hardware comparison.",
+      "caution": "Photographic examples cannot establish a success probability or robustness range. Trial counts, failure rates and a fully autonomous navigation evaluation are absent. Operator-controlled velocity is part of the demonstrated system and must remain explicit.",
+      "evidenceIds": [
+        "e-real",
+        "e-protocol",
+        "e-data"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Learn consequences at the command level",
+      "text": "Start with what an action means. The low-level PPO controller already converts desired velocity, end-effector position and body height into motor behavior. The high-level learner then explores only the posture-related part of that interface. Its random finite differences yield trajectories with observations, rewards and termination labels, rather than demonstrations of expert contacts. The world model learns the resulting closed-loop dynamics through recurrent memory and an observation bottleneck. Reconstruction makes the latent retain sensory information; prior matching makes that information predictable without another camera frame; termination and value losses make it useful for planning. Reader interpretation: this command interface simplifies the prediction problem, but also ties the learned consequences to the underlying controller. Changing that controller is a meaningful distribution shift, not merely swapping an actuator backend.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-controller",
+        "e-data",
+        "e-latent",
+        "e-training"
+      ]
+    },
+    {
+      "heading": "Use a value estimate without treating it as an oracle",
+      "text": "A greedy planner would pick the action with the largest current surrogate value. The paper instead samples short sequences, propagates their latent consequences and averages the values along them. Its motivation is that partial observability and imperfect offline coverage make individual estimates unreliable. In the variance analysis, averaging can help when residual errors are not too strongly correlated, but the new score also changes the control objective and retains bias. CEM searches this score; it does not repair errors in the learned model. Only the first command is executed, so the next camera observation can correct the prediction before another decision. Reader interpretation: Table I establishes the practical benefit of multistep planning in these tasks, while the claimed variance-reduction mechanism still needs direct error-covariance measurement.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-theory",
+        "e-mpc",
+        "e-table",
+        "e-ablation"
+      ]
+    },
+    {
+      "heading": "Separate contextual reuse from unrestricted autonomy",
+      "text": "The value head can infer task context from the observation latent, allowing one world model to train on the mixed ball, wall and arch dataset. Figure 6 compares this shared model with specialized models: wall and arch improve, while ball drops. Its t-SNE plots show separable task structure, but do not prove that the representation has disentangled physics from appearance. Figure 7 adds a second kind of evidence: the preferred hand position changes as an object approaches, and decoded predictions preserve aspects of its trajectory. Figure 4 then shows actual physical behavior, including an unseen box. Reader interpretation: these pieces support reuse across the tested contact contexts. They leave open broader object diversity, unseen task definitions and autonomous velocity selection, which was handled by an operator in deployment.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-training",
+        "e-multitask",
+        "e-diagnostic",
+        "e-real"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does averaging reduce value error under matched search effort?",
+      "text": "Reader-proposed simulation check: freeze one trained model and compare horizons one, two, four and six on the same held-out task initializations. Repeat with controlled depth-noise levels. Match the total number of world-model transitions evaluated by CEM, and additionally report the original fixed-trajectory-budget setting. Use independent repeated simulator continuations to estimate returns for candidate state–action pairs, then measure value residual covariance and the error of each averaged score. The variance explanation is weakened if reward gains appear only with extra search computation or if strongly correlated residuals prevent the predicted error reduction. Report per-seed reward and failure rates; none of these checks was run here.",
+      "evidenceIds": [
+        "e-theory",
+        "e-mpc",
+        "e-table",
+        "e-protocol"
+      ]
+    },
+    {
+      "title": "Does a plausible ball rollout predict useful control?",
+      "text": "Reader-proposed simulation check: hold the controller and trained model fixed, and replay identical action sequences from matched ball states while decoding predictions through horizon sixteen. Compare ball location and contact timing against simulator ground truth, separating horizon-zero reconstruction error from later prediction drift. Then compare four-step and longer-horizon MPC under matched search computation on those same initial conditions, recording reward and executed hand contacts. Include held-out ball trajectories and box shapes as explicit separate conditions. If longer rollouts look plausible but contact-time error grows and longer planning worsens control, the result would support the paper's stated distinction between qualitative physical intuition and useful planning horizon.",
+      "evidenceIds": [
+        "e-diagnostic",
+        "e-ablation",
+        "e-table",
+        "e-real",
+        "e-data"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "notes": "All eight supplied PDF pages were rendered and visually inspected after reading all four text chunks. The title, eight authors, affiliations and v2 date were checked on page 1. Figures 1–7 and Table I were read; six final original crops were individually inspected, including the recropped Figure 7 labels. Pages 2–5 cover method equations and training, pages 5–7 cover simulation protocols and ablations, pages 4 and 7–8 cover physical deployment, and page 8 covers cited software versions. Figure 6 was inspected in its full-page render but is not a separate crop. Diagram arrows and latent conditioning were checked against Eqs. (1)–(5); the current-posterior notation and prose termination gate were checked against Eq. (17) and the Figure 3 caption. Figure 7's caption versus objective-label ambiguity is preserved in its reading guide. No appendix is present in this PDF. Separate supplements, videos and code remain outside the supplied reading."
+  }
+}
