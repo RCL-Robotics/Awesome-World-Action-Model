@@ -1,0 +1,457 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-4e998454523b2100fbe1",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T20:44:36.434Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2412.19505",
+      "title": "DrivingWorld: Constructing World Model for Autonomous Driving via Video GPT",
+      "kind": "pdf",
+      "sha256": "db17a90b4c3b3ca3f63c31410c9cbdae661fed66900fc7b9c046c07a9cfce82e",
+      "wordCount": 5489,
+      "accessedAt": "2026-09-07T14:07:55.461872+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; 1 Introduction (pp. 1–2)",
+      "2 Related Work, including 2.1–2.3 (pp. 3–4)",
+      "3 Method, including 3.1 Tokenizer, 3.2 Prelimilaries of Next-Token Prediction, 3.3 World Model, 3.4 Decoder (pp. 4–9)",
+      "4 Experiments, including 4.1–4.6 (pp. 9–13)",
+      "5 Conclusion and Future Work (p. 13)",
+      "References (pp. 13–15)"
+    ],
+    "omissions": [
+      "Verified source: arXiv:2412.19505v3 [cs.CV], 16 August 2026. The title and all six authors match the catalog. The catalog records an ICPR 2026 Springer chapter; that separate publication artifact and earlier arXiv revisions were not supplied, so their textual equivalence or revision differences cannot be established.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "All four supplied text chunks and all 15 PDF pages were read. The extraction's missing figure images were addressed by visual inspection of the retained PDF and six final original crops. No appendix is present in this PDF.",
+      "Code, project links and external cited works were not inspected. No training, inference or reproduction experiments were run."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1: trajectory-conditioned generation (p. 3)",
+      "Figure 2: pipeline (p. 4)",
+      "Figure 3: naive attention map (p. 5)",
+      "Figure 4: prediction factorizations (p. 6)",
+      "Figure 5: autoregressive modules (p. 7)",
+      "Figure 6: masking and drift (p. 7)",
+      "Figure 7: long rollout (p. 10)",
+      "Figure 8: preference study (p. 10)",
+      "Figure 9: memory/FLOPs comparison (p. 12)"
+    ],
+    "tablesReviewed": [
+      "Table 1: NuScenes generation (p. 8)",
+      "Table 2: NuPlan tokenizer reconstruction (p. 11)",
+      "Table 3: NuScenes planning (p. 12)",
+      "Table 4: NuPlan BA/RMS ablation (p. 13)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "DrivingWorld predicts driving poses and front-view video through a multimodal autoregressive model. It separates temporal attention from within-frame fusion, then generates pose and image tokens in sequence. Balanced attention protects sparse pose information; corrupted training histories target rollout drift. Reported generation and planning results are promising, but private training data, incomplete implementation details and inconsistent long-video timing limit reproducibility.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A flattened video-token stream makes sparse pose signals compete with hundreds of image tokens and repeatedly attends over a long history. The authors target annotation-light driving prediction with stronger temporal dependencies, useful trajectory conditioning and lower attention cost.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The main architectural contribution combines a next-frame temporal/fusion module with an internal-frame autoregressive module, retaining both temporal structure and dependencies between pose and appearance.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e06"
+      ]
+    },
+    {
+      "text": "Temporal attention around image quantization, modality-dependent attention bias and random masking address reconstruction consistency, pose dilution and accumulated prediction error respectively.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e07",
+        "e08"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Historical front-view frames and ego orientations/locations; relative poses are tokenized.",
+      "Optional predefined future trajectory for controllable video generation."
+    ],
+    "outputs": [
+      "Predicted relative orientation and location, decoded from pose tokens.",
+      "Predicted front-view images, decoded from discrete image tokens."
+    ],
+    "steps": [
+      {
+        "name": "Encode local motion and images",
+        "detail": "Relative orientation and location changes are measured between adjacent timesteps in an ego-centered coordinate system; the first changes are zero. Orientation becomes one token and the discretized x/y pair another. A VQGAN-derived tokenizer adds causal temporal attention before and after quantization; each image supplies 512 tokens.",
+        "evidenceIds": [
+          "e05",
+          "e07"
+        ]
+      },
+      {
+        "name": "Separate temporal and multimodal processing",
+        "detail": "Image tokens are flattened in zig-zag order. Equation (2) applies causal temporal attention to each fixed token position across history; Equation (3) fuses all modalities within a timestep. Figure 5a's upper fan of connections appears broader than this fixed-position definition, so exact diagram connectivity remains unresolved.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "name": "Generate the next state internally",
+        "detail": "Temporal/fusion features are added to shifted prefixes beginning with a start token, followed by next-state orientation, location and image tokens. Equation (4) retains preceding-token dependence. The paper's parallel-processing wording should not be read as independent simultaneous inference of all tokens.",
+        "evidenceIds": [
+          "e04",
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "name": "Decode and continue",
+        "detail": "Predicted image tokens retrieve codebook features for temporal attention and convolutional decoding. Pose tokens map back to relative motion. Repeated next-state prediction yields a video rollout; Figure 1 additionally illustrates supplying different future trajectories. No actuator interface or feedback controller is specified.",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e09"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The 70M-parameter tokenizer uses a 16,384-entry codebook, 1,000K steps, batch 128 and 32 NVIDIA 4090 GPUs, with Openimages, COCO, YoutubeDV and NuPlan. Its losses are Charbonnier, perceptual and codebook losses.",
+        "kind": "source",
+        "evidenceIds": [
+          "e10"
+        ]
+      },
+      {
+        "text": "The 1B-parameter world model conditions on 15 frames. Training uses over 3,456 hours: 120 NuPlan hours and 3,336 private hours; 450K iterations, batch 64, 64 NVIDIA A100 GPUs and 12 days. NuScenes fine-tuning takes one day.",
+        "kind": "source",
+        "evidenceIds": [
+          "e10"
+        ]
+      },
+      {
+        "text": "RMS selects sequences with probability epsilon = 0.5; each masked token has eta = 0.3 probability of arbitrary replacement. The fraction selected for masking is not given. Equation (6) shows image-token cross-entropy conditioned on poses, while Figure 5b draws losses on pose tokens too; their complete loss formulation is unspecified.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e08",
+          "e10"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The stated order predicts the next pose and then its image, conditioned on history. Preset trajectories provide an alternative conditioning mode. These are predicted or supplied pose changes, not measured steering/throttle commands, and the paper does not describe deployment in a physical closed loop.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e09",
+          "e14"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "g_t^j=\\mathcal{F}_a(q_1^j,\\ldots,q_t^j),\\quad t\\in[1,T],\\ j\\in[1,n],\\quad n=H\\times W",
+        "explanation": "Equation (2), image-token branch: q_t^j is token j at time t, F_a is the causal temporal layer and g_t^j its output. T is the historical length and H × W the token grid. Equation (3) subsequently fuses positions and modalities within each timestep.",
+        "evidenceIds": [
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "expression": "\\hat z_i=z_i+\\frac{1}{m n_j},\\qquad \\operatorname{softmax}(\\hat z_i)=\\frac{e^{\\hat z_i}}{\\sum_k e^{\\hat z_k}}",
+        "explanation": "Equation (5) applies when position i belongs to modality j, with m modalities and n_j tokens in modality j. The printed additive adjustment favors smaller modalities before softmax; it does not guarantee equal total attention per modality.",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "NuScenes video generation with NuScenes training",
+      "setting": "Table 1 blue group; evaluation describes 150 NuScenes test clips and equal generated clip length following Vista, without specifying that length.",
+      "metric": "FID / FVD; lower is better",
+      "value": "6.5 / 86.0",
+      "comparison": "Vista: 6.9 / 89.4. Maximum-generation rows list 40 s / 400 frames for DrivingWorld and 15 s / 150 frames for Vista.",
+      "interpretation": "Best listed generation distances in this group; maximum duration is separate from the matched-length metric protocol. Training data and model resources differ.",
+      "evidenceIds": [
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "task": "Zero-shot NuScenes video generation",
+      "setting": "Table 1 orange group: NuScenes not seen in training.",
+      "metric": "FID / FVD; lower is better",
+      "value": "7.4 / 90.9",
+      "comparison": "GenAD (OpenDV): 15.4 / 184.0; DriveGAN: 73.4 / 502.3.",
+      "interpretation": "Supports transfer within the reported driving-video setting, not unrestricted out-of-distribution generalization.",
+      "evidenceIds": [
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "task": "NuPlan tokenizer reconstruction",
+      "setting": "Encoding–decoding comparison of VQVAEs; tokenizer-specific split is not separately detailed.",
+      "metric": "FVD_12 / FID / PSNR / LPIPS",
+      "value": "14.66 / 4.29 / 23.82 / 0.1828",
+      "comparison": "Fine-tuned Llama-Gen: 20.33 / 5.19 / 22.71 / 0.1909.",
+      "interpretation": "Reconstruction improves across all four measures; this does not measure autoregressive future prediction.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "NuPlan balanced-attention and masking ablation",
+      "setting": "Table 4; FVD subscripts 10, 25 and 40 retained as printed because their units are not explicitly defined.",
+      "metric": "FVD_10 / FVD_25 / FVD_40; lower is better",
+      "value": "122.37 / 144.26 / 159.46",
+      "comparison": "Without BA: 240.25 / 319.35 / 361.94; without RMS: 214.69 / 283.71 / 324.58; without both: 463.21 / 603.88 / 665.15.",
+      "interpretation": "Both components improve reported FVD; no uncertainty or control-specific ablation metric is supplied.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "NuScenes trajectory planning",
+      "setting": "Table 3 and Section 4.6; front camera only, no auxiliary supervision; evaluation at 1, 2 and 3 seconds.",
+      "metric": "L2 error (m) / collision rate (%)",
+      "value": "L2: 0.68, 1.20, 1.90; average 1.26. Collision: 0.03, 0.22, 0.90; average 0.38.",
+      "comparison": "UniAD row: averages 1.03 m / 0.31%; GenAD row: 0.91 m / 0.43%. Both list auxiliary supervision.",
+      "interpretation": "Competitive with different supervision, but not best on either average metric. These benchmark collision rates do not establish real-world safety.",
+      "evidenceIds": [
+        "e14",
+        "e18"
+      ]
+    },
+    {
+      "task": "Human preference against Vista",
+      "setting": "Figure 8; NuPlan and NuScenes comparisons; participant and trial counts are not reported.",
+      "metric": "Percentage favoring DrivingWorld",
+      "value": "Visual quality: 87.3% / 71.7%; controllability: 93.2% / 73.1% (NuPlan / NuScenes).",
+      "comparison": "Complementary Vista preferences: 12.7% / 28.3% and 6.8% / 26.9%.",
+      "interpretation": "Reported preference supports perceived quality and conditioning; statistical precision cannot be assessed.",
+      "evidenceIds": [
+        "e16"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Long-rollout timing conflicts: Figure 7 says 640 frames at 5 Hz, or 128 seconds; Section 4.3 says 10 Hz, or 64 seconds. Table 1 separately lists 400 frames/40 seconds. Selected stills cannot resolve the rate or prove continuous 3D consistency.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e17"
+      ]
+    },
+    {
+      "text": "Equation (7)'s printed y decoder contains an extra multiplication by v_t relative to the claimed inverse of Equation (1). Pose-bin counts/ranges, optimizer, learning rate, sampling settings, freezing schedule and full pose loss are not supplied. This prevents an unambiguous implementation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e08",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "text": "Most world-model training hours are private. Tables omit uncertainty, and video distances cannot establish collision avoidance. Multi-view integration is future work. Table 3's UniAD reference [25] points to a database-system bibliography entry, leaving that baseline citation inconsistent.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e13",
+        "e14",
+        "e15",
+        "e18",
+        "e19"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires synchronized front-view video and ego pose, the specified tokenizer datasets and substantial GPU resources; a public-NuPlan-only run would be a reduced-data experiment, not a replication of the reported training distribution.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e10"
+      ]
+    },
+    {
+      "text": "Before training, resolve pose quantization/decoding, attention connectivity, pose loss and masking-rate ambiguities. Before evaluation, fix clip length, frame rate and sample selection; the source delegates matched-length details to Vista and leaves the long-rollout rate inconsistent.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e08",
+        "e09",
+        "e12",
+        "e17"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Neural world simulators"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "c85de420176fcfe30aeef8b4452aada03e88e6003aa0f4e041af47b1429dc046"
+    },
+    "reasoning": {
+      "text": "The neural-world-simulator placement is supported by explicit next-state pose/video generation. The recorded Not applicable architecture, prediction paradigm and quadrant are preserved as the foundational-resource scope. Mechanistically, one multimodal predictor generates pose then appearance, with separate tokenizers/decoders; there is no demonstrated inverse-dynamics action extractor. This is architectural evidence, not merely joint training, and does not establish an executed world-action control system.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e06",
+        "e09",
+        "e14"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does balanced attention improve measured trajectory adherence when rollout quality is held comparable?",
+    "How much of the reported transfer survives removal of the private driving corpus?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, affiliations and arXiv margin",
+      "detail": "Exact title and six authors match the catalog; margin identifies arXiv:2412.19505v3 [cs.CV], 16 Aug 2026. Affiliations are HKUST, Horizon Robotics and Nanjing University."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Introduction, Control Signal Degradation and Computational Inefficiency",
+      "detail": "Motivates sparse-pose attention dilution, weak temporal connections and the cost of flattened autoregressive attention."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 1 and caption",
+      "detail": "One conditioning video and two predefined trajectories illustrate different generated driving futures."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Figure 2/caption and Section 3 opening",
+      "detail": "Historical orientations, locations and front-view images are tokenized; next pose is predicted before next image, with decoders returning pose/image outputs."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.1 and Equation (1)",
+      "detail": "Adds causal temporal attention before and after image quantization. Ego-centered relative changes are discretized using orientation alpha and x/y beta/gamma bins; first changes are zero. Numerical bin counts and ranges are absent."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–8, Figures 4–5, Section 3.3 and Equations (2)–(4)",
+      "detail": "Defines fixed-position temporal attention, within-timestep multimodal fusion and shifted-prefix internal autoregression. Figure 5a's upper fan appears to connect different token positions to the rightmost box in the middle feature row, despite Equation (2)'s fixed-position history; Figure 5b depicts losses on pose and image outputs."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Internal-Frame AR Module and Equation (5)",
+      "detail": "Uses 512 image tokens and two pose tokens. Balanced attention adds 1/(m n_j) to the score for a token in modality j before softmax; internal-frame prediction depends on preceding tokens."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Random Masking Strategy and Equation (6)",
+      "detail": "Sequence masking is selected with epsilon; a masked token is randomly replaced with probability eta. Token-selection fraction is not specified. Displayed cross-entropy sums image-token probabilities conditioned on historical/current pose tokens; explicit pose-loss terms are absent."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 3.4 and Equation (7), compared with p. 6 Equation (1)",
+      "detail": "Image decoding uses codebook lookup, causal attention and convolutions; pose decoding claims an inverse quantizer. The printed y expression contains (v_t/gamma) v_t minus floor(v_t/gamma), inconsistent with the stated encoding inverse."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 4.1, Tokenizer and Decoder / World Model",
+      "detail": "Reports 70M tokenizer parameters, codebook 16,384, 1,000K steps, batch 128 and 32 NVIDIA 4090 GPUs; tokenizer datasets/losses. World model: 1B parameters, 15-frame conditioning, epsilon 0.5, eta 0.3, over 3,456 hours including 120 public and 3,336 private, 450K iterations, batch 64, 64 A100 GPUs, 12 days and one-day NuScenes fine-tuning."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1, color legend and FID/FVD/maximum-duration/maximum-frames rows",
+      "detail": "NuScenes-seen DrivingWorld 6.5/86.0 versus Vista 6.9/89.4; zero-shot DrivingWorld 7.4/90.9 versus GenAD (OpenDV) 15.4/184.0 and DriveGAN 73.4/502.3. Maximum rows list DrivingWorld 40 s/400 frames and Vista 15 s/150 frames."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 4.1 Evaluation Dataset and Metrics; Section 4.2",
+      "detail": "Evaluation uses 200 NuPlan test clips and 150 NuScenes test clips. Generated videos for FID/FVD have equal frame length following Vista, without a numerical length. Describes both NuScenes-trained and untrained variants."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 2, Temporal-aware and Llama-Gen Finetuned rows; Section 4.4, continuing p. 12",
+      "detail": "NuPlan encoding–decoding metrics FVD_12/FID/PSNR/LPIPS are 14.66/4.29/23.82/0.1828 for temporal-aware and 20.33/5.19/22.71/0.1909 for fine-tuned Llama-Gen; tokenizer comparison split is not separately specified."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Table 3, input/auxiliary-supervision columns and Ours/UniAD/GenAD rows; Section 4.6, pp. 12–13",
+      "detail": "Ours uses only the front camera and no auxiliary supervision. L2 at 1/2/3 s is 0.68/1.20/1.90 m, average 1.26; collisions 0.03/0.22/0.90%, average 0.38%. UniAD averages 1.03 m/0.31%; GenAD averages 0.91 m/0.43%, with auxiliary supervision."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Table 4, all rows/columns; Section 4.5 on p. 12",
+      "detail": "NuPlan FVD_10/25/40: full 122.37/144.26/159.46; no BA 240.25/319.35/361.94; no RMS 214.69/283.71/324.58; neither 463.21/603.88/665.15. The supplied text does not explicitly define subscript units or report uncertainty."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Figure 8 and caption; p. 11, Section 4.2",
+      "detail": "DrivingWorld preference: visual quality 87.3% NuPlan and 71.7% NuScenes; controllability 93.2% and 73.1%, with complementary Vista shares. No participant/trial counts are given."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Figure 7 and caption; p. 11, Section 4.3",
+      "detail": "Figure 7 shows selected frames through 640; its caption states 5 Hz/128 seconds while Section 4.3 states 15 conditioning frames and 640 generated frames at 10 Hz/64 seconds. The source does not reconcile these timings."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Table 3 UniAD [25] and Section 4.6; p. 14, Reference 25",
+      "detail": "The planning comparison cites UniAD [25], but Reference 25 is 'Uniad: A unified ad hoc data processing system' in a database journal. The supplied bibliography therefore does not resolve the intended driving baseline."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Section 5 Conclusion and Future Work",
+      "detail": "Proposes future multimodal and multi-view integration; no physical closed-loop driving experiment is reported in the experiments."
+    }
+  ]
+}
