@@ -1,0 +1,507 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2605.06247",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T17:18:02.934Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2605.06247",
+      "title": "CKT-WAM: Parameter-Efficient Context Knowledge Transfer Between World Action Models",
+      "kind": "pdf",
+      "sha256": "bf270cb8e9926ac7f5f2868e3c3afbae675cd91b3a731cb3c45ba97e248cd722",
+      "wordCount": 14985,
+      "accessedAt": "2026-09-07T14:02:26.470018+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, authors, affiliations, version and abstract (p. 1)",
+      "Sections 1–2: Introduction and Related Work (pp. 1–2)",
+      "Sections 3.1–3.5: architecture, teacher extraction, compression, routing, injection and objectives (pp. 2–6)",
+      "Sections 4.1–4.4: simulation settings, results, PEFT comparisons and ablations (pp. 6–8)",
+      "Sections 5–6: real-world experiments and conclusion (pp. 8–9)",
+      "References (pp. 10–13)",
+      "Appendix A.1–A.4: disclosure, reproducibility, impact and limitations (p. 14)",
+      "Appendix B.1–B.7: routing diagnostics, configurations, real-world protocol, parameter accounting, injection proof, training curves and LIBERO results (pp. 14–22)",
+      "Appendix C: load-balancing implementation (pp. 22–23)",
+      "Appendix D.1–D.3: detailed related work (pp. 23–24)",
+      "NeurIPS Paper Checklist, items 1–16 (pp. 25–31)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "All nine supplied text chunks were individually read, covering all 31 PDF pages. The reviewed artifact is arXiv:2605.06247v1 [cs.RO], 7 May 2026. Its title and all ten authors match the catalog; the title page additionally lists LivsynRobotics, omitted from the catalog affiliation string. No other revision was supplied or compared.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This supplied extraction limitation was addressed by visually inspecting Figures 1–7, Tables 1–9 and the claim-supporting equation pages in the retained PDF.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The linked code, checkpoints and external datasets were not inspected; no experiments were reproduced. The checklist and references were read as source content, not independently verified claims."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 3): architecture, arrows, trainable/frozen legend and inconsistent performance inset",
+      "Figure 2 (p. 8): teacher-depth latency/success curves",
+      "Figure 3 (p. 9): physical task stages",
+      "Figure 4 (p. 15): stage-dependent adapter selection",
+      "Figures 5–6 (p. 17): real-world manipulation sequences",
+      "Figure 7 (p. 21): training and balancing curves"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 6): LIBERO-Plus",
+      "Table 2 (p. 7): PEFT comparison",
+      "Table 3 (p. 8): component ablation",
+      "Table 4 (p. 9): physical success rates",
+      "Table 5 (p. 16): configuration",
+      "Tables 6–8 (p. 18): parameter accounting",
+      "Table 9 (p. 22): standard LIBERO"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "CKT-WAM trains a context-transfer module between frozen DreamZero-14B and Cosmos-Policy-2B backbones. One teacher observation pass supplies compressed, routed tokens to the student's text-conditioning pathway. The paper reports 86.1% LIBERO-Plus success and 83.3% average physical-task success. Its 187.4M trainable parameters equal 1.17% of the combined backbones, while teacher inference remains necessary. Main-text and appendix adapter specifications disagree (e-teacher, e-config, e-main-results, e-real, e-budget, e-layout-conflict).",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Heterogeneous WAMs can have incompatible latent representations and action heads, making output imitation or layerwise feature matching restrictive. The authors seek an inexpensive trainable interface that lets a smaller model consume useful teacher representations without redesigning its generative backbone.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A teacher observation encoder, learnable-query compression, an always-active generalized branch and sparse specialized branches construct transferable context. Only the CKT module is optimized.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-interface",
+        "e-compression",
+        "e-routing"
+      ]
+    },
+    {
+      "text": "Appending context to conditioning keys and values preserves the student's visual rotary-coordinate scheme. This is an interface property, not proof of preserved predictive accuracy or unchanged hidden representations.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-injection",
+        "e-positional"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current visual observations and language instruction (e-teacher)",
+      "Training: clean future-video VAE latents and future-action sequences, corrupted with Gaussian noise (e-objective)"
+    ],
+    "outputs": [
+      "Compact transferred context in the student's textual embedding space (e-routing)",
+      "Student future-action and future-video predictions; action chunks support visually guided robot execution (e-objective, e-real-protocol)"
+    ],
+    "steps": [
+      {
+        "name": "Query the teacher once",
+        "detail": "DreamZero-14B is frozen. Extract layer-20 states from its 40-layer transformer at the fixed clean timestep t*=0, using current visual tokens and text conditioning. The teacher does not generate future video or actions; its context is reused throughout the student's denoising trajectory.",
+        "evidenceIds": [
+          "e-teacher",
+          "e-config"
+        ]
+      },
+      {
+        "name": "Compress and route",
+        "detail": "The main formulation projects teacher states through a shared bottleneck into student embedding space. Generalized and specialized learnable queries compress the sequence separately. Residual adapters transform these contexts; a router pools teacher states, selects the top two of eight specialists, and renormalizes their weights. Concatenating generalized and aggregated specialized outputs produces the context.",
+        "evidenceIds": [
+          "e-compression",
+          "e-routing",
+          "e-config"
+        ]
+      },
+      {
+        "name": "Inject through conditioning",
+        "detail": "Append the context and a learnable separator after the student's text embeddings. Student visual tokens query the enlarged conditioning keys and values through frozen cross-attention. The context is not appended to visual self-attention; visual patch coordinates and RoPE rotation matrices retain their original indexing.",
+        "evidenceIds": [
+          "e-injection",
+          "e-positional"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Both backbones remain frozen while gradients through the student train the context interface. Action and video targets share one sampled log-normal noise level but use independent Gaussian perturbations. Masked, noise-weighted reconstruction losses supervise clean targets; a balancing loss discourages concentrated expert allocation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-objective"
+        ]
+      },
+      {
+        "text": "Training uses the combined training sets of all four LIBERO suites. The student starts from Cosmos-Policy-LIBERO-Predict2-2B. Defaults include eight A800 GPUs, bfloat16 distributed training, AdamW, learning rate 3×10⁻⁴, 1,000 warmup steps and cosine decay; Table 5 gives the remaining stated settings.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-config",
+          "e-protocol"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Compute and cache teacher context once per observation, then reuse it at each student denoising call, including classifier-free-guidance branches. The student remains the action generator. Real-world evaluation uses continuous visual feedback, but the paper does not specify the complete action-chunk execution schedule or control frequency.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-teacher",
+          "e-positional",
+          "e-real-protocol",
+          "e-repro-gap"
+        ]
+      },
+      {
+        "text": "Freezing parameters saves optimization state; it does not remove teacher weights or computation from deployment. Sparse execution reduces active specialists but all eight specialists remain stored.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-routing",
+          "e-budget",
+          "e-depth"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "H_T=H^{\\mathrm{tea}}_{\\ell^*}(X_{\\mathrm{img}},X_{\\mathrm{text}};t^*=0)",
+        "explanation": "Equation (1): H_T is the selected teacher hidden representation; ℓ* is the extraction layer; X_img and X_text are visual and textual tokens. The fixed timestep makes the teacher an observation encoder.",
+        "evidenceIds": [
+          "e-teacher"
+        ]
+      },
+      {
+        "expression": "C_s[b,:,:]=\\sum_{m\\in I_b}\\bar p_{b,m}\\mathcal{E}_m(C_s^0[b,:,:]),\\qquad C_A=[C_g;C_s],\\qquad\\widetilde E_t=[E_t;\\langle\\mathrm{SEP}\\rangle;C_A]",
+        "explanation": "Equations (6)–(8): b indexes instances; I_b selects the top-k specialists; normalized weights p̄ mix specialist adapters E_m acting on compressed context C_s⁰. C_g is generalized context, C_A the transferred context and E_t the original text embeddings. Semicolons concatenate tokens.",
+        "evidenceIds": [
+          "e-routing",
+          "e-injection"
+        ]
+      },
+      {
+        "expression": "\\mathcal L=\\mathcal L_{\\mathrm{act}}+\\lambda_{\\mathrm{vid}}\\mathcal L_{\\mathrm{vid}}+\\lambda_{\\mathrm{bal}}\\mathcal L_{\\mathrm{bal}},\\qquad\\mathcal L_{\\mathrm{bal}}=M\\sum_{m=1}^{M}f_mP_m",
+        "explanation": "Equation (12): action/video reconstruction losses receive weights λ_vid=1 and λ_bal=0.01 for video and balancing respectively. M counts specialists; P_m is mean pre-selection routing mass and f_m is top-k selection frequency normalized by k times batch size.",
+        "evidenceIds": [
+          "e-objective",
+          "e-config"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO-Plus zero-shot robustness",
+      "setting": "Training on all four LIBERO suites; evaluation under camera, robot, language, light, background, noise and layout shifts.",
+      "metric": "Reported total success rate (%)",
+      "value": "86.1",
+      "comparison": "Cosmos-Policy 82.2; π0.5 85.7. Reader-computed gains: 3.9 and 0.4 percentage points.",
+      "interpretation": "Highest listed aggregate, not dominance in every category. Language is 86.7 versus VLA-JEPA's 88.1, contradicting the surrounding claim of best language performance.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-main-results"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus parameter-efficient adaptation",
+      "setting": "Comparators inject MLP-projected teacher features and adapt the first 20 teacher layers plus the student using their respective PEFT methods.",
+      "metric": "Total success (%) / reported trainable parameter ratio",
+      "value": "86.1 / 1.17%",
+      "comparison": "LoRA 82.8 / 2.59%; GOAT 84.8 / 1.77%; full fine-tuning 86.3 / 100%.",
+      "interpretation": "The full-fine-tuning gap is 0.2 percentage points. Different trainable locations and compression designs mean this is a system comparison, not an isolated test of routing.",
+      "evidenceIds": [
+        "e-peft",
+        "e-budget"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus component ablation",
+      "setting": "Same zero-shot protocol; remove one transfer component or its auxiliary objective.",
+      "metric": "Total success rate (%)",
+      "value": "Full model 86.1",
+      "comparison": "No context 82.2; no generalized adapter 83.0; no specialists 82.7; no auxiliary loss 84.1.",
+      "interpretation": "Removing specialists costs 3.4 percentage points; dropping balancing costs 2.0. Branch removals also change capacity, so the results do not uniquely establish functional specialization.",
+      "evidenceIds": [
+        "e-ablation"
+      ]
+    },
+    {
+      "task": "Teacher-depth latency–success trade-off",
+      "setting": "LIBERO-Plus layer-selection sweep; latency is per action chunk.",
+      "metric": "Success (%) / seconds per action chunk",
+      "value": "Layer 20: 86.1 / 0.351",
+      "comparison": "Layer 0: 82.1 / 0.114; layer 40: 86.2 / 0.587.",
+      "interpretation": "Intermediate extraction gives most of the observed success improvement. Layer 20 is not the fastest setting; the source does not give a complete latency measurement protocol.",
+      "evidenceIds": [
+        "e-depth",
+        "e-repro-gap"
+      ]
+    },
+    {
+      "task": "Real-world long-horizon manipulation",
+      "setting": "45 trials per task; all required subgoals must be completed in order under continuous visual feedback.",
+      "metric": "Task success and unweighted four-task average (%)",
+      "value": "Clothes folding 73.3; fruit sorting 88.9; cube catching 86.7; unmanned retail 84.4; average 83.3.",
+      "comparison": "π0.5 average 80.0 and clothes folding 77.8; Cosmos Policy average 70.0; Fast-WAM 70.6.",
+      "interpretation": "Physical execution evidence supports the reported task-level gains, but π0.5 wins folding. No confidence intervals establish the significance of the 3.3-point average gap.",
+      "evidenceIds": [
+        "e-real",
+        "e-real-protocol",
+        "e-statistics"
+      ]
+    },
+    {
+      "task": "Standard LIBERO in-domain evaluation",
+      "setting": "Spatial, Object, Goal and Long suites using the stated LIBERO-initialized student.",
+      "metric": "Average success rate (%)",
+      "value": "98.8",
+      "comparison": "Cosmos Policy 98.5; Long suite 97.8 versus 97.6.",
+      "interpretation": "The saturated benchmark shows a small improvement; this is a separate protocol from LIBERO-Plus.",
+      "evidenceIds": [
+        "e-libero"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Only the DreamZero–Cosmos pairing is evaluated. Broader heterogeneous-model transfer remains untested; the authors explicitly leave non-robotic language and vision-language applications to future work.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-config",
+        "e-limit"
+      ]
+    },
+    {
+      "text": "Figure 1's performance inset says 85.4%, inconsistent with 86.1% in Tables 1–3. More substantially, the main equations describe shared compression plus residual specialists, whereas Appendix B.4 counts a projection/query/cross-attention module per adapter. The main settings specify 16 heads; the parameter appendix specifies eight.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-interface",
+        "e-main-results",
+        "e-layout-conflict"
+      ]
+    },
+    {
+      "text": "Routing plots show stage-dependent selection and a declining balancing loss, but neither proves causal skill decomposition. Tables report point estimates without uncertainty; the checklist cites trial counts as its justification for statistical reporting.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-diagnostics",
+        "e-statistics"
+      ]
+    },
+    {
+      "text": "Cube-catching descriptions are not fully consistent: Figure 3 and Appendix B.1 include opening and closing a drawer, while Appendix B.3's prose emphasizes grasping and transporting a cube. Exact success conditions require reconciliation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-real-protocol"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required assets include the specified teacher/student checkpoints, LIBERO training data, OOD evaluation configurations and the physical-task data/setup. Table 5 fixes bottleneck width 512, 32 queries per branch, eight specialists and top-2 routing. Tables 7–8 report 187,411,465 trainable parameters: 1.17% of approximately 16B combined backbone parameters, or 9.37% of the 2B student.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-config",
+        "e-protocol",
+        "e-budget",
+        "e-real-protocol"
+      ]
+    },
+    {
+      "text": "Resolve shared versus per-adapter compression, eight versus 16 attention heads, and the separator's mandatory versus optional status before claiming architectural reproduction. Batch size, exact training duration, software versions, denoising/action horizons, detailed latency hardware/procedure and real-world training-data scale are not sufficiently specified in the supplied PDF.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e-layout-conflict",
+        "e-injection",
+        "e-positional",
+        "e-repro-gap"
+      ]
+    },
+    {
+      "text": "The authors claim a code release, minimal example and environment instructions in Appendix A.2. These are availability claims in the PDF, not verified runnable artifacts.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-limit"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded outside-quadrant classification fits the contribution: a transfer framework between existing WAMs, rather than a newly defined monolithic prediction/control architecture. Teacher–student multiplicity does not establish an imagine-then-inverse-dynamics pipeline. Action/video training losses likewise do not alone establish a One Model classification. Efficiency and generalization tags are supported, with deployment cost qualified by the retained teacher.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-taxonomy",
+        "e-interface",
+        "e-objective",
+        "e-depth"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Efficient inference & real-time control",
+        "Generalization & action alignment"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "d08695bc38228e74f1e4a4488062ae71ffe068dc38150ef067fa8e4f56b71236"
+    }
+  },
+  "discussionQuestions": [
+    "Would matched versus shuffled teacher context separate observation-specific transfer from extra conditioning capacity? (e-teacher, e-ablation)",
+    "Can the shared-compressor equations reproduce the appendix's parameter count and latency, or do the reported experiments require independent per-adapter compressors? (e-layout-conflict, e-depth)"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin",
+      "detail": "Exact observed title matches the catalog. Authors: Yuhua Jiang, Yijun Guo, Hongbing Yang, Guojun Lei, Nuo Chen, Yinuo Zhang, Shaoqiang Yan, Bo Lin, Feifei Gao, Biqing Qi. Affiliations: Tsinghua University; LivsynRobotics; Shanghai AI Laboratory. Margin identifies 2605.06247v1, 7 May 2026."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Introduction paragraphs 1–2 and Section 2",
+      "detail": "Motivates context transfer by heterogeneous latent/action interfaces, adaptation expense and rigid output or hidden-state matching."
+    },
+    {
+      "id": "e-interface",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 1 and Section 3.1 continuation",
+      "detail": "Teacher states feed compression, a router, generalized and specialized adapters, then student conditioning. Frozen/trainable symbols distinguish backbones from the transfer module. Figure inset shows LoRA 82.8% to Ours 85.4%, unlike the result tables."
+    },
+    {
+      "id": "e-teacher",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.2, Equation (1)",
+      "detail": "Intermediate teacher extraction uses image/text tokens at t*=0 once; no teacher future-video/action rollout is used. Context is reused over student denoising."
+    },
+    {
+      "id": "e-compression",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.3, Equations (2)–(5)",
+      "detail": "Main formulation uses shared bottleneck projection, two query banks and learnable-query cross-attention, followed by generalized and specialized residual bottleneck adapters."
+    },
+    {
+      "id": "e-routing",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.3, router paragraph and Equations (6)–(7)",
+      "detail": "Mean teacher states drive softmax routing; top-k weights are renormalized and only selected specialist branches execute. Generalized/specialized contexts concatenate; trainable and active parameter counts differ."
+    },
+    {
+      "id": "e-injection",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.4, Equations (8)–(9)",
+      "detail": "Text embeddings, learnable separator and teacher context concatenate as student cross-attention conditioning. Context does not join the visual self-attention sequence."
+    },
+    {
+      "id": "e-objective",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.5, Equations (10)–(12); pp. 22–23, Appendix C, Equations (23)–(26)",
+      "detail": "Frozen-backbone training optimizes masked noise-weighted clean video/action reconstruction using shared log-normal noise levels and modality-specific Gaussian noise. Balancing uses mean routing probabilities and top-k frequencies normalized by kB."
+    },
+    {
+      "id": "e-config",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1; p. 16, Table 5",
+      "detail": "DreamZero-14B teacher, Cosmos-Policy-2B student, layer 20/40; eight A800s, bfloat16, AdamW β=(0.9,0.95), weight decay 0.01, 1k warmup/cosine decay, adapter learning rate 3e-4, bottleneck 512, Kg=Ks=32, 16 heads, dropout 0.1, M=8/top-2, Pmean=1.39, Pstd=1.2, λvid=1, λbal=0.01."
+    },
+    {
+      "id": "e-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.2, evaluation setup",
+      "detail": "Student checkpoint is Cosmos-Policy-LIBERO-Predict2-2B; training combines four LIBERO suites. LIBERO-Plus zero-shot evaluation covers seven named OOD dimensions."
+    },
+    {
+      "id": "e-main-results",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, CKT-WAM/Cosmos-Policy/π0.5/VLA-JEPA rows; p. 7, Section 4.2 interpretation",
+      "detail": "Total success is 86.1/82.2/85.7 for CKT/Cosmos/π0.5. CKT language 86.7 is below VLA-JEPA 88.1 despite bolding and the prose's best-language claim. CKT leads camera, light, noise, layout and total."
+    },
+    {
+      "id": "e-peft",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2 and Section 4.3",
+      "detail": "Success/trainable ratios: CKT 86.1/1.17%, LoRA 82.8/2.59%, GOAT 84.8/1.77%, full fine-tuning 86.3/100%. Baselines project teacher states with a two-layer MLP and adapt the first selected teacher layers and whole student."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4.4; p. 8, Table 3, Total column",
+      "detail": "Full 86.1; without context 82.2; without generalized adapter 83.0; without specialized adapters 82.7; without auxiliary loss 84.1. Auxiliary removal keeps the full architecture."
+    },
+    {
+      "id": "e-depth",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 2, labeled layer 0/20/40 points and Section 4.4",
+      "detail": "Success/latency is 82.1%/0.114 s at layer 0, 86.1%/0.351 s at layer 20, and 86.2%/0.587 s at layer 40. Axes specify seconds per action chunk, not per low-level control step."
+    },
+    {
+      "id": "e-real",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 5; p. 9, Table 4",
+      "detail": "45 trials per task. CKT success: folding 73.3, sorting 88.9, cube 86.7, retail 84.4, average 83.3. π0.5 averages 80.0 and folding 77.8; Cosmos Policy averages 70.0; Fast-WAM 70.6."
+    },
+    {
+      "id": "e-real-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 3; p. 14, Appendix B.1; pp. 15–17, Appendix B.3 and Figures 5–6",
+      "detail": "Success requires ordered subgoal completion with continuous visual feedback. Folding removes distractions, unfolds and folds; sorting sequentially places fruit; retail retrieves requested beverages. Drawer opening/closing appears in Figure 3 and B.1 cube stages, whereas B.3 prose describes grasp/transport/release."
+    },
+    {
+      "id": "e-budget",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Tables 6–8 and adjacent parameter-accounting text",
+      "detail": "Single adapter 20,531,712 parameters; eight specialists 164,253,696; router 2,626,057; total 187,411,465. Table 8 reports 9.37% relative to the 2B student, 1.34% to 14B teacher, and 1.17% to their approximately 16B combined size. All specialist weights count despite top-k selection."
+    },
+    {
+      "id": "e-layout-conflict",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Equations (2)–(5); p. 6, Section 4.1; p. 16, Table 5 and Appendix B.4; p. 18, Tables 6–7",
+      "detail": "Main text places shared compression before residual bottleneck adapters and specifies 16 attention heads. B.4 describes projection/query/MHA inside each adapter, specifies eight heads, and counts nine separate full adapter branches. The PDF does not reconcile these descriptions."
+    },
+    {
+      "id": "e-positional",
+      "sourceId": "primary",
+      "location": "PDF pp. 19–20, Appendix B.5.1–B.5.3, Equations (13)–(20), Proposition 1 and corollary",
+      "detail": "Only cross-attention K/V conditioning is changed. Visual-grid-based RoPE matrices retain their indexing; conditioning cross-attention has no positional encoding. A text-projection forward hook adds cached context per observation across denoising/CFG calls; appendix calls the separator optional."
+    },
+    {
+      "id": "e-diagnostics",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–15, Appendix B.1/Figure 4; pp. 21–22, Appendix B.6/Figure 7",
+      "detail": "Stage-dependent adapter selection is analyzed over 120 cube-catching episodes. Training curves show stable averaged losses and a balancing loss declining approximately 1.12 to 1.02. These are observational diagnostics rather than interventions on specialist roles."
+    },
+    {
+      "id": "e-libero",
+      "sourceId": "primary",
+      "location": "PDF p. 22, Table 9 and Appendix B.7",
+      "detail": "Standard LIBERO average: CKT 98.8, Cosmos Policy 98.5. CKT Spatial/Object/Goal/Long: 99.0/99.8/98.6/97.8; Cosmos Long 97.6."
+    },
+    {
+      "id": "e-limit",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A.2 and A.4",
+      "detail": "Authors claim open-source code, minimal example and environment instructions. Limitations explicitly leave transfer beyond robotics, including text modeling and VQA, untested."
+    },
+    {
+      "id": "e-repro-gap",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–9, Sections 4–5; pp. 15–18, Appendices B.2–B.4; pp. 20–21, B.5.3 and Figure 7",
+      "detail": "Settings provide named hardware and many hyperparameters but do not fully specify batch size, exact training duration, software versions, action/video horizons, inference denoising schedule, latency measurement setup or physical training-data scale. The training-curve iteration axis does not establish every experiment's duration."
+    },
+    {
+      "id": "e-statistics",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–9, Tables 1–4; p. 22, Table 9; p. 27, checklist item 7",
+      "detail": "Result tables contain point estimates without error bars or confidence intervals. Checklist item 7 answers Yes on significance reporting with the justification that real-world trial counts are given."
+    },
+    {
+      "id": "e-taxonomy",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Appendix D.1 final paragraph; p. 3, Figure 1; pp. 5–6, Section 3.5",
+      "detail": "Authors explicitly distinguish transfer between WAMs from proposing a new monolithic WAM. Diagram has frozen teacher and student connected by context; training supervises action and video outputs without introducing an inverse-dynamics action extractor."
+    }
+  ]
+}

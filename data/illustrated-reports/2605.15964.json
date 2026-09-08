@@ -1,0 +1,267 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2605.15964",
+  "shortTitle": "WorldVLN",
+  "thesis": "WorldVLN decodes predicted latent futures into drone waypoints and refreshes its history after execution, improving short-range navigation while retaining a large server-side backbone.",
+  "standfirst": "Following an aerial instruction requires more than recognizing a landmark: movement changes what the camera can see next. WorldVLN makes a video model's predicted state transition the input to a motion decoder, then corrects the next prediction with observations from actual execution. This reading follows that interface through supervised training, online reinforcement learning and the original benchmark tables. The strongest result is improved short-horizon simulated navigation, especially composed indoor actions. The real-flight images establish a narrower point: simulation-trained waypoint predictions can drive a physical platform with external stabilization and server-side inference. Neither attractive predicted frames nor selected successful flights establish general reliability.",
+  "evidenceIds": [
+    "e-problem",
+    "e-loop",
+    "e-sft",
+    "e-grpo",
+    "e-indoor",
+    "e-real",
+    "e-limits"
+  ],
+  "featuredResultTask": "IndoorUAV-VLA short-horizon navigation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 4,
+      "asset": "report-assets/2605.15964/architecture.png",
+      "width": 1517,
+      "height": 696,
+      "sourceSha256": "8147db2629c1d686bb6ea56af71eb89ce993a6f86e5c528e9b56df742d922ccc",
+      "sourceUrl": "https://arxiv.org/pdf/2605.15964#page=4",
+      "crop": [
+        0.2,
+        0.089,
+        0.795,
+        0.3
+      ],
+      "alt": "Time-unrolled diagram: observed image segments and a navigation instruction enter a latent autoregressive backbone; predicted latent blocks feed action decoders, with executed actions and observations connected through the environment.",
+      "caption": "A predicted future becomes a waypoint segment, and the environment supplies the next context.",
+      "readingGuide": "Read each vertical column from bottom to top: observed images enter the backbone, a colored latent block represents a predicted world transition, and the action decoder produces a waypoint segment. Then follow the blue environment arrows to understand how executing that segment yields the next real observation. The columns depict successive decision times. The dashed Video Decoder branches show that the latent can also be visualized; Section 4.1 and Appendix A.4 specify that this RGB branch is bypassed for action generation. Equations (3)–(6) make the crucial replacement explicit: subsequent context uses encoded observations from execution, rather than carrying the previous predicted segment forward as if it were observed.",
+      "takeaway": "The world model is used at inference, and its output directly determines actions through a separate learned decoder. Feedback occurs after each segment, making the policy responsive to execution outcomes. This is the architectural basis for the report's Dual-system × IDM assessment, rather than an inference from joint training alone.",
+      "caution": "The diagram does not establish calibrated physical prediction or an action-search planner. Its latent future is instruction-conditioned; the equations do not enumerate candidate controls or rank multiple predicted trajectories at inference.",
+      "evidenceIds": [
+        "e-loop",
+        "e-sft",
+        "e-decoder"
+      ]
+    },
+    {
+      "id": "training",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/2605.15964/training.png",
+      "width": 1668,
+      "height": 1043,
+      "sourceSha256": "8147db2629c1d686bb6ea56af71eb89ce993a6f86e5c528e9b56df742d922ccc",
+      "sourceUrl": "https://arxiv.org/pdf/2605.15964#page=5",
+      "crop": [
+        0.173,
+        0.091,
+        0.827,
+        0.407
+      ],
+      "alt": "Two-stage training graphic with frozen video modules, trainable backbone and action decoder, grouped environmental rollouts, trajectory/task/reference reward boxes, temporal decay and a GRPO feedback arrow.",
+      "caption": "Supervision first connects video dynamics to actions; grouped online rollouts then optimize navigation consequences.",
+      "readingGuide": "Start with the two upper branches. The left branch trains instruction-conditioned future prediction while the snowflake marks the frozen video decoder; the right branch trains action recovery with a frozen video encoder. Appendix A.4 expands the right branch into teacher training, latent-to-token alignment and full decoder supervision. Below, the rollout rows accumulate actual observations as decisions progress; G denotes repeated rollouts of the same navigation case. The three reward boxes compare local trajectories, terminal positions and reference-policy alignment. Their scores return through the GRPO arrow to update the policy. Read the decay plot as the authors' intended emphasis on earlier segments, whose actual effect depends on the subsequent normalization.",
+      "takeaway": "The training design addresses two distinct requirements: a predicted latent must retain useful future visual structure, and its decoded motion must achieve the instruction. In the reported implementation, task reward has weight 0.7, trajectory consistency 0.2 and reference alignment 0.1. These are training signals, not additional sensors supplied to the deployed policy.",
+      "caution": "Figure 2 labels the decoder output $a_{t+1:t+K}$, whereas Eqs. (4) and (8) associate that future observation segment with $a_{t:t+K-1}$. This source indexing discrepancy is preserved; the report follows the equations. The effect of decay after normalization is discussed below.",
+      "evidenceIds": [
+        "e-sft",
+        "e-loop",
+        "e-grpo",
+        "e-rewards"
+      ]
+    },
+    {
+      "id": "outdoor-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 7,
+      "asset": "report-assets/2605.15964/outdoor-results.png",
+      "width": 1650,
+      "height": 536,
+      "sourceSha256": "8147db2629c1d686bb6ea56af71eb89ce993a6f86e5c528e9b56df742d922ccc",
+      "sourceUrl": "https://arxiv.org/pdf/2605.15964#page=7",
+      "crop": [
+        0.177,
+        0.1115,
+        0.824,
+        0.274
+      ],
+      "alt": "UAV-Flow-Sim success-rate table comparing six model families across ten flight-skill columns and reported averages, with separate Fixed and Open instruction rows.",
+      "caption": "Outdoor aggregate success improves, with substantial remaining differences across flight skills.",
+      "readingGuide": "Compare models within one instruction condition before moving between Fixed and Open rows. The rightmost Average column gives the headline result: WorldVLN reaches 79.12% with fixed templates and 78.02% with open wording. The strongest baseline differs by condition, so a single baseline row cannot supply both comparisons. Then scan horizontally to see where the gains come from. Approach, Land and Move are strong WorldVLN columns, while Pass, Turn, Rotate and Surround leave clear room for improvement. A/D denotes ascending/descending in the benchmark description. Treat the displayed Average as the paper's reported statistic; the table does not explain its category weighting or supply category denominators.",
+      "takeaway": "Against the strongest corresponding baseline averages, WorldVLN gains 13.51 percentage points in Fixed and 12.24 in Open. However, Open Surround reaches only 41.67%, compared with 100% for OpenVLA-UAV. Thus the result supports higher overall benchmark success, with substantial skill-specific exceptions rather than uniform superiority.",
+      "caution": "These are simulated test results under the benchmark's existing protocol. The table has no uncertainty intervals or per-category sample counts, and Appendix A.2 acknowledges limited multi-seed evaluation. Open instructions do not establish unrestricted language generalization.",
+      "evidenceIds": [
+        "e-outdoor",
+        "e-protocol",
+        "e-limits"
+      ]
+    },
+    {
+      "id": "indoor-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "asset": "report-assets/2605.15964/indoor-results.png",
+      "width": 1650,
+      "height": 399,
+      "sourceSha256": "8147db2629c1d686bb6ea56af71eb89ce993a6f86e5c528e9b56df742d922ccc",
+      "sourceUrl": "https://arxiv.org/pdf/2605.15964#page=7",
+      "crop": [
+        0.177,
+        0.32,
+        0.824,
+        0.441
+      ],
+      "alt": "IndoorUAV-VLA table with paired SR and NDTW columns for Easy, Medium, Hard and full-set Average, comparing WorldVLN with seven baselines.",
+      "caption": "Composed indoor actions show the largest success-rate advantage.",
+      "readingGuide": "Read SR and NDTW as different outcomes: reaching the instructed terminal pose and matching a reference trajectory. Appendix A.5 says the NDTW evaluation incorporates both 3D position and yaw changes. Move across Easy, Medium and Hard to inspect increasing composition complexity; Figure 9 illustrates instructions combining one, two or three action types. The rightmost Average refers to the full test set, not a new fourth difficulty. Compare WorldVLN with pi0, the strongest baseline by full-set SR. The largest separation occurs on Hard, while the Easy NDTW column provides a useful counterexample to any claim that every aspect of navigation improves.",
+      "takeaway": "WorldVLN raises full-set SR from 27.16% to 41.76% and NDTW from 9.44% to 13.48%. Hard SR increases from 7.55% to 41.19%, a 33.64-point gain. This supports improved local action composition; Easy NDTW nevertheless falls from 14.52% to 13.04%.",
+      "caution": "Hard describes short sub-trajectories with more action types, not long-horizon exploration. The source does not report confidence intervals, and the full-set average should not be reconstructed as an unweighted average of the three difficulty columns.",
+      "evidenceIds": [
+        "e-indoor",
+        "e-protocol",
+        "e-limits"
+      ]
+    },
+    {
+      "id": "ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 4(a–d)",
+      "page": 8,
+      "asset": "report-assets/2605.15964/ablation.png",
+      "width": 1660,
+      "height": 1085,
+      "sourceSha256": "8147db2629c1d686bb6ea56af71eb89ce993a6f86e5c528e9b56df742d922ccc",
+      "sourceUrl": "https://arxiv.org/pdf/2605.15964#page=8",
+      "crop": [
+        0.175,
+        0.315,
+        0.826,
+        0.644
+      ],
+      "alt": "Four panels show learning curves, a three-configuration SR bar chart, full-sequence versus autoregressive predicted images, and before/after-GRPO circular-flight trajectories with a ground-truth row.",
+      "caption": "Feedback and GRPO both help, while the visual probes remain qualitative.",
+      "readingGuide": "Begin with panel b and its two configuration rows: the first group lacks autoregression and GRPO, the second enables autoregression, and the third enables both. Purple bars are UAV-Flow and yellow bars IndoorUAV. Panel a follows training steps rather than wall-clock cost; its dashed purple continuation denotes the GRPO stage. In panel c, the dashed arrows to RGB images are a diagnostic video-decoding branch, while the action-to-observation loop distinguishes autoregressive updating. Panel d compares the intended circular maneuver before and after reinforcement learning against the ground-truth row. Read the image panels as selected mechanism probes, then return to panel b for the quantitative evidence.",
+      "takeaway": "Autoregressive SFT improves UAV-Flow SR from 60.43% to 68.13% and IndoorUAV from 31.49% to 37.19%. GRPO then raises them to 79.12% and 41.76%. The second increase is 10.99 points outdoors and 4.57 indoors, so the paper's over-ten-point statement should not be generalized to both benchmarks.",
+      "caution": "There is no full-sequence+GRPO cell, reward-component ablation or latent-fidelity metric. Panel a preserves each model family's training configuration and does not equalize compute or pretraining. Visually coherent predictions alone are not evidence of accurate executed trajectories.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-probes",
+        "e-learning"
+      ]
+    },
+    {
+      "id": "real-deployment",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 5",
+      "page": 9,
+      "asset": "report-assets/2605.15964/real-deployment.png",
+      "width": 1650,
+      "height": 650,
+      "sourceSha256": "8147db2629c1d686bb6ea56af71eb89ce993a6f86e5c528e9b56df742d922ccc",
+      "sourceUrl": "https://arxiv.org/pdf/2605.15964#page=9",
+      "crop": [
+        0.174,
+        0.091,
+        0.821,
+        0.288
+      ],
+      "alt": "Real-flight composites show a drone moving around a chair indoors and approaching a building roof outdoors, with instruction text, direction arrows and corresponding egocentric observation sequences.",
+      "caption": "Selected real flights demonstrate executable transfer with server inference and external stabilization.",
+      "readingGuide": "Follow each instruction into its third-person flight composite, then inspect the egocentric observation sequence beneath it. The green-bordered initial view and blue-bordered final view correspond to colored markers in the flight illustration; intervening images sample the camera's changing perspective. The indoor example concerns an object-relative chair maneuver, while the outdoor example requires vertical motion toward a roof. These images show physical execution, but the deployment description is needed to understand what supports it. Figure 10 and Appendix A.9 place model inference on the ground station, communication on the Orin, and low-level control on PX4. Motion capture indoors and GPS/LiDAR outdoors support flight execution rather than policy perception.",
+      "takeaway": "The examples support the narrower claim that a policy trained in simulation can generate waypoints usable on this physical platform without additional real-world fine-tuning. The high-level model uses RGB and language; external state estimation remains part of the execution system. This is evidence of limited transfer, not fully onboard autonomous navigation.",
+      "caution": "The figure supplies selected cases without a real-flight success-rate table, trial count or baseline comparison. Controlled arenas and enclosed outdoor conditions leave robustness to adverse weather, dynamic obstacles and communication delays unresolved.",
+      "evidenceIds": [
+        "e-real",
+        "e-limits"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "A latent future is an intermediate action representation",
+      "kind": "analysis",
+      "text": "The useful unit is a short state transition. The backbone receives instruction tokens and actual observation history, predicts future token pyramids, and merges them into a latent segment. The motion decoder then converts that segment into relative translation and yaw. Its temporal attention can use changes across the latent frames, while spatial attention models within-frame structure; the regression head produces the executable waypoint representation. RGB rendering is available for visual supervision and probes but is absent from the navigation action path. After execution, newly encoded observations become the context for the next prediction. This separates prediction from reality at an explicit interface: a predicted segment proposes motion, while the environment determines what the policy conditions on next. Reader assessment: the architecture supports an inverse-dynamics-style decoder classification, even though the decoder operates on compressed future transitions rather than rendered frame pairs.",
+      "evidenceIds": [
+        "e-loop",
+        "e-backbone",
+        "e-decoder",
+        "e-sft"
+      ]
+    },
+    {
+      "heading": "Why the action decoder needs its own grounding",
+      "kind": "analysis",
+      "text": "A pretrained video's latent space does not automatically provide a reliable coordinate system for drone actions. The source addresses this by first training a video-to-action teacher from observed clips and expert trajectories. With the video encoder frozen, the teacher's embedding tokens supervise the latent decoder's vision embedding, after which the complete action decoder learns the expert action mapping. Meanwhile, the world backbone learns future prediction from ground-truth history using an initial frame followed by three 16-frame segments. Reader interpretation: these stages establish a shared interface between visual dynamics and motion recovery, but they leave a distribution bridge to cross, because the decoder initially sees ground-truth latents and later receives predicted ones. Online rollouts expose the composed system to its own decisions and their observations. The reported ablation supports an additional GRPO benefit, without separately measuring how much comes from repairing this latent mismatch.",
+      "evidenceIds": [
+        "e-sft",
+        "e-grpo",
+        "e-ablation"
+      ]
+    },
+    {
+      "heading": "Read the reward equations before accepting the credit-assignment story",
+      "kind": "analysis",
+      "text": "The trajectory term rewards local agreement with expert actions, while the main task equation uses the rollout's final distance to the target. Thus the terminal task signal is shared by a rollout's segments; it is not an independently observed progress reward at each waypoint. Reference alignment is intended to preserve the supervised world prior. The authors multiply the combined reward by temporal decay before normalizing across rollouts separately at each segment. Reader analysis: if the group statistics are the usual mean and standard deviation, multiplying every member of a segment's group by the same positive factor cancels during normalization, apart from the stabilizing epsilon. Early segments therefore need not receive the stronger advantage signal suggested by the narrative. The source provides no isolated decay ablation and does not explain a later loss weighting that would resolve this. The overall GRPO result remains reported evidence, while this specific causal explanation requires verification.",
+      "evidenceIds": [
+        "e-grpo",
+        "e-rewards",
+        "e-ablation"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Hold the policy fixed and change only its observation refresh",
+      "text": "Reader-proposed check: take one supervised autoregressive checkpoint and evaluate the same held-out UAV-Flow-Sim and IndoorUAV-VLA cases with paired random seeds. In one branch, replace each predicted latent segment with encoded observations after executing its waypoints; in the control, retain predicted history while still executing the same segment protocol. Keep decoder, segment length, action normalization and evaluation rules fixed. Record SR, endpoint error and per-segment trajectory divergence, with repeated seeds. A widening control-branch drift and a reproducible SR gap would support the feedback mechanism independently of separately trained full-sequence models. No gap would weaken that attribution. This check has not been run.",
+      "evidenceIds": [
+        "e-loop",
+        "e-sft",
+        "e-ablation",
+        "e-protocol",
+        "e-learning"
+      ]
+    },
+    {
+      "title": "Check whether temporal decay survives group normalization",
+      "text": "Reader-proposed check: freeze one batch of grouped rollouts and its three raw reward components. Recompute advantages with gamma=1 and gamma=0.9 using the stated per-segment normalization and a fixed epsilon; compare advantage vectors and gradient contributions by segment. Add a diagnostic variant applying decay after normalization, while holding policy likelihoods, clipping and reference regularization fixed. Near-identical advantages for the first pair, but differences for the diagnostic variant, would contradict a strong early-weighting effect from reward scaling alone. Resolve the undocumented action-likelihood implementation before extending this to training and paired-seed SR comparisons. This is a proposed consistency test, not a reproduced result.",
+      "evidenceIds": [
+        "e-grpo",
+        "e-rewards",
+        "e-config",
+        "e-gaps"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "notes": "The title/author/version page, all method and result pages, and all appendix pages were rendered and visually inspected. Figures 1–10 and Tables 1–2 were read visually; six final original crops were separately inspected. Appendix pages cover architecture, training configuration, evaluation context and real-platform details supporting both reports and proposed checks. Arrow directions and frozen-module markers were cross-checked against Eqs. (3)–(13) and Appendix A.4; the Figure 2 action-index discrepancy is disclosed. All seven text chunks, including references on pages 11–14, were read. Those reference-only pages were not visually inspected. Separate supplements, linked code and demonstrations remain outside the supplied-source review. Fine trajectory tick values and small token indices were not used to infer numerical results."
+  }
+}

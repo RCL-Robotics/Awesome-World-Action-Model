@@ -1,0 +1,434 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2605.15964",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T16:52:40.200Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2605.15964",
+      "title": "WorldVLN: Autoregressive World Action Model for Aerial Vision-Language Navigation",
+      "kind": "pdf",
+      "sha256": "8147db2629c1d686bb6ea56af71eb89ce993a6f86e5c528e9b56df742d922ccc",
+      "wordCount": 10768,
+      "accessedAt": "2026-09-07T14:01:41.500287+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related work",
+      "3 Problem formulation",
+      "4 Method, including 4.1 and 4.2.1–4.2.2",
+      "5 Experiments, including 5.1–5.4",
+      "6 Conclusions, Limitations, and Future Works",
+      "References",
+      "Appendix A.1–A.9"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction's figure limitation was resolved by visually inspecting the supplied PDF: Figures 1–10 and Tables 1–2. All seven text chunks covering all 23 pages were read; reference-only pages 11–14 were not rendered.",
+      "Identity/edition: the inspected title page identifies arXiv:2605.15964v1, 15 May 2026. The exact title and all 16 authors agree with the supplied identity. The five observed affiliations are Tsinghua University, Shandong University, Manifold AI, Beijing Institute of Technology and Northeastern University. No other revision or edition was supplied or compared.",
+      "Code, linked project materials and external benchmark documentation were not inspected. No experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8",
+      "Figure 9",
+      "Figure 10"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "WorldVLN turns an autoregressive video prior into a closed-loop aerial navigation policy: predict a short latent future, decode waypoint actions, execute them, and condition the next prediction on actual observations. Supervised grounding and online Action-aware GRPO improve reported outdoor and indoor success. Evidence is strongest for short-range simulated control; physical transfer is qualitative and server-assisted.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Aerial VLN couples language understanding to viewpoint-dependent 3D motion. The authors argue that visual recognition priors alone inadequately represent movement consequences. Their concrete task maps partial egocentric observation history and an instruction to relative displacement/yaw actions, with new observations arriving after execution.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e-problem"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A latent autoregressive backbone and a separately structured action decoder make predicted visual transitions actionable without rendering future RGB during navigation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-loop",
+        "e-decoder"
+      ]
+    },
+    {
+      "text": "Two-stage training combines navigation-video supervision, teacher-assisted latent action decoding, and online grouped rollout optimization. The claimed priority as the first aerial autoregressive WAM/GRPO method is an author claim, not independently established here.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-sft",
+        "e-grpo",
+        "e-priority"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Natural-language instruction",
+      "Current and historical egocentric RGB observations encoded as latent/token context"
+    ],
+    "outputs": [
+      "Short-horizon future world latents",
+      "Waypoint segments of relative 3D translation and yaw"
+    ],
+    "steps": [
+      {
+        "name": "Encode observed history",
+        "detail": "The video VAE compresses actual observations; multiscale residual quantization creates image or historical-clip token pyramids. Instruction tokens condition the same spatiotemporal Transformer.",
+        "evidenceIds": [
+          "e-backbone"
+        ]
+      },
+      {
+        "name": "Predict and decode motion",
+        "detail": "The backbone predicts future token blocks coarse-to-fine and aggregates them into latents. A separate decoder reshapes, convolves, upsamples and projects these latents, applies temporal/spatial attention, and regresses continuous actions.",
+        "evidenceIds": [
+          "e-backbone",
+          "e-decoder"
+        ]
+      },
+      {
+        "name": "Close the environmental loop",
+        "detail": "Execute the waypoint segment, encode the resulting real observation segment, and replace predicted context with those observed latents. This corrects the context at segment boundaries; it does not demonstrate exact physical dynamics or candidate-action search.",
+        "evidenceIds": [
+          "e-loop"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage 1 trains the world backbone on instruction/video pairs using ground-truth history. Each sample has 49 frames: an initial frame and three K=16 future clips, each compressed to four latent temporal steps. The frozen video decoder remains a training-time visual interface.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-sft"
+        ]
+      },
+      {
+        "text": "A TSformer-VO-style video-to-action teacher first learns expert actions from observed videos. Its token representations supervise latent-to-token alignment using a frozen video encoder; the entire action decoder then trains on ground-truth latents and expert actions. Thus its initial input distribution differs from predicted inference latents.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-sft"
+        ]
+      },
+      {
+        "text": "Stage 2 samples G=4 simulator rollouts with actual feedback. Rewards combine trajectory consistency, terminal goal distance and reference alignment with weights 0.2/0.7/0.1. Trajectory distance uses translation/yaw/full-action MSE weights 0.45/0.45/0.1. The method applies gamma=0.9 before per-segment group normalization and clipped policy updates.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-grpo",
+          "e-rewards"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Instruction and observation history produce a latent future, then waypoint actions; the video decoder is bypassed. Real feedback supplies subsequent context. The problem formulation terminates at stop or a maximum horizon, but does not specify their implementation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-loop",
+          "e-sft",
+          "e-gaps"
+        ]
+      },
+      {
+        "text": "In physical deployment the server runs WorldVLN, the Orin forwards data, and PX4 handles low-level flight. Motion capture or GPS/LiDAR supports execution and recording; the policy itself receives RGB and language only.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-real"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\hat z_{t+1:t+K}\\sim p_\\theta(\\cdot\\mid e_\\ell,z_{\\le t}),\\qquad a_{t:t+K-1}=D_\\phi(\\hat z_{t+1:t+K})",
+        "explanation": "Eqs. (3)–(4): e_ell is the encoded instruction, z denotes latents from observed history, the hat denotes prediction, K is the segment horizon, p_theta is the world backbone, and D_phi is the action decoder. Each waypoint contains relative x/y/z displacement and yaw.",
+        "evidenceIds": [
+          "e-loop",
+          "e-problem"
+        ]
+      },
+      {
+        "expression": "\\mathcal L_{\\mathrm{wm}}=-\\sum\\log p_\\theta(z_{t+1:t+K}\\mid e_\\ell,z_{\\le t}),\\qquad \\mathcal L_{\\mathrm{act}}=\\sum\\left\\|D_\\phi(\\mathcal E_{\\mathrm{vid}}(o_{t+1:t+K}))-a^*_{t:t+K-1}\\right\\|",
+        "explanation": "Eqs. (7)–(8): the backbone predicts ground-truth future latents; the decoder recovers expert actions a* from video observations o encoded by E_vid. The action-loss norm is not further specified in this equation.",
+        "evidenceIds": [
+          "e-sft"
+        ]
+      },
+      {
+        "expression": "r_j^{(i)}=\\gamma^{j-1}\\left(\\lambda_{\\mathrm{traj}}r_{\\mathrm{traj},j}^{(i)}+\\lambda_{\\mathrm{task}}r_{\\mathrm{task},j}^{(i)}+\\lambda_{\\mathrm{ref}}r_{\\mathrm{ref},j}^{(i)}\\right),\\qquad A_j^{(i)}=\\frac{r_j^{(i)}-\\mu_j}{\\sigma_j+\\epsilon}",
+        "explanation": "Eq. (9) and the advantage definition: i indexes rollouts, j decision segments, lambdas reward weights, gamma temporal decay, and mu_j/sigma_j the segment's group statistics. Epsilon stabilizes normalization. Task reward in Eq. (11) uses the terminal endpoint, shared across a rollout's segments.",
+        "evidenceIds": [
+          "e-grpo"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "UAV-Flow-Sim navigation",
+      "setting": "Test set; Fixed and Open instructions evaluated separately under the benchmark protocol.",
+      "metric": "Reported Average success rate (%)",
+      "value": "Fixed 79.12; Open 78.02.",
+      "comparison": "Strongest corresponding baselines: OpenVLA-UAV 65.61 Fixed; pi0-0-UAV 65.78 Open. Gains: 13.51 and 12.24 percentage points.",
+      "interpretation": "Broad aggregate gains do not imply every skill improves: Open Surround is 41.67%, versus 100% for OpenVLA-UAV. The reported Average is preserved without assuming a macro-average.",
+      "evidenceIds": [
+        "e-outdoor",
+        "e-protocol"
+      ]
+    },
+    {
+      "task": "IndoorUAV-VLA short-horizon navigation",
+      "setting": "Full test set and Hard difficulty split; short sub-trajectories composed from local action types.",
+      "metric": "Success rate and NDTW (%)",
+      "value": "Full-set SR 41.76, NDTW 13.48; Hard SR 41.19.",
+      "comparison": "pi0: full-set SR 27.16, NDTW 9.44; Hard SR 7.55. SR gains are 14.60 and 33.64 percentage points.",
+      "interpretation": "The largest SR gain concerns local action composition. Easy NDTW declines from pi0's 14.52 to 13.04, so trajectory quality does not improve uniformly.",
+      "evidenceIds": [
+        "e-indoor",
+        "e-protocol"
+      ]
+    },
+    {
+      "task": "Autoregression and GRPO ablation",
+      "setting": "Figure 4(b), UAV-Flow and IndoorUAV; full-sequence versus autoregressive SFT uses the same backbone and decoder.",
+      "metric": "Success rate (%)",
+      "value": "UAV-Flow: 60.43 → 68.13 → 79.12. IndoorUAV: 31.49 → 37.19 → 41.76.",
+      "comparison": "Order: full-sequence SFT, autoregressive SFT, autoregressive SFT+GRPO. Feedback gains are 7.70/5.70 points; subsequent GRPO gains are 10.99/4.57 points.",
+      "interpretation": "Both interventions help in this sequence of comparisons. There is no full-sequence+GRPO cell or componentwise reward ablation; feedback and training exposure are not independently isolated.",
+      "evidenceIds": [
+        "e-ablation"
+      ]
+    },
+    {
+      "task": "Zero-shot physical drone navigation",
+      "setting": "Simulation-trained policy; representative controlled indoor chair maneuver and outdoor roof approach.",
+      "metric": "Qualitative executed trajectories",
+      "value": "Two illustrated real-world cases; no aggregate physical SR reported.",
+      "comparison": "No real-world baseline table or repeated-trial uncertainty is supplied.",
+      "interpretation": "Supports waypoint executability and limited transfer, without establishing general deployment reliability or onboard inference.",
+      "evidenceIds": [
+        "e-real",
+        "e-limits"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Long-horizon instructions, large-scale exploration, adverse weather, dynamic obstacles and broader real-world robustness remain insufficiently evaluated. Extensive multi-seed testing is absent; server-side inference remains necessary.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-limits"
+      ]
+    },
+    {
+      "text": "Training-step efficiency is not compute-matched: WorldVLN and OpenVLA share data/protocols, but differ in priors, learning rates and training budgets. Figure 4(a)'s learning curve is a separate experiment from Table 1's baseline results.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-learning",
+        "e-outdoor"
+      ]
+    },
+    {
+      "text": "Under the usual mean/standard-deviation interpretation of group normalization, a common positive gamma^(j−1) cancels from the normalized advantage except through epsilon. Thus the stated early-decision emphasis needs implementation clarification; the ablation does not isolate decay.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-grpo",
+        "e-rewards",
+        "e-ablation"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required assets include InfinityStar-8B, Wan VAE, decoder-teacher priors and both benchmark trajectory/video datasets. Reported hardware is eight A800 80GB GPUs plus RTX 4090 simulator rollouts. WorldVLN SFT uses AdamW/bf16, learning rate 1e-5, at most 26K steps and approximately eight packed clips per step.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-config",
+        "e-learning"
+      ]
+    },
+    {
+      "text": "GRPO specifies at most 3000 iterations, learning rate 8e-7, KL coefficient 0.9, ratio clip 0.02, gradient clip 0.5, video batch size 1 and token limit 20480; the first five backbone chunks are frozen.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-config"
+      ]
+    },
+    {
+      "text": "Before reproducing, resolve action-likelihood computation through discrete latent sampling and continuous regression, off-expert action alignment, reference-cost sign, dense/binary task-reward composition and the undefined trajectory-level gate. Dataset counts, benchmark thresholds, software versions and stop details are not restated; inference latency is unreported.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e-gaps",
+        "e-rewards",
+        "e-real"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Navigation",
+        "Visual planning & IDM",
+        "Policy post-training & WM-RL"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "a44a8e55e7752098558540f9805e80f183b2f4162e51a887ddee8a7f0a649eaf"
+    },
+    "reasoning": {
+      "text": "The recorded Dual-system × IDM classification is supported by a world-prediction backbone feeding a distinct motion decoder trained to recover actions from visual/latent transitions. This is an inverse-dynamics-style latent-to-action route, not joint future/action token prediction in one backbone. Online GRPO does not remove the architectural separation. The representation is latent rather than an explicit reconstructed 3D world.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-loop",
+        "e-backbone",
+        "e-decoder",
+        "e-sft"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "How much of the autoregressive gain comes from refreshed observations versus the training distribution induced by segment-wise supervision?",
+    "Does temporal decay change the normalized learning signal, and how are action likelihoods implemented?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin stamp",
+      "detail": "The title is WorldVLN: Autoregressive World Action Model for Aerial Vision-Language Navigation. The title page credits 16 authors and identifies arXiv:2605.15964v1 [cs.RO], 15 May 2026. Its five affiliations are Tsinghua University, Shandong University, Manifold AI, Beijing Institute of Technology and Northeastern University."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Introduction and Section 3, Eqs. (1)–(2)",
+      "detail": "The task is partially observed instruction-following navigation. Actions are relative 3D translation and yaw, executed to obtain the next observation; termination uses a stop decision or maximum horizon."
+    },
+    {
+      "id": "e-loop",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 1 and Section 4.1, Eqs. (3)–(6)",
+      "detail": "The instruction-conditioned backbone predicts a latent segment, a separate decoder maps it to waypoint actions, and actual observations replace the predicted latents in subsequent context. The RGB video-decoding branch is not required for action generation."
+    },
+    {
+      "id": "e-backbone",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Appendix A.3 and Figure 6",
+      "detail": "A video VAE and multiscale residual quantization form visual token pyramids. The Transformer predicts coarse-to-fine target clip pyramids and aggregates them into future latents."
+    },
+    {
+      "id": "e-decoder",
+      "sourceId": "primary",
+      "location": "PDF pp. 16–17, Appendix A.3 and Figure 7",
+      "detail": "The action decoder uses reshaping, convolution, upsampling and projection, followed by factorized temporal/spatial attention and an MLP regression head for continuous displacement and yaw."
+    },
+    {
+      "id": "e-sft",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 2 and Eqs. (7)–(8); pp. 17–18, Appendix A.4, supervised-training paragraphs",
+      "detail": "Backbone supervision uses ground-truth history; samples have 49 frames, comprising an initial frame and three 16-frame clips, each compressed to four latent temporal steps. Decoder training uses a video-to-action teacher, latent-to-token alignment with a frozen video encoder, and final action supervision. Figure 2 shows frozen video modules but labels decoder output a_{t+1:t+K}, whereas Eq. (8) uses a*_{t:t+K-1}."
+    },
+    {
+      "id": "e-grpo",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.2.2, Eqs. (9)–(13) and advantage definition",
+      "detail": "Online grouped rollouts receive trajectory, terminal-distance and reference-log-probability rewards. A common gamma^(j-1) multiplies segment-j rewards before across-rollout normalization for that segment and a clipped likelihood-ratio objective."
+    },
+    {
+      "id": "e-rewards",
+      "sourceId": "primary",
+      "location": "PDF pp. 18–19, Appendix A.4, Eqs. (14)–(15), reference reward and temporal-decay paragraphs",
+      "detail": "G=4; reward weights are 0.2, 0.7 and 0.1. Trajectory distance weights translation/yaw/full-action MSE by 0.45/0.45/0.1. Gamma is 0.9. Task reward discusses dense distance and binary success signals; reference alignment is described as a CE-style cost."
+    },
+    {
+      "id": "e-config",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 5 experimental setup; p. 19, Appendix A.4 optimization settings and A.5 existing assets",
+      "detail": "The backbone is InfinityStar-8B with Wan VAE and TSformer-VO-style decoder priors. Training uses 8 A800 80GB GPUs and simulator rollouts an RTX 4090 workstation. GRPO lists at most 3000 iterations, learning rate 8e-7, KL coefficient 0.9, ratio clip 0.02, gradient clip 0.5, video batch size 1, token limit 20480, and first five model chunks frozen."
+    },
+    {
+      "id": "e-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Appendix A.5; p. 20, Figure 8; p. 21, Figure 9 and Appendices A.6–A.7",
+      "detail": "UAV-Flow evaluates fixed/open instructions across flight skills. IndoorUAV-VLA segments longer trajectories into local sub-trajectories; difficulty corresponds to one, two or three action types. Indoor metrics are success rate and NDTW incorporating 3D position and yaw."
+    },
+    {
+      "id": "e-outdoor",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, Average column and skill columns, Fixed/Open rows",
+      "detail": "WorldVLN reports Average SR 79.12/78.02%; the strongest corresponding baseline averages are OpenVLA-UAV 65.61% Fixed and pi0-0-UAV 65.78% Open. WorldVLN's Open Surround SR is 41.67%, versus 100% for Travel-UAV and OpenVLA-UAV."
+    },
+    {
+      "id": "e-indoor",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2, WorldVLN and pi0 rows, Easy/Medium/Hard/Average columns",
+      "detail": "WorldVLN full-set SR/NDTW are 41.76/13.48%, versus pi0 27.16/9.44%. Hard SR is 41.19 versus 7.55%; Medium SR is 37.72 versus 21.64%. Easy NDTW is 13.04 versus 14.52%."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 4(b); p. 9, Section 5.3, autoregression and GRPO paragraphs",
+      "detail": "Full-sequence SFT, autoregressive SFT and autoregressive SFT+GRPO yield UAV-Flow SR 60.43, 68.13, 79.12% and IndoorUAV SR 31.49, 37.19, 41.76%. The authors specify the same backbone and decoder for the full-sequence/autoregressive comparison."
+    },
+    {
+      "id": "e-probes",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–9, Sections 5.2–5.3, Figure 3 and Figure 4(c–d)",
+      "detail": "Selected cases illustrate landmark grounding, RGB renderings of predicted latents, and before/after-GRPO circular trajectories. The latent renderings are for visualization only; no quantitative latent-fidelity metric is supplied in these panels."
+    },
+    {
+      "id": "e-learning",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 4(a) and Section 5.3; pp. 21–22, Appendix A.8",
+      "detail": "OpenVLA and WorldVLN share UAV-Flow-Sim splits, action normalization and evaluation, with AdamW and bf16. WorldVLN uses learning rate 1e-5 and at most 26K steps; OpenVLA uses 5e-4 and 100K steps. Both use eight GPUs and global batch sizes of eight or approximately eight packed clips. The plotted baseline is a training-dynamics experiment."
+    },
+    {
+      "id": "e-real",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 5 and Section 5.4; pp. 22–23, Appendix A.9 and Figure 10",
+      "detail": "Two representative indoor/outdoor zero-shot cases use a 250 mm quadrotor, C270 RGB camera, Orin NX 16GB and PX4. Model inference is server-side. Indoor control uses a 10×15×3 m arena and 14-camera motion capture; outdoor control uses GPS and TFmini-S LiDAR. These pose sensors are not policy inputs."
+    },
+    {
+      "id": "e-limits",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 6; p. 15, Appendices A.1–A.2",
+      "detail": "The authors limit conclusions to short-range navigation and controlled real-world settings, acknowledge server dependence and lack of extensive multi-seed experiments, and leave long-horizon tasks and challenging real-world conditions insufficiently evaluated."
+    },
+    {
+      "id": "e-gaps",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3; p. 6, Eqs. (12)–(13); pp. 18–19, Appendix A.4 and A.5",
+      "detail": "The text invokes action likelihoods but does not specify how the continuous decoder and sampled latent tokens induce a tractable segment-action likelihood. Benchmark thresholds are deferred to the original protocols; dataset counts, software versions, stop implementation and off-expert action alignment are not specified here. The heading mentioning a trajectory-level gate is not followed by a gate definition."
+    },
+    {
+      "id": "e-priority",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Abstract; p. 2, Introduction, contribution bullets",
+      "detail": "The authors claim the first autoregressive world action model for aerial VLN and the first Action-aware GRPO method tailored to autoregressive WAMs; this report does not independently verify priority."
+    }
+  ]
+}
