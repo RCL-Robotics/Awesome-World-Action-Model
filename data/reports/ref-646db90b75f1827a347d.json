@@ -1,0 +1,506 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-646db90b75f1827a347d",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T00:53:43.969Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://papers.neurips.cc/paper_files/paper/2025/file/434756a76c44e220d5f32d6e0b488c0c-Paper-Conference.pdf",
+      "title": "EgoBridge: Domain Adaptation for Generalizable Imitation from Egocentric Human Data",
+      "kind": "pdf",
+      "sha256": "4ade87c62a205d66ba0b26deb0099c6880df707185d24b99e55da03c77e6861f",
+      "wordCount": 15765,
+      "accessedAt": "2026-09-07T14:15:16.580953+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; Sections 1–7, pp. 1–10",
+      "References, pp. 10–12",
+      "Appendix A: Algorithm Pseudocode, pp. 12–13",
+      "Appendix B: Network Architecture, pp. 13–16",
+      "Appendix C: Baselines, pp. 16–18",
+      "Appendices D–F: robot/human data and alignment, pp. 18–19",
+      "Appendix G: task details, pp. 19–21",
+      "Appendices H–K: supplementary results and diagnostics, pp. 21–23",
+      "Complete NeurIPS checklist, pp. 24–31"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity/version note: the inspected NeurIPS 2025 conference PDF matches the catalog title and author identities; it spells Lawrence Y. Zhu with a middle initial missing from the catalog. No separate revision number or revision history is supplied, so equivalence to another edition is not established.",
+      "All nine supplied chunks were read individually, including references and checklist. Text extraction does not reconstruct figure images; all ten figures and eight tables were subsequently inspected in the retained PDF.",
+      "Separate supplemental material availability has not been fully verified. The supplementary proof mentioned in checklist item 3 was not supplied as a separately identifiable proof.",
+      "Code, external project pages, videos and data files were not inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 6)",
+      "Figure 3 (p. 7)",
+      "Figure 4 (p. 8)",
+      "Figure 5 (p. 9)",
+      "Figure 6 (p. 19)",
+      "Figures 7–8 (p. 20)",
+      "Figure 9 (p. 22)",
+      "Figure 10 (p. 23)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 7)",
+      "Table 2 (p. 9)",
+      "Table 3 (p. 14)",
+      "Table 4 (p. 15)",
+      "Table 5 (p. 16)",
+      "Tables 6–7 (p. 21)",
+      "Table 8 (p. 22)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "EgoBridge co-trains robot policies with labeled egocentric human demonstrations, using motion similarity to guide optimal-transport alignment of observation features. Its contribution is training-time representation transfer into executed manipulation policies. Evidence includes transfer to robot-unseen drawer locations and visual settings, with unresolved implementation details and unreported uncertainty.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "Human demonstrations can expand scene and behavior coverage, but appearance, kinematics and missing wrist-camera modalities create covariate shift. Sharing policy weights does not guarantee compatible latent features. EgoBridge aims to preserve action information while aligning domains.",
+    "kind": "source",
+    "evidenceIds": [
+      "problem",
+      "architecture"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A DTW-guided transport cost discounts behaviorally similar human–robot pairs, adding action-aware alignment to supervised co-training.",
+      "kind": "source",
+      "evidenceIds": [
+        "pairing",
+        "objective"
+      ]
+    },
+    {
+      "text": "Physical and simulated evaluations test settings shared by training domains and settings demonstrated only by the source embodiment.",
+      "kind": "source",
+      "evidenceIds": [
+        "drawer-setting",
+        "coffee-setting",
+        "sim-protocol"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Training: labeled human and robot observation–action chunks",
+      "Real policy: egocentric RGB and proprioception, plus robot wrist RGB",
+      "Simulation: RGB and 2D pusher position"
+    ],
+    "outputs": [
+      "Real robot: 100-step Cartesian pose-plus-gripper chunks for one or two arms",
+      "Simulation: 16-step 2D pusher target-position chunks"
+    ],
+    "steps": [
+      {
+        "name": "Put demonstrations into comparable frames",
+        "detail": "Robot command labels undergo forward kinematics and camera calibration. Future human hand positions are transformed into the current camera frame. Per-embodiment z-score normalization reduces scale differences. Equal 100-sample chunks still span different durations: 0.9 seconds for interpolated human motion and two seconds for robot motion.",
+        "evidenceIds": [
+          "data-frames"
+        ]
+      },
+      {
+        "name": "Encode available modalities",
+        "detail": "A shared image stem and separate proprioceptive stems feed a shared transformer trunk; wrist stems are robot-only. Eight output context tokens summarize observations. The real decoder attends to this context through alternating self- and cross-attention and predicts Cartesian action chunks.",
+        "evidenceIds": [
+          "architecture",
+          "real-training"
+        ]
+      },
+      {
+        "name": "Select behavioral correspondences",
+        "detail": "For every robot action chunk in the minibatch, select the human chunk with minimum DTW distance. Discount that pair’s squared latent distance, leaving other costs unchanged. This creates a preference within mass-constrained transport, rather than an exact one-to-one assignment.",
+        "evidenceIds": [
+          "pairing",
+          "ot"
+        ]
+      },
+      {
+        "name": "Optimize alignment and imitation",
+        "detail": "Sinkhorn computes a soft coupling from shaped costs. Its transport loss trains the encoder; behavior cloning trains encoder and decoder. Human labels guide training correspondences rather than supplying an inference-time trajectory database.",
+        "evidenceIds": [
+          "objective",
+          "pairing"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Real training uses robot Smooth L1 losses on position/gripper and half-weighted orientation MSE; human loss masks everything except xyz. Alpha is 0.7. AdamW uses learning rate 5×10⁻⁵, batch size 32 and Sinkhorn blur 0.05. One L40s trains for 100k/110k/120k iterations on Drawer/Laundry/Coffee; about 24 hours is reported.",
+        "kind": "source",
+        "evidenceIds": [
+          "real-training"
+        ]
+      },
+      {
+        "text": "PushT uses a ResNet-18/UNet diffusion policy, one observation and 16-step action chunks. Alpha is 0.2, blur 0.01; training takes 130k iterations on one A40, reported as roughly two hours. No separate frozen EgoBridge training stage is described.",
+        "kind": "source",
+        "evidenceIds": [
+          "sim-training",
+          "objective"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Real inference maps current robot observations through encoder and decoder; DTW/Sinkhorn operate during training. Simulation denoises Gaussian noise conditioned on observations. Real deployment replanning frequency and the Cartesian-to-joint execution interface are unspecified.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "architecture",
+          "real-training",
+          "sim-training",
+          "data-frames"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\operatorname{DTW}(a^H,a^R)=\\min_{\\pi\\in\\mathcal A(T)}\\sum_{(i,j)\\in\\pi}\\lVert a_i^H-a_j^R\\rVert^2",
+        "explanation": "Human and robot sequences aᴴ and aᴿ have length T. Admissible monotonic alignment paths π connect first and last samples while allowing local temporal shifts. Here i,j index sequence samples.",
+        "evidenceIds": [
+          "pairing"
+        ]
+      },
+      {
+        "expression": "i^*(j)=\\arg\\min_i A_{ij},\\quad D_{ij}=\\lVert z_i^H-z_j^R\\rVert_2^2,\\quad \\widetilde C_{ij}=\\begin{cases}\\lambda D_{ij}&i=i^*(j)\\\\D_{ij}&\\text{otherwise}\\end{cases}",
+        "explanation": "A contains trajectory DTW costs; z=fϕ(o) is an observation embedding. Here i,j index minibatch trajectories. For robot j, i* selects a human sample and 0<λ≪1 discounts the cost. Follow this indexed rule and Algorithm 1 despite the prose calling it row-wise.",
+        "evidenceIds": [
+          "pairing"
+        ]
+      },
+      {
+        "expression": "\\mathcal L_{\\mathrm{Total}}=\\mathcal L_{\\mathrm{BC\\text{-}cotrain}}(\\phi,\\theta)+\\alpha\\sum_{i,j}(T^*_\\epsilon)_{ij}\\widetilde C_{ij}",
+        "explanation": "ϕ and θ parameterize encoder and decoder; α weights alignment. T*ε is the entropy-regularized Sinkhorn plan, with regularization strength ε. The sum is the joint OT loss; BC retains action supervision.",
+        "evidenceIds": [
+          "ot",
+          "objective",
+          "pairing"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Drawer: overall and held-out quadrant",
+      "setting": "144 robot demonstrations in three quadrants; human coverage of all four. Evaluation: 48 rollouts, two per drawer.",
+      "metric": "Full-task success rate; total subtask points",
+      "value": "47% overall, 77 points; 33% held-out-quadrant SR.",
+      "comparison": "Co-train: 22% overall, 55 points, 0% held-out; ATM: 8% held-out.",
+      "interpretation": "Physical transfer to unseen robot locations. Overall and held-out rates have different denominators; 47% is not a separately reported in-distribution rate.",
+      "evidenceIds": [
+        "drawer-setting",
+        "real-results"
+      ]
+    },
+    {
+      "task": "Scoop Coffee: in-distribution, object and scene transfer",
+      "setting": "50 robot demonstrations of a can in one scene; human data add a grinder and another scene. Each setting uses 15 rollouts across five target positions.",
+      "metric": "Success rate",
+      "value": "67% / 60% / 27%, respectively.",
+      "comparison": "EgoMimic: 60% / 53% / 0%; Co-train: 53% / 46% / 0%; robot-only BC: 33% / 40% / 7%.",
+      "interpretation": "Joint object/scene transfer remains difficult. Robot-only BC’s 7% means saying all baselines fail is too broad.",
+      "evidenceIds": [
+        "coffee-setting",
+        "real-results"
+      ]
+    },
+    {
+      "task": "Laundry: bimanual folding",
+      "setting": "300 robot and approximately 700 human demonstrations; 18 physical evaluations.",
+      "metric": "Full-fold success rate; subtask points",
+      "value": "72%; 48 points.",
+      "comparison": "Co-train and EgoMimic: 33% SR; robot-only BC, MimicPlay and ATM: 28%.",
+      "interpretation": "The gain is 39 percentage points over the strongest listed human-augmented baselines and 44 over the 28% baselines; 44 is not an across-task average.",
+      "evidenceIds": [
+        "laundry-setting",
+        "real-results"
+      ]
+    },
+    {
+      "task": "PushT: base, purple background and mirrored-T transfer",
+      "setting": "Triangle target pusher; 100 common evaluation seeds per setting. Circle source data supply broader appearances and motions.",
+      "metric": "Mean maximum goal IoU / success rate",
+      "value": "0.7605 / 53%; 0.7206 / 48%; 0.6520 / 39%.",
+      "comparison": "Co-train: 0.7062 / 48%; 0.6899 / 42%; 0.6214 / 31%. Hardest-setting SR: Standard OT 8%, MMD 14%, target-only 0%.",
+      "interpretation": "Hardest-setting improvement over co-training is eight percentage points. The 53-to-39 decline is 14 points. Main text uses ≥0.9 for success, whereas Appendix H says >0.9.",
+      "evidenceIds": [
+        "sim-protocol",
+        "sim-results"
+      ]
+    },
+    {
+      "task": "Drawer: action-aware alignment ablation",
+      "setting": "Table 2 compares DTW pairing, MSE pairing, marginal OT and no alignment.",
+      "metric": "Drawer SR / behavior-generalization SR",
+      "value": "EgoBridge: 47% / 33%.",
+      "comparison": "MSE: 14% / 17%; Standard-OT: 33% / 17%; Co-train: 22% / 0%.",
+      "interpretation": "The table supports DTW-guided alignment. Adjacent prose gives MSE Drawer as 17% and calls the first column in-distribution; preserve the table’s 14% and the unresolved labeling conflict.",
+      "evidenceIds": [
+        "ablation",
+        "real-results"
+      ]
+    },
+    {
+      "task": "Laundry: additional appearance generalization",
+      "setting": "New white surface, then white surface plus human-only shirt color; 30 extra minutes of human data; 20 rollouts over five positions per setting.",
+      "metric": "Success rate / subtask points",
+      "value": "50% / 43; 30% / 35.",
+      "comparison": "Co-train: 25% / 25; 5% / 7.",
+      "interpretation": "Both improve by 25 percentage points, under a supplemental protocol distinct from the 18-rollout main Laundry evaluation.",
+      "evidenceIds": [
+        "extra-laundry"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Demonstrated transfer is single-task. DTW can confuse stages or spatial targets, especially under extreme viewpoints; multitask training, multiple embodiments and unlabeled Internet video remain future extensions.",
+      "kind": "source",
+      "evidenceIds": [
+        "limitations",
+        "pair-diagnostics"
+      ]
+    },
+    {
+      "text": "No confidence intervals or significance estimates accompany results. T-SNE and nearest neighbors support the representation hypothesis but do not establish causality; the source differs on whether those displays use action tokens or encoder outputs.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "uncertainty",
+        "latent-diagnostics"
+      ]
+    },
+    {
+      "text": "Human dimensionality is inconsistent: Table 3 lists xyz plus Euler angles, while the decoder description says only 3D positions exist. Coffee human duration is two hours in Section 5.2 but 180 minutes in Appendix G/Table 6. These are unresolved discrepancies.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "human-dimensions",
+        "coffee-setting"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Physical replication requires calibrated Aria frames, tracked hands, ViperX followers, WidowX leaders and wrist cameras. Exact splits, normalization statistics and controller implementation are prerequisites for comparing action-space transfer.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "hardware",
+        "data-frames"
+      ]
+    },
+    {
+      "text": "Algorithm 1 names λ and ε, but configuration tables omit numerical λ and give GeomLoss blur without an explicit ε mapping; diffusion sampling steps and software versions are unspecified. PushT’s 350 listed demonstrations cover five configurations despite G.2 saying four.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "pairing",
+        "real-training",
+        "sim-training",
+        "sim-protocol"
+      ]
+    },
+    {
+      "text": "Respect baseline adaptations, including non-autoregressive ATM. The supplied edition promises later code/data release and mentions a supplementary proof not identified in the supplied material. Neither actual release nor a theoretical transfer guarantee is established here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "baselines",
+        "release",
+        "proof-scope"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "Foundational work and Action policy foundations fit; the Not applicable world-model quadrant is supported because there is no future-observation model, joint future/action predictor or inverse-dynamics action extraction. Latent action pretraining is unsupported: the latent encodes observations and measured actions supervise co-training. Shared encoder/decoder weights do not establish a One Model world-action architecture.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "problem",
+        "architecture",
+        "objective",
+        "sim-training"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Action policy foundations",
+        "Latent action pretraining"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "09629a60ab110211ae34a9116bb8813449110f1b716d45c280eafb2cad1102c3"
+    }
+  },
+  "discussionQuestions": [
+    "How much transfer survives controlled changes to human/robot temporal normalization?",
+    "Does action-guided alignment remain useful when similar motions correspond to different tasks?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block and conference footer",
+      "detail": "The title matches the catalog. Authors are Ryan Punamiya, Dhruv Patel, Patcharapong Aphiwetsa, Pranav Kuppili, Lawrence Y. Zhu, Simar Kareer, Judy Hoffman and Danfei Xu, all at Georgia Institute of Technology. The footer identifies NeurIPS 2025. The catalog omits Zhu’s middle initial. No separate revision number appears."
+    },
+    {
+      "id": "problem",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.3",
+      "detail": "A shared observation encoder and action policy are trained from labeled human and robot demonstrations despite latent covariate shift. Observation and behavior generalization are distinguished."
+    },
+    {
+      "id": "ot",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1; pp. 4–5, Section 4.1",
+      "detail": "Entropy-regularized optimal transport supplies a differentiable coupling cost for latent/action joint alignment. This loss acts on the encoder."
+    },
+    {
+      "id": "pairing",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.2, DTW and shaped-cost equations; p. 13, Algorithm 1, lines 7–20",
+      "detail": "For each robot j, i*(j) minimizes DTW over human trajectories. Squared latent Euclidean distance is multiplied by a small positive lambda only for selected pairs. Sinkhorn uses uniform minibatch masses. The phrase row-wise disagrees with the indexed argmin over i for fixed j; Algorithm 1 confirms the indexed rule."
+    },
+    {
+      "id": "objective",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.3; p. 13, Algorithm 1, lines 21–24",
+      "detail": "Training combines behavior cloning on both domains with alpha times joint OT. Both encoder and decoder receive BC gradients, while OT shapes the encoder."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 2 and Shared Policy Architecture; pp. 14–15, Appendix B.1",
+      "detail": "A shared image stem, embodiment-specific proprioceptive stems and robot-only wrist stems feed the shared transformer trunk. OT acts on output context tokens, which condition a shared action decoder. The figure’s wrist switch corresponds to modality availability. Its caption assigns OT to the encoder and BC to the entire network."
+    },
+    {
+      "id": "real-training",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Table 3; p. 15, Appendix B.1.2 and Table 4",
+      "detail": "Real settings include eight context tokens, 100 action tokens, a 16-block trunk and eight-block decoder. Robot loss is Smooth L1 on xyz and gripper plus 0.5 MSE on Euler angles; human loss is Smooth L1 on xyz. Alpha is 0.7. AdamW uses learning rate 5e-5, weight decay 0.0001, linear scheduling, batch size 32, ColorJitter and ImageNet normalization. GeomLoss Sinkhorn blur is 0.05. One L40s trains Drawer/Laundry/Coffee for 100000/110000/120000 iterations; about 24 hours is reported."
+    },
+    {
+      "id": "human-dimensions",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Egocentric Human Data; p. 14, Table 3, human proprioception row; p. 15, masked human loss; p. 18, Appendix E",
+      "detail": "Main text uses SE(3) notation and Table 3 lists human xyz plus Euler angles, but B.1.2 says human data contain only 3D positions and supervises only xyz. Appendix E describes positions while using SE(3) notation. This discrepancy is unresolved."
+    },
+    {
+      "id": "data-frames",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendices D–E, data-processing and human-action equations; p. 19, Appendix F",
+      "detail": "Robot command labels undergo forward kinematics and camera calibration. Future human hand positions are projected into the current camera frame using device poses. Per-embodiment, per-dimension z-score normalization is used. Both real chunks contain 100 samples: human chunks interpolate ten samples spaced three frames apart at 30 Hz over 0.9 seconds; robot chunks use 100 successive samples at 50 Hz over two seconds."
+    },
+    {
+      "id": "hardware",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendices D–E; p. 19, Figure 6",
+      "detail": "The robot uses two ViperX 300s followers, two WidowX teleoperation leaders, Project Aria egocentric imaging and Intel RealSense D405 wrist cameras. Human recordings use Aria and its Machine Perception Services."
+    },
+    {
+      "id": "sim-training",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Appendix B.2 and Table 5",
+      "detail": "PushT uses 96×96 RGB, normalized 2D proprioception, one observation and 16-action chunks. ResNet-18 conditions a UNet diffusion policy. OT acts on concatenated image/proprioceptive features. Inference denoises Gaussian noise into trajectories. One A40 trains for 130000 iterations, approximately two hours; AdamW learning rate is 1e-4, batch size 32, alpha 0.2 and Sinkhorn blur 0.01."
+    },
+    {
+      "id": "baselines",
+      "sourceId": "primary",
+      "location": "PDF pp. 16–17, Appendix C.1–C.2",
+      "detail": "Co-train removes alignment; Standard OT removes DTW cost shaping. Real baselines are adapted to the paper’s architecture. ATM uses stacked non-autoregressive tracks, then freezes the trunk and track head while training the Cartesian head, explicitly differing from original ATM. MimicPlay freezes a high-level policy to condition a robot-trained low-level policy."
+    },
+    {
+      "id": "drawer-setting",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5.2, Drawer; p. 8, Figure 4; p. 19, Appendix G.1; p. 21, Table 6, Drawer row",
+      "detail": "The task requires toy grasp, placement into an open drawer and drawer closure. Robot data comprise 144 demonstrations across three quadrants of a 6×4 array; 360 human demonstrations over 60 minutes cover all four. The top-right quadrant is withheld from robot data. Evaluation uses 48 rollouts, two per drawer; success requires all stages. Table 6 gives 29 robot minutes, while G.1 rounds to 30."
+    },
+    {
+      "id": "coffee-setting",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5.2, Scoop Coffee; p. 8, Figure 4; p. 19, Appendix G.1; p. 21, Table 6, Coffee row",
+      "detail": "Robot training uses 50 demonstrations of a can in one scene. Human data add a grinder and another scene. Each evaluation setting uses 15 rollouts across five target positions. Main text says two hours of human data; G.1 and Table 6 give 180 minutes, with Table 6 listing 720 demonstrations."
+    },
+    {
+      "id": "laundry-setting",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 5.2, Laundry; p. 21, Table 6, Laundry row",
+      "detail": "Bimanual folding includes both sleeves and folding the shirt in half. Robot data contain 300 demonstrations across three shirts; human data contain approximately 700 demonstrations, both collected over two hours. Main evaluation uses 18 rollouts; success requires all stages."
+    },
+    {
+      "id": "real-results",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, all rows and columns",
+      "detail": "EgoBridge Coffee SR is 67/60/27% for in-distribution/object/scene-plus-object; Co-train is 53/46/0%, EgoMimic 60/53/0%, robot-only BC 33/40/7%. EgoBridge Drawer total is 77 points and 47% SR, Place Toy 72%, behavior generalization 33%; Co-train gives 55 points, 22% total SR and 0% behavior SR; ATM gives 8% behavior SR. Laundry gives EgoBridge 48 points and 72% SR; Co-train 41 and 33%, EgoMimic 38 and 33%, robot-only BC 38 and 28%. MimicPlay and ATM also have 28% Laundry SR."
+    },
+    {
+      "id": "ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 2 and adjacent Ablation paragraph",
+      "detail": "Table 2 gives Drawer SR / behavior-generalization SR: EgoBridge 47/33%, MSE 14/17%, Standard-OT 33/17%, Co-train 22/0%. Adjacent prose says 17% for the first MSE column and calls that column in-distribution; Table 1 labels the corresponding 47% as Drawer total."
+    },
+    {
+      "id": "sim-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 5.1 and Figure 3; p. 21, Appendices G.2–H",
+      "detail": "Circle source and triangle target differ in appearance and friction, with triangle friction multiplier 0.7. G.2 lists 100 original-white demonstrations per pusher plus 50 source examples for each of original-purple, mirrored-purple and mirrored-white: 350 total, despite saying four scenarios. Evaluation uses 100 seeds selected from 101–9999 with sampling seed 42. Mean reward averages maximum goal IoU; main text defines SR using ≥0.9, while H says over 0.9."
+    },
+    {
+      "id": "sim-results",
+      "sourceId": "primary",
+      "location": "PDF p. 21, Table 7, all rows and setting columns",
+      "detail": "For base/purple/purple-plus-mirrored-T, EgoBridge reward/SR is 0.7605/53%, 0.7206/48%, 0.6520/39%; Co-train 0.7062/48%, 0.6899/42%, 0.6214/31%; Standard OT 0.7009/38%, 0.5303/15%, 0.5109/8%; MMD 0.6439/45%, 0.4867/22%, 0.5876/14%; Target Only 0.5555/39%, 0.0904/0%, 0.0992/0%."
+    },
+    {
+      "id": "pair-diagnostics",
+      "sourceId": "primary",
+      "location": "PDF p. 21, Appendix I; p. 22, Figure 9",
+      "detail": "Random minibatch pseudo-pairs compare DTW with MSE on Drawer, Coffee and Laundry. Authors describe improved temporal/spatial correspondence with DTW, but failures when trajectories span stages or viewpoints change extremely. Colored borders are qualitative annotations without a numerical pairing-accuracy metric or explicit color legend."
+    },
+    {
+      "id": "latent-diagnostics",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 5 and H3 paragraph; p. 23, Appendix K and Figure 10",
+      "detail": "T-SNE, Wasserstein distances and nearest neighbors support the authors’ claim of improved domain overlap and behavioral correspondence. Main text describes action tokens, whereas K describes encoder outputs. The displays do not themselves establish causal sufficiency."
+    },
+    {
+      "id": "extra-laundry",
+      "sourceId": "primary",
+      "location": "PDF p. 22, Appendix J and Table 8",
+      "detail": "Additional Laundry testing uses a new white surface with 30 extra minutes of human data, then a harder human-only shirt-color combination. Each setting uses 20 rollouts over five positions. EgoBridge obtains 50% SR/43 points and 30%/35; Co-train obtains 25%/25 and 5%/7."
+    },
+    {
+      "id": "limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 6; p. 19, Appendix G.1; p. 20, Figure 8",
+      "detail": "The demonstrated scope is single-task transfer; DTW may be less informative for multitask adaptation. Multiple embodiments and unlabeled Internet human data are future work. Failures include missed grasps, wrong targets and incomplete drawer closure or folds."
+    },
+    {
+      "id": "release",
+      "sourceId": "primary",
+      "location": "PDF p. 26, NeurIPS checklist item 5",
+      "detail": "The supplied edition answers No to open data/code access and plans release after acceptance; this is not evidence of an actual release."
+    },
+    {
+      "id": "uncertainty",
+      "sourceId": "primary",
+      "location": "PDF p. 27, NeurIPS checklist item 7",
+      "detail": "The authors answer No to statistical-significance reporting, citing cost and variability of repeated physical-robot trials. The retained tables supply no confidence intervals."
+    },
+    {
+      "id": "proof-scope",
+      "sourceId": "primary",
+      "location": "PDF p. 25, NeurIPS checklist item 3; supplied Appendices A–K, pp. 12–23",
+      "detail": "The checklist claims a detailed proof in supplementary material. The supplied appendices describe algorithms, architecture, data and experiments; no such separately identified proof was supplied."
+    }
+  ]
+}
