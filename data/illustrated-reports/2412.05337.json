@@ -1,0 +1,293 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2412.05337",
+  "shortTitle": "ACT-Bench",
+  "thesis": "ACT-Bench measures action fidelity through a learned video-to-motion evaluator, revealing TERRA's higher aggregate controllability while leaving evaluator transfer and comparison fairness unresolved.",
+  "standfirst": "A generated car journey can look convincing while missing the requested turn or traveling the wrong distance. ACT-Bench asks two complementary questions: does the inferred maneuver match the instruction, and does the inferred trajectory follow the intended path? Its evaluator reads generated video and returns both answers. The accompanying TERRA baseline interleaves trajectory instructions with image tokens, allowing instructions to change every frame. Read the evaluator architecture before the model comparison: every reported fidelity score passes through that learned instrument. Then compare the confusion matrices with geometric errors, because better turning behavior does not guarantee lower displacement error or physically correct interactions with other vehicles.",
+  "evidenceIds": [
+    "e-purpose",
+    "e-metrics",
+    "e-estimator",
+    "e-terra-core",
+    "e-iec",
+    "e-alignment",
+    "e-failures"
+  ],
+  "visuals": [
+    {
+      "id": "act-estimator",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 11",
+      "page": 12,
+      "asset": "report-assets/2412.05337/act-estimator.png",
+      "width": 1313,
+      "height": 1223,
+      "sourceSha256": "560190990e9f2d2f89add329668ce653c758d9975447e6f52db7ebed6bbe11c5",
+      "sourceUrl": "https://arxiv.org/pdf/2412.05337#page=12",
+      "crop": [
+        0.518,
+        0.09,
+        0.904,
+        0.368
+      ],
+      "alt": "A generated-video input passes through I3D and two Transformer encoder layers, branching into a pooled action classifier and an attention-equipped GRU trajectory decoder.",
+      "caption": "The evaluator turns one video into two complementary motion descriptions.",
+      "readingGuide": "Follow the arrows downward from Generated Video. I3D first extracts features across space and time. Flattening, positional encoding and the two Transformer encoder layers provide a shared representation. The left branch pools that representation and applies linear layers with GELU to predict a high-level action, illustrated here by stopping. The right branch attends to the shared features while a GRU emits successive trajectory coordinates; recurrent arrows carry information between prediction steps. Section 3.3 identifies classification and trajectory regression as jointly trained tasks. At benchmark evaluation, both branches read the generated frames, and their outputs are compared with the supplied instruction.",
+      "takeaway": "The architecture supports two distinct questions: whether the video depicts the requested maneuver, and how far its inferred motion deviates from the requested path. Sharing visual features can support both tasks, but the paper does not isolate the benefit of this sharing with a single-task ablation.",
+      "caution": "The estimator's predicted classes exclude lateral shifts, although the benchmark contains shifting templates. Its real-video validation also does not establish accuracy on generated video. Neither issue is resolved by the two-head design.",
+      "evidenceIds": [
+        "e-estimator",
+        "e-estimator-data",
+        "e-dataset",
+        "e-estimator-validation",
+        "e-experiment-scope"
+      ]
+    },
+    {
+      "id": "terra-architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 5,
+      "asset": "report-assets/2412.05337/terra-architecture.png",
+      "width": 1326,
+      "height": 735,
+      "sourceSha256": "560190990e9f2d2f89add329668ce653c758d9975447e6f52db7ebed6bbe11c5",
+      "sourceUrl": "https://arxiv.org/pdf/2412.05337#page=5",
+      "crop": [
+        0.518,
+        0.09,
+        0.908,
+        0.257
+      ],
+      "alt": "Context frames outlined in red become image tokens; trajectory embeddings join the token stream before autoregressive rollout and frame-wise decoding into red context and blue predicted frames.",
+      "caption": "TERRA inserts a trajectory instruction between successive blocks of image tokens.",
+      "readingGuide": "Start with the red-bordered context frames at left; the time arrow points upward through the displayed images. The image tokenizer converts each frame into discrete codes. Above the Transformer, the action embedder supplies trajectory embeddings that are interleaved with image-token blocks. Follow the rollout arrow to the longer sequence below and then the pale blue connections to the frame-wise decoder. Blue outlines mark predicted future frames, while red outlines mark context reconstructions. Appendix D.1 makes the timing precise: after predicting a frame's image tokens, the model appends that frame's trajectory input before predicting the next frame. Equation (5) places loss only on image codes.",
+      "takeaway": "TERRA's action interface accepts a trajectory at every frame, permitting more frequent instruction updates than the Vista setup used here. The actions are provided conditions rather than generated policy outputs. The rollout predicts what the camera could see under those conditions, which is subsequently evaluated by ACT-Estimator.",
+      "caution": "Figure 3's caption says a video decoder is omitted, but Appendices D.2–E describe a separate SVD Video Refiner after frame decoding. This simplified drawing does not show that stage or establish its effect on fidelity.",
+      "evidenceIds": [
+        "e-terra-core",
+        "e-protocol",
+        "e-refiner"
+      ]
+    },
+    {
+      "id": "estimator-trajectories",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 6,
+      "asset": "report-assets/2412.05337/estimator-trajectories.png",
+      "width": 1197,
+      "height": 731,
+      "sourceSha256": "560190990e9f2d2f89add329668ce653c758d9975447e6f52db7ebed6bbe11c5",
+      "sourceUrl": "https://arxiv.org/pdf/2412.05337#page=6",
+      "crop": [
+        0.535,
+        0.258,
+        0.887,
+        0.424
+      ],
+      "alt": "Nine action rows compare ACT-Estimator and DROID-SLAM trajectory errors; the bottom averages are 0.81 versus 7.52 ADE and 1.59 versus 13.75 FDE.",
+      "caption": "Validate the measuring instrument before interpreting generated-video scores.",
+      "readingGuide": "Read each row as a real-video trajectory-estimation test. Ours denotes ACT-Estimator; DS denotes DROID-SLAM adapted with Metric3D monocular depth. Each metric has its own pair of columns, and the downward arrows mean smaller errors are better. ADE averages displacement across trajectory points, whereas FDE compares their final positions. HS and LS denote high-speed and low-speed constant motion. The bottom row is the paper's reported Average, whose weighting is not specified here. After checking that row, inspect stopped: the bold entries move to DS. That reversal matters when assessing whether the evaluator is uniformly reliable across motion categories.",
+      "takeaway": "The reported averages strongly favor ACT-Estimator: ADE/FDE are 0.81/1.59 meters, compared with 7.52/13.75 for the adapted baseline. These results support its use as a candidate motion estimator on the tested real-video split, while the stopped row demonstrates that its advantage is not universal.",
+      "caution": "The caption claims lower errors across all categories, but stopped favors DS: 0.06/0.09 versus 0.76/1.48. The authors also acknowledge a baseline domain gap. No independent calibration on generated video is shown.",
+      "evidenceIds": [
+        "e-estimator-validation",
+        "e-estimator-training",
+        "e-metrics",
+        "e-experiment-scope"
+      ]
+    },
+    {
+      "id": "instruction-consistency",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 6",
+      "page": 7,
+      "asset": "report-assets/2412.05337/instruction-consistency.png",
+      "width": 1336,
+      "height": 695,
+      "sourceSha256": "560190990e9f2d2f89add329668ce653c758d9975447e6f52db7ebed6bbe11c5",
+      "sourceUrl": "https://arxiv.org/pdf/2412.05337#page=7",
+      "crop": [
+        0.095,
+        0.09,
+        0.488,
+        0.248
+      ],
+      "alt": "Two purple confusion matrices compare conditioned actions against estimated actions for Vista and TERRA, with aggregate accuracies 30.72% and 44.11%.",
+      "caption": "Aggregate instruction agreement improves, but the pattern depends strongly on maneuver.",
+      "readingGuide": "Read the vertical axis as the conditioned action and the horizontal categories as the action estimated from the generated video. A diagonal cell is a match; off-diagonal mass identifies what the model appears to do instead. The shared color scale ranges from zero to one. TERRA's curving-right diagonal reaches 1.00 in the displayed matrix, compared with Vista's 0.49. The pattern reverses for accelerating, where the diagonals are 0.04 and 0.23 respectively. Slow-straight also favors Vista. Use those rows to avoid turning the headline improvement into an all-category claim. These are generated-video instruction matches, distinct from the estimator's real-video classification accuracy.",
+      "takeaway": "TERRA's reported overall IEC is 44.11%, versus 30.72% for Vista, a calculated gain of 13.39 percentage points. The matrices show stronger turning agreement alongside weaknesses in other maneuvers. Even the better aggregate leaves a majority of instructed actions unmatched according to this estimator.",
+      "caution": "Shifting categories are absent and the stopped row is all zero; the paper does not reconcile this display with Table 2's categories and scored denominator. Instruction frequency also differs between the models.",
+      "evidenceIds": [
+        "e-iec",
+        "e-protocol",
+        "e-dataset",
+        "e-estimator-data",
+        "e-estimator-validation"
+      ]
+    },
+    {
+      "id": "trajectory-alignment",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 7,
+      "asset": "report-assets/2412.05337/trajectory-alignment.png",
+      "width": 1295,
+      "height": 734,
+      "sourceSha256": "560190990e9f2d2f89add329668ce653c758d9975447e6f52db7ebed6bbe11c5",
+      "sourceUrl": "https://arxiv.org/pdf/2412.05337#page=7",
+      "crop": [
+        0.52,
+        0.089,
+        0.901,
+        0.256
+      ],
+      "alt": "ADE and FDE columns compare Vista and TERRA by action, including N/A stopped entries and average errors of 4.50/8.66 versus 3.98/8.21.",
+      "caption": "Geometric alignment reveals exceptions hidden by the average and by action labels.",
+      "readingGuide": "First compare the bottom Average row separately for ADE and FDE. Then move upward to curving: Vista has the lower ADE for both turn directions, while TERRA has the lower FDE. Starting is another clear exception, favoring Vista on both metrics. These mixed rankings are possible because ADE aggregates the full path and FDE uses only its endpoint. HS and LS retain the high-speed and low-speed meanings from the estimator evaluation. The stopped cells are explicitly N/A, not zero error. Read these values alongside Figure 7's trajectory shapes rather than assuming that a correct turn classification implies the closest path.",
+      "takeaway": "TERRA improves the reported average ADE from 4.50 to 3.98 meters and FDE from 8.66 to 8.21 meters. However, its starting ADE/FDE is 4.52/14.01, versus Vista's 3.23/10.32. The table establishes aggregate improvement under this protocol, with substantive category-specific exceptions.",
+      "caution": "Section 5.2 says TERRA has lower curving ADE, but the table shows higher values: 3.82 versus 3.59 for left and 3.78 versus 3.73 for right. These crops preserve the reported values.",
+      "evidenceIds": [
+        "e-alignment",
+        "e-diagnostic",
+        "e-metrics",
+        "e-protocol",
+        "e-estimator-validation"
+      ]
+    },
+    {
+      "id": "trajectory-diagnostic",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 7",
+      "page": 7,
+      "asset": "report-assets/2412.05337/trajectory-diagnostic.png",
+      "width": 1336,
+      "height": 929,
+      "sourceSha256": "560190990e9f2d2f89add329668ce653c758d9975447e6f52db7ebed6bbe11c5",
+      "sourceUrl": "https://arxiv.org/pdf/2412.05337#page=7",
+      "crop": [
+        0.095,
+        0.308,
+        0.488,
+        0.519
+      ],
+      "alt": "Six scatter plots show TERRA above Vista for left curves, right curves and starting, with light-blue individual estimates, blue mean points and orange instruction points.",
+      "caption": "A trajectory can turn in the right direction and still miss the requested distance.",
+      "readingGuide": "Compare models vertically within a column: TERRA occupies the top row and Vista the bottom. The light-blue lines are individual estimated trajectories, blue dots are their mean, and orange dots are the instructed trajectory. Both axes measure position in meters; compare within panels carefully because their ranges differ. For curving, inspect lateral displacement and the separation between the blue and orange paths. For starting, inspect the longitudinal distance reached. The starting means remain well below the instruction's endpoint. The plot therefore helps explain why maneuver agreement and displacement error should be read together, rather than collapsed into one notion of controllability.",
+      "takeaway": "The displayed mean curves turn more strongly for TERRA than for Vista, but neither set of estimates consistently coincides with the requested paths. The starting panels expose a distance shortfall even though starting can be recognized as an action category. The visual supports a diagnostic distinction between direction and distance.",
+      "caution": "This is a diagnostic comparison, not a controlled ablation or a confidence interval. The caption's broad favorable framing does not override Table 4's curving-ADE exceptions, and the plots do not isolate instruction frequency as their cause.",
+      "evidenceIds": [
+        "e-diagnostic",
+        "e-alignment",
+        "e-iec",
+        "e-protocol",
+        "e-experiment-scope"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Build the measuring instrument before trusting the benchmark",
+      "text": "The benchmark provides an intended trajectory, but a generated video has no measured ego pose to compare with it. ACT-Estimator supplies that missing observation by predicting both a maneuver label and a path from the frames. Its supervision comes from real nuScenes video: ego poses define trajectories, and the sequential rules in Table 6 assign action labels. Joint classification and regression then make one visual representation serve both outputs. During evaluation, the instruction is compared with these predictions rather than directly with physical motion. Reader interpretation: the benchmark's validity therefore depends on the estimator transferring from real to synthetic imagery. The strong real-video validation is relevant evidence, but it cannot by itself calibrate that transfer. The mismatched benchmark and classifier label sets are a separate coverage problem.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-metrics",
+        "e-estimator",
+        "e-estimator-data",
+        "e-estimator-validation",
+        "e-dataset",
+        "e-iec"
+      ]
+    },
+    {
+      "heading": "Trace a supplied trajectory through TERRA's next frame",
+      "text": "A trajectory instruction contains future positions and their timestamps relative to the vehicle at the current frame. TERRA embeds those vectors and inserts them after the current image-code block. The Transformer then predicts the next image's codes autoregressively, using earlier image codes and trajectory inputs; after that image is complete, another supplied trajectory is inserted. Training follows this ordering while applying prediction loss only to image tokens. It does not train the model to output a control policy. The frame-wise decoder converts predicted codes into coarse images, and the separately trained SVD refiner uses those images as conditioning. This explains why the main drawing is incomplete as an account of final video production. It also explains the benchmark's practical interface: new instructions can arrive every frame, although this experiment follows precomputed ideal trajectories rather than a closed-loop planner.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-terra-core",
+        "e-refiner",
+        "e-protocol",
+        "e-dataset"
+      ]
+    },
+    {
+      "heading": "Separate what the scores show from why the models differ",
+      "text": "Begin with IEC: it tests equality between requested and estimated maneuver labels. Then examine ADE and FDE, which penalize position errors even when the label is correct. TERRA's higher aggregate IEC and lower reported average displacement errors support improved fidelity under the authors' comparison. The category rows and trajectory plots qualify that conclusion: Vista has lower curving ADE, and both models can miss the intended travel distance. Reader interpretation: those results motivate more than one diagnostic axis, not a single winner for every behavior. They also leave the cause of the aggregate difference unresolved. TERRA and Vista differ in architecture, training data and instruction-update frequency. Finally, the qualitative failures show that matching ego motion does not establish physically appropriate behavior for surrounding traffic or validate a generated collision.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-metrics",
+        "e-iec",
+        "e-alignment",
+        "e-diagnostic",
+        "e-protocol",
+        "e-terra-training",
+        "e-failures"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test whether the evaluator survives scene separation and generated video",
+      "text": "Reader-proposed check, not performed: reconstruct the rule-labeled estimator data using Table 6 and compare the reported random-window split with a split that holds out entire nuScenes scenes. Keep architecture, training budget and class balance fixed; report per-class accuracy and ADE/FDE, including stopped. Separately audit a fixed, stratified set of Vista and TERRA videos with blinded maneuver labels and an independent motion estimate, disclosing the latter's uncertainty. Compare evaluator disagreement by model and maneuver. A large scene-disjoint performance drop or model-dependent errors on generated video would weaken the interpretation of IEC as a generator-only score. Resolve shifting-class mapping and the scored denominator before aggregation.",
+      "evidenceIds": [
+        "e-estimator-data",
+        "e-estimator-training",
+        "e-estimator-validation",
+        "e-iec",
+        "e-dataset",
+        "e-alignment"
+      ]
+    },
+    {
+      "title": "Isolate trajectory-update frequency within TERRA",
+      "text": "Reader-proposed check, not performed: use the same TERRA checkpoint, contexts, trajectory templates, sampling seeds and refiner for two conditions: instructions updated every frame, and instructions refreshed only at the two Vista round boundaries. Keep sequence length fixed and explicitly document how repeated or masked trajectory slots emulate the sparse interface. First reconcile the three-context-frame description with Table 8's n_conds field. Compare per-class IEC, ADE/FDE and estimated motion discontinuity at the round boundary, using paired samples. If denser updates improve these outcomes consistently, they support a frequency mechanism within TERRA; if not, that explanation for its advantage is weakened. This check would still not isolate the effects of architecture or training data in the original Vista comparison.",
+      "evidenceIds": [
+        "e-terra-core",
+        "e-protocol",
+        "e-settings",
+        "e-iec",
+        "e-alignment",
+        "e-failures"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19
+    ],
+    "notes": "Visually inspected the title/author/version block on p. 1; all Figures 1–15 and Tables 1–8; metric definitions on pp. 4–5; estimator training and validation on pp. 5–6; comparison protocol, matrices, errors and diagnostic trajectories on p. 7; failure examples on pp. 8 and 18–19; dataset rules and estimator design on pp. 12–14; and TERRA token ordering, loss, refiner, hardware, schedules and inference settings on pp. 15–17. Read all seven text chunks, including reference pages 9–11, which were not rendered. All six final original crops were viewed; the TERRA crop was widened to retain its time label. Checked the diagram flows against Sections 3.3 and D.1–D.2, and retained the Figure 3 refiner omission and numerical/prose discrepancies in the explanations. Separate supplemental movies were not supplied or inspected."
+  },
+  "featuredResultTask": "Instruction-execution consistency of generated driving video",
+  "visualLimitations": {
+    "kind": "analysis",
+    "text": "The supplied paper contains estimator validation, a two-model comparison and qualitative diagnostics, but no controlled component ablation. Figure 7 therefore serves as a trajectory diagnostic in the ablation section. Neither the benefit of joint estimator training, the added CoVLA data, the refiner, nor instruction frequency is isolated. Still-frame causal-misalignment examples provide no event rate, and the referenced supplementary movies were not supplied.",
+    "evidenceIds": [
+      "e-experiment-scope",
+      "e-failures",
+      "e-protocol",
+      "e-terra-training"
+    ]
+  }
+}
