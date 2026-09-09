@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-2624494a0f9cbb4a61d2",
+  "shortTitle": "NWM",
+  "thesis": "A diffusion model can help select navigation actions by predicting their visual consequences, but accurate short-horizon ranking does not make unfamiliar-scene imagination a reliable map.",
+  "standfirst": "Imagine a robot choosing between two routes toward a photographed destination. NWM predicts the views each route would produce, then uses the final predicted image to judge which route better matches the goal. This separates learning visual dynamics from choosing actions: a derivative-free optimizer can search directly, or an existing NoMaD policy can supply candidates. The paper’s efficient CDiT block makes history-conditioned prediction more tractable, and its experiments connect prediction quality to short navigation trajectories. Read the results in three layers: generated-video fidelity, trajectory error in known environments, and visual generalization to unseen scenes. They support different conclusions, especially when additional unlabeled video helps one domain while hurting another.",
+  "evidenceIds": [
+    "overview",
+    "architecture",
+    "planning-energy",
+    "planning-protocol",
+    "navigation",
+    "video-generation",
+    "transfer",
+    "limitations"
+  ],
+  "featuredResultTask": "Goal-conditioned navigation",
+  "visuals": [
+    {
+      "id": "overview",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 1,
+      "width": 1387,
+      "height": 880,
+      "crop": [
+        0.094,
+        0.214,
+        0.91,
+        0.614
+      ],
+      "alt": "Three-part overview: observations and motion enter CDiT; two indoor predicted trajectories receive goal-image scores; outdoor sequences illustrate imagined motion in unknown environments.",
+      "caption": "The same forward predictor supplies imagined views for trajectory scoring and exploratory visualization.",
+      "readingGuide": "Start at panel (a), where the observation stack and navigation action enter the Conditional Diffusion Transformer. The action label includes translation, yaw change and time shift. The output is an image, so action choice must happen elsewhere. In panel (b), follow each indoor row from the shared input through generated views to a score against the goal image on the right. The branches visualize alternative consequences of candidate motion. Panel (c) changes the setting to unfamiliar environments: a single starting image supports an imagined traversal. These panels illustrate uses of the predictor, rather than a single measured navigation protocol.",
+      "takeaway": "NWM makes candidate actions comparable through their predicted visual outcomes. The planner can therefore reuse a learned forward model while changing proposals or constraints at inference. The arrows terminate in generated images and goal scores; they do not depict an action decoder or an inverse-dynamics network.",
+      "caution": "The unknown-environment panels are qualitative imagination examples. They do not verify the layout beyond the input image, collision-free traversability, or successful robot execution; the paper later documents hallucinated paths and context drift.",
+      "evidenceIds": [
+        "overview",
+        "formulation",
+        "planning-energy",
+        "planning-protocol",
+        "limitations"
+      ],
+      "asset": "report-assets/ref-2624494a0f9cbb4a61d2/overview.png",
+      "sourceSha256": "2cfe50f6350a9bd68f8bfa8fbc61d38bf2c186106ecb28fb6e37ab716bf34d26",
+      "sourceUrl": "https://openaccess.thecvf.com/content/CVPR2025/papers/Bar_Navigation_World_Models_CVPR_2025_paper.pdf#page=1"
+    },
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "width": 983,
+      "height": 1606,
+      "crop": [
+        0.57,
+        0.09,
+        0.859,
+        0.455
+      ],
+      "alt": "Vertical CDiT block with target self-attention, context cross-attention, feedforward layers, residual additions and an AdaLN conditioning branch.",
+      "caption": "CDiT spends self-attention on the target and accesses history through cross-attention.",
+      "readingGuide": "Read upward from the Future State box. Section 3.2 specifies that training corrupts this target latent before denoising. The first attention layer operates within the target frame; the middle layer uses current-target queries and the context branch’s keys and values, labeled K,V. The top feedforward block completes the repeated CDiT unit. On the right, action, time shift and diffusion time enter an embedding and AdaLN branch that supplies modulation coefficients. Plus signs indicate residual additions. This layout avoids expensive self-attention among all context tokens. Keep navigation time shift separate from diffusion time: one changes the requested observation interval, the other the corruption level.",
+      "takeaway": "The architectural saving comes from how history is accessed. With fixed tokens per frame, cross-attention grows linearly with the number of context frames, while full joint attention has a quadratic context term. Figure 5 separately tests the resulting prediction-versus-FLOPs tradeoff; this block diagram alone is not a runtime benchmark.",
+      "caution": "The dashed connector from the lower target residual junction points toward context Scale, Shift, leaving its meaning ambiguous. The prose explicitly assigns past-frame keys/values and target queries; this explanation follows that definition. The Future State label also omits the noisy-target superscript used in training.",
+      "evidenceIds": [
+        "architecture",
+        "training-objective",
+        "formulation",
+        "scaling"
+      ],
+      "asset": "report-assets/ref-2624494a0f9cbb4a61d2/architecture.png",
+      "sourceSha256": "2cfe50f6350a9bd68f8bfa8fbc61d38bf2c186106ecb28fb6e37ab716bf34d26",
+      "sourceUrl": "https://openaccess.thecvf.com/content/CVPR2025/papers/Bar_Navigation_World_Models_CVPR_2025_paper.pdf#page=4"
+    },
+    {
+      "id": "conditioning-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "width": 997,
+      "height": 439,
+      "crop": [
+        0.094,
+        0.266,
+        0.485,
+        0.399
+      ],
+      "alt": "Ablation table with three blocks varying goals per sample, context frames, and time/action conditioning, evaluated by LPIPS, DreamSim and PSNR.",
+      "caption": "Four-second prediction benefits from more history and targets; action conditioning carries most of the measured signal.",
+      "readingGuide": "Read the three row blocks separately. The upper block varies how many target goals are sampled for a fixed context; these are training targets, not a planner’s candidate count. The middle block varies the number of conditioning frames. The final block compares time-only, action-only and combined conditioning. LPIPS and DreamSim decrease with better predictions, whereas PSNR increases. All rows concern four-second future prediction on RECON, rather than autonomous navigation. Notice that the four-goal and four-context rows report LPIPS 0.296, while action plus time reports 0.295: preserve the separate blocks instead of forcing their rounded results into one shared baseline.",
+      "takeaway": "Combined conditioning obtains LPIPS 0.295 ± 0.002, compared with 0.760 ± 0.001 for time alone and 0.318 ± 0.002 for action alone. Four goals improve the upper block from 0.312 to 0.296. These results support useful action information and benefits from additional training targets and context.",
+      "caution": "More goals also increase target examples per context in the reported training setup, so this is not a fixed-target-budget counterfactual test. The main text also leaves the conditioning rows’ exact retraining-versus-input-masking protocol insufficiently detailed.",
+      "evidenceIds": [
+        "ablation",
+        "data-training",
+        "formulation"
+      ],
+      "asset": "report-assets/ref-2624494a0f9cbb4a61d2/conditioning-ablation.png",
+      "sourceSha256": "2cfe50f6350a9bd68f8bfa8fbc61d38bf2c186106ecb28fb6e37ab716bf34d26",
+      "sourceUrl": "https://openaccess.thecvf.com/content/CVPR2025/papers/Bar_Navigation_World_Models_CVPR_2025_paper.pdf#page=6"
+    },
+    {
+      "id": "navigation-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "width": 1102,
+      "height": 347,
+      "crop": [
+        0.116,
+        0.282,
+        0.44,
+        0.361
+      ],
+      "alt": "RECON navigation table comparing GNM, NoMaD, NWM reranking 16 or 32 candidates, and standalone NWM planning using ATE and RPE.",
+      "caption": "Standalone planning reports the lowest errors for the table’s two-second RECON trajectories.",
+      "readingGuide": "Both columns point downward: ATE measures absolute trajectory error and RPE measures relative pose error. Compare the unassisted policy rows with NWM + NoMaD to isolate the reported pipeline change from candidate generation to simulation-based selection. The ×16 and ×32 labels count sampled NoMaD trajectories, not training epochs or video frames. The final row instead searches using CEM, with terminal LPIPS averaged over three stochastic predictions per sequence. Section 4.4 describes eight steps at a temporal shift of 0.25. Read these numbers under the caption’s RECON scope; nearby prose mentions all in-domain datasets, but this table only supplies RECON.",
+      "takeaway": "Standalone NWM reports ATE 1.13 ± 0.02 and RPE 0.35 ± 0.01. NoMaD reports 1.93 ± 0.04 and 0.52 ± 0.00. Reranking 32 proposals reaches 1.78 ± 0.03 and 0.48 ± 0.01, supporting a smaller improvement when the action candidates come from an existing policy.",
+      "caution": "The table labels no units and supplies neither success percentages nor collision statistics. Evaluation example selection and complete CEM settings are deferred to an unsupplied appendix; the larger standalone gain should not be interpreted as a compute-matched comparison.",
+      "evidenceIds": [
+        "navigation",
+        "planning-protocol",
+        "data-training",
+        "planning-energy"
+      ],
+      "asset": "report-assets/ref-2624494a0f9cbb4a61d2/navigation-results.png",
+      "sourceSha256": "2cfe50f6350a9bd68f8bfa8fbc61d38bf2c186106ecb28fb6e37ab716bf34d26",
+      "sourceUrl": "https://openaccess.thecvf.com/content/CVPR2025/papers/Bar_Navigation_World_Models_CVPR_2025_paper.pdf#page=7"
+    },
+    {
+      "id": "video-quality",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Figure 6 (FVD table)",
+      "page": 6,
+      "width": 1040,
+      "height": 149,
+      "crop": [
+        0.55,
+        0.542,
+        0.856,
+        0.576
+      ],
+      "alt": "Two-model FVD comparison: DIAMOND 762.734 plus or minus 3.361 and NWM 200.969 plus or minus 5.629, with lower scores preferred.",
+      "caption": "Generated-video quality is evaluated with supplied ground-truth actions.",
+      "readingGuide": "This compact visual is labeled Figure 6 in the paper but contains a quantitative table. Its single row measures FVD, with the downward arrow indicating that smaller is better. The caption and Section 4.3 specify sixteen-second RECON videos generated autoregressively at four frames per second. The model receives ground-truth actions, feeds its own predicted visual states back into the rollout, and is evaluated on the resulting video distribution. Keep this protocol distinct from Table 2, where the system must select an action trajectory. The reported deviations follow the paper’s sampling-repeat convention, without establishing variability across independently trained models.",
+      "takeaway": "NWM’s FVD is 200.969 ± 5.629, compared with DIAMOND’s 762.734 ± 3.361. This supports improved distributional video quality under the stated action-conditioned rollout protocol. It complements the trajectory results by testing the simulator’s generated outputs, rather than measuring whether a planner chooses the right route.",
+      "caution": "FVD is a distribution-level synthesis metric, not a certificate that every predicted turn or obstacle is correct. The baselines differ architecturally, and this table supplies no matched-compute or physical-control latency comparison.",
+      "evidenceIds": [
+        "video-generation",
+        "data-training"
+      ],
+      "asset": "report-assets/ref-2624494a0f9cbb4a61d2/video-quality.png",
+      "sourceSha256": "2cfe50f6350a9bd68f8bfa8fbc61d38bf2c186106ecb28fb6e37ab716bf34d26",
+      "sourceUrl": "https://openaccess.thecvf.com/content/CVPR2025/papers/Bar_Navigation_World_Models_CVPR_2025_paper.pdf#page=6"
+    },
+    {
+      "id": "unlabeled-transfer",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 8,
+      "width": 1264,
+      "height": 116,
+      "crop": [
+        0.128,
+        0.268,
+        0.872,
+        0.321
+      ],
+      "alt": "Two training-data rows compare Go Stanford and RECON across LPIPS, DreamSim and PSNR; Ego4D improves all unseen-domain means and worsens all known-domain means.",
+      "caption": "Unlabeled video produces a transfer benefit alongside an in-domain cost.",
+      "readingGuide": "Read each dataset group independently, first comparing the two training rows within Go Stanford, then doing the same within RECON. The additional Ego4D videos lack explicit navigation-action labels, so their training uses temporal shift without the motion embedding. LPIPS and DreamSim favor lower values; PSNR favors higher values. The left group evaluates an unknown environment, while the right group evaluates the known environment. All measurements are four seconds into the future. Bold values switch rows across the two dataset groups, revealing a tradeoff that is easy to miss if one reads only the caption’s emphasis on unseen-environment improvement.",
+      "takeaway": "Go Stanford LPIPS improves from 0.658 ± 0.002 to 0.652 ± 0.003 with Ego4D. RECON LPIPS worsens from 0.295 ± 0.002 to 0.368 ± 0.003. DreamSim and PSNR agree directionally, so the evidence supports transfer with a cost to familiar-domain prediction rather than a uniform improvement.",
+      "caution": "The table provides reported means and deviations, not a significance test or unseen-environment navigation success rates. Section 4.5 and the failure discussion acknowledge faster breakdown and hallucinated paths when unfamiliar scenes are rolled out.",
+      "evidenceIds": [
+        "transfer",
+        "architecture",
+        "data-training",
+        "limitations"
+      ],
+      "asset": "report-assets/ref-2624494a0f9cbb4a61d2/unlabeled-transfer.png",
+      "sourceSha256": "2cfe50f6350a9bd68f8bfa8fbc61d38bf2c186106ecb28fb6e37ab716bf34d26",
+      "sourceUrl": "https://openaccess.thecvf.com/content/CVPR2025/papers/Bar_Navigation_World_Models_CVPR_2025_paper.pdf#page=8"
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Keep the future predictor separate from the goal selector",
+      "kind": "source",
+      "text": "Start with the variables the learned model actually receives. A VAE converts recent RGB observations into compact latents. A proposed action describes planar translation and yaw, and temporal shift requests the interval to the next observation. CDiT then predicts a visual latent under that supplied motion. The goal image enters a different stage: the planner compares it with the decoded terminal prediction and prefers low LPIPS. In standalone planning, CEM searches over candidate actions; in the ranking pipeline, NoMaD supplies the candidates. Both reuse forward simulation, but neither makes the world model jointly output actions and future frames. This distinction explains the taxonomy and the evidence boundary: producing a plausible goal-like image is useful for choosing a trajectory, while actual execution and feedback require additional evaluation.",
+      "evidenceIds": [
+        "formulation",
+        "architecture",
+        "planning-energy",
+        "planning-protocol",
+        "navigation"
+      ]
+    },
+    {
+      "heading": "Understand why CDiT can afford more visual context",
+      "kind": "analysis",
+      "text": "A full video-token attention layer pays for interactions among every context token as well as the target. CDiT focuses self-attention on the frame being denoised and retrieves history through cross-attention. The paper gives quadratic versus linear dependence on frame count for these dominant attention terms. My interpretation is that this design spends model capacity on predicting the target while avoiding repeated all-to-all processing of history. Table 1 then asks whether retaining more history is useful: four context frames outperform one in its prediction metrics. Figure 5 addresses a different question, comparing accuracy against FLOPs as model size changes. Neither experiment alone demonstrates real-time control, and the ambiguous dashed connector in Figure 2 should not override the explicit attention roles in Section 3.2.",
+      "evidenceIds": [
+        "architecture",
+        "ablation",
+        "scaling",
+        "training-objective"
+      ]
+    },
+    {
+      "heading": "Trace the chain from good video to useful navigation",
+      "kind": "analysis",
+      "text": "The experiments test different links in a causal chain. Figure 6 asks whether the simulator produces better video distributions under known actions. Table 2 asks whether predicted terminal views help select short trajectories toward a goal. Table 4 asks whether additional action-free video transfers visual prediction to a new environment. A gain in one link need not guarantee a gain in the others. The transfer experiment makes this concrete: Go Stanford improves while RECON becomes worse. My reading is that a useful world model must be judged both by visual prediction and by how its errors affect action selection. The authors’ context-drift and pedestrian-motion limitations make that distinction operationally relevant. An imagined path through a new scene remains a prediction, even when the sequence looks coherent.",
+      "evidenceIds": [
+        "video-generation",
+        "navigation",
+        "planning-protocol",
+        "transfer",
+        "limitations"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate multi-target diversity from target-example budget",
+      "text": "Reader-proposed check: repeat the one-goal versus four-goal RECON training comparison with the same architecture, four-frame context, data split, optimizer and total number of target predictions. Use gradient accumulation or resampling so target-example budgets match, and also report a run matching unique-context exposures to expose that tradeoff. Preserve the ±16-second target window. Evaluate the same four-second validation pairs using LPIPS, DreamSim and PSNR, with independent training seeds and matched sampling repeats. If the four-goal advantage disappears once target counts are controlled, the original table would support extra prediction supervision more strongly than the proposed counterfactual-diversity mechanism.",
+      "evidenceIds": [
+        "formulation",
+        "ablation",
+        "data-training"
+      ]
+    },
+    {
+      "title": "Test whether terminal image distance selects better actions",
+      "text": "Reader-proposed check: use fixed RECON observation/goal pairs and identical pools of 32 eight-step NoMaD trajectories. Compare random selection, NWM selection by terminal LPIPS averaged over three stochastic rollouts, and an oracle selecting the lowest ground-truth trajectory error from the same pool. Report ATE/RPE, the relationship between LPIPS rank and trajectory error, and complete selection latency. Repeat with fixed 16-candidate subsets to separate candidate availability from scoring quality. If LPIPS has weak ranking agreement or fails to beat random selection on held-out pairs, plausible terminal images would not suffice to explain reliable action selection. Resolve the missing evaluation-split details before claiming an exact reproduction.",
+      "evidenceIds": [
+        "navigation",
+        "planning-protocol",
+        "planning-energy",
+        "data-training"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "notes": "Visually inspected the title/author/affiliation block and accepted-version watermark on p. 1; formulation on p. 3; attention arrows, conditioning equation and diffusion objective on p. 4; planning equations, datasets, metrics, optimizer and hardware on p. 5; all main-paper Figures 1–10 and Tables 1–4 across pp. 1, 4, 6–8. All six final original crops were inspected, including headers, metric directions and bounds. Figure 2’s ambiguous dashed context connector is disclosed in its caution. Every page supporting retained method, numerical, training and proposed-check details is included. References on pp. 9–11 were read as text. The separate supplement, linked animations, code and experiments remain outside this review."
+  }
+}
