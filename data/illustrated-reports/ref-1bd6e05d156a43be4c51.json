@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-1bd6e05d156a43be4c51",
+  "shortTitle": "DynVLA",
+  "thesis": "Predicting compact ego and environment dynamics before trajectory tokens improves reported driving benchmarks, but forecasting mistakes can become planning mistakes.",
+  "standfirst": "DynVLA asks what a driving policy should predict before choosing a trajectory. Its answer is a small discrete description of scene change: one part for ego motion and another for surrounding dynamics. A tokenizer learns this representation from adjacent frames, then a single policy predicts it before generating actions. This edition follows the training-to-inference handoff, separates final benchmark results from controlled ablations, and examines why more prediction is not always better. The source provides strong reported comparisons and useful failure examples, while leaving uncertainty estimates, exact evaluation splits and some implementation settings unresolved.",
+  "evidenceIds": [
+    "e03",
+    "e04",
+    "e05",
+    "e10",
+    "e14",
+    "e16",
+    "e20",
+    "e22"
+  ],
+  "featuredResultTask": "NAVSIM trajectory planning",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/ref-1bd6e05d156a43be4c51/architecture.png",
+      "width": 1623,
+      "height": 671,
+      "sourceSha256": "35129e87321794e7bfdcf4ad34e6658fdda7d9bf8117988443ac8243060dcc64",
+      "sourceUrl": "https://arxiv.org/pdf/2603.11041#page=3",
+      "crop": [
+        0.108,
+        0.083,
+        0.872,
+        0.327
+      ],
+      "alt": "Two-panel diagram: adjacent-frame dynamics tokenization with separate ego/environment codebooks, and a causal policy supervised to generate dynamics before actions.",
+      "caption": "Learning a compact transition vocabulary, then using it as the action prefix.",
+      "readingGuide": "Read panel (a) from the bottom upward. Adjacent images enter the Dynamics Encoder with two query groups. Green and yellow branches pass through separate VQ codebooks, while the green ego branch also feeds an action-regression loss. Their combined representation reaches the Dynamics Decoder, conditioned on the current image and BEV. Panel (b) shows a different learning stage: snowflakes mark frozen target tokenizers, and the blue DynVLA backbone learns orange dynamics tokens followed by green action tokens. The upper future-image stack supplies training targets. Equations (5)–(9) confirm that inference instead predicts dynamics from the available observation context.",
+      "takeaway": "The representation is constrained by both reconstruction and measured ego motion, then becomes an explicit input to action generation. The evaluated default uses eight tokens per transition and two transitions, giving sixteen dynamics tokens. The one-policy classification comes from the shared DynVLA generation path, not from treating the entire training pipeline as one network.",
+      "caution": "The single Dynamics Decoder box summarizes two modality-specific decoders defined in Eq. (3). Its reconstructed future images and the auxiliary ego-action head should not be mistaken for required inference-time rendering or the deployed controller.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e07"
+      ]
+    },
+    {
+      "id": "navsim-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "asset": "report-assets/ref-1bd6e05d156a43be4c51/navsim-results.png",
+      "width": 1160,
+      "height": 1125,
+      "sourceSha256": "35129e87321794e7bfdcf4ad34e6658fdda7d9bf8117988443ac8243060dcc64",
+      "sourceUrl": "https://arxiv.org/pdf/2603.11041#page=6",
+      "crop": [
+        0.087,
+        0.117,
+        0.477,
+        0.409
+      ],
+      "alt": "NAVSIM comparison table with a human reference, traditional methods, VLA groups and DynVLA; columns report NC, DAC, TTC, comfort, progress and PDMS.",
+      "caption": "Final-model NAVSIM scores, with the human reference retained.",
+      "readingGuide": "Start with the shaded PDMS column and compare DynVLA with the best listed learned methods, then return to the component columns. NC is no-at-fault collision, DAC is drivable-area compliance, TTC is time-to-collision, C is comfort, and EP is ego progress. Appendix A combines these measures into trajectory-level PDMS; the table displays aggregate results. The grouping distinguishes model families, not matched training budgets. Read the gray human row separately from learned baselines. Bold and underline identify the paper’s best and second-best results; they do not indicate confidence intervals or statistical significance.",
+      "takeaway": "DynVLA reports 91.7 PDMS, 1.4 points above the 90.3 entries for AdaThinkDrive and AutoDrive-R2, while the human reference remains higher at 94.8. Its 86.8 progress score accompanies strong safety/compliance scores, but it does not lead every component column. This is the final-model result, distinct from the 87.2 SFT ablation.",
+      "caution": "The source does not name the exact evaluated split here or establish equal pretraining and compute across methods. Benchmark PDMS is not a physical-road collision rate, and these point estimates provide no run-to-run uncertainty.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e14"
+      ]
+    },
+    {
+      "id": "cot-latency",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 6,
+      "asset": "report-assets/ref-1bd6e05d156a43be4c51/cot-latency.png",
+      "width": 1157,
+      "height": 346,
+      "sourceSha256": "35129e87321794e7bfdcf4ad34e6658fdda7d9bf8117988443ac8243060dcc64",
+      "sourceUrl": "https://arxiv.org/pdf/2603.11041#page=6",
+      "crop": [
+        0.499,
+        0.249,
+        0.888,
+        0.339
+      ],
+      "alt": "Six CoT designs compared by latency and planning scores; dynamics has 0.37-second latency and 87.2 PDMS, versus 0.20 seconds and 85.6 without CoT.",
+      "caption": "Compact dynamics improves the reported quality/latency tradeoff.",
+      "readingGuide": "Read the latency and PDMS columns together rather than ranking either in isolation. The first row provides the no-reasoning baseline. Scene Description and Meta Action encode different textual abstractions; Future Image and Optical Flow use denser visual outputs. Dynamics supplies the compact learned transition representation. The caption specifies a single NVIDIA H800 GPU for latency measurement. Its 87.2 PDMS matches the Dynamics CoT SFT row of Table 5, so this comparison should not be combined with the final 91.7 score as though both described one measured operating point.",
+      "takeaway": "Dynamics improves PDMS from 85.6 to 87.2 at an added 0.17 seconds over no CoT. Its reported latency is approximately 8.2 times lower than scene descriptions and 6.2 times lower than future images, calculated from the displayed values. It remains slower than direct action prediction despite being faster than the compared reasoning variants.",
+      "caution": "The introduction claims more than an order-of-magnitude latency reduction, which these total latencies do not establish. The table does not give uncertainty, workload variation or a complete latency breakdown, so the ratios describe this reported measurement only.",
+      "evidenceIds": [
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "id": "tokenizer-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 6",
+      "page": 7,
+      "asset": "report-assets/ref-1bd6e05d156a43be4c51/tokenizer-ablation.png",
+      "width": 1157,
+      "height": 296,
+      "sourceSha256": "35129e87321794e7bfdcf4ad34e6658fdda7d9bf8117988443ac8243060dcc64",
+      "sourceUrl": "https://arxiv.org/pdf/2603.11041#page=7",
+      "crop": [
+        0.499,
+        0.415,
+        0.888,
+        0.492
+      ],
+      "alt": "Tokenizer ablation table showing checks for decoupling, image reconstruction and BEV reconstruction; full design reaches 87.2 PDMS.",
+      "caption": "The gain depends on how dynamics is learned, not merely on adding tokens.",
+      "readingGuide": "Use the three design columns as a checklist. The first Dynamics CoT row retains image and BEV reconstruction but omits Decouple. The next row uses decoupling with BEV only; the following row uses decoupling with image only; the final row enables all three. Section 4.3 defines Decouple as both separate ego/environment queries and ego-action regularization. Compare these rows against the no-CoT reference above them. Figure 5 on the same page adds a diagnostic: activated-code counts remain much lower without the bundled decoupling design, consistent with its weak planning improvement.",
+      "takeaway": "With both reconstruction branches but no decoupling, PDMS is 85.8, close to the 85.6 no-CoT baseline. The complete tokenizer reaches 87.2. BEV-only and image-only variants with decoupling reach 86.2 and 86.7 respectively. Thus the reported best setting combines the physical supervision/factorization bundle with both reconstruction views.",
+      "caution": "The Decouple switch changes two mechanisms together; this table cannot assign the gain separately to queries or action supervision. Activated-code counts diagnose utilization, but neither code utilization nor these planning scores alone proves semantic disentanglement.",
+      "evidenceIds": [
+        "e04",
+        "e15"
+      ]
+    },
+    {
+      "id": "prediction-horizon",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 7",
+      "page": 14,
+      "asset": "report-assets/ref-1bd6e05d156a43be4c51/prediction-horizon.png",
+      "width": 1157,
+      "height": 323,
+      "sourceSha256": "35129e87321794e7bfdcf4ad34e6658fdda7d9bf8117988443ac8243060dcc64",
+      "sourceUrl": "https://arxiv.org/pdf/2603.11041#page=14",
+      "crop": [
+        0.499,
+        0.129,
+        0.888,
+        0.213
+      ],
+      "alt": "Future-dynamics horizon ablation for K from one to four, showing rising latency and PDMS peaking at K equals two.",
+      "caption": "Two seconds is the best tested lookahead in this ablation.",
+      "readingGuide": "The leftmost column varies K, the number of predicted future transitions, not the length of the action-token sequence. Appendix C specifies one-second spacing, so K equals two covers two seconds. At eight dynamics tokens per transition, the default produces sixteen dynamics tokens; extending K also increases the generated prefix. Compare each row’s latency with its PDMS to see the cost of longer reasoning. The no-CoT row anchors the comparison. Table 8, also on this page, studies a different axis—the per-transition token budget and its ego/environment allocation—which should not be confused with K.",
+      "takeaway": "PDMS rises from 86.5 at K=1 to 87.2 at K=2, then falls to 86.7 and 86.6 for K=3 and K=4. Latency increases from 0.27 to 0.61 seconds across the tested horizons. Longer prediction therefore fails to buy better average planning in this configuration, motivating the paper’s two-second default.",
+      "caution": "The authors attribute the decline to uncertain long-range dynamics, but the table does not directly measure uncertainty. Horizon and generated-token count change together, and the absence of repeated-run statistics limits interpretation of the smaller score differences.",
+      "evidenceIds": [
+        "e07",
+        "e16",
+        "e17"
+      ]
+    },
+    {
+      "id": "failure-cases",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 10",
+      "page": 18,
+      "asset": "report-assets/ref-1bd6e05d156a43be4c51/failure-cases.png",
+      "width": 1632,
+      "height": 841,
+      "sourceSha256": "35129e87321794e7bfdcf4ad34e6658fdda7d9bf8117988443ac8243060dcc64",
+      "sourceUrl": "https://arxiv.org/pdf/2603.11041#page=18",
+      "crop": [
+        0.168,
+        0.343,
+        0.808,
+        0.598
+      ],
+      "alt": "Three rows of failure examples, each showing a planning map, current camera image, decoded predicted future and ground-truth future; scenes include a lead vehicle, a turn and rain.",
+      "caption": "When an incorrect imagined transition guides the next action.",
+      "readingGuide": "Read each visible row from current observation to decoded future and ground-truth future, then inspect the planning map at the left. The upper example concerns a leading vehicle; the middle example shows a turning scene; the bottom example has degraded rainy imagery. The point is the disagreement between the imagined and observed future, not the visual sharpness of the reconstruction. Figure 6 provides the shared map key, including human and planned trajectories. Appendix F discusses agent-intention errors, drivable-area errors and degraded observations, but its row numbering does not align with the three-row graphic supplied here.",
+      "takeaway": "These selected examples illustrate the vulnerability of an explicit dynamics prefix: a mistaken forecast can accompany an unsuitable trajectory. This supports the authors’ stated concern about error propagation and motivates testing the dependence of actions on prefix content. The examples establish possible failure modes, not their prevalence in the benchmark.",
+      "caution": "Appendix F refers to four rows, while Figure 10 has three; the exact row mapping remains unresolved. No standalone legend or failure frequency is supplied in Figure 10. The crop preserves the original layout rather than inventing a missing example.",
+      "evidenceIds": [
+        "e19",
+        "e20",
+        "e21"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Why reconstructing a future can still produce useless tokens",
+      "kind": "source",
+      "text": "The tokenizer is trained from image pairs, but its decoder also sees the current state. That shortcut is useful: it lets the decoder recover background without forcing a tiny code sequence to store the whole scene. It also creates a failure mode. If reconstruction is dominated by information already available in the current observation, the dynamics codes may carry little useful change. DynVLA addresses this with separate query/codebook branches and an ego-action regression target. The same codes must additionally support both image and BEV reconstruction. Figure 5 and Table 6 connect this bundled design to greater code utilization and improved planning. They support the design as a package, while leaving the independent contribution of query separation versus action supervision unresolved.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e15"
+      ]
+    },
+    {
+      "heading": "Turn hindsight targets into a foresight-conditioned policy",
+      "kind": "source",
+      "text": "During target construction, the tokenizer can inspect the actual current and future frames. Those codes summarize what happened; they are not predictions yet. SFT teaches DynVLA to predict the codes from observation history, instruction and ego state, then to predict actions conditioned on that prefix. Equation (8) makes the dependence explicit: the action likelihood sees the complete dynamics sequence. The default uses two one-second transitions, giving sixteen dynamics tokens before action generation. Frozen target tokenizers in Figure 2 should therefore be read as teachers, not as a requirement to observe the future at deployment. This distinction also explains the taxonomy: one policy performs future-conditioned action generation, while separate training modules define its intermediate representation.",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e07"
+      ]
+    },
+    {
+      "heading": "Reward the trajectory while keeping the reasoning format",
+      "kind": "source",
+      "text": "SFT teaches the order and content of the output, but its action targets remain imitation-based. RFT evaluates sampled sequences with PDMS and a binary format reward, standardizes rewards within a group, and updates the policy using GRPO with clipping and KL to the frozen SFT reference. The trajectory score rewards the outcome; the format reward only checks that the required organization is preserved. Table 5 helps separate these effects empirically: EMU3 improves from 85.6 to 88.7 with RFT without Dynamics CoT, while the dynamics-conditioned model rises from 87.2 to 91.7. This supports complementarity in the reported runs. It does not certify that every generated intermediate forecast is correct, especially given the failures acknowledged in Appendix E.",
+      "evidenceIds": [
+        "e06",
+        "e09",
+        "e14",
+        "e20"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate query factorization from action supervision",
+      "text": "Reader-proposed check, not performed: run a two-by-two tokenizer experiment with shared versus branch-specific queries and ego-action regularization off versus on. Keep total query count, total codebook capacity, both reconstruction branches, data, optimizer and downstream SFT budget fixed; leave RFT off initially. Across matched seeds, compare activated-code counts, held-out ego-motion prediction error and planning PDMS. If action supervision alone recovers the utilization and planning gain, separate queries are not independently necessary under this setting. If only the combination works, the interaction is the meaningful result. This resolves a confound in Table 6 rather than repeating its bundled switch.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e08",
+        "e15"
+      ]
+    },
+    {
+      "title": "Intervene on the predicted dynamics prefix",
+      "text": "Reader-proposed check, not performed: freeze the same K=2 SFT policy and compare its normal sixteen-token prefix with shuffled ego tokens, shuffled environment tokens, and oracle tokens extracted from the actual future. Preserve prefix length, delimiters and action decoding settings; use the same held-out scenes and report PDMS components plus intention/turning/degraded-view subsets. Oracle futures are a diagnostic upper bound, not deployable input. If branch-specific corruption leaves actions and scores unchanged, the claimed role of meaningful dynamics is weakened. If oracle prefixes improve scores and targeted corruption produces corresponding failures, that supports useful content dependence, while still not proving complete disentanglement.",
+      "evidenceIds": [
+        "e05",
+        "e07",
+        "e09",
+        "e14",
+        "e20",
+        "e21"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18
+    ],
+    "notes": "Inspected the title/author page; all ten figures; all eight tables; method, objective, protocol and appendix implementation pages supporting retained claims. Every final original crop was inspected at its actual rendered size. Equations and training-stage diagrams were cross-checked for generation order and frozen modules. Figure 2’s summarized decoder was reconciled with Eq. (3); Figure 1’s token shorthand was distinguished from Appendix B’s default sequence. Appendix F/Figure 10 row mismatch is disclosed. Pages 9–12 contain references and were read in full as text. No separate supplement, external code or experiment execution was inspected."
+  }
+}

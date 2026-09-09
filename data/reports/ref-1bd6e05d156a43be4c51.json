@@ -1,0 +1,506 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-1bd6e05d156a43be4c51",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T19:09:36.029Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2603.11041",
+      "title": "DynVLA: Learning World Dynamics for Action Reasoning in Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "35129e87321794e7bfdcf4ad34e6658fdda7d9bf8117988443ac8243060dcc64",
+      "wordCount": 10981,
+      "accessedAt": "2026-09-07T14:08:00.082508+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1. Introduction",
+      "2. Related Works (2.1–2.2)",
+      "3. Method (3.1–3.3)",
+      "4. Experiments (4.1–4.4)",
+      "5. Conclusion",
+      "Impact Statement",
+      "References",
+      "Appendix A. Datasets and Metrics",
+      "Appendix B. Implementation Details",
+      "Appendix C. More Ablation Studies",
+      "Appendix D. More Qualitative Comparisons",
+      "Appendix E. Limitations and Future Works",
+      "Appendix F. Failure Cases",
+      "Appendix G. More Related Works (G.1–G.2)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This acquisition limitation was addressed by inspecting every figure and table in the supplied PDF.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity/version: the exact title and all twelve catalog authors match the inspected title page. This is arXiv:2603.11041v2, stamped 13 March 2026, with a preprint footer dated 16 March 2026. The catalog’s ICML 2026 venue is not established by this preprint; no venue edition or earlier revision was supplied for comparison.",
+      "All seven text chunks were read, covering all eighteen pages. Visual inspection covered pages 1–8 and 13–18; reference-only pages 9–12 were read as text.",
+      "Code, external project material and separate supplements were not inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8",
+      "Figure 9",
+      "Figure 10"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7",
+      "Table 8"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "DynVLA represents driving foresight with discrete ego-motion and environment-motion tokens, then conditions trajectory generation on them. A separately trained tokenizer supplies targets; one autoregressive policy learns dynamics-first action generation and undergoes reinforcement fine-tuning. Reported NAVSIM PDMS reaches 91.7. The tradeoff is compact prediction versus propagation of prediction errors into planning, with benchmark gains but incomplete reproduction details and no demonstrated physical-road deployment (e03–e16, e20–e22).",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Driving requires anticipating nearby agents and road geometry. The authors argue that linguistic descriptions underspecify these relationships, while dense future images spend computation on background and texture. Dynamics CoT aims to preserve motion relevant to planning with fewer generated tokens. It is a learned forecasting representation, not an explicit physics solver.",
+    "kind": "analysis",
+    "evidenceIds": [
+      "e02",
+      "e03",
+      "e04"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Predicted future transitions explicitly condition action generation, rather than serving only as auxiliary training targets.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05"
+      ]
+    },
+    {
+      "text": "Separate ego/environment codebooks, supervised ego-motion regularization and shared image/BEV reconstruction encourage dynamics factorization.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04"
+      ]
+    },
+    {
+      "text": "Experiments cover planning, training stages, codebook activity, token capacity, prediction horizon, qualitative transfers and failures.",
+      "kind": "source",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e12",
+        "e14",
+        "e15",
+        "e16",
+        "e17",
+        "e18",
+        "e21"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Policy: current and one-second-old front-view images, text instruction and ego state (e05, e07).",
+      "Tokenizer training additionally needs future images, current/future BEV maps and relative ego motion (e03, e04, e07)."
+    ],
+    "outputs": [
+      "Dynamics tokens followed by FAST action tokens representing an ego trajectory (e05).",
+      "Tokenizer reconstructions of future image/BEV support supervision and visualization; they are not executed driving (e04, e19)."
+    ],
+    "steps": [
+      {
+        "name": "Encode transitions",
+        "detail": "Patchify adjacent images and aggregate change with ego and environment query sets. Quantize each branch with a separate nearest-neighbor codebook, then concatenate the codes. Defaults are four tokens per branch and 64 entries per codebook.",
+        "evidenceIds": [
+          "e03",
+          "e07"
+        ]
+      },
+      {
+        "name": "Constrain the bottleneck",
+        "detail": "Decode shared dynamics embeddings into future image and BEV, conditioned on their current representations. A two-layer MLP predicts relative ego motion from ego codes. Current-state conditioning reduces static-information demands; action supervision discourages uninformative dynamics.",
+        "evidenceIds": [
+          "e04",
+          "e15"
+        ]
+      },
+      {
+        "name": "Learn the ordered sequence",
+        "detail": "Frozen tokenizers supervise dynamics followed by FAST actions, with start/end markers for each span. The causal policy learns both spans; action predictions see the dynamics prefix.",
+        "evidenceIds": [
+          "e05"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Tokenizer training combines image MSE/LPIPS, BEV cross-entropy, VQ loss and squared ego-action error. Hidden width is 1024, with a 12-layer encoder, two 8-layer decoders and 32-dimensional VQ embeddings. BEV weight is 0.1; other listed loss weights are 1.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e07",
+          "e08"
+        ]
+      },
+      {
+        "text": "EMU3 is the default backbone. SFT equally weights dynamics/action likelihood losses. GRPO samples candidate sequences, standardizes group rewards and uses clipped policy updates plus KL to a frozen SFT reference. PDMS trajectory and binary format rewards each have weight 1.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e08"
+        ]
+      },
+      {
+        "text": "Tokenizer/SFT/RFT use 200k/4k/6k steps on 8 L20/8 L20/6 H800 GPUs. Peak learning rates are 1e-4/1e-4/2e-6. These are reported configurations, not measured reproduction costs.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Generate future dynamics, then action tokens, from the observation/instruction/state context. Two one-second transitions contain sixteen dynamics tokens before delimiters. Figure 1’s eight-token shorthand describes the per-transition budget, not the complete default prefix.",
+        "kind": "source",
+        "evidenceIds": [
+          "e02",
+          "e05",
+          "e07"
+        ]
+      },
+      {
+        "text": "Future images supply training targets; inference predicts their dynamics from available context. Image/BEV reconstruction and the ego regularization head are training/visualization machinery. Dense future-image generation is not required by the described action path; controller details and replanning cadence remain unspecified.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e22"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}=\\mathcal{L}_{\\mathrm{recon}}^{\\mathrm{img}}+\\lambda_{\\mathrm{bev}}\\mathcal{L}_{\\mathrm{recon}}^{\\mathrm{bev}}+\\lambda_{\\mathrm{vq}}\\mathcal{L}_{\\mathrm{VQ}}+\\lambda_{\\mathrm{act\\text{-}reg}}\\mathcal{L}_{\\mathrm{act\\text{-}reg}}",
+        "explanation": "Eq. (4): reconstruction trains future decoding; VQ trains discretization; action regularization aligns ego codes with measured motion. Each lambda weights its named loss.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{act}}=-\\sum_{n=0}^{N-1}\\log p_\\theta(\\mathcal{A}_{t+n}\\mid\\mathcal{A}_{t:t+n-1},\\mathcal{D}_{t:t+K-1},c_t)",
+        "explanation": "Eq. (8): policy parameters theta predict action tokens A given earlier actions, future-dynamics tokens D and context c_t. N counts action tokens; K counts transitions. This conditioning implements the future-to-action mechanism.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "\\mathrm{PDMS}=\\mathrm{NC}\\times\\mathrm{DAC}\\times\\frac{5\\mathrm{EP}+5\\mathrm{TTC}+2\\mathrm{C}}{12}",
+        "explanation": "Eq. (11): no-at-fault collision (NC) and drivable-area compliance (DAC) gate ego progress (EP), time-to-collision (TTC) and comfort (C). Multiplying table component averages need not reproduce average trajectory PDMS.",
+        "evidenceIds": [
+          "e09"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "NAVSIM trajectory planning",
+      "setting": "Table 1 standard benchmark protocol; exact split identifier unreported.",
+      "metric": "PDMS, higher better",
+      "value": "91.7",
+      "comparison": "AdaThinkDrive and AutoDrive-R2: 90.3 each; human reference: 94.8.",
+      "interpretation": "A 1.4-point lead over the strongest listed learned baselines, below the human reference. Cross-method comparisons do not isolate Dynamics CoT.",
+      "evidenceIds": [
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "Bench2Drive closed-loop driving",
+      "setting": "Interactive benchmark; exact evaluated route set/run counts unreported.",
+      "metric": "Driving Score / Success Rate / mean Multi-Ability",
+      "value": "88.34 / 72.73 / 72.23",
+      "comparison": "SimLingo: 85.07 / 67.27 / unreported. Privileged PDM-Lite: 97.02 / 92.27 / 92.82.",
+      "interpretation": "Best among reported nonprivileged entries, not all rows. Simulated closed-loop performance does not establish physical-road safety.",
+      "evidenceIds": [
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "task": "In-house three-second trajectory prediction",
+      "setting": "Training on 700k in-house frames; held-out split size/access unspecified.",
+      "metric": "ADE (m) / collision rate (per ten thousand)",
+      "value": "1.215 / 4.04",
+      "comparison": "DriveVLA-W0 (ViT): 1.344 / 5.13.",
+      "interpretation": "Lower displacement error and predicted-trajectory collision rate, not measured deployed collision statistics.",
+      "evidenceIds": [
+        "e09",
+        "e12"
+      ]
+    },
+    {
+      "task": "CoT quality and inference latency",
+      "setting": "Table 4, single NVIDIA H800; dynamics row matches Table 5 SFT-only performance.",
+      "metric": "PDMS / latency (s)",
+      "value": "87.2 / 0.37",
+      "comparison": "No CoT: 85.6 / 0.20; scene description: 85.3 / 3.04; future image: 86.3 / 2.29.",
+      "interpretation": "Calculated total-latency speedups are approximately 8.2× and 6.2× over descriptions and images, below the introduction’s >10× claim. Dynamics adds 0.17 s over direct prediction.",
+      "evidenceIds": [
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "task": "Dynamics CoT and reinforcement fine-tuning",
+      "setting": "Table 5, controlled stage comparisons on two backbones.",
+      "metric": "PDMS",
+      "value": "EMU3 SFT without/with Dynamics CoT: 85.6/87.2; SFT+RFT without/with Dynamics CoT: 88.7/91.7.",
+      "comparison": "Qwen2.5-VL corresponding scores: 85.3/86.6 and 88.4/91.0.",
+      "interpretation": "Dynamics conditioning and reinforcement refinement are complementary in these runs; uncertainty across seeds is absent.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Tokenizer design and prediction horizon",
+      "setting": "Tables 6–8, planning ablations without reported run-to-run uncertainty.",
+      "metric": "PDMS and latency",
+      "value": "Full tokenizer: 87.2; without decoupling: 85.8. K=2: 87.2 at 0.37 s; K=4: 86.6 at 0.61 s.",
+      "comparison": "Decoupled BEV-only: 86.2; image-only: 86.7. Balanced eight-token allocation beats tested four/sixteen-token alternatives.",
+      "interpretation": "More capacity/foresight does not monotonically help. Decoupling changes queries and action supervision together, leaving individual effects unresolved.",
+      "evidenceIds": [
+        "e15",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Inaccurate agent intentions, novel-view geometry and degraded observations can corrupt dynamics and subsequent actions. Appendix F’s four-row references conflict with the three visible rows in Figure 10; exact row mapping remains unresolved.",
+      "kind": "source",
+      "evidenceIds": [
+        "e20",
+        "e21"
+      ]
+    },
+    {
+      "text": "Selected transfer/reconstruction examples do not quantify disentanglement or establish that faithful dynamics cause planning gains. The coupled decoupling ablation confounds architecture and supervision.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e15",
+        "e18",
+        "e19"
+      ]
+    },
+    {
+      "text": "Exact splits, route/sample counts, software versions and statistical uncertainty are missing. The fast/slow controller is proposed future work; the experiments do not demonstrate on-road deployment.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e20",
+        "e22"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Require the referenced EMU3 pretraining, FAST, temporal front images, ego-motion labels and BEV supervision. Match two one-second transitions, four tokens per branch and 2048 action-token types. AdamW betas are 0.9/0.95, batches 32/6/6, cosine warm-ups 1000/100/500 steps; RFT accumulation is 6 and KL coefficient 1e-3.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "text": "A faithful rerun needs exact splits, the external pretraining recipe, GRPO group size/clipping, sampling settings and controller details. Proposed checks should separate query/action-supervision factors and intervene on the dynamics prefix; neither has been run.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e15",
+        "e22"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Latent prediction & JEPA",
+        "Visual planning & IDM"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q2 · One Model × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "ae455c9e6b2a1dcd9145d06e2408e6ad3b83665247a7c82c7fed9f3741e96947"
+    },
+    "reasoning": {
+      "text": "One Model holds at the inference-policy level: one causal DynVLA backbone generates dynamics and then actions. IDM is supported as future-conditioned action generation, with no separate inverse-dynamics network required at inference. The tokenizer and auxiliary action decoder are training machinery. Latent prediction is supported; a JEPA objective is not described.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does action generation depend on correct dynamics, or would an equally long uninformative prefix retain the gain? (e05, e14)",
+    "How much tokenizer improvement comes from separate queries versus ego-action supervision? (e15)",
+    "Can prediction uncertainty identify failures before unsafe actions are selected? (e20, e21)"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block, arXiv margin and preprint footer",
+      "detail": "Exact title and all twelve authors match. The margin says arXiv:2603.11041v2, 13 Mar 2026; the footer says Preprint, March 16, 2026. Affiliations are CASIA and Yinwang Intelligent Technology Co. Ltd."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract, Figure 1 and Section 1",
+      "detail": "Dynamics CoT is proposed as compact future-dynamics reasoning between observations and actions, contrasting textual descriptions and dense image prediction. Figure 1 labels eight dynamics tokens."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2(a), Section 3.1, Eqs. (1)–(2)",
+      "detail": "Adjacent images and separate ego/environment queries feed a Transformer encoder. Separate nearest-neighbor VQ codebooks produce concatenated dynamics tokens."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Eqs. (3)–(4) and action-regularization paragraph",
+      "detail": "Shared dynamics embeddings reconstruct future image/BEV conditioned on the current representations. A two-layer action decoder supervises ego codes with squared relative-motion error. The objective combines reconstruction, VQ and action regularization."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–5, Figures 2(b) and 3, Section 3.2, Eqs. (5)–(9)",
+      "detail": "Frozen tokenizers supervise dynamics before FAST action tokens. Context is current/previous images, text and ego state. Both spans have start/end markers; action likelihood conditions on the full dynamics prefix."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Figure 3 Stage 3, Section 3.3 and Eq. (10)",
+      "detail": "GRPO samples sequences, uses group-standardized trajectory/format rewards, clipped policy ratios and KL to a frozen SFT reference. Trajectory PDMS is in [0,1]."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Appendix B, Dynamics Tokenizer and Dynamics CoT SFT",
+      "detail": "Each transition has four ego/four environment tokens and two 64-entry codebooks. VQ dimension is 32, hidden width 1024, encoder 12 layers, decoders 8 layers. Two one-second transitions yield sixteen tokens. FAST has 2048 types; inputs use current and one-second-old front views."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix B, all training-stage paragraphs",
+      "detail": "Tokenizer/SFT/RFT: 200k/4k/6k steps; 8 L20/8 L20/6 H800 GPUs; peak rates 1e-4/1e-4/2e-6; warm-ups 1000/100/500; batches 32/6/6; AdamW betas 0.9/0.95. RFT accumulation is 6, KL 1e-3. BEV weight is 0.1, other listed weights 1."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix A, all dataset paragraphs and Eq. (11)",
+      "detail": "PDMS combines NC, DAC, EP, TTC and comfort. Bench2Drive measures destination success, penalized driving score and five-ability mean. The in-house dataset has 700k frames and a three-second displacement/collision evaluation; exact splits/counts are not specified."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, DynVLA, Human, AdaThinkDrive, AutoDrive-R2 and component columns",
+      "detail": "DynVLA PDMS is 91.7; strongest listed learned comparators are 90.3, Human 94.8. DynVLA components are NC 98.6, DAC 98.7, TTC 95.5, C 100 and EP 86.8."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2, DynVLA, SimLingo, TF++, privileged rows and dagger definition",
+      "detail": "DynVLA reports 88.34 DS, 72.73 SR, 72.23 mean ability. SimLingo has 85.07/67.27, no ability mean; TF++ ability mean is 64.39. Privileged Think2Drive and PDM-Lite exceed DynVLA; PDM-Lite has 97.02/92.27/92.82."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 3 and in-house paragraph; p. 13, Appendix A, In-House Dataset",
+      "detail": "DynVLA ADE/collision: 1.215 m/4.04 per ten thousand; DriveVLA-W0 ViT: 1.344 m/5.13. Comparison methods are reimplemented; collisions concern predicted trajectories within three seconds."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 4 and caption; p. 2, Section 1 latency claim",
+      "detail": "Single-H800 latency/PDMS: no CoT 0.20/85.6; description 3.04/85.3; meta-action 0.43/86.0; image 2.29/86.3; flow 2.29/86.4; dynamics 0.37/87.2. Total-latency ratios do not reach the introduction’s claimed order-of-magnitude reduction."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 5, checked stage columns for EMU3 and Qwen2.5-VL",
+      "detail": "EMU3 SFT without/with Dynamics CoT scores 85.6/87.2; adding RFT gives 88.7/91.7. Qwen2.5-VL follows the same ordering: 85.3/86.6 and 88.4/91.0."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 5, Table 6 and Section 4.3; p. 8, continued ablation analysis",
+      "detail": "Full tokenizer PDMS 87.2; no decoupling with both reconstruction branches 85.8; decoupled BEV-only 86.2; image-only 86.7. Decoupling jointly introduces separate queries and action regularization. Figure 5 compares activated-code trajectories."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix C, Table 7 and horizon analysis",
+      "detail": "K=1/2/3/4 gives latency 0.27/0.37/0.49/0.61 seconds and PDMS 86.5/87.2/86.7/86.6. Transitions are one second apart; K=2 is default."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix C, Table 8 and token-allocation analysis",
+      "detail": "Eight tokens with 4/4 allocation score 87.2; 2/6 and 6/2 score 86.9/86.4. Four total tokens score 86.4; sixteen score 86.5."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 4 and caption; p. 16, Figure 8",
+      "detail": "Selected cross-scene transfers change ego/agent motion in decoded image/BEV, providing qualitative transferability demonstrations."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 6 and Section 4.4; p. 15, Figure 7 and Appendix D; p. 17, Figure 9",
+      "detail": "The figures compare planning with/without Dynamics CoT and tokenizer reconstructions. Figure 6 supplies the semantic/trajectory legend, with green human and red planned trajectories."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Appendix E",
+      "detail": "The authors acknowledge that inaccurate future dynamics can induce action errors, proposing richer priors and a future fast/slow architecture."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix F; p. 18, Figure 10 and caption",
+      "detail": "Failures involve agent intentions, turning/drivable-area mistakes and degraded rainy observations. The figure has three rows; Appendix F refers to first/second, third and fourth rows, an unresolved inconsistency."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Appendices A–B; p. 5, Section 3.3",
+      "detail": "Implementation refers to external pretraining, but does not provide exact splits, software versions, GRPO group size/clipping, full controller details or statistical uncertainty."
+    }
+  ]
+}
