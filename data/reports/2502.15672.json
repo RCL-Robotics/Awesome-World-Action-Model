@@ -1,0 +1,439 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2502.15672",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T00:00:34.180Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2502.15672",
+      "title": "VaViM and VaV AM: Autonomous Driving through Video Generative Modeling",
+      "kind": "pdf",
+      "sha256": "1a794642eaa61c2d67884b67a7b280ce3eedbfda435d3daefaeb88c99702d0dc",
+      "wordCount": 13589,
+      "accessedAt": "2026-09-07T14:13:02.852780+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; Section 1 Introduction (pp. 1–2)",
+      "Sections 2.1–2.3 Related work and evaluation (pp. 2–5)",
+      "Sections 3.1–3.2 Video model and action expert (pp. 5–8)",
+      "Sections 4.1–4.5 Data, scaling, fine-tuning, imitation learning and implementation (pp. 8–13)",
+      "Sections 5.1–5.2 Generation, semantics, open-loop and closed-loop experiments (pp. 13–19)",
+      "Section 6 Conclusion and Acknowledgements (p. 19)",
+      "Detailed Contributions and References (pp. 20–26)"
+    ],
+    "omissions": [
+      "All eight supplied text chunks were read individually, covering all 26 PDF pages. No appendix is present.",
+      "Identity: inspected arXiv:2502.15672v1, dated 21 February 2025; all 17 authors agree with the catalog. No later revision or alternative edition was supplied or compared. The manifest's observedTitle retains extracted 'VaV AM' spacing; the rendered title uses 'VaVAM'.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The retained PDF was visually inspected on pages 1–19, including every method/result evidence page and all eight figures and six tables. Reference/contribution pages 20–26 were read as text only.",
+      "No code, external project pages, separate supplements or model weights were inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, pipeline (p. 5)",
+      "Figure 2, action expert and attention mask (p. 8)",
+      "Figure 3, dataset views (p. 9)",
+      "Figure 4, trajectory distributions (p. 10)",
+      "Figure 5, fitted scaling law (p. 10)",
+      "Figure 6, generated video (p. 14)",
+      "Figure 7, representation PCA (p. 15)",
+      "Figure 8, collision/progress diagnostic (p. 18)"
+    ],
+    "tablesReviewed": [
+      "Table 1, model inventory (p. 3)",
+      "Table 2, generation FID (p. 13)",
+      "Table 3, semantic probing (p. 14)",
+      "Table 4, open-loop minADE (p. 16)",
+      "Table 5, NeuroNCAP comparison (p. 17)",
+      "Table 6, scaling diagnostic (p. 18)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "VaViM learns camera-history representations by predicting discrete video tokens; VaVAM adds a flow-matching expert that generates driving trajectories. Larger models improve image-distribution fidelity and best-of-five trajectory matching, yet closed-loop collision avoidance does not improve consistently. This is a study of generative representation transfer to reactive imitation, with simulated driving evaluation and an explicit gap to predictive planning. [e-overview, e-open, e-diagnostic, e-limits]",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Can unlabeled driving-video prediction provide useful features for decisions? The paper separates perceptual plausibility, semantic transfer and driving behavior, because matching recorded expert trajectories cannot measure how errors change subsequent observations.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-overview",
+      "e-simulator"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A scalable autoregressive video model and companion action expert span three backbone sizes, with distinct video pre-training, target-domain adaptation and trajectory imitation stages.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-sizes",
+        "e-video",
+        "e-action"
+      ]
+    },
+    {
+      "text": "The experiments expose a tradeoff between tighter trajectory following and collision avoidance, motivating progress and route-deviation metrics alongside safety scores.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-diagnostic",
+        "e-metric-gap"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Up to eight front-camera RGB observations sampled at 2 Hz",
+      "High-level command: left, right or straight; Gaussian trajectory noise for action sampling"
+    ],
+    "outputs": [
+      "VaViM: sequential future image tokens, decodable to video",
+      "VaVAM: six future [x,y] BEV ego-positions at 2 Hz, spanning three seconds"
+    ],
+    "steps": [
+      {
+        "name": "Compress and predict video",
+        "detail": "A pre-trained LlamaGen VQGAN tokenizer maps each 512×288 frame to 576 discrete tokens. VaViM uses a 24-layer GPT-2-style decoder, learned spatial/temporal embeddings and causal attention; eight frames occupy 4,608 tokens. Tokenizer pre-training is described separately from the imported tokenizer used here.",
+        "evidenceIds": [
+          "e-video",
+          "e-implementation"
+        ]
+      },
+      {
+        "name": "Condition a trajectory expert",
+        "detail": "An MLP encodes noisy waypoints with flow-time, action-time and command embeddings. Layer-wise joint attention supplies video features, while a linear decoder predicts a vector field. Action queries see available camera history and their own waypoint block; visual queries remain causal and do not consume actions.",
+        "evidenceIds": [
+          "e-action",
+          "e-mask"
+        ]
+      },
+      {
+        "name": "Keep action sampling compact",
+        "detail": "The expert matches the backbone's attention dimensions but reduces its MLP dimensionality fourfold. This supports repeated denoising passes without requiring the entire action stream to use the video's feed-forward width.",
+        "evidenceIds": [
+          "e-mask",
+          "e-implementation"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Video learning uses teacher-forced next-token cross-entropy. OpenDV provides over 1,700 hours before filtering: intros/outros are removed, only Full HD videos retained, and overlapping eight-frame clips sampled at 2 Hz. Target adaptation mixes OpenDV, nuPlan and nuScenes; imitation requires synchronized expert ego-trajectories from the latter two datasets.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-video",
+          "e-data",
+          "e-mix"
+        ]
+      },
+      {
+        "text": "Maximal Update Parametrization transfers settings across widths, and an empirical loss law models data/model scaling. Its flagship prediction error is reported as 0.003 (0.06%); this concerns token loss, not driving safety. Flow matching then regresses a conditional transport field from interpolated noise/expert trajectories, using a beta-distributed schedule.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-scaling",
+          "e-flow",
+          "e-implementation"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Initialize the six-waypoint trajectory with Gaussian noise and apply ten forward-Euler updates conditioned on observations and the command. NeuroNCAP executes model decisions in simulation and renders subsequent observations. The reported pipeline does not score imagined future videos, use a reward model, or demonstrate physical-road deployment.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-flow",
+          "e-simulator",
+          "e-limits"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "A_t^{\\tau}=\\tau A_t+(1-\\tau)\\epsilon,\\qquad \\epsilon\\sim\\mathcal{N}(0,I)",
+        "explanation": "Eq. (7): A_t is the expert future trajectory, epsilon is Gaussian noise and tau is the interpolation variable. The equation places noise at tau=0 and expert actions at tau=1. The following source sentence reverses those endpoints; the equation agrees with the stated sampling initialization.",
+        "evidenceIds": [
+          "e-flow"
+        ]
+      },
+      {
+        "expression": "A_t^{\\tau+\\delta}=A_t^{\\tau}+\\delta\\,v_{\\theta}(A_t^{\\tau},O_t,c_t)",
+        "explanation": "Eq. (9): v_theta is the learned denoising vector field, O_t the observed image history, c_t the command and delta the Euler increment. Ten updates transform the initial noise toward demonstrated trajectories; the output is a path, not a motor-control command.",
+        "evidenceIds": [
+          "e-flow",
+          "e-action"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Future-frame generation on KITTI and nuScenes",
+      "setting": "Four observed frames followed by four generated frames; fine-tuned models; DINOv2-feature FID against context-frame features.",
+      "metric": "FID@4 ↓",
+      "value": "VaViM-L: KITTI 24.7; nuScenes 26.1.",
+      "comparison": "VaViM-S: 34.5/39.8; VaViM-B: 30.0/38.6; tokenizer oracle: 8.1/10.4.",
+      "interpretation": "Scaling improves this image-distribution metric. The oracle has access to real future frames; neither FID nor this comparison measures collision avoidance.",
+      "evidenceIds": [
+        "e-fid"
+      ]
+    },
+    {
+      "task": "Semantic transfer to Cityscapes",
+      "setting": "Humming-bird probing of layer-12 features; ten sampled patch features per image; Cityscapes absent from video-training mix.",
+      "metric": "mIoU ↑",
+      "value": "Fine-tuned VaViM-B 20.8; VaViM-L 18.4.",
+      "comparison": "DINOv2-B 43.4; DINOv2-L 13.0.",
+      "interpretation": "The larger video model is worse in this probe. The table also contradicts the prose's claim that DINO models always outperform VaViM.",
+      "evidenceIds": [
+        "e-semantics"
+      ]
+    },
+    {
+      "task": "Open-loop trajectory matching",
+      "setting": "nuScenes/nuPlan, best of five sampled three-second trajectories; Table 4 data count 139K; exact evaluation scene list not supplied.",
+      "metric": "minADE5 ↓; table does not print a distance unit",
+      "value": "VaVAM-L: 0.80/0.52.",
+      "comparison": "VaVAM-S: 1.00/0.68; VaVAM-B: 0.85/0.53.",
+      "interpretation": "Matched-data scaling improves best-sample accuracy; the metric does not identify which sample a deployed controller should execute.",
+      "evidenceIds": [
+        "e-open",
+        "e-implementation"
+      ]
+    },
+    {
+      "task": "Frontal collision avoidance in NeuroNCAP",
+      "setting": "Neural-rendered closed-loop frontal hazards; VaVAM-L uses a front camera without trajectory post-processing; compared UniAD is the authors' reproduced, post-processed baseline.",
+      "metric": "NeuroNCAP score ↑; collision rate ↓; progress ↑",
+      "value": "VaVAM-L: 2.375 NNS, 56.80% collisions, 40.2% progress.",
+      "comparison": "UniAD: 1.18 NNS, 78.8% collisions, 47.1% progress.",
+      "interpretation": "The reader-calculated collision reduction is 22.0 percentage points, about 27.9% relative, accompanied by 6.9 percentage points less progress. This is scenario-specific, not overall superiority: post-processed VAD has lower all-scenario collisions (50.70%) than VaVAM-L (57.90%).",
+      "evidenceIds": [
+        "e-closed",
+        "e-diagnostic"
+      ]
+    },
+    {
+      "task": "Data-scaling safety diagnostic",
+      "setting": "VaVAM-S on frontal NeuroNCAP scenarios, comparing Table 6 data counts 38K and 139K.",
+      "metric": "Collision rate ↓; mean route deviation ↓; progress ↑",
+      "value": "38K → 139K: collisions 44.4% → 50.0%; deviation 2.616 → 2.022; progress 39.8% → 42.5%.",
+      "comparison": "The same model follows the reference more closely while colliding more frequently.",
+      "interpretation": "This is a scaling diagnostic, not an isolated causal ablation. Reported rows have no confidence intervals or seed variation.",
+      "evidenceIds": [
+        "e-diagnostic"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors attribute part of the safety tradeoff to rigid imitation of expert-derived guidance. That explanation is a hypothesis: the presented comparisons do not isolate guidance construction, pre-training benefit or flow matching against alternatives.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-hypothesis",
+        "e-open",
+        "e-diagnostic"
+      ]
+    },
+    {
+      "text": "Front-only perception limits side-hazard visibility; urgent braking is weak in some scenes. Video prediction remains unused for planning, and physical understanding is not comprehensively tested.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-limits"
+      ]
+    },
+    {
+      "text": "Collision scores can reward leaving the road: a noisy model exceeded 4.0 NNS by missing hazards. Progress and closest-point route deviation reveal behavior hidden by collision rate alone. Section 5.2.2's 'without collision' wording conflicts with the downward-arrow collision tables; this report follows the tables.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-metric-gap",
+        "e-simulator"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the specified tokenizer, video clips and ego-trajectories, joint mask and ten-step sampler. Video AdamW uses base learning rate 0.0041 and batch 384; the action learning rate is 0.0194. The flagship video run reports 192 H100 GPUs for approximately 25 hours (4,800 GPU-hours), with Lightning and DeepSpeed stage 2.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-data",
+        "e-mask",
+        "e-compute",
+        "e-flow"
+      ]
+    },
+    {
+      "text": "Resolve source inconsistencies before training: the printed 40%/58.72%/1.28% mixture does not match its 2,385,300/2,765,278/76,120 clip counts, and the compute-optimal frontier swaps D/N between Figure 5 and prose. Freezing policy, beta parameters, trajectory normalization, action-training duration, evaluation seeds and software versions are not explicitly specified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-mix",
+        "e-scaling",
+        "e-implementation",
+        "e-compute",
+        "e-open",
+        "e-diagnostic"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The separate video backbone and action expert support Dual-system. Actions are denoised from observed-history features, rather than inferred from predicted before/after states or jointly emitted with future video; Other mechanisms and Outside quadrants fit this reactive design. The broad WAM label describes video-to-action transfer, while the authors explicitly reserve predictive planning for future work. Efficient sampling is architecturally motivated; real-time control is not established by a latency benchmark.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-action",
+        "e-mask",
+        "e-implementation",
+        "e-limits"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "933e5b98d6a35eb8dc38fc1e5580dd042114b062a785101052c32d06d90d1ec8"
+    }
+  },
+  "discussionQuestions": [
+    "Would matched-capacity action experts still benefit from video pre-training under identical data and compute?",
+    "Would independently specified route guidance permit safer deviations without reducing useful progress?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block, affiliation footnotes and arXiv margin",
+      "detail": "The title and all 17 authors match the catalog. The artifact is arXiv:2502.15672v1, 21 February 2025. The manifest's 'VaV AM' spacing is extraction typography; the rendered title reads 'VaVAM'."
+    },
+    {
+      "id": "e-overview",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "The work investigates transferring autoregressive video representations to an imitation-trained action expert, comparing generation, semantics and driving performance."
+    },
+    {
+      "id": "e-sizes",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Table 1, all model groups",
+      "detail": "Video backbones have 185M, 318M and 1,200M parameters; action experts add 21M, 38M and 150M. Video pre-training, mixed-data fine-tuning and action learning are distinct stages."
+    },
+    {
+      "id": "e-video",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Sections 3.1.1–3.1.2, Eqs. (1)–(5)",
+      "detail": "A vector-quantized image tokenizer supplies discrete codes. GPT-2-style causal decoding learns next-token cross-entropy with teacher forcing, spatial/temporal embeddings, tied weights and a sampling KV cache."
+    },
+    {
+      "id": "e-action",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 1; pp. 7–8, Section 3.2 and Figure 2a",
+      "detail": "Observed camera history and left/right/straight commands condition an action encoder, joint-attention transformer and linear vector-field decoder. Actions are future BEV ego-positions; the figure shows iterative refinement of six waypoints."
+    },
+    {
+      "id": "e-mask",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 2b and Section 3.2 architecture bullets",
+      "detail": "Query rows and key columns show causal visual attention, no visual-to-action conditioning, and each action block attending available visual history and its own action block. Separate action-time blocks do not attend each other."
+    },
+    {
+      "id": "e-data",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.1, OpenDV/nuPlan/nuScenes paragraphs",
+      "detail": "Only front-camera RGB is used. OpenDV processing retains Full HD videos, trims intros/outros, extracts 512×288 frames at 10 FPS and forms eight-frame 2-Hz clips. nuPlan and nuScenes supply synchronized ego-position trajectories."
+    },
+    {
+      "id": "e-scaling",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 4.2, Figure 5 and Eq. (6)",
+      "detail": "Maximal Update Parametrization transfers hyperparameters across widths. The fitted validation-loss law uses clip count and non-embedding parameter count. Reported flagship loss prediction error is 0.003 (0.06%). Figure 5's frontier legend writes N=1.38 D^0.96, whereas p. 11 writes D=1.384 N^0.962."
+    },
+    {
+      "id": "e-mix",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Section 4.3, fine-tuning bullets",
+      "detail": "The stated OpenDV/nuPlan/nuScenes mix is 40%/58.72%/1.28%, alongside 2,385,300/2,765,278/76,120 clips. These counts do not reproduce the printed percentages. Alternative mixture composition remains future work."
+    },
+    {
+      "id": "e-flow",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Section 4.4, Eqs. (7)–(9) and adjacent prose",
+      "detail": "Eq. (7) interpolates from Gaussian noise at tau=0 to expert action at tau=1; the following sentence reverses these endpoints. Eq. (9) and the stated noise initialization support ten forward-Euler steps from tau=0. Eq. (8) regresses the conditional transport vector field."
+    },
+    {
+      "id": "e-implementation",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, Section 4.5",
+      "detail": "The pre-trained 72M LlamaGen stride-16 tokenizer has 16,384 codes, producing 576 tokens per frame. The 24-layer video model uses up to 4,608 tokens. The action expert reduces MLP dimensionality fourfold; the beta schedule parameters and freezing policy are not explicitly specified."
+    },
+    {
+      "id": "e-compute",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Section 4.5 optimizer paragraph; p. 13, action settings and Training infrastructure",
+      "detail": "Video AdamW uses base learning rate 0.0041, weight decay 1e-7, betas (0.9,0.95), gradient clipping 1.0 and batch size 384. Action learning rate is 0.0194. VaViM-L training uses 192 H100 GPUs, about 25 hours/4,800 GPU-hours, Lightning and DeepSpeed stage 2; software versions are not given."
+    },
+    {
+      "id": "e-fid",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Table 2 and Section 5.1.1",
+      "detail": "Four context frames condition four generated frames. DINOv2-feature FID uses context frames as the reference distribution. At frame four, S/B/L score 34.5/30.0/24.7 on KITTI and 39.8/38.6/26.1 on nuScenes; tokenizer-oracle scores are 8.1/10.4."
+    },
+    {
+      "id": "e-semantics",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Table 3; p. 15, Section 5.1.2",
+      "detail": "Humming-bird probing uses layer-12 features and ten sampled patch features per image. Fine-tuned B/L Cityscapes mIoU is 20.8/18.4; DINOv2-B/L is 43.4/13.0. The prose's blanket DINO superiority does not hold for the DINOv2-L row."
+    },
+    {
+      "id": "e-open",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Section 5.2.1; p. 16, Table 4",
+      "detail": "minADE with k=5 selects the closest sampled trajectory by mean pointwise L2 distance. At data count 139K, S/B/L score 1.00/0.85/0.80 on nuScenes and 0.68/0.53/0.52 on nuPlan. Intermediate data-count rows are not monotonically better."
+    },
+    {
+      "id": "e-simulator",
+      "sourceId": "primary",
+      "location": "PDF pp. 16–17, Section 5.2.2, NeuroNCAP, collision metrics and baselines",
+      "detail": "Neural rendering supplies feedback after simulated model decisions, with stationary, frontal and side hazards. Eq. (10) rewards avoidance and impact-speed reduction. The text calls collision rate the percentage without collision, conflicting with the tables' downward arrows and interpretation."
+    },
+    {
+      "id": "e-closed",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Table 5, VaVAM-L, UniAD dagger and post-processed VAD rows; caption",
+      "detail": "VaVAM-L has frontal NNS 2.38 and collision rate 56.80%, versus reproduced UniAD's 1.18/78.8%. VaVAM-L's all-scenario average is 2.46/57.90%, versus post-processed VAD's 2.75/50.70%. Cameras and post-processing differ; dagger means reproduced by the paper's authors."
+    },
+    {
+      "id": "e-metric-gap",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Limitations of the benchmark and Eq. (11)",
+      "detail": "An off-road noisy model scored above 4.0 NNS by avoiding scripted hazards. Added measures are closest-point mean route deviation and fractional reduction of goal distance, clipped below at zero."
+    },
+    {
+      "id": "e-diagnostic",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Table 6, UniAD and VaVAM-S/B/L rows",
+      "detail": "In frontal scenarios, VaVAM-S changes from 44.4% collisions, 2.616 deviation and 39.8% progress at 38K data to 50.0%, 2.022 and 42.5% at 139K. VaVAM-L at 139K achieves 2.375 NNS, 56.80% collisions, 1.541 deviation and 40.2% progress; UniAD progress is 47.1%."
+    },
+    {
+      "id": "e-hypothesis",
+      "sourceId": "primary",
+      "location": "PDF pp. 18–19, Section 5.2.2 discussion and Section 6 future-work bullets",
+      "detail": "The authors hypothesize that stronger imitation encourages rigid adherence to expert-derived guidance, impairing responses to adversarial vehicles. They propose decoupling command paths from demonstrated trajectories; the study does not experimentally isolate this cause."
+    },
+    {
+      "id": "e-limits",
+      "sourceId": "primary",
+      "location": "PDF p. 17, qualitative limitations; p. 19, Section 6",
+      "detail": "VaVAM rarely stops or brakes urgently in some hazardous scenes, uses only a front camera, and does not predict occupancy. The authors explicitly say video prediction is not yet used for planning/control, identify the missing reward model, and call for better physical-understanding evaluation and finer tokenization."
+    }
+  ]
+}
