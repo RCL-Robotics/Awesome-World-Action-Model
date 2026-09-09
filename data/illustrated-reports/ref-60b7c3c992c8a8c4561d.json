@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-60b7c3c992c8a8c4561d",
+  "shortTitle": "World4Drive",
+  "thesis": "World4Drive ranks candidate driving trajectories through predicted latent futures, improving reported collision metrics while learning from future resemblance rather than an explicit safety objective.",
+  "standfirst": "A camera image can support several plausible driving intentions, but a planner must eventually commit to one trajectory. World4Drive addresses this choice by predicting a latent future for each candidate and training a scoring network to recognize the future closest to the recorded observation. Its scene encoder combines metric-depth geometry, semantic pseudo-labels and recent visual history. The central reading question is how much the resulting ranking adds beyond better visual features and more trajectory candidates. The inspected v1 reports lower average collision rates than perception-free LAW on nuScenes and a higher NavSim PDM score, with qualifications about supervision, comparison settings and nighttime displacement error.",
+  "evidenceIds": [
+    "e-identity",
+    "e-context",
+    "e-dreamer",
+    "e-selector",
+    "e-nuscenes",
+    "e-navsim",
+    "e-conditions"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/ref-60b7c3c992c8a8c4561d/architecture.png",
+      "width": 1380,
+      "height": 541,
+      "sourceSha256": "627cc44ed008f29584d4b8cdf02c2ef6f027c8051b22f8acc1691257ecf6f9db",
+      "sourceUrl": "https://arxiv.org/pdf/2507.00603#page=3",
+      "crop": [
+        0.094,
+        0.088,
+        0.906,
+        0.334
+      ],
+      "alt": "World4Drive pipeline: an intention encoder and a physical latent encoder feed trajectory generation; proposed trajectories condition future-latent prediction and a selector. A detached observed-future branch and expert trajectory provide training targets.",
+      "caption": "Trajectories are proposed first, imagined as latent futures, and then selected.",
+      "readingGuide": "Follow the two left-hand inputs separately. The trajectory vocabulary V and ego query feed the intention encoder; current images feed the context encoder and temporal aggregation. Their outputs meet in the planning decoder to produce candidate trajectories T. The downward arrow from T supplies action conditioning to the world-model dreamer, which also receives the current scene latent. The selector then connects each imagined future to its corresponding trajectory. On the right, actual future images enter a context encoder and produce a latent explicitly marked Detach. This target branch and the red reconstruction and expert-trajectory loss arrows depict training; Section 3.3.2 specifies score-based selection without observed future images at inference.",
+      "takeaway": "The world model is used to evaluate already proposed actions and remains active when a trajectory is chosen at inference. The drawing therefore supports a modular planner–predictor–selector interpretation, even though the modules are trained end to end. It does not show a single generator jointly emitting actions and future observations.",
+      "caution": "Detach marks the target latent's gradient boundary; it does not establish that every foundation model or encoder is permanently frozen. The future-image branch supplies observed targets, not evidence of a deployed future-image sensor or a specified pixel-generation objective.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-dreamer",
+        "e-selector",
+        "e-loss"
+      ]
+    },
+    {
+      "id": "physical-context",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/ref-60b7c3c992c8a8c4561d/physical-context.png",
+      "width": 1163,
+      "height": 905,
+      "sourceSha256": "627cc44ed008f29584d4b8cdf02c2ef6f027c8051b22f8acc1691257ecf6f9db",
+      "sourceUrl": "https://arxiv.org/pdf/2507.00603#page=4",
+      "crop": [
+        0.095,
+        0.09,
+        0.486,
+        0.325
+      ],
+      "alt": "Context encoder diagram showing metric depth converted to a 3D position map and positional embedding, added to image features; a lower semantic head is trained against pseudo-semantic masks.",
+      "caption": "Geometry enters as a positional embedding; semantics enters through pseudo-label supervision.",
+      "readingGuide": "Start at the input image. The upper branch estimates metric depth D_t and constructs a 3D position map P_t; the diagram labels this conversion Re-project. The accompanying text describes obtaining ego-coordinate positions from depth and camera geometry. Sinusoidal positional encoding, labeled SPE, contributes to embedding E_t, which is added to backbone feature map F_t. Equation (3) includes a learned MLP after SPE that the schematic does not separately draw. Below the dashed line, a semantic head predicts masks from visual features and is trained against Grounded-SAM pseudo-labels with the semantic loss. Previous-frame aggregation is described separately in Equation (4), outside this crop.",
+      "takeaway": "The latent representation is trained with two distinct forms of prior information: metric spatial coordinates and semantic categories. This explains what the authors mean by a physical latent encoder. The design supplies cues useful for planning, but the diagram itself does not validate their accuracy or demonstrate a complete physical simulator.",
+      "caution": "Perception-annotation-free describes the driving protocol's avoidance of manual perception labels. Semantic pseudo-labels and pretrained depth knowledge still supply supervision and assumptions. The source does not state the exact semantic confidence threshold, prompt list, or foundation-model freezing and caching policy.",
+      "evidenceIds": [
+        "e-context",
+        "e-implementation"
+      ]
+    },
+    {
+      "id": "world-selector",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 5,
+      "asset": "report-assets/ref-60b7c3c992c8a8c4561d/world-selector.png",
+      "width": 1163,
+      "height": 578,
+      "sourceSha256": "627cc44ed008f29584d4b8cdf02c2ef6f027c8051b22f8acc1691257ecf6f9db",
+      "sourceUrl": "https://arxiv.org/pdf/2507.00603#page=5",
+      "crop": [
+        0.095,
+        0.09,
+        0.486,
+        0.24
+      ],
+      "alt": "Selector training diagram comparing several predicted latent rows with repeated copies of the actual future latent. A selected row contributes reconstruction loss and index j supervises ScoreNet through focal loss.",
+      "caption": "The nearest observed-future latent supplies both a reconstruction target and a ranking label.",
+      "readingGuide": "Read each colored row on the left as one intention-conditioned future prediction. The yellow rows on the right repeat the same actual future latent, so every candidate is compared against one recorded outcome. The blue double-headed arrows denote comparisons, not forward transitions between futures. The red highlighted pair illustrates the minimum-MSE candidate, whose distance becomes reconstruction loss. Its index j follows the curved arrow to supervise the focal-loss branch. Independently, predicted latents flow upward through ScoreNet and Softmax. At inference the observed-future comparisons disappear: the selected trajectory is the one associated with the highest predicted score, as stated below Equation (7).",
+      "takeaway": "The selector learns to approximate a training-time nearest-future decision using predicted latents alone. That makes the training target operationally available without future observations at deployment. It also clarifies the objective: the score favors resemblance to the logged future, rather than directly estimating collision probability or a hand-designed driving reward.",
+      "caution": "One actual future supervises all hypothetical intentions. The diagram does not supply counterfactual observations for unexecuted trajectories. High score therefore should not be interpreted as a calibrated safety guarantee; the benchmark evidence must assess whether this proxy improves planning.",
+      "evidenceIds": [
+        "e-selector",
+        "e-architecture",
+        "e-loss"
+      ]
+    },
+    {
+      "id": "nuscenes-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "asset": "report-assets/ref-60b7c3c992c8a8c4561d/nuscenes-results.png",
+      "width": 1239,
+      "height": 444,
+      "sourceSha256": "627cc44ed008f29584d4b8cdf02c2ef6f027c8051b22f8acc1691257ecf6f9db",
+      "sourceUrl": "https://arxiv.org/pdf/2507.00603#page=6",
+      "crop": [
+        0.135,
+        0.108,
+        0.864,
+        0.31
+      ],
+      "alt": "nuScenes planning table with L2 errors in meters and collision rates in percent at one, two and three seconds. World4Drive averages 0.50 meters and 0.16 percent; perception-free LAW averages 0.61 meters and 0.30 percent.",
+      "caption": "Average collision improves more strongly than average displacement error.",
+      "readingGuide": "Read the left metric block as displacement error in meters and the right block as collision rate in percent; both arrows point downward. Each block reports one-, two- and three-second entries plus an average. Red method cells identify approaches without manual perception annotations; blue cells identify approaches requiring them, according to the results text. Start with World4Drive versus perception-free LAW, then compare the perception-based LAW row to understand the remaining displacement gap. Keep the retained backbone footnote in view: LAW uses Swin-Tiny while the other listed methods use ResNet-50. These are reported benchmark comparisons, not a controlled experiment with identical encoders.",
+      "takeaway": "World4Drive reports average L2 of 0.50 m and collision of 0.16%, versus 0.61 m and 0.30% for perception-free LAW. Calculated from those rounded values, the collision reduction is 0.14 percentage points, or about 46.7% relative. Perception-based LAW remains slightly better in average L2 at 0.49 m.",
+      "caution": "The evaluation is open-loop, with a three-second trajectory horizon. Collision rate here is not a demonstrated on-road failure probability. Different backbones and supervision regimes, together with absent uncertainty estimates, limit causal and statistical interpretation of the ranking.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-nuscenes"
+      ]
+    },
+    {
+      "id": "navsim-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 6,
+      "asset": "report-assets/ref-60b7c3c992c8a8c4561d/navsim-results.png",
+      "width": 1241,
+      "height": 458,
+      "sourceSha256": "627cc44ed008f29584d4b8cdf02c2ef6f027c8051b22f8acc1691257ecf6f9db",
+      "sourceUrl": "https://arxiv.org/pdf/2507.00603#page=6",
+      "crop": [
+        0.136,
+        0.347,
+        0.866,
+        0.555
+      ],
+      "alt": "NavSim table listing input modalities, no-at-fault-collision, drivable-area, time-to-collision, comfort, progress and PDM scores. Camera-only World4Drive scores 85.1, LAW 83.8, and camera-and-lidar DiffusionDrive 88.1.",
+      "caption": "Camera-only World4Drive improves over the authors' LAW reimplementation, while DiffusionDrive remains ahead.",
+      "readingGuide": "Use the Input column before comparing scores: C denotes cameras, L lidar and E ego status. Read NC as no at-fault collision, DAC as drivable area compliance, TTC as time-to-collision, Comf. as comfort and EP as ego progress. All reported directions are upward, and the shaded final column is the composite PDM score. Compare World4Drive with camera-only perception-free LAW to see the reported baseline gain, then inspect the camera-and-lidar DiffusionDrive row for the strongest listed result. The benchmark section specifies four-second trajectories sampled at 2 Hz with LQR interpolation; the implementation section says the authors reimplemented LAW for this evaluation.",
+      "takeaway": "World4Drive's PDMS of 85.1 exceeds LAW's 83.8 by 1.3 score points. Its DAC, TTC and progress values also increase, while comfort stays at 100.0. DiffusionDrive reports 88.1 with camera and lidar inputs, so the table supports competitive performance without claiming the highest score across all settings.",
+      "caution": "The paper calls this protocol closed-loop; this reading verifies its stated benchmark procedure, not simulator internals or physical deployment. The LAW result is an author reimplementation, and the table mixes modalities and supervision regimes without reporting run-to-run uncertainty.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-implementation",
+        "e-navsim",
+        "e-nuscenes"
+      ]
+    },
+    {
+      "id": "component-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 7,
+      "asset": "report-assets/ref-60b7c3c992c8a8c4561d/component-ablation.png",
+      "width": 1133,
+      "height": 608,
+      "sourceSha256": "627cc44ed008f29584d4b8cdf02c2ef6f027c8051b22f8acc1691257ecf6f9db",
+      "sourceUrl": "https://arxiv.org/pdf/2507.00603#page=7",
+      "crop": [
+        0.096,
+        0.108,
+        0.477,
+        0.266
+      ],
+      "alt": "Six-row component ablation with checkmarks for depth, semantics, world modeling and intentions. The full model reports 0.50 L2 and 0.16 collision; removing intentions gives 0.49 and 0.26, while removing world modeling gives 0.61 and 0.36.",
+      "caption": "Read the checkmarks before interpreting the gains: collision and trajectory error need not move together.",
+      "readingGuide": "The first two checkmark columns belong to the physical latent encoder; the next two indicate world modeling and intention modeling. Row 1 is the single-modal LAW baseline, and row 6 contains all four components. For a focused intention comparison, use rows 4 and 6: both include depth, semantics and world modeling. For the world-model pathway, use rows 5 and 6, where row 5 keeps intentions but lacks WM. Rows 3 and 6 compare the addition of semantic priors with depth, WM and intentions present. Section 4.4 specifies that these are nuScenes L2 and collision averages over a three-second horizon.",
+      "takeaway": "Adding intentions to the physical-prior world model changes L2 from 0.49 to 0.50 m while lowering collision from 0.26% to 0.16%. Adding the world-model pathway to row 5 improves both metrics, from 0.61 m/0.36% to 0.50 m/0.16%. Thus, the strongest supported claim concerns useful interactions and lower collision, not uniform improvement on every metric.",
+      "caution": "The table is not a complete factorial study and includes no repeated-run uncertainty. Removing WM changes the predictor, its reconstruction supervision and its use in ranking; rows 5–6 cannot attribute the entire gain specifically to the scoring network.",
+      "evidenceIds": [
+        "e-ablation"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Build a scene representation before asking it to imagine",
+      "text": "Begin with the distinction between an image feature and the information the planner needs. World4Drive adds depth-derived 3D positions to visual features so that image locations carry metric spatial context. A semantic head learns from high-confidence Grounded-SAM masks, and temporal cross-attention incorporates the preceding frame. These components shape the latent used by both trajectory generation and future prediction. The future observation also provides a latent target, with a detach marker in Figure 2. This is why the reconstruction terminology should be read at the feature level: the method specifies a latent MSE, rather than a pixel reconstruction decoder. The perception-label saving is therefore compatible with substantial supervision from pretrained teachers and with the expert trajectories used later in training.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-context",
+        "e-architecture",
+        "e-selector",
+        "e-loss"
+      ]
+    },
+    {
+      "heading": "Generate intentions, then evaluate their consequences",
+      "text": "The trajectory vocabulary defines possible intentions through clustered endpoints, with six intention queries for each of the three driving commands. Those queries attend to the current scene and produce candidate waypoint trajectories. Each trajectory is then encoded into an action token, which conditions the dreamer's prediction of a future latent. The order matters: a trajectory exists before its future is imagined. During training, the candidate nearest the observed future latent provides index j, reconstruction supervision and the selected trajectory for expert imitation. ScoreNet learns to predict that index from imagined futures. During inference, the model repeats proposal and imagination, then chooses by ScoreNet probability. It does not consult the actual future. This is a trajectory-selection mechanism, rather than inverse dynamics that extracts actions from a desired observation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-intentions",
+        "e-dreamer",
+        "e-selector",
+        "e-loss"
+      ]
+    },
+    {
+      "heading": "Ask whether better future matching means better driving",
+      "text": "Reader interpretation: the selector's target makes an efficient learning problem, but matching a recorded future and selecting the safest counterfactual are different criteria. Table 3 provides partial empirical support: with physical priors and intentions retained, removing the world-model pathway worsens both average trajectory error and collision. Yet this comparison changes several connected operations, so it does not isolate ranking quality. Another pair, rows 4 and 6, reveals that adding intentions lowers collision while slightly increasing L2. The nighttime subset exhibits the same direction of tradeoff against LAW. Read the main results through those distinctions: lower collision is valuable evidence for the approach, while predictive accuracy, score calibration, counterfactual validity and real vehicle safety remain separate questions requiring dedicated checks.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-selector",
+        "e-ablation",
+        "e-conditions",
+        "e-nuscenes",
+        "e-navsim"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Hold candidates fixed and test the selector",
+      "text": "Reader-proposed check, not executed: freeze one trained encoder, planner and dreamer, and save the same candidate trajectories and predicted latents for held-out nuScenes scenes. Compare ScoreNet ranking with uniform random selection and minimum observed-future MSE. The last is a privileged diagnostic available only offline, never a deployable baseline. Report L2, collision, ScoreNet agreement with the MSE index and scene-level uncertainty under the same three-second evaluation. The ranking hypothesis weakens if ScoreNet does not improve over random choice. If privileged MSE selection itself has poor collision performance, the more fundamental problem is the future-matching target rather than its learned approximation.",
+      "evidenceIds": [
+        "e-selector",
+        "e-ablation",
+        "e-protocol"
+      ]
+    },
+    {
+      "title": "Separate semantic-prior benefit from lighting-dependent tradeoffs",
+      "text": "Reader-proposed check, not executed: reproduce the Table 3 row-3 versus row-6 comparison with the same ResNet-50 initialization, depth features, six intentions per command, data split and 12-epoch budget. Change only semantic pseudo-supervision; document its prompts and confidence cutoff. Use at least three matched seeds as a proposed robustness control, then report scene counts, L2 and collision separately for day and night with uncertainty intervals. Evidence for the semantic mechanism would be a repeatable collision gain at matched candidate capacity. A gain confined to a small lighting subset, or consistently offset by worse nighttime displacement, would narrow the claim of robust physical scene understanding.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-conditions",
+        "e-context",
+        "e-implementation"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "notes": "All four text chunks and all ten supplied PDF pages were read. Page 1 verifies title, eleven authors, affiliations and the arXiv v1 date, and exposes the Figure 1 LAW/PerAct caption conflict. Page 2 supplies the motivation and alternative stated improvement percentage. Pages 3–5 verify architecture, the detached target, context encoding, Equations (1)–(8), selector training/inference, protocols and hardware configuration. Page 6 verifies both benchmark tables, footnotes and the ablation evaluation setting. Page 7 verifies component checkmarks, lighting/maneuver subsets and scaling prose; page 8 verifies Table 6, qualitative overlays, the ground-truth-perception caption and supplement references. Pages 9–10 contain the references and no appendix. Figures 1–5 and Tables 1–6 were inspected. Six original crops from pages 3–7 were individually viewed after final cropping, retaining loss markers, table headers and relevant footnotes. Figure 3 omits the MLP explicitly present in Equation (3); the guide preserves that distinction. Separate supplements, external code and later editions were not supplied or inspected."
+  },
+  "featuredResultTask": "Open-loop trajectory planning on nuScenes"
+}
