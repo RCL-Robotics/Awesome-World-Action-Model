@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-65dfbbe844d739cf5492",
+  "shortTitle": "Epona",
+  "thesis": "Epona shares a causal history representation across separate trajectory and image diffusion heads, gaining flexible video rollouts and cheaper planner-only inference while still accumulating prediction error.",
+  "standfirst": "A driving world model must represent how a scene evolves and how the vehicle might move through it. Epona assigns these jobs to two continuous diffusion predictors fed by the same history encoder. The trajectory head proposes a future path; the visual head predicts the next camera image under a chosen action. The distinction matters: video prediction can improve the representation during training without being executed when planning. Read the architecture first, then separate three kinds of evidence: visual-generation scores, benchmark trajectory quality and robustness to repeated self-prediction. The long-video examples illustrate plausibility, while the ablations offer narrower tests of the proposed mechanisms.",
+  "evidenceIds": [
+    "e03",
+    "e04",
+    "e05",
+    "e10",
+    "e13",
+    "e14",
+    "e15",
+    "e20"
+  ],
+  "featuredResultTask": "NAVSIM trajectory planning",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/ref-65dfbbe844d739cf5492/architecture.png",
+      "width": 1385,
+      "height": 341,
+      "sourceSha256": "2f4348183ec8e8c5c445cd61587ac217589b0bbdbcf9a930b6e088797e0804bb",
+      "sourceUrl": "https://arxiv.org/pdf/2506.24113#page=3",
+      "crop": [
+        0.098,
+        0.09,
+        0.913,
+        0.245
+      ],
+      "alt": "Historical camera images and ego motions enter DCAE and a shared transformer; compact latent F feeds separate image and trajectory diffusion heads, with an action connection into image prediction and an autoregressive feedback loop.",
+      "caption": "A shared memory of the past supports two separately sampled predictions.",
+      "readingGuide": "Follow the blue camera branch and green motion branch from left to right. DCAE converts historical observations into continuous latents; MST combines them with historical relative motions. Its compact representation F feeds both purple diffusion heads. The upper head predicts the next image latent, while the lower head predicts a sequence of future poses. The dashed connection from the trajectory output into image prediction agrees with Section 3.3: VisDiT can condition on the next predicted action. An external action can replace it. The top feedback path denotes training on predicted history; the circular arrow indicates repeated autoregressive prediction. Neither arrow represents a vehicle physically executing the generated path.",
+      "takeaway": "The architecture separates the duration of a planned trajectory from the one-frame visual prediction step. Sharing F lets visual and trajectory objectives train the same historical representation, while the distinct heads let planner-only inference omit image generation. This flexibility follows from the specified module connections, not merely from the phrase joint training.",
+      "caution": "The overview does not specify the attention mask inside MST or every sampling dependency. Section 3.3 supplies causal temporal attention; Appendix A and Figure 9 clarify that action modulation belongs only to VisDiT. Separate diffusion heads should not be mistaken for a single joint denoiser.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e18"
+      ]
+    },
+    {
+      "id": "chain-training",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 5,
+      "asset": "report-assets/ref-65dfbbe844d739cf5492/chain-training.png",
+      "width": 1121,
+      "height": 520,
+      "sourceSha256": "2f4348183ec8e8c5c445cd61587ac217589b0bbdbcf9a930b6e088797e0804bb",
+      "sourceUrl": "https://arxiv.org/pdf/2506.24113#page=5",
+      "crop": [
+        0.532,
+        0.084,
+        0.909,
+        0.219
+      ],
+      "alt": "Green ground-truth samples enter Epona, yellow predictions are compared against targets, and dashed paths feed predictions into later training positions.",
+      "caption": "Chain-of-Forward trains on some of the model's own imperfect context.",
+      "readingGuide": "Read the solid portion as next-step supervision: a green input sample leads to a yellow prediction, paired with the corresponding green target below. The source uses x for either image latents or trajectories. At the right, dashed return paths carry predicted samples into later input positions, exposing subsequent predictions to imperfect history. Section 3.4 explains how those samples are obtained: Equation (7) estimates clean data using one velocity prediction from a noisy target. This is cheaper than performing a complete diffusion sampling loop for each added training pass. The training configuration applies this procedure every ten steps with three forward passes.",
+      "takeaway": "The intended intervention addresses the gap between ground-truth history during ordinary training and generated history during video rollout. It changes what later predictions must tolerate. Figure 4 explains the intervention, while Figure 8 supplies the quantitative evidence that the resulting model degrades more slowly over the tested rollout.",
+      "caution": "The dashed paths do not specify gradient detachment or a full training algorithm. Equation (7) agrees with the data-directed regression target, but Equation (1)'s time-direction notation remains ambiguous when compared with Equation (2); the report preserves that implementation question.",
+      "evidenceIds": [
+        "e06",
+        "e08",
+        "e15",
+        "e21"
+      ]
+    },
+    {
+      "id": "video-benchmark",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "asset": "report-assets/ref-65dfbbe844d739cf5492/video-benchmark.png",
+      "width": 1522,
+      "height": 242,
+      "sourceSha256": "2f4348183ec8e8c5c445cd61587ac217589b0bbdbcf9a930b6e088797e0804bb",
+      "sourceUrl": "https://arxiv.org/pdf/2506.24113#page=6",
+      "crop": [
+        0.094,
+        0.087,
+        0.908,
+        0.187
+      ],
+      "alt": "NuScenes video comparison listing eight methods, FID and FVD scores, and maximum plausible generation duration with frame counts and the source's asterisk note.",
+      "caption": "Lower FVD accompanies longer reported plausible rollouts, with an FID tradeoff.",
+      "readingGuide": "Read each metric row separately rather than treating the rightmost bold values as a complete ranking. Lower is better for both FID and FVD. Epona's FVD is 82.8 compared with Vista's 89.4, but its FID is 7.5 compared with Vista's 6.9. The final row measures a different property: the maximum duration judged to produce plausible results, as the retained asterisk note explains. It lists 120 seconds and 600 frames for Epona. Section 4.1 describes ten-frame conditioning and 1,646 NuScenes validation clips; Section 4.2 says the comparison mostly uses scores reported in earlier papers rather than a uniform rerun.",
+      "takeaway": "The table supports an approximately 7.4% relative FVD reduction against Vista, calculated from its displayed scores, together with a longer reported plausible horizon. It also shows a less favorable image-level FID. The three rows therefore support a tradeoff, not an improvement in every aspect of visual quality.",
+      "caution": "Maximum duration is not a shared-horizon FVD test. Appendix B additionally lists InfinityDrive at FVD 70.06, below Epona's 82.83, qualifying the caption's broad superiority claim. Separate selected supplementary examples extend to 140 seconds without supplying a matching quantitative evaluation.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e10",
+        "e19",
+        "e20"
+      ]
+    },
+    {
+      "id": "navsim-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 9,
+      "asset": "report-assets/ref-65dfbbe844d739cf5492/navsim-results.png",
+      "width": 1370,
+      "height": 451,
+      "sourceSha256": "2f4348183ec8e8c5c445cd61587ac217589b0bbdbcf9a930b6e088797e0804bb",
+      "sourceUrl": "https://arxiv.org/pdf/2506.24113#page=9",
+      "crop": [
+        0.175,
+        0.139,
+        0.82,
+        0.303
+      ],
+      "alt": "NAVSIM table comparing human driving and seven learned planners across inputs, no at-fault collision, drivable-area compliance, time-to-collision, comfort, ego progress and PDMS.",
+      "caption": "Epona leads the listed learned planners in aggregate NAVSIM score.",
+      "readingGuide": "Start with the Input column to distinguish camera-only methods from camera-and-lidar methods, then move to the rightmost PDMS column. The preceding columns explain why the aggregate should not be read as dominance on every criterion: NC denotes no at-fault collision, DAC drivable-area compliance, TTC time-to-collision, Comf. comfort and EP ego progress. Epona scores 86.2 PDMS, with component values 97.9, 95.1, 93.8, 99.9 and 80.4. Section 4.3 specifies two seconds of observed history and four-second predicted trajectories for this evaluation. Keep that horizon distinct from the three-second trajectory used in the runtime table.",
+      "takeaway": "Epona's 86.2 is higher than DRAMA's 85.5 and the 84.6 reported for camera-only LAW and PARA-Drive. The human row remains higher at 94.8. The result supports competitive aggregate planning on this benchmark, while the component columns show that other methods retain individual advantages.",
+      "caution": "Different sensor inputs prevent a clean architectural comparison. These are benchmark planning scores rather than physical vehicle trials. Table 2's fast ten-step timings do not establish that this same NAVSIM accuracy is retained at the claimed 20 Hz.",
+      "evidenceIds": [
+        "e11",
+        "e13"
+      ]
+    },
+    {
+      "id": "joint-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 5",
+      "page": 9,
+      "asset": "report-assets/ref-65dfbbe844d739cf5492/joint-ablation.png",
+      "width": 1157,
+      "height": 170,
+      "sourceSha256": "2f4348183ec8e8c5c445cd61587ac217589b0bbdbcf9a930b6e088797e0804bb",
+      "sourceUrl": "https://arxiv.org/pdf/2506.24113#page=9",
+      "crop": [
+        0.094,
+        0.371,
+        0.483,
+        0.415
+      ],
+      "alt": "Two-row NAVSIM ablation comparing training without video prediction to full Epona; PDMS rises from 78.1 to 86.2 while comfort remains 99.9.",
+      "caption": "Visual supervision improves planning even when image generation can be disabled at inference.",
+      "readingGuide": "Compare the two rows column by column. Section 4.4 defines the upper variant as training solely for trajectory prediction, with video prediction disabled during training. The lower row retains the joint visual and trajectory objective over shared latent F. Its improvements span no at-fault collision, drivable-area compliance, time-to-collision and ego progress; comfort remains unchanged at 99.9. The aggregate PDMS increases from 78.1 to 86.2, an 8.1-point difference calculated from the table. This ablation concerns how the model is learned, so it should be read separately from the option to disable VisDiT when running the already trained planner.",
+      "takeaway": "The result supports visual prediction as useful supervision for the planning representation. It is especially relevant because Epona's planner need not synthesize images at inference: knowledge shaped by the visual objective can be used through F and TrajDiT. The table measures this training benefit rather than a benefit from online imagined rollouts.",
+      "caution": "Removing video prediction also removes an objective and its training signal. The comparison therefore does not isolate shared-latent coupling from auxiliary supervision or establish a compute-matched advantage. Repeated-seed uncertainty and an independent visual-backbone control are not supplied.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e14"
+      ]
+    },
+    {
+      "id": "rollout-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 8",
+      "page": 8,
+      "asset": "report-assets/ref-65dfbbe844d739cf5492/rollout-ablation.png",
+      "width": 1734,
+      "height": 1115,
+      "sourceSha256": "2f4348183ec8e8c5c445cd61587ac217589b0bbdbcf9a930b6e088797e0804bb",
+      "sourceUrl": "https://arxiv.org/pdf/2506.24113#page=8",
+      "crop": [
+        0.535,
+        0.496,
+        0.875,
+        0.665
+      ],
+      "alt": "NuPlan rollout graph with autoregressive frames on the horizontal axis and FID on the vertical axis; blue circles with Chain-of-Forward stay below red dashed squares without it.",
+      "caption": "Chain-of-Forward reduces the growth of rollout error, but both curves still deteriorate.",
+      "readingGuide": "Read the legend before tracing either curve: solid blue circles use Chain-of-Forward, while dashed red squares omit it. The horizontal axis is autoregressive frames and the vertical axis is FID, where lower values indicate better image-distribution agreement. The curves begin close together and their separation grows across the displayed rollout. At the final plotted pair, the readable annotations give 18.54 with Chain-of-Forward and 25.16 without it. Both curves rise, which is central to the interpretation. The accompanying text identifies the NuPlan test set; Figure 7 provides selected visual comparisons, while this graph supplies the measured trend over the plotted range.",
+      "takeaway": "The widening gap supports the claim that exposure to self-predicted history improves robustness to repeated generation. It does not show error-free dynamics: the treated model's FID still increases substantially. This is evidence for reduced distributional degradation over the evaluated rollout, rather than a guarantee of indefinite simulation stability.",
+      "caution": "The first blue annotation overlaps a red marker in the source, so its exact value is not used. Final markers fall between 35 and 40 ticks; the caption does not explain their horizon convention. These FID scores measure image-distribution agreement, not traffic safety.",
+      "evidenceIds": [
+        "e06",
+        "e15"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Why one historical representation can support two prediction horizons",
+      "kind": "source",
+      "text": "Epona defines each historical action through relative orientation and ego-frame displacement, rather than a discrete driving token. Camera images and those motions first become a common sequence for MST. Causal temporal attention restricts historical information flow; spatial attention combines modalities within the representation. The final-frame latent F then conditions two different generation problems. TrajDiT samples a whole future trajectory, whereas VisDiT samples only the next camera frame and additionally receives a next-step action. This lets an externally chosen action steer the visual branch without asking the trajectory head to invent that command. It also explains why the presence of video prediction does not force the planner to render every candidate future: the two heads are separately usable, although trained together.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e18"
+      ]
+    },
+    {
+      "heading": "How predicted training context changes the rollout problem",
+      "kind": "analysis",
+      "text": "Ordinary next-frame training gives the model ground-truth history, while a long generated video repeatedly supplies its own outputs. Chain-of-Forward deliberately narrows that mismatch. Instead of fully sampling a fresh image for every extra training pass, it estimates clean data from a noisy target and the predicted velocity, then reuses the estimate as later context. Reader interpretation: this teaches recovery from the model's approximate predictions, but it does not reproduce every error distribution encountered when sampling from pure noise. The paper runs three passes every ten training steps. Figure 8 shows a widening FID advantage over the untreated model, while Table 6 separately shows the benefit of temporal decoding. These interventions address related degradation symptoms through different parts of the pipeline.",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e08",
+        "e15",
+        "e16"
+      ]
+    },
+    {
+      "heading": "What remains when the video generator is switched off",
+      "kind": "analysis",
+      "text": "At planning time, the shared encoder and trajectory head remain active while VisDiT can be omitted. Table 5 makes this distinction scientifically useful: removing video prediction from training reduces NAVSIM performance, even though image generation is unnecessary for planner-only inference. Reader interpretation: the demonstrated benefit can reside in a representation shaped by visual prediction; it need not come from evaluating imagined futures online. Runtime requires a second distinction. Ten diffusion steps yield roughly 0.02 seconds for MST and 0.03 seconds for TrajDiT, whereas the main experiments specify 100 steps. NAVSIM also changes the stated planning horizon to four seconds. A reproduction should therefore verify both the horizon adaptation and the quality-versus-sampling-step curve before associating the headline planning score with 20 Hz.",
+      "evidenceIds": [
+        "e05",
+        "e08",
+        "e11",
+        "e13",
+        "e14"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate the value of visual supervision from sharing F",
+      "text": "Reader-proposed experiment: use the same training clips, planner capacity and NAVSIM split to compare trajectory-only training, the paper's shared-MST joint training, and a visual predictor trained with its own history backbone whose gradients do not enter the planner. Report both matched-iteration and matched-compute comparisons, with repeated seeds. Keep the two-second observation/four-second prediction protocol fixed and disable image generation for all planner evaluations. The discriminating observation is whether shared joint training improves PDMS and its component scores beyond both controls. If gains disappear under compute matching, or independent visual training produces the same planner improvement, attributing the Table 5 gap specifically to shared-latent coupling would be weakened.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e08",
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "title": "Test whether Chain-of-Forward changes degradation rather than only training cost",
+      "text": "Reader-proposed experiment: train paired models with and without the stated three-pass, every-ten-step procedure, and add an untreated baseline with matched total forward-pass compute. Hold DCAE, decoder, ten-frame context, dataset split and diffusion sampling steps fixed. Resolve the paper's noise-time convention before implementation; document whether predicted context is detached. Evaluate identical NuPlan sequences and random seeds at explicitly declared integer horizons, measuring FID and FVD over rollout length, with confidence intervals. A persistently smaller degradation slope would support the intended robustness mechanism. A gap confined to unmatched compute, or only to near-ground-truth training contexts and absent during pure-noise rollout sampling, would challenge that interpretation.",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e08",
+        "e09",
+        "e15",
+        "e16",
+        "e17",
+        "e21"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      13,
+      14,
+      15
+    ],
+    "notes": "Rendered and visually inspected the title/author page, all method and experiment pages, and all three embedded supplementary pages. This covers Figures 1–10, Tables 1–8, equations, implementation settings, runtime, evaluation horizons and supplementary comparison caveats. All six final original crops were separately opened and inspected at their helper-returned dimensions; narrow crops were rendered directly from the PDF at higher DPI. Figure 8 was re-cropped at 600 DPI and inspected at 1734×1115 pixels. Its first blue annotation overlaps a red marker in the original graphic; the exact starting value is therefore not used. The readable endpoints and increasing separation remain the basis of the retained rollout result. Table 1 retains its caption because the necessary maximum-duration asterisk note is embedded there. Figure 2's action arrow was cross-checked with Sections 3.2–3.3 and Figure 9; Figure 4's feedback paths were checked against Equation (7), with the time-direction ambiguity in Equations (1)–(3) disclosed. The complete text, including references on PDF pages 10–12, was read in all five supplied chunks; those reference-only pages were not visually inspected. No separate video supplement, code or physical experiment was inspected."
+  }
+}

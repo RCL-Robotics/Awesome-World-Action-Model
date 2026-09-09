@@ -1,0 +1,487 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-65dfbbe844d739cf5492",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T01:03:47.047Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2506.24113",
+      "title": "Epona: Autoregressive Diffusion World Model for Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "2f4348183ec8e8c5c445cd61587ac217589b0bbdbcf9a930b6e088797e0804bb",
+      "wordCount": 8526,
+      "accessedAt": "2026-09-07T14:15:27.670234+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1. Introduction",
+      "2. Related Work (2.1–2.2)",
+      "3. Method (3.1–3.5)",
+      "4. Experiment (4.1–4.4)",
+      "5. Conclusion",
+      "References",
+      "Supplement A. Detailed Architecture of Dual-Single-Stream DiT",
+      "Supplement B. More Discussions with Related Works",
+      "Supplement C. More Long-term Video Generation Results"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction-only visual gap was addressed by inspecting original PDF pages and all final crops. The supplement embedded in PDF pages 13–15 was read; no separate videos or other supplements were supplied.",
+      "Identity/version: the observed title and twelve authors match the catalog. This report reviews arXiv:2506.24113v1, 30 June 2025 (e01). The catalog identifies ICCV 2025; that venue edition was not supplied, so differences from the venue publication are unverified.",
+      "All five supplied text chunks were read individually without truncation. Code was not inspected and experiments were not reproduced.",
+      "Figure 8's first blue numerical annotation overlaps a red marker in the original PDF, including the higher-resolution crop. Its exact starting value is not used; the readable final values and rollout trend are retained (e15)."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 3)",
+      "Figure 3 (p. 4)",
+      "Figure 4 (p. 5)",
+      "Figure 5 (p. 6)",
+      "Figure 6 (p. 7)",
+      "Figures 7–8 (p. 8)",
+      "Figure 9 (p. 14)",
+      "Figure 10 (p. 15)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 6)",
+      "Table 2 (p. 7)",
+      "Table 3 (p. 8)",
+      "Tables 4–7 (p. 9)",
+      "Table 8 (p. 13)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Epona compresses camera and ego-motion history into a shared temporal representation, then uses separate diffusion transformers to predict a continuous future trajectory and one action-conditioned image. Repeating image prediction produces long videos; disabling it enables cheaper trajectory inference. Its strongest mechanism evidence is improved planning after joint visual training and reduced rollout degradation after Chain-of-Forward training. Reported video quality, qualitative duration and benchmark planning scores establish different capabilities, with important protocol and implementation gaps.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "The authors seek flexible-duration driving simulation together with direct motion planning. They argue that fixed-length video diffusion complicates temporal extension, while discrete token autoregression sacrifices visual detail and action precision. Their proposed solution separates causal historical reasoning from continuous future generation; the broad critiques of competing model families remain author arguments, not isolated experimental conclusions.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A shared multimodal history transformer feeds specialized trajectory and visual diffusion heads, allowing continuous multi-step plans and action-controlled next-frame prediction.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "Chain-of-Forward exposes training to self-predicted context, while a temporal decoder targets flicker introduced by independent image decoding.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e07"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Historical front-camera observations and relative ego motions (e03).",
+      "For controlled image generation, an externally supplied next ego motion can replace the predicted action (e03, e05)."
+    ],
+    "outputs": [
+      "A continuous sequence of future relative ego poses (e03, e05).",
+      "The next front-camera image; autoregressive feedback extends the video (e03, e06)."
+    ],
+    "steps": [
+      {
+        "name": "Compress and fuse history",
+        "detail": "DCAE encodes images with 32-fold spatial downsampling. MST embeds visual patches and three motion components, interleaving triangular causal temporal attention with multimodal spatial attention. Its last-frame representation F summarizes the supplied history; it is a learned latent, not an explicit map or physical state.",
+        "evidenceIds": [
+          "e04",
+          "e07"
+        ]
+      },
+      {
+        "name": "Predict two different futures",
+        "detail": "TrajDiT denoises an entire continuous trajectory conditioned on F. VisDiT denoises one next-frame latent using F and the predicted or supplied next action. Both use dual-stream then single-stream transformer blocks; only VisDiT receives action modulation. The image head therefore is not an inverse-dynamics action extractor.",
+        "evidenceIds": [
+          "e03",
+          "e05",
+          "e18"
+        ]
+      },
+      {
+        "name": "Decode and continue",
+        "detail": "The temporal-aware DCAE decoder converts predicted latents to imagery. Autoregressive simulation conditions subsequent predictions on generated history. Planner-only inference uses MST and TrajDiT without rendering future images; predicting a trajectory does not by itself demonstrate execution by a physical vehicle.",
+        "evidenceIds": [
+          "e03",
+          "e05",
+          "e06",
+          "e07"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The approximately 2.5B model uses 12-layer MST and VisDiT modules plus a 2-layer, 50M-parameter TrajDiT. World-model training uses NuPlan and 700 NuScenes scenes at 512×1024 resolution: 600k iterations, batch 96, AdamW, learning rate 10^-4 and weight decay 0.05, on 48 A100 GPUs for nearly two weeks.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08"
+        ]
+      },
+      {
+        "text": "Trajectory and image rectified-flow losses jointly supervise the world model. Every ten training steps, Chain-of-Forward performs three passes using single-step denoised estimates as subsequent context. DCAE is pretrained; its encoder stays fixed when adding temporal decoder attention. Thus training the world model from scratch does not mean that every component is randomly initialized.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e07",
+          "e08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The video evaluation uses ten past frames, repeatedly generates the next frame, and sets diffusion sampling to 100 steps. The generic planner and timing test use three-second trajectories, whereas NAVSIM explicitly uses two seconds of observation and a four-second future horizon; the source does not fully describe this adaptation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08",
+          "e09",
+          "e11",
+          "e13"
+        ]
+      },
+      {
+        "text": "On a single NVIDIA 4090, ten-step MST plus TrajDiT timings sum to about 0.05s, consistent with the claimed 20 Hz. At the 100-step experimental setting they sum to about 0.32s. These are module timings, and matching ten-step planning accuracy is not reported.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e11"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "x_{(t)}=(1-t)x_{(0)}+t\\epsilon,\\quad \\epsilon\\sim\\mathcal{N}(0,I),\\qquad \\mathcal{L}_{RF}=\\mathbb{E}_{x_{(0)},\\epsilon,t}\\!\\left[\\left\\|v_\\Theta(x_{(t)},t)-(x_{(0)}-\\epsilon)\\right\\|^2\\right]",
+        "explanation": "Here x is data or its noisy counterpart, epsilon is Gaussian noise, t is the noise coordinate, and v_Theta is the learned velocity. The paper applies this target to trajectories and image latents, summing their losses. Its target points toward data; see the time-direction caveat below.",
+        "evidenceIds": [
+          "e21",
+          "e05"
+        ]
+      },
+      {
+        "expression": "\\hat{x}_{(0)}=x_{(t)}+t\\,v_\\Theta(x_{(t)},t)",
+        "explanation": "Equation (7) estimates a clean sample in one step for Chain-of-Forward training. The estimated sample supplies later context, avoiding a complete iterative diffusion rollout inside each extra training pass.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "NuScenes video generation",
+      "setting": "1,646 validation clips; ten-frame conditioning; most baseline scores quoted from prior papers.",
+      "metric": "FVD / FID, lower is better",
+      "value": "82.8 / 7.5",
+      "comparison": "Vista: 89.4 / 6.9; DrivingWorld: 90.9 / 7.4.",
+      "interpretation": "The FVD reduction versus Vista is about 7.4% (reader calculation); FID is worse. This does not establish universal video superiority.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e19"
+      ]
+    },
+    {
+      "task": "NAVSIM trajectory planning",
+      "setting": "Test set; two-second observation history, four-second future; camera input.",
+      "metric": "PDMS, higher is better",
+      "value": "86.2",
+      "comparison": "DRAMA 85.5 with camera and lidar; LAW/PARA-Drive 84.6 with camera; human 94.8.",
+      "interpretation": "Best overall score among Table 4's learned planners, not best in every component or a physical deployment result.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "NuScenes trajectory planning",
+      "setting": "Front-camera input; no listed auxiliary perception supervision; 1/2/3-second horizons.",
+      "metric": "Mean L2 error / mean collision rate",
+      "value": "1.25 m / 0.36%; one-second collision 0.01%",
+      "comparison": "Doe-1: 1.26 m / 0.53%; UniAD: 1.03 m / 0.31%.",
+      "interpretation": "Competitive under differing inputs and supervision; the strongest one-second collision result is not the strongest average result.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Joint visual-training ablation",
+      "setting": "NAVSIM test; remove video prediction during training.",
+      "metric": "PDMS",
+      "value": "86.2 with joint training; 78.1 without",
+      "comparison": "8.1 score-point gain (reader subtraction); comfort stays 99.9.",
+      "interpretation": "Supports the benefit of visual supervision, but does not isolate shared-latent architecture from additional training signal.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Chain-of-Forward rollout ablation",
+      "setting": "NuPlan test; Figure 8's final plotted point between 35 and 40 autoregressive frames.",
+      "metric": "FID",
+      "value": "18.54 with Chain-of-Forward; 25.16 without",
+      "comparison": "Both curves worsen as rollout length grows.",
+      "interpretation": "Shows reduced degradation rather than its elimination; the source does not clarify the off-tick horizon coordinates.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "Temporal decoder ablation",
+      "setting": "NuPlan test; generated-video evaluation at 40 frames.",
+      "metric": "FVD40",
+      "value": "74.88 with temporal module; 100.11 without",
+      "comparison": "At 10 frames: 50.77 versus 52.95.",
+      "interpretation": "The larger long-horizon gap supports temporal decoding, without independently measuring physical consistency.",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "task": "Conditioning-history ablation",
+      "setting": "NuPlan test; 2, 5 or 10 conditioning frames.",
+      "metric": "FVD40",
+      "value": "103.70 / 86.76 / 74.88",
+      "comparison": "Ten frames perform best among tested lengths.",
+      "interpretation": "Historical context helps within this sweep; ten is the reported computational limit, not a demonstrated universal optimum.",
+      "evidenceIds": [
+        "e17"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Table 1's 120s/600-frame maximum denotes plausible generation, not a common-horizon quantitative test; Figure 10 additionally shows selected frames through 140s. Neither validates traffic-rule understanding or sustained safe vehicle execution. No uncertainty intervals accompany the highlighted comparisons.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e12",
+        "e13",
+        "e14",
+        "e15",
+        "e20"
+      ]
+    },
+    {
+      "text": "Appendix B reports InfinityDrive FVD 70.06, Epona 82.83 and MagicDriveDiT 94.84. Its statement that MagicDriveDiT has better visual quality is not explained by those FVD values. The authors acknowledge compression artifacts. Preserve this tension rather than repeating an unrestricted state-of-the-art claim.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e19"
+      ]
+    },
+    {
+      "text": "Equation (2)'s increasing-t derivative points toward noise, but the velocity target points toward data. Equation (7) is consistent with that target; Equation (1)'s integration convention remains ambiguous. Decoder temporal window/causality, training gradient detachment and detailed evaluation sampling procedures are insufficiently specified for an exact reproduction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e21",
+        "e06",
+        "e07",
+        "e09",
+        "e18"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the stated datasets, trajectory coordinate conversion, pretrained DCAE and substantial training compute. Recover frame sampling, diffusion solver/time convention, trajectory normalization, NAVSIM horizon adaptation and decoder fine-tuning settings before interpreting mismatches. The source promises future code availability, which establishes no runnable release.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e07",
+        "e08",
+        "e09",
+        "e13",
+        "e18",
+        "e21",
+        "e22"
+      ]
+    },
+    {
+      "text": "Proposed checks should separate extra visual supervision from shared-latent coupling and compare Chain-of-Forward against a compute-matched baseline. Keep data, horizon, decoder and evaluation noise fixed; measure planning and rollout quality separately.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e14",
+        "e15",
+        "e16"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The source supports WAM, autonomous driving, joint video-action modeling and long-horizon modeling. Distinct TrajDiT/VisDiT predictors make a modular Dual-system reading defensible despite shared MST. The mechanism is jointly trained, asynchronously coupled future/action prediction, not inverse dynamics; joint training alone does not establish One Model. Other mechanisms and Outside quadrants cannot be confirmed without the catalog's quadrant criteria. Preserve the snapshot and flag those labels for review.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e18"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Joint video-action modeling",
+        "Memory & long-horizon modeling"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "e9405d29e50e0281b684527672734c5d988a3ea6595549f5b48aa9937dab0805"
+    }
+  },
+  "discussionQuestions": [
+    "Would planning still improve with an independent visual-training backbone, given the same compute and observations?",
+    "How much of the reported planning quality survives the ten-step configuration associated with 20 Hz?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin",
+      "detail": "The title and all twelve authors match the catalog. The artifact identifies arXiv:2506.24113v1, dated 30 June 2025; seven affiliations are printed."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–4, Introduction, Figure 3 and Section 3.2",
+      "detail": "The authors motivate continuous frame-wise autoregression as an alternative to fixed-length video diffusion and discrete token prediction; these are their design arguments."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2, action definition and the two distributions under Our approach; p. 3, Figure 2",
+      "detail": "Historical front-camera observations and relative ego motions condition a future-trajectory policy; the next observation additionally depends on the next action, predicted or externally supplied."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Multimodal Spatiotemporal Transformer",
+      "detail": "Visual latents and three action components are embedded together; interleaved causal temporal and multimodal spatial attention produce the final-frame historical representation F."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, TrajDiT/VisDiT, Equations (4)–(6)",
+      "detail": "Distinct diffusion heads generate continuous trajectories and next-frame visual latents, sharing F. VisDiT adds action modulation. Joint training sums trajectory and visual rectified-flow losses; inference may disable either prediction task."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 4 and Section 3.4; p. 6, Section 3.4, Equation (7)",
+      "detail": "Chain-of-Forward feeds model estimates into subsequent training passes. A single velocity-based estimate x-hat(0)=x(t)+t v is used instead of a full noise-to-data rollout."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.5",
+      "detail": "DCAE uses 32-fold spatial downsampling, reducing token count sixteenfold relative to an 8-fold encoder. Temporal self-attention is inserted before the decoder; the encoder stays fixed during this fine-tuning."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, World Model",
+      "detail": "The approximately 2.5B model comprises 12-layer/1.3B MST, 12-layer/1.2B VisDiT and 2-layer/50M TrajDiT. Training uses NuPlan and 700 NuScenes scenes, 512×1024 images, 48 A100 GPUs, nearly two weeks, 600k iterations, batch 96 and AdamW. Chain-of-Forward runs every ten steps with three passes; experiments use 100 diffusion steps."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.1 evaluation paragraphs; p. 7, Section 4.2 quantitative comparison",
+      "detail": "Video evaluation uses 1,628 NuPlan test clips and 1,646 NuScenes validation clips with ten conditioning frames. FID/FVD measure generated imagery; trajectory metrics are L2 error, collision rate and NAVSIM PDMS. Video baseline values mostly come from their original papers."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, FID/FVD and maximum-duration rows, including asterisk note",
+      "detail": "NuScenes: Epona FID 7.5/FVD 82.8; Vista 6.9/89.4; DrivingWorld 7.4/90.9. Maximum durations are 120s/600 frames, 15s/150 frames and 40s/400 frames respectively. The note defines duration by plausible results."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2 and caption; p. 6, Section 4.1 sampling-step statement; p. 2, real-time planning claim",
+      "detail": "On one NVIDIA 4090, a three-second trajectory uses about 0.02s MST plus 0.03s TrajDiT at ten sampling steps; VisDiT takes about 0.3s. At 100 steps TrajDiT takes about 0.3s and VisDiT about 2s."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3, Ours, Doe-1 and UniAD rows; pp. 7–8, Section 4.3",
+      "detail": "Epona uses the front camera without listed auxiliary perception supervision: mean L2 1.25m, mean collision 0.36%, one-second collision 0.01%. Doe-1 reports 1.26m/0.53%; UniAD reports 1.03m/0.31% with additional supervision."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.3, NAVSIM horizon statement; p. 9, Table 4 and caption",
+      "detail": "NAVSIM uses two seconds of past observations to predict four-second trajectories. Epona PDMS is 86.2 versus DRAMA 85.5, camera-only LAW/PARA-Drive 84.6 and human 94.8. NC, DAC, TTC, comfort and ego progress are constituent factors."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.4, Effect of Shared Latent; p. 9, Table 5",
+      "detail": "Removing video prediction during training reduces NAVSIM PDMS from 86.2 to 78.1. The full model improves NC 94.5→97.9, DAC 89.7→95.1, TTC 88.1→93.8 and EP 74.7→80.4; comfort remains 99.9."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figures 7–8 and Section 4.4, Effect of Chain-of-Forward",
+      "detail": "NuPlan FID rises with rollout length in both variants. Figure 8 labels the final plotted values 18.54 with Chain-of-Forward and 25.16 without; the final markers lie between the 35 and 40 frame ticks. The first blue annotation overlaps a red marker, so its exact value is not used. Figure 7 gives selected minute-long qualitative comparisons."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 6 and surrounding decoder ablation paragraph",
+      "detail": "NuPlan temporal-decoder ablation reports FVD at 10/25/40 frames: 50.77/61.46/74.88 with the module versus 52.95/76.46/100.11 without."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 7 and Effect of Different Context Length paragraph",
+      "detail": "With 2/5/10 conditioning frames, NuPlan FVD40 is 103.70/86.76/74.88. The authors select ten frames as the computational upper limit in their setting."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 13 (supplement p. 1), Appendix A; p. 14 (supplement p. 2), Figure 9 and caption",
+      "detail": "Dual-stream blocks initially process noisy data and historical conditions separately, interacting through attention; single-stream blocks concatenate them. Action-control modulation applies only to VisDiT, as the caption clarifies."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 13 (supplement p. 1), Appendix B and Table 8",
+      "detail": "Table 8 gives DrivingGPT/Epona PDMS 82.4/86.2. Appendix B lists NuScenes FVD MagicDriveDiT 94.84, InfinityDrive 70.06 and Epona 82.83, yet describes MagicDriveDiT as visually better. It acknowledges possible artifacts from the compressed autoencoder."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 15 (supplement p. 3), Figure 10; p. 13, Appendix C",
+      "detail": "Three illustrated rollouts show selected frames through 140 seconds. These are qualitative examples; the text asserts long-term consistency without supplying a corresponding 140-second quantitative benchmark."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Equations (1)–(3); p. 6, Equation (7)",
+      "detail": "The noisy path is (1−t)x(0)+t epsilon, while the regression target is x(0)−epsilon. Equation (7) uses a plus-sign denoising estimate. Equation (1)'s differential notation leaves its time-direction convention insufficiently reconciled with the path derivative."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF p. 2, abstract continuation, code-availability sentence",
+      "detail": "The source says code will be publicly available; it does not establish a released or runnable implementation."
+    }
+  ]
+}
