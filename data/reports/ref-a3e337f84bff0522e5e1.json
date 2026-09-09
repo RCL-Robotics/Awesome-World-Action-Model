@@ -1,0 +1,416 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-a3e337f84bff0522e5e1",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T07:47:15.121Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/1710.06537",
+      "title": "Sim-to-Real Transfer of Robotic Control with Dynamics Randomization",
+      "kind": "pdf",
+      "sha256": "a15cb24630a11218865027024ae2353f80f46d40371b42dccb2b24e9d00d62d8",
+      "wordCount": 6942,
+      "accessedAt": "2026-09-07T14:33:20.958905+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; I. Introduction (p. 1)",
+      "II. Related Work, A–C (pp. 1–2)",
+      "III. Background, A. Policy Gradient Methods and B. Hindsight Experience Replay (pp. 2–3)",
+      "IV. Method, A–F, including Algorithm 1 (pp. 3–5)",
+      "V. Experiments, A. Comparison of Architectures, B. Ablation and C. Robustness (pp. 5–7)",
+      "VI. Conclusions; VII. Acknowledgement; References (pp. 7–8)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This limitation was addressed by visually inspecting all eight supplied PDF pages and all final crops.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The linked supplemental video was not supplied or viewed. Code was not inspected and experiments were not reproduced.",
+      "Version scope: the verified title and all four authors match the catalog. This report reads arXiv:1710.06537v3, dated 3 March 2018. The catalog lists ICRA 2018; the publisher edition and earlier arXiv revisions were not supplied or compared, so edition differences beyond the observed version remain unverified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1), physical deployment snapshots",
+      "Figure 2 (p. 4), real and simulated Fetch arm",
+      "Figure 3 (p. 5), pushing and altered-contact snapshots",
+      "Figure 4 (p. 6), actor and critic architecture",
+      "Figure 5 (p. 6), joint tracking mismatch",
+      "Figure 6 (p. 6), simulation learning curves",
+      "Figure 7 (p. 7), simulation/real success"
+    ],
+    "tablesReviewed": [
+      "Table I (p. 5), randomization ranges",
+      "Table II (p. 7), architecture comparison",
+      "Table III (p. 7), randomization ablations"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "Dynamics randomization trains a recurrent pushing policy across varied simulated physics, then deploys it directly on a Fetch arm. Its memory can use interaction history, while a training-only critic receives privileged simulator parameters. Reported real success is 0.89 ± 0.06 over 28 trials. This is evidence for physical policy transfer under the tested setup, with different simulation and real evaluation horizons; it is not a learned future-prediction model.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A policy can exploit simulator-specific contact or actuator behavior and fail on hardware. Collecting the reinforcement-learning experience directly on a robot is costly and complicates exploration. The paper asks whether a deliberately variable simulator can instead teach a policy to handle unknown physical dynamics. Puck pushing stresses this idea because contact, friction, sensing, and controller timing jointly determine whether a commanded motion moves the object toward its goal.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03",
+      "e05"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Combines episodic dynamics randomization, a recurrent actor, hindsight experience replay (HER), and recurrent deterministic policy gradient (RDPG) to learn from sparse rewards entirely in simulation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e08"
+      ]
+    },
+    {
+      "text": "Demonstrates direct physical transfer and tests architecture, randomization choices, and a changed puck contact surface. The authors attribute transfer to runtime adaptation; the experiments support useful history dependence without directly measuring identified physics.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13",
+        "e14",
+        "e15",
+        "e16"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "52D measured state: arm joint positions/velocities, gripper position, and puck pose/velocities; target position g",
+      "Previous action and recurrent memory; simulator parameters mu additionally enter the critic during training"
+    ],
+    "outputs": [
+      "Seven relative joint-angle targets for a position controller",
+      "Training-only action-value estimate Q; no explicit future-state, video, or dynamics-parameter prediction"
+    ],
+    "steps": [
+      {
+        "name": "Sample a family of environments",
+        "detail": "At each episode start, choose a goal, random puck position, and dynamics parameters. The paper reports 95 randomized parameters spanning robot links, joints, puck, table, controller, timing, and observations. Most physical parameters remain fixed within the episode; action duration and observation noise vary every step. Mass, damping, friction, and gains use logarithmic sampling.",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "name": "Build memory from interactions",
+        "detail": "Current state and previous action pass through a 128-unit embedding and 128-unit LSTM. A parallel feedforward path receives current state and goal. The goal bypasses recurrence because the authors argue that it carries no information about dynamics. Both paths merge before two further 128-unit layers and a scaled tanh action output.",
+        "evidenceIds": [
+          "e08",
+          "e09"
+        ]
+      },
+      {
+        "name": "Train with a better-informed critic",
+        "detail": "The separate recurrent critic receives the queried action and true simulator parameters in its feedforward path, producing a linear value output. These parameters help training feedback without requiring their measurement on the robot. Actor memory is learned through the control objective rather than a supervised mass or friction target.",
+        "evidenceIds": [
+          "e08",
+          "e09"
+        ]
+      },
+      {
+        "name": "Relabel unsuccessful experience",
+        "detail": "Store complete episodes with their goals, rewards, and dynamics. HER substitutes an achieved goal and recomputes rewards, allowing unsuccessful original attempts to provide useful learning signals. RDPG supplies off-policy actor and critic updates with recurrent memories computed along the replayed trajectory.",
+        "evidenceIds": [
+          "e04",
+          "e08",
+          "e10"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "MuJoCo uses a 0.002 s physics step, nominally 20 physics steps per action, and 100 control steps per simulated episode. Observation noise is zero-mean Gaussian with standard deviation 5% of each feature's running standard deviation; action exploration adds Gaussian noise with standard deviation 0.01 rad.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07",
+          "e11"
+        ]
+      },
+      {
+        "text": "Actor and critic use ADAM at 5×10^-4, batches of 128 episodes, and HER probability 0.8. Each policy receives approximately 8000 update iterations and about 100 million samples. The reported eight hours on 100 cores refers to simulation, not a complete measured end-to-end training runtime. Target networks are used but omitted from the pseudocode.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08",
+          "e10"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "On hardware, measured state and the previous action update policy memory; the policy emits relative joint-angle targets, the position controller executes them, and new observations close the loop. PhaseSpace tracks the puck. No real-world policy fine-tuning or online gradient update is described: runtime adaptation refers to recurrent-state evolution, and the privileged critic is absent.",
+        "kind": "source",
+        "evidenceIds": [
+          "e02",
+          "e05",
+          "e08",
+          "e09",
+          "e11"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathbb{E}_{\\mu\\sim\\rho_\\mu}\\!\\left[\\mathbb{E}_{\\tau\\sim p(\\tau\\mid\\pi,\\mu)}\\!\\left[\\sum_{t=0}^{T-1}r(s_t,a_t)\\right]\\right]",
+        "explanation": "The displayed objective averages trajectory reward over simulator parameters mu drawn from rho_mu. The policy is pi; tau is a state-action trajectory, s_t and a_t its state and action, r the reward, and T the episode horizon. This optimizes performance over the sampled family; it provides no worst-case transfer guarantee.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "r(s,g)=\\begin{cases}0,&\\text{if }g\\text{ is satisfied in }s,\\\\-1,&\\text{otherwise.}\\end{cases}",
+        "explanation": "The state s and goal g define a sparse reward. For pushing, satisfying the goal means the puck lies within 0.07 m of its target. HER changes the replayed goal and reward, not the trajectory's actual physical outcome.",
+        "evidenceIds": [
+          "e04",
+          "e11"
+        ]
+      },
+      {
+        "expression": "\\Delta t\\sim\\Delta t_0+\\operatorname{Exp}(\\lambda),\\qquad \\Delta t_0=0.04\\,\\mathrm{s}",
+        "explanation": "Delta t is time between actions; the exponential rate lambda is sampled per episode from 125–1000 inverse seconds, while each step draws a new duration. The rate is not itself a duration or a control frequency. This is the paper's simple model of controller latency.",
+        "evidenceIds": [
+          "e06",
+          "e07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Sim-to-real puck pushing",
+      "setting": "Simulation-only training; 100 randomized-dynamics simulation trials and 28 physical LSTM trials. Simulation/real horizons are 100/200 control steps. Starts and goals are randomized within 0.3×0.3 m.",
+      "metric": "Episode-end success: puck within 0.07 m of target",
+      "value": "LSTM: simulation 0.91 ± 0.03; real 0.89 ± 0.06.",
+      "comparison": "FF no Rand: 0.51 ± 0.05 / 0.0 ± 0.0 (10 real trials); FF: 0.83 ± 0.04 / 0.67 ± 0.14 (12); FF + Hist: 0.87 ± 0.03 / 0.70 ± 0.10 (20). Values are simulation / real.",
+      "interpretation": "The LSTM has the highest reported physical success. Similar simulation/real rates use different horizons, and small unequal physical samples limit comparison. The ± statistic is undefined.",
+      "evidenceIds": [
+        "e11",
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "task": "Randomization component ablation on the real robot",
+      "setting": "Retrained LSTM policies with individual randomization components removed; physical pushing evaluation.",
+      "metric": "Episode-end success rate; physical trial count",
+      "value": "All: 0.89 ± 0.06 (28); fixed action timestep: 0.29 ± 0.11 (17); no observation noise: 0.25 ± 0.12 (12).",
+      "comparison": "Fixed link mass: 0.64 ± 0.10 (22); fixed puck friction: 0.48 ± 0.10 (27).",
+      "interpretation": "Timing variation and sensor noise have the largest observed removals' costs. These separate removals do not measure interactions or establish significance; uncertainty is undefined.",
+      "evidenceIds": [
+        "e11",
+        "e15"
+      ]
+    },
+    {
+      "task": "Pushing with altered puck contact dynamics",
+      "setting": "Physical LSTM deployment with a packet of chips attached under the puck.",
+      "metric": "Reported success rate",
+      "value": "0.91 ± 0.04 with attachment.",
+      "comparison": "0.89 ± 0.06 without attachment.",
+      "interpretation": "Supports tolerance to this particular contact change. The attachment trial count is absent, uncertainty is undefined, and the numerical increase does not establish improved performance.",
+      "evidenceIds": [
+        "e11",
+        "e16"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Evidence covers one arm and one state-based pushing task. Puck tracking uses external motion capture; image-based control and a broader task repertoire are future work.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e11",
+        "e17"
+      ]
+    },
+    {
+      "text": "History-dependent control is consistent with implicit system identification, but the paper does not probe memory for physical parameters or compare intact versus reset memory at deployment. Architecture comparisons therefore leave adaptation versus general recurrent robustness partly unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "text": "No reported success uncertainty is defined, and physical trial counts differ across policies and ablations. The 200-step real horizon versus 100 simulated steps prevents treating similar success rates as a matched-budget reality-gap measurement.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the Fetch position-control interface, MuJoCo model and nominal parameters underlying Table I's multipliers, a puck/table setup, and PhaseSpace-equivalent state measurements. The text states a 52D state but does not fully enumerate its encoding. Exact software versions and default controller gains are not supplied.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "text": "The paper specifies network widths, sampling ranges, optimizer settings, and approximate data cost, but not the discount value, replay capacity, target-network update coefficient, exact HER goal-sampling strategy used in experiments, or physical policy selection across seeds. A reproduction should expose these choices and report per-seed counts and defined intervals under matched horizons.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e08",
+        "e10",
+        "e11",
+        "e13",
+        "e14"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded foundational/action-policy classification and Not applicable architecture, prediction paradigm, and quadrant are supported. This is an actor–critic transfer method using an external physics simulator. Its recurrent state may summarize dynamics, but it does not learn a future-observation predictor or jointly predict futures and actions. Having actor and critic networks does not place it in a world-action-model architecture quadrant. Distillation is not demonstrated.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e08",
+        "e09",
+        "e17"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Training optimization & distillation",
+        "Action policy foundations"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "b64b292aa202bcf65a52ebf7cbc47237c21a955c7ea214391e084f7411da1dbf"
+    }
+  },
+  "discussionQuestions": [
+    "Does recurrent memory identify changing dynamics, or mainly stabilize control under noisy observations?",
+    "Would the ranking persist with matched horizons, equal trial counts, and repeated training seeds?",
+    "How dependent is transfer on the randomization ranges and motion-capture state quality?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin stamp",
+      "detail": "The title matches the catalog. Authors are Xue Bin Peng, Marcin Andrychowicz, Wojciech Zaremba, and Pieter Abbeel. The artifact is arXiv:1710.06537v3 [cs.RO], dated 3 March 2018. Affiliations are OpenAI and UC Berkeley, Department of Electrical Engineering and Computer Science."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Abstract and Section I; p. 2, Sections II.B–C",
+      "detail": "The paper motivates simulator-only policy training by sample cost, exploration concerns, and simulation-to-reality mismatch. It proposes dynamics randomization and recurrent policies for physical puck pushing with sparse rewards."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section IV, displayed dynamics-randomization objective",
+      "detail": "A physics simulator approximates real dynamics. Parameters mu are sampled from a distribution, and the policy maximizes expected trajectory reward averaged over those dynamics."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section III.B, binary reward and HER explanation; p. 5, Algorithm 1, lines 4–24",
+      "detail": "Reward is zero when the goal is satisfied and minus one otherwise. HER relabels goals and recomputes rewards for stored trajectories; RDPG updates recurrent actor and critic using replayed episodes."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section IV.A; p. 4, Section IV.B and Figure 2",
+      "detail": "The task uses a 7-DOF Fetch arm, random puck start and goal, and a default initial arm pose. The stated 52D state contains arm joint positions/velocities, gripper position, and puck pose and velocities. The 7D action is a relative target-joint-angle offset for a position controller."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV.C; p. 5, Table I and Section V; p. 6, Section V continuation below Figure 4",
+      "detail": "The paper reports 95 randomized parameters. Table I gives link-mass multipliers 0.25–4, joint-damping multipliers 0.2–20, puck mass 0.1–0.4 kg, friction 0.1–5, puck damping 0.01–0.2 Ns/m, table height 0.73–0.77 m, controller-gain multipliers 0.5–2, and action-timestep rate 125–1000 inverse seconds. Mass, damping, friction and gains are sampled logarithmically. Noise standard deviation is 5% of each feature's running standard deviation."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section V, action-timestep formula; p. 6, first continuation of Section V",
+      "detail": "Each action duration is 0.04 seconds plus an exponential draw with rate lambda; lambda is fixed within an episode while duration varies each step. Observation noise is resampled each step. Gaussian exploration noise has standard deviation 0.01 radians."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Sections IV.D–E",
+      "detail": "The recurrent policy summarizes past states and actions in internal memory. It does not explicitly output physical parameters. The omniscient recurrent critic receives the simulator parameters during training; those parameters are not policy inputs. Target networks are used but omitted from Algorithm 1 for brevity."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section IV.F; p. 6, Figure 4 and caption",
+      "detail": "Actor and critic have recurrent and feedforward branches. Current state and previous action feed a 128-unit embedding and 128-unit LSTM; current state also enters the feedforward path with the goal. The critic adds the queried action and dynamics parameters to that path. Concatenated features pass through two 128-unit layers; actor output is scaled tanh and critic output linear."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Algorithm 1; p. 6, Section V, optimizer paragraph",
+      "detail": "ADAM uses step size 5×10^-4 for actor and critic, batches of 128 episodes of 100 steps, and HER probability 0.8. Each policy uses approximately 8000 update iterations and about 100 million samples; generating the simulation data takes approximately eight hours on a 100-core cluster."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section V, simulation timing; p. 6, Section V and V.A; p. 7, Section V.A and Table II caption",
+      "detail": "MuJoCo uses a 0.002-second physics step and nominally 20 physics steps per control step; simulation episodes have 100 control steps. Physical evaluation uses 200 steps, a roughly 0.2 kg puck of radius 0.065 m, PhaseSpace tracking, and success within 0.07 m at episode end. Starts and goals lie within a 0.3×0.3 m region. Simulation evaluation uses 100 randomized-dynamics trials; real counts differ by model."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 5 and Section V, calibration paragraph",
+      "detail": "The same target joint trajectories are executed by the real and simulated robots. Shoulder, elbow, and wrist responses differ, with visible joint-dependent tracking mismatch. The authors report little calibration."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section V.A and Figure 6",
+      "detail": "Four random-seed policies are trained per architecture. The simulation learning curves compare LSTM, memoryless FF, FF trained without randomization but tested with it, and FF with eight past states/actions. LSTM learns faster and reaches higher success in the plotted comparison; the shading statistic is not specified."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table II, all rows and columns; Figure 7; Section V.A",
+      "detail": "LSTM success is 0.91 ± 0.03 in simulation and 0.89 ± 0.06 on the robot (28 real trials). FF no Rand: 0.51 ± 0.05 / 0.0 ± 0.0 (10); FF: 0.83 ± 0.04 / 0.67 ± 0.14 (12); FF + Hist: 0.87 ± 0.03 / 0.70 ± 0.10 (20). The paper does not define the ± statistic or real-policy seed aggregation."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section V.B and Table III, all rows",
+      "detail": "Physical LSTM success with all randomizations is 0.89 ± 0.06 (28 trials). Fixed action timestep: 0.29 ± 0.11 (17); no observation noise: 0.25 ± 0.12 (12); fixed link mass: 0.64 ± 0.10 (22); fixed puck friction: 0.48 ± 0.10 (27). The authors identify timing and noise as especially consequential."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 3 and caption; p. 7, Section V.C",
+      "detail": "A packet of chips attached under the puck changes contact dynamics and, according to the authors, reduces friction. LSTM success is 0.91 ± 0.04 versus 0.89 ± 0.06 without the attachment. The modified-condition trial count and uncertainty definition are not stated. Fine-positioning behaviors are described qualitatively."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section VI; pp. 4–6, Sections IV–V",
+      "detail": "The demonstrated task is state-based puck pushing on a Fetch arm. The conclusion proposes broader tasks and vision as future work. The supplied paper has no appendix; the remaining material is acknowledgements and references on pp. 7–8."
+    }
+  ]
+}

@@ -1,0 +1,546 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-9fc7047b7d787fa298bf",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T03:58:18.442Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2310.16828",
+      "title": "TD-MPC2: Scalable, Robust World Models for Continuous Control",
+      "kind": "pdf",
+      "sha256": "99832c555b66665ad1e26cd48e75ea9dda4f3750175b993e7ed5b8dfe399b9e0",
+      "wordCount": 14447,
+      "accessedAt": "2026-09-07T14:25:07.281521+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; Sections 1–2: Introduction and Background",
+      "Section 3.1: Learning an implicit world model",
+      "Sections 3.2–3.3: MPC and generalist agents",
+      "Sections 4–4.1: Experiments and results",
+      "Sections 5–6: Lessons, opportunities, risks, and related work",
+      "Acknowledgements and references",
+      "Appendices A–C: Improvements, task visualizations, and task domains",
+      "Appendices D–G: Single-task, few-shot, additional ablation, and gradient results",
+      "Appendix H: Implementation details",
+      "Appendices I–K: Discrete actions, offline regularization, and additional multitask results"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction limitation above was addressed by visually inspecting PDF pages 1–9 and 16–31, including every figure and table; pages 10–15 were read as text.",
+      "Identity: the inspected title page matches the catalog title and Nicklas Hansen; Hao Su; Xiaolong Wang. It identifies arXiv:2310.16828v2, 21 March 2024, published at ICLR 2024. No earlier revision or separate venue artifact was supplied, so revision-to-revision differences were not compared.",
+      "Code, linked resources, datasets, and checkpoints were not inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8",
+      "Figure 9",
+      "Figure 10",
+      "Figure 11",
+      "Figure 12",
+      "Figure 13",
+      "Figure 14",
+      "Figure 15",
+      "Figure 16",
+      "Figure 17",
+      "Figure 18",
+      "Figure 19",
+      "Figure 20",
+      "Figure 21",
+      "Figure 22"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7",
+      "Table 8",
+      "Table 9",
+      "Table 10"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "TD-MPC2 learns a decoder-free latent world model and uses short-horizon planning, completed by a learned terminal value, to choose continuous actions. Its contribution is a coordinated robustness recipe and a task-conditioned architecture that supports larger multitask models; the evidence concerns simulated control, not generated-video quality or physical deployment. [e03, e07, e08, e09, e11]",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "Can model-based RL learn from mixed-quality experience across different embodiments, reward scales, and action spaces without fragile per-task tuning? The authors target a limitation of generalist behavior cloning: dependence on near-expert demonstrations. TD-MPC2 instead optimizes expected return using an implicit control model.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A robustness recipe combines simplicial latent normalization, normalized MLPs, discrete reward/value regression, an ensemble of value functions, and a stochastic policy prior.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e16"
+      ]
+    },
+    {
+      "text": "Learned task embeddings, zero-padding, and action masking allow shared components to serve tasks with different observation and action dimensions.",
+      "kind": "source",
+      "evidenceIds": [
+        "e08"
+      ]
+    },
+    {
+      "text": "The experiments connect single-task learning, offline multitask scaling, and online adaptation, rather than demonstrating unrestricted generalist behavior.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e11",
+        "e12"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current proprioceptive state; image observations in the separate visual-RL experiments.",
+      "Candidate continuous actions; task identity through a learned embedding in multitask models.",
+      "Replay trajectories containing observations, actions, rewards, and next observations."
+    ],
+    "outputs": [
+      "Predicted next latent state, reward distribution, terminal action value, and policy-prior action.",
+      "A first action selected by model-predictive control and executed in the environment."
+    ],
+    "steps": [
+      {
+        "name": "Encode and predict in latent space",
+        "detail": "The encoder h maps observation s and task embedding e to z. Dynamics d takes z, action a, and e to predict the next latent state. Reward R and terminal value Q evaluate actions; policy prior p proposes them. Future observations are never decoded.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Stabilize the representation and targets",
+        "detail": "LayerNorm and Mish operate in intermediate MLP layers. SimNorm applies softmax within latent groups, keeping each group on a simplex. Five Q-functions are used by default; TD targets take the minimum of two randomly sampled EMA target functions.",
+        "evidenceIds": [
+          "e04",
+          "e06",
+          "e21",
+          "e22"
+        ]
+      },
+      {
+        "name": "Represent different tasks",
+        "detail": "Every component receives a learned task embedding constrained to norm at most one. Inputs and outputs are padded to common dimensions; invalid action dimensions are excluded from policy predictions, entropy, and planning samples.",
+        "evidenceIds": [
+          "e08"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Online learning alternates replay-based model updates and environment collection through planning. The encoder, dynamics, reward, and value components learn jointly; the next-observation embedding is stop-gradient. Policy-objective gradients update only the policy prior. No pretrained frozen backbone is specified.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "text": "Default training uses uniform replay, batch 256, update-to-data ratio 1, Adam, and temporal weighting 0.5. Table 8 gives joint-embedding/reward/value coefficients 20/0.1/0.1, which are omitted from the schematic Eq. (3). Reward and value heads have 101 bins in log-transformed space.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e16",
+          "e22"
+        ]
+      },
+      {
+        "text": "Offline scaling uses 545M transitions from 240 single-task agents for 80 tasks: 50 Meta-World and 30 DMControl. Behavior ranges from random to expert; batch size becomes 1024. The separate DMControl-only dataset has 345M transitions.",
+        "kind": "source",
+        "evidenceIds": [
+          "e11"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "MPPI samples candidate action sequences, rolls them forward through latent dynamics, and ranks predicted discounted rewards plus terminal Q. It updates a diagonal Gaussian, executes its first action, observes the environment again, and replans. Policy-prior trajectories supplement sampling; the preceding plan initializes the next search after a one-step shift.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "text": "Table 8 specifies horizon 3, population 512, 24 policy-prior samples, 64 elites, and six planning iterations, increased by two when action dimensionality is at least 20. Thus the common recipe includes an explicit task-dependent rule.",
+        "kind": "source",
+        "evidenceIds": [
+          "e22"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}(\\theta)=\\mathbb{E}_{(s,a,r,s')_{0:H}\\sim\\mathcal{B}}\\!\\left[\\sum_{t=0}^{H}\\lambda^t\\left(\\left\\|z'_t-\\operatorname{sg}(h(s'_t))\\right\\|_2^2+\\operatorname{CE}(\\hat r_t,r_t)+\\operatorname{CE}(\\hat q_t,q_t)\\right)\\right]",
+        "explanation": "Eq. (3): θ denotes model parameters, B replay, H the rollout horizon, and λ temporal weighting. The predicted next latent z′ matches the stopped-gradient encoding h(s′); CE trains reward and value predictions against soft targets. The implemented loss coefficients are separately specified in Table 8.",
+        "evidenceIds": [
+          "e04",
+          "e22"
+        ]
+      },
+      {
+        "expression": "q_t=r_t+\\gamma\\bar Q\\!\\left(z'_t,p(z'_t)\\right)",
+        "explanation": "The source TD target combines observed reward r with discounted next-state value. γ is the discount factor, p the policy prior, and Q̄ an EMA target value function; the ensemble uses the minimum of two sampled target functions.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "\\gamma=\\operatorname{clip}\\!\\left(\\frac{T/5-1}{T/5},[0.95,0.995]\\right),\\qquad S=\\max(5T,1000)",
+        "explanation": "Appendix H defines T as expected episode length after action repeat and S as seed environment steps before gradient updates. These heuristics qualify the claim of shared hyperparameters; task-specific discounts also apply during multitask learning.",
+        "evidenceIds": [
+          "e23"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Offline multitask control across 80 tasks",
+      "setting": "Fixed 545M-transition dataset; evaluation on the training task set, with increasing model configurations.",
+      "metric": "Mean normalized score on a 0–100 scale; approximate GPU days",
+      "value": "1M: 16.0 / 3.7; 5M: 49.5 / 4.2; 19M: 57.1 / 5.3; 48M: 68.0 / 12; 317M: 70.6 / 33.",
+      "comparison": "Each cost is reported for one NVIDIA GeForce RTX 3090; Figure 7 shows TD-MPC deteriorating as its size increases.",
+      "interpretation": "Larger TD-MPC2 configurations improve the aggregate score. This is neither unseen-task evaluation nor a fitted scaling law; uncertainty is not provided in Table 1.",
+      "evidenceIds": [
+        "e11",
+        "e23"
+      ]
+    },
+    {
+      "task": "Single-task online continuous control",
+      "setting": "104 tasks: 39 DMControl, 50 Meta-World, five ManiSkill2, ten MyoSuite; independent task training.",
+      "metric": "Episode return for DMControl; final-step success rate for the other domains",
+      "value": "Figure 4 reports higher aggregate curves for TD-MPC2 across all four domains; means and 95% confidence intervals over three seeds.",
+      "comparison": "SAC, DreamerV3, and TD-MPC; parameter counts, update ratios, and tuning policies differ.",
+      "interpretation": "Broad data-efficiency evidence, not a matched-compute comparison. Figure 16 identifies Key Turn Hard as an exception to TD-MPC2's per-task advantage.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e17"
+      ]
+    },
+    {
+      "task": "Pick YCB object manipulation",
+      "setting": "Single-task ManiSkill2; all 74 YCB objects; 14M environment steps.",
+      "metric": "Final-step success rate",
+      "value": ">60%, as stated in Figure 14's caption; curves show three-seed means and 95% confidence intervals.",
+      "comparison": "SAC, DreamerV3, and TD-MPC fail to learn within the reported budget.",
+      "interpretation": "Successful simulated execution under this protocol; no real-robot transfer or held-out-object split is established.",
+      "evidenceIds": [
+        "e10",
+        "e17"
+      ]
+    },
+    {
+      "task": "Online adaptation to ten held-out tasks",
+      "setting": "19M model pretrained on 70 tasks, then full-model finetuning with empty replay on five DMControl and five Meta-World tasks.",
+      "metric": "Aggregate normalized score after 20k environment steps",
+      "value": "47.0 finetuned versus 24.0 from scratch; three seeds.",
+      "comparison": "Similar-capacity from-scratch agents; task embeddings initialized from selected semantically related source tasks.",
+      "interpretation": "An approximately twofold aggregate gain, not a universal per-task improvement. Alternative embedding initializations were not tested.",
+      "evidenceIds": [
+        "e12",
+        "e18"
+      ]
+    },
+    {
+      "task": "Planning and normalization ablations",
+      "setting": "Figure 9's 19M models trained on 80 tasks; separate online curves cover Dog Run, Humanoid Walk, and Pick YCB.",
+      "metric": "Normalized score",
+      "value": "Policy 42.2; planning 53.7; planning plus policy 54.2. No normalization 46.8; SimNorm 51.0; LayerNorm plus SimNorm 54.2.",
+      "comparison": "Within-figure actor and normalization variants.",
+      "interpretation": "Planning supplies most of the actor improvement. These ablation scores must remain distinct from the 19M scaling score of 57.1.",
+      "evidenceIds": [
+        "e13",
+        "e11"
+      ]
+    },
+    {
+      "task": "Test-time uncertainty regularization",
+      "setting": "Appendix J only: a fixed 19M, 80-task agent; no additional model updates.",
+      "metric": "Normalized score",
+      "value": "No regularization 56.54; c=0.001: 58.14; c=0.01: 62.01; c=0.1: 44.13.",
+      "comparison": "Same reported experiment with different planning-penalty strengths.",
+      "interpretation": "Moderate regularization helps and strong regularization hurts. It is absent from every other experiment; no uncertainty estimates are tabulated.",
+      "evidenceIds": [
+        "e24"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The experiments are simulated continuous control. Discrete-action planning and broader zero-shot generalization remain open. The authors flag reward misspecification, unconstrained physical autonomy, and data cost as risks.",
+      "kind": "source",
+      "evidenceIds": [
+        "e09",
+        "e15"
+      ]
+    },
+    {
+      "text": "Visual RL uses a four-layer convolutional encoder, 64×64 images, and random-shift augmentation; results are comparable to leading baselines on ten DMControl tasks, not comprehensive visual generalization.",
+      "kind": "source",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "text": "Source inconsistencies remain: Eq. (4) says maximize a value term minus entropy while describing maximum-entropy learning; Appendix H reverses the temperature limits implied by softmax(z/τ). Figure 5/15 captions give 21 Humanoid actions, whereas Table 2 gives 24.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e17",
+        "e25"
+      ]
+    },
+    {
+      "text": "Scaling changes layer widths, latent dimensions, encoder depth, and sometimes ensemble size. Appendix K also changes task composition with dataset size; it does not isolate a pure data-volume effect.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e23",
+        "e26"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the specified task versions and custom tasks, reward and final-step success logic, action repeats, mixed-quality replay, and Table 8/9 configurations. Appendix H gives useful settings but no complete version lock, reward/value bin support specification, or fixed-dataset optimizer-update budget.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e22",
+        "e23",
+        "e25"
+      ]
+    },
+    {
+      "text": "Before implementation, resolve the entropy-sign and temperature-description inconsistencies. Appendix H also calls T the number of tasks while using +T in input widths despite a 96-dimensional task embedding; actual tensor widths require clarification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e21",
+        "e22"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded foundational world-model and planning classification fits the architecture. This is action-conditioned forward latent dynamics with a distinct policy prior, value ensemble, and explicit optimizer. Jointly learning those components does not establish a single unified future/action predictor or inverse-dynamics mechanism, so the recorded not-applicable quadrant remains appropriate.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e07",
+        "e08"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Classical world models & model-based RL",
+        "Theory & planning"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "5aebc9d60f3a52dfa0b89d56fab4ff35b975157b37ba314fa15d0a29b5cd2e3c"
+    }
+  },
+  "discussionQuestions": [
+    "How much of the planning advantage survives equalizing inference latency and model capacity?",
+    "Would random or mismatched task-embedding initialization preserve the reported adaptation gain?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block and arXiv margin",
+      "detail": "Title and authors match the catalog. All authors are affiliated with University of California San Diego; Hao Su and Xiaolong Wang are equal advisors. The artifact is arXiv:2310.16828v2, 21 March 2024, marked ICLR 2024."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Sections 1–3",
+      "detail": "The motivation is robust learning from mixed-quality, multitask experience; the approach extends TD-MPC using implicit latent models and planning."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1, Figure 3 and Eq. (2)",
+      "detail": "Five components encode observations, predict action-conditioned latent transitions, rewards and terminal values, and propose actions. Task embedding e conditions every component; observations are not decoded."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Model objective, Eq. (3), and final architecture paragraph",
+      "detail": "Joint model learning combines latent consistency with stop-gradient targets and discrete reward/value regression. Q targets use EMA functions and the minimum of two sampled members from a default five-member ensemble."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Policy objective, Eq. (4) and explanatory paragraphs",
+      "detail": "The prose describes a stochastic maximum-entropy policy and gradients only through p. The displayed maximization objective subtracts β times H, explicitly called entropy, leaving a sign inconsistency."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Eq. (5); pp. 28–29, Appendix H, Simplicial Normalization",
+      "detail": "SimNorm partitions the latent vector and applies softmax within each partition. Eq. (5) divides logits by temperature; p. 29's claims about infinite and zero temperature reverse the corresponding mathematical limits. The displayed implementation uses ordinary groupwise softmax."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.2, Eq. (6) and continuation",
+      "detail": "MPPI searches Gaussian action sequences using predicted rewards and terminal Q, mixes in policy-prior trajectories, warm-starts from the shifted previous solution, executes the first action, and repeats."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Learnable task embeddings and Action masking",
+      "detail": "Task embeddings are learned jointly and constrained to norm at most one. Zero-padding and action masking accommodate different dimensions during training and planning."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Figure 4, Section 4 and Baselines",
+      "detail": "The 104-task online comparison covers four simulation domains. Figure 4 gives aggregate means and 95% confidence intervals over three seeds. Default TD-MPC2 has 5M parameters and UTD 1; DreamerV3 uses about 20M parameters and reported UTD 512."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Appendix C, Environment details and Table 6",
+      "detail": "Episodes have fixed lengths with no termination conditions; success is assessed at the final step. The table specifies per-domain action repeat, effective episode length, training steps, and evaluation metric."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1, Figure 7 and Table 1",
+      "detail": "The 80-task dataset has 545M transitions from 240 agents; its 30-task DMControl subset has 345M. Batch is 1024. Table 1 pairs 1/5/19/48/317M models with scores 16.0/49.5/57.1/68.0/70.6 and approximately 3.7/4.2/5.3/12/33 GPU days on one RTX 3090. Score averages success rates and normalized returns."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Figure 8 and Few-shot learning",
+      "detail": "A 19M model pretrained on 70 tasks is finetuned online on ten held-out tasks with initially empty replay and full-model updates. At 20k steps the aggregate is 47.0 versus 24.0 from scratch; three seeds."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 9, all actor, normalization, regression and Q-function panels",
+      "detail": "The actor bars are 42.2/53.7/54.2; normalization 46.8/51.0/54.2; continuous/discrete regression 49.6/54.2; two/five/ten Q-functions 53.5/54.2/57.0. Online curves average three hard tasks and three seeds; multitask bars concern 19M agents on 80 tasks."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Figure 10 and Visual RL; p. 29, Appendix H, Visual RL",
+      "detail": "Ten image-based DMControl tasks use a four-layer convolutional encoder with 64×64 inputs and random-shift augmentation. Performance is described as comparable to DrQ-v2 and DreamerV3; curves report three-seed means and 95% confidence intervals."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5; p. 29, Appendix I",
+      "detail": "The authors identify discrete actions and broader generalization as future directions and discuss reward, physical-autonomy, and data-access risks."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix A, Summary of Improvements",
+      "detail": "Changes include LayerNorm/Mish, SimNorm, Q-ensemble dropout, maximum-entropy prior, discrete regression, uniform replay, removal of MPPI momentum, and multitask conditioning."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Figures 14–16 and captions; p. 6, Figure 5 caption",
+      "detail": "Figure 14 reports >60% Pick YCB success after 14M steps on all 74 objects and baseline failure within that budget. Figure 16 identifies Key Turn Hard as an exception. Figures 5 and 15 label Humanoid as 21-dimensional."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 24, Appendix E, Figure 17 and Table 7",
+      "detail": "Finetuning efficacy varies by task. The ten targets use named source-task embeddings, including Walker Run from Walker Walk and Door Lock from Door Open. Alternative initializations or pairings were not tested."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Appendix F, Figures 18–20",
+      "detail": "Normalized task embeddings score 54.2 versus 46.6 without normalization. T-SNE is qualitative; activation comparisons show similar performance but smoother Mish gradients."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 26, Appendix G, Figure 21",
+      "detail": "Gradient norms are plotted on a log scale for five DMControl tasks, one displayed seed per task. TD-MPC2 gradients remain comparatively stable while TD-MPC often grows sharply."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 26, Appendix H, Architectural details and displayed architecture",
+      "detail": "The source shows separate encoder, dynamics, reward, policy, Q ensemble and task embeddings, with 96-dimensional embeddings. Its width notation uses +T while defining T as task count, leaving the dimensional shorthand inconsistent."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF p. 27, Appendix H, Table 8",
+      "detail": "Defaults include horizon 3; 6 planning iterations plus 2 for action dimensions at least 20; population 512; 24 policy samples; 64 elites; uniform replay; batch 256; UTD 1; 512-dimensional latent state; SimNorm groups of 8 at temperature 1; five Q-functions; 101 bins; Adam; loss coefficients 20/0.1/0.1 and temporal coefficient 0.5."
+    },
+    {
+      "id": "e23",
+      "sourceId": "primary",
+      "location": "PDF p. 28, Appendix H, Eqs. (7)–(8) and Table 9",
+      "detail": "Discount and seed steps depend on effective episode length. Scaling changes widths, latent dimension, encoder depth, and Q-ensemble size; the largest configuration uses eight Q-functions. No other model configurations were tested."
+    },
+    {
+      "id": "e24",
+      "sourceId": "primary",
+      "location": "PDF p. 30, Appendix J, Eqs. (9)–(12) and Table 10",
+      "detail": "A planning-only uncertainty penalty is c times ensemble mean times ensemble standard deviation. Scores are 56.54 without regularization, 58.14 at 0.001, 62.01 at 0.01, and 44.13 at 0.1. The paper explicitly excludes this regularizer from all other experiments."
+    },
+    {
+      "id": "e25",
+      "sourceId": "primary",
+      "location": "PDF pp. 18–19, Appendix C, Tables 2–5; p. 29, Appendix H, baseline descriptions",
+      "detail": "Task tables list dimensions, including 24 for Humanoid and seven for Pick YCB. Table 3 abbreviates the Meta-World list with an ellipsis. Appendix H names baseline implementations and settings without a complete software version lock."
+    },
+    {
+      "id": "e26",
+      "sourceId": "primary",
+      "location": "PDF p. 31, Appendix K, Figure 22",
+      "detail": "A random 15-task DMControl subset is compared with the 30- and 80-task datasets. Scores improve with model size; different task compositions prevent interpreting the comparison as a controlled data-volume experiment."
+    },
+    {
+      "id": "e27",
+      "sourceId": "primary",
+      "location": "PDF p. 21, Appendix D, Figure 12, Walker Stand panel and caption",
+      "detail": "Walker Stand is shown over four million environment steps. TD-MPC's late return deterioration contrasts with TD-MPC2's stable return; Appendix G provides the related gradient diagnostic."
+    }
+  ]
+}
