@@ -1,0 +1,443 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-3b350556ce83b51f84c8",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T02:57:49.128Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://proceedings.neurips.cc/paper_files/paper/2024/file/6bdde0373d53d4a501249547084bed43-Paper-Conference.pdf",
+      "title": "Diffusion for World Modeling: Visual Details Matter in Atari†",
+      "kind": "pdf",
+      "sha256": "3979636d192a21df4d7d6ba2bae03280b710768e17181f741f1d85ebd21b6f90",
+      "wordCount": 16886,
+      "accessedAt": "2026-09-07T14:17:52.421992+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; Sections 1–9, including all subsections",
+      "Acknowledgments and References",
+      "Appendices A–G: sampling, DDPM link, EDM preconditioning, architectures, hyperparameters, RL objectives and algorithm",
+      "Appendices H–L: comparisons, compute profile, drift and denoising ablation",
+      "Appendix M.1–M.4: offline environments, architectures, metrics, compute and diagnostics",
+      "NeurIPS checklist items 1–15"
+    ],
+    "omissions": [
+      "Version scope: the supplied NeurIPS 2024 PDF identifies itself as the final version of Alonso et al. (2023). The title matches the catalog apart from a dagger footnote marker; all seven author names match. Section 6 was added after acceptance. No numbered revision or exact revision date is printed; earlier editions were not supplied or compared (e01).",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Visual inspection addressed the text extraction limitation: all twelve figures, all eight tables and the supporting method/evaluation pages were inspected.",
+      "Linked code, datasets, interactive models and external videos were not inspected. No experiment was reproduced. All ten supplied text chunks were read. References and the checklist were read as text; visual inspection covered PDF pages 1–10 and 16–28."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8",
+      "Figure 9",
+      "Figure 10",
+      "Figure 11",
+      "Figure 12"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7",
+      "Table 8"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "DIAMOND learns an action-conditioned diffusion simulator in pixels, then trains a separate recurrent policy on imagined experience. EDM preconditioning makes short denoising schedules practical. Atari returns support its usefulness, while offline 3D demonstrations expose memory and causal limitations (e03, e04, e05, e09, e14, e21).",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Discrete visual bottlenecks may erase small objects or changes that determine good actions. The problem is to preserve those details while generating enough stable imagined experience for sample-efficient reinforcement learning; expensive image synthesis alone would not solve it.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "DIAMOND adapts EDM to autoregressive, action-conditioned world modeling and combines it with reinforcement learning entirely in imagination.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "Static-data comparisons and denoising diagnostics support the authors’ visual-detail explanation for improved Atari performance, but do not isolate visual fidelity as its sole cause.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e11",
+        "e12"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Atari: four previous 64×64 RGB observations and corresponding discrete actions, plus the noisy next frame and diffusion time (e05, e06)."
+    ],
+    "outputs": [
+      "Diffusion model: next image; separate reward/termination model: reward and episode-end predictions; separate actor: an action (e03, e05, e06, e07)."
+    ],
+    "steps": [
+      {
+        "name": "Condition the denoiser",
+        "detail": "A 2D U-Net concatenates previous frames with the noisy future image along channels. Actions and diffusion time enter adaptive group normalization. The environment state is unobserved; this short history supplies the dynamics model’s memory.",
+        "evidenceIds": [
+          "e03",
+          "e05"
+        ]
+      },
+      {
+        "name": "Adapt the target to noise",
+        "detail": "EDM blends the noisy input with the U-Net output. At high noise the network target emphasizes clean signal; at low noise it becomes a scaled residual. Log-normal noise sampling concentrates training away from extreme noise levels.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Complete the imagined environment",
+        "detail": "A distinct CNN–LSTM predicts reward and termination. Another shares its trunk between policy and value heads. Conditioning sequences initialize their recurrent states before imagined rollouts. These modules are not a joint image/action predictor.",
+        "evidenceIds": [
+          "e05",
+          "e06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Each epoch collects real experience, fits dynamics and reward/termination models on replay, then updates actor/value networks on imagined trajectories. Reward and termination use cross-entropy. REINFORCE uses a value baseline and entropy regularization; value regression uses stopped-gradient lambda-returns.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "text": "Atari uses 1000 epochs, 100 collected steps and 400 training steps per epoch, batch 32, AdamW at 1e−4, and imagination horizon 15. Preprocessing uses frame skip 4, maximum 30 no-ops, life-loss termination and rewards clipped to −1, 0 or 1.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "For each imagined step, the actor samples an action, a separate model predicts reward/termination, and three deterministic Euler denoising steps generate the next image from random initial noise. The frame and action enter subsequent history. Real interaction executes the actor’s action and obtains actual feedback; the described policy does not run lookahead search.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e05",
+          "e06",
+          "e16"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "D_\\theta(x_{t+1}^{\\tau},y_t^{\\tau})=c_{\\mathrm{skip}}^{\\tau}x_{t+1}^{\\tau}+c_{\\mathrm{out}}^{\\tau}F_\\theta(c_{\\mathrm{in}}^{\\tau}x_{t+1}^{\\tau},y_t^{\\tau})",
+        "explanation": "Equation (6): D is the denoiser and F the learned network with parameters θ. Environment time is t; diffusion time is τ. The x term is the noisy future image. Conditioning y includes transformed noise level, clean observation history and action history. The c coefficients scale input, output and skip connection.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "\\Lambda_t=\\begin{cases}r_t+\\gamma(1-d_t)\\left[(1-\\lambda)V_\\phi(x_{t+1})+\\lambda\\Lambda_{t+1}\\right],&t<H,\\\\V_\\phi(x_H),&t=H.\\end{cases}",
+        "explanation": "Equation (14): Λ is the lambda-return over horizon H; r and d are predicted reward and boolean termination, γ is discount, λ mixes bootstrapping with longer returns, and V is the value network with parameters φ. Termination removes future value after an imagined episode ends.",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Atari 100k aggregate policy performance",
+      "setting": "26 games; 100,000 real actions per game; five DIAMOND training seeds; agent optimization entirely in imagination.",
+      "metric": "Mean and interquartile mean human-normalized score (HNS); higher is better.",
+      "value": "Mean 1.459; IQM 0.641; 11 games above the human reference.",
+      "comparison": "STORM: mean 1.266, IQM 0.636. IRIS: mean 1.046, IQM 0.501.",
+      "interpretation": "The mean leads the listed imagination-trained baselines; IQM is essentially tied with STORM. Figure 2 supplies bootstrap intervals without textual endpoints. This is not an overall Atari record: Appendix J gives higher means for BBF (2.247) and EfficientZero (1.943).",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e16"
+      ]
+    },
+    {
+      "task": "Atari 100k Breakout",
+      "setting": "Same online Atari protocol and five-seed DIAMOND evaluation as Table 1.",
+      "metric": "Game return; higher is better.",
+      "value": "132.5",
+      "comparison": "IRIS 83.7; human reference 30.5.",
+      "interpretation": "A concrete gain on a visually analyzed game, but the visual comparison uses a separate static expert dataset and is not itself this policy evaluation.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e12"
+      ]
+    },
+    {
+      "task": "Denoising-step ablation on ten selected Atari games",
+      "setting": "Table 7’s selected ten-game subset; default three-step scores versus one-step scores from only one seed.",
+      "metric": "Subset mean HNS; Boxing game return.",
+      "value": "Three steps: mean HNS 3.052; Boxing 86.9.",
+      "comparison": "One step: mean HNS 1.962; Boxing 41.9.",
+      "interpretation": "Suggestive support for iterative denoising, weakened by unequal seeds and game selection. Asterix, Krull and Pong favor one step. These subset means are not comparable to the full benchmark’s 1.459.",
+      "evidenceIds": [
+        "e18"
+      ]
+    },
+    {
+      "task": "Early offline 3D video modeling",
+      "setting": "CS:GO Clean: 150k/40k train/test frames; driving: 3.6/0.8 hours. Evaluation uses 1024 real/generated 16-frame clips, six conditioning frames and recorded actions. Frame-stack DIAMOND uses 20 denoising steps.",
+      "metric": "Fréchet Video Distance (FVD); lower is better.",
+      "value": "CS:GO 34.8; driving 80.3.",
+      "comparison": "IRIS with 64 tokens: 85.7 and 276.9; cross-attention DIAMOND: 81.4 and 299.9.",
+      "interpretation": "Visual-modeling evidence on offline splits, without RL. Architecture variants differ in size, so conditioning is not isolated at matched parameter count.",
+      "evidenceIds": [
+        "e19",
+        "e20"
+      ]
+    },
+    {
+      "task": "Later CS:GO interactive world-model generation",
+      "setting": "Section 6’s Online dataset: 5M training and 0.5M held-out frames; dynamics plus upsampler; no RL agent.",
+      "metric": "Reported interactive generation rate.",
+      "value": "10 Hz on an RTX 3090.",
+      "comparison": "No quantitative capability baseline or gameplay score for this larger model.",
+      "interpretation": "A qualitative neural game-engine demonstration, distinct from Appendix M’s smaller Clean-data experiment. Quantitative capability assessment is deferred.",
+      "evidenceIds": [
+        "e13"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify discrete-control evaluation, short frame-stack memory and separate reward/termination modeling as limitations. CS:GO may forget state when visibility is lost and permit impossible successive jumps.",
+      "kind": "source",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "text": "Better mean performance is not uniform improvement: BankHeist scores 19.7 versus DreamerV3’s 649.0. Visual examples cannot establish that perceptual fidelity alone explains every policy gain.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e12"
+      ]
+    },
+    {
+      "text": "Offline driving exhibits causal confusion: slowing the controlled vehicle is associated with traffic ahead slowing too. Unfamiliar CS:GO actions destabilize generations. Plausible video therefore does not establish reliable counterfactual control.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e21"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Use Appendix D–G architecture, preprocessing and alternating updates, including recurrent burn-in and the EDM noise distribution. Budget approximately 2.9 RTX 4090 days and 12 GB VRAM per Atari seed/game. The runtime profile is representative, not guaranteed.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e15"
+      ]
+    },
+    {
+      "text": "Resolve precise diffusion loss weighting: Equation (7) uses a preconditioned target, while Algorithm 1 summarizes unweighted image reconstruction. Establish software/environment versions and evaluation episode count, unspecified in the PDF. Matched-seed denoising and controlled visual-detail interventions are useful proposed checks.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e22",
+        "e11",
+        "e12",
+        "e18"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded foundational/classical model-based RL category fits. Separate dynamics, reward/termination and actor/value networks are explicit. Actions condition future-image prediction and come from an RL actor; there is neither joint future/action generation nor inverse-dynamics action extraction. The catalog’s Not applicable quadrant is supported without reclassification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Classical world models & model-based RL"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "4cd5e3eb4a90279300b6d8ba5b51d6a7c5dd5d095f86e2c085f5899ad942bfe5"
+    }
+  },
+  "discussionQuestions": [
+    "Does three-step denoising improve real policy return with matched seeds and imagined training volume?",
+    "Would selectively preserving task-critical pixels close the IRIS–DIAMOND gap without changing the policy learner?",
+    "How much offline action failure comes from short memory versus absent counterfactual coverage?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and dagger footnote; p. 8, Section 6 footnote 4",
+      "detail": "All seven title-page authors match the catalog. The dagger refers to this as the final version of Alonso et al. (2023). Section 6 explicitly says it was added after NeurIPS acceptance."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "Discrete compression can discard small visual details relevant to decisions. DIAMOND trains an RL agent inside an image-space diffusion world model."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 1 and caption; p. 4, Section 2.3, Equation (5)",
+      "detail": "Past observations and actions condition next-image denoising. Reverse diffusion runs from noise to a clean frame within each environment step; generated images and policy actions enter subsequent conditioning."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Equations (6)–(7); p. 16, Appendix C, Equations (9)–(13)",
+      "detail": "EDM combines a scaled noisy-input skip connection with a preconditioned network prediction. Its target depends on noise level; sigma_data is 0.5 and log sigma has mean −0.4 and standard deviation 1.2."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Sections 3.1–3.2; p. 17, Appendix D and Table 2",
+      "detail": "The Atari U-Net stacks four prior frames and uses adaptive group normalization for actions and diffusion time. Separate CNN–LSTM reward/termination and actor/value networks initialize recurrent states with conditioning sequences."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix E, Table 3; p. 20, Appendix G, Algorithm 1",
+      "detail": "The loop alternates real collection, diffusion and reward/termination training, and imagined actor/value training. Settings include 1000 epochs, 100 collected steps and 400 training steps per epoch, batch 32, horizon 15, AdamW at 1e−4, and three Euler steps."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Appendix F, Equations (14)–(16)",
+      "detail": "Predicted rewards and termination define lambda-returns with a terminal value bootstrap. Value regression and REINFORCE use stopped-gradient targets/advantages, with policy entropy regularization."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Sections 4.1–4.2 and Figure 2",
+      "detail": "Atari 100k comprises 26 games with 100,000 real actions per game. DIAMOND trains from scratch with five seeds. Aggregate uncertainty is shown using stratified bootstrap confidence intervals."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, aggregate rows and Breakout/BankHeist rows",
+      "detail": "DIAMOND: mean HNS 1.459, IQM 0.641, 11 superhuman games. STORM: 1.266 and 0.636; IRIS: 1.046 and 0.501. Breakout: DIAMOND 132.5, IRIS 83.7, human 30.5. BankHeist: DIAMOND 19.7, DreamerV3 649.0."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 5.1; p. 7, Figure 3 and explanatory paragraphs",
+      "detail": "DDPM and EDM use the same architecture and static 100k-frame expert Breakout dataset. Trajectories compare 1, 3, 5 and 10 denoising steps through timestep 1000; DDPM shows severe color drift at low step counts."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5.2 and Figure 4",
+      "detail": "Single-step Boxing generation blurs the unpredictable black opponent; three-step generation stays sharper. The controlled white player is predictable in both. The authors explain iterative sampling as resolving multimodal uncertainty."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5.3 and Figure 5",
+      "detail": "Shared static expert datasets of 100k frames support the IRIS–DIAMOND visual comparison. White boxes mark IRIS inconsistencies in Asterix objects, Breakout bricks/score and Road Runner rewards. Both render 64×64 images; DIAMOND uses 3 NFE versus IRIS 16."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 6 and Figure 6",
+      "detail": "The later CS:GO Online experiment uses 5M training and 0.5M held-out frames, without RL. A 56×30 dynamics model plus 280×150 upsampler totals 381M parameters, including 51M for upsampling. Training takes 12 RTX 4090 days; reported generation is 10 Hz on RTX 3090. Quantitative capability evaluation is deferred."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 8; p. 9, Section 6, final paragraph",
+      "detail": "Limitations include discrete-control evaluation, short frame-stack memory, separate reward/termination modeling, drift in less visited CS:GO areas, state forgetting after lost visibility and erroneous successive jumps."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1; p. 21, Table 4; p. 22, Table 5",
+      "detail": "An Atari run takes approximately 2.9 days on one RTX 4090 using about 12 GB VRAM. Table 4 lists 13M total parameters. The representative profile separates 2.5 training days from 0.4 days for collection, evaluation and checkpointing."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Appendix J, Table 6, mean and IQM rows",
+      "detail": "The broader comparison gives mean HNS 2.247 for BBF, 1.943 for EfficientZero, and 1.459 for DIAMOND. BBF uses different learning techniques and EfficientZero uses lookahead search."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 24, Appendix K, Figure 8 and caption",
+      "detail": "Pixel drift uses 400 held-out 1000-step expert Breakout reference trajectories with matched initial frames/actions. Curves show means with standard deviations; EDM trajectory divergence is distinguished from DDPM pathological color shift."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 24, Appendix L, Table 7 and preceding paragraph",
+      "detail": "On ten selected games, three-step mean HNS is 3.052 versus 1.962 for one step; Boxing returns are 86.9 versus 41.9. One-step results use one seed. Asterix, Krull and Pong favor one step."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Appendix M.1",
+      "detail": "Early offline experiments use CS:GO Clean data with 150k/40k train/test frames and daylight motorway driving with 3.6/0.8 train/test hours. Images are 64×64; neither experiment includes RL."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF pp. 25–26, Appendix M.2–M.4, Figure 9 and Table 8",
+      "detail": "The comparison uses six conditioning frames, real actions, 1024 real/generated 16-frame clips, and 120k updates at batch 64. Frame-stack DIAMOND uses 20 denoising steps, reporting FVD 34.8/80.3 for CS:GO/driving versus IRIS-64 at 85.7/276.9 and cross-attention at 81.4/299.9. Runs use up to four A6000 GPUs."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF pp. 27–28, Appendix M.4, Figures 11–12 and captions",
+      "detail": "Fixed-action tests expose causal confusion in motorway traffic speed and CS:GO degeneration under unfamiliar sustained look directions. The authors attribute these issues to offline data."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Equation (7); p. 20, Algorithm 1, update_diffusion_model; pp. 5 and 18, evaluation/configuration descriptions",
+      "detail": "Equation (7) uses a preconditioned target divided by c_out; Algorithm 1 summarizes clean-image reconstruction without an explicit noise-level weight. The evaluation/configuration descriptions do not state an evaluation episode count or software versions."
+    }
+  ]
+}
