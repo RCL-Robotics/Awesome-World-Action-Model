@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2309.17080",
+  "shortTitle": "GAIA-1",
+  "thesis": "GAIA-1 separates action-conditioned image-token prediction from diffusion video rendering, enabling controllable driving scenarios while leaving physical accuracy and downstream driving benefits unmeasured.",
+  "standfirst": "Imagine supplying a short driving clip and asking what the scene might look like after a different steering maneuver. GAIA-1 answers with generated video. Its transformer works in a compressed image-token space, while a separate diffusion model converts those predictions into coherent frames. Language can alter scene attributes, and speed and curvature condition the imagined motion. The crucial reading distinction is between controlling a generated scene and validating a vehicle controller. This edition follows the semantic tokenizer, causal predictor and temporal decoder, then examines the paper's scaling and sampling evidence alongside its qualitative steering examples.",
+  "evidenceIds": [
+    "e-architecture",
+    "e-encoding",
+    "e-world-objective",
+    "e-decoder",
+    "e-scaling",
+    "e-action-results"
+  ],
+  "featuredResultTask": "Held-out geofenced image-token prediction",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2309.17080/architecture.png",
+      "width": 1658,
+      "height": 634,
+      "sourceSha256": "ecde6dba2886066af5d1c6ec26d46de0375d5f1d9495373e6a4f3cba4a9025ae",
+      "sourceUrl": "https://arxiv.org/pdf/2309.17080#page=3",
+      "crop": [
+        0.175,
+        0.09,
+        0.825,
+        0.282
+      ],
+      "alt": "Image, action and text encoders feed interleaved token groups into an autoregressive world model; predicted image tokens then pass to a video decoder.",
+      "caption": "The predictor decides the next image tokens; a separate decoder renders the video.",
+      "readingGuide": "Read from the three encoders on the left toward the world model in the center. Cyan image tokens, magenta action embeddings and purple text embeddings enter a shared sequence. The orange dashed loop marks autoregressive token generation, and the rightmost decoder maps predicted image content to video. The input groups follow the text–image–action ordering specified in Section 2.1. Equation (1) makes the dependency precise: an image token sees current text but only earlier actions. Although the schematic's output column carries multiple colors, the stated training target is the next image token; it does not define an action-output head.",
+      "takeaway": "The architecture provides two distinct modeling stages. The transformer predicts compressed visual content under supplied conditions; diffusion performs the subsequent pixel rendering. This supports action-conditioned future generation, but a shared multimodal token sequence alone does not make GAIA-1 a policy that selects executable actions.",
+      "caution": "The diagram is schematic rather than a complete attention mask. Use Equation (1) for causal timing and target modality. The decoder is a separate trained network, and neither the figure nor the objective specifies a vehicle-control loop.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-encoding",
+        "e-world-objective",
+        "e-decoder"
+      ]
+    },
+    {
+      "id": "semantic-tokens",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 3",
+      "page": 5,
+      "asset": "report-assets/2309.17080/semantic-tokens.png",
+      "width": 1658,
+      "height": 393,
+      "sourceSha256": "ecde6dba2886066af5d1c6ec26d46de0375d5f1d9495373e6a4f3cba4a9025ae",
+      "sourceUrl": "https://arxiv.org/pdf/2309.17080#page=5",
+      "crop": [
+        0.175,
+        0.09,
+        0.825,
+        0.209
+      ],
+      "alt": "A street image with vehicles is compared with colorful PCA visualizations of base VQ-GAN tokens and spatially smoother DINO-distilled tokens.",
+      "caption": "DINO distillation changes the visible organization of the token embeddings.",
+      "readingGuide": "Start with the street image, then compare the middle and right token maps at corresponding locations. These are not reconstructed photographs or segmentation labels: the caption says the top three principal components of the token embeddings are mapped to RGB. The base VQ-GAN map has fragmented colors, while the DINO-distilled map shows more coherent regions around vehicles, road and sky. Section 2.2 explains the intervention: a cosine loss encourages quantized features to resemble a pretrained DINO representation. This supplements reconstruction and quantization objectives, guiding what information the compressed tokens retain for subsequent sequence modeling.",
+      "takeaway": "The example supports the intended semantic organization of the representation. At the reported resolution, each image becomes 576 tokens rather than a sequence of raw pixels. The purpose is to make the prediction problem tractable while emphasizing meaningful scene content that the world model can compose over time.",
+      "caution": "This is a qualitative representation comparison, not a numerical downstream ablation. PCA colors are not semantic class IDs, and the figure supplies neither a segmentation score nor a controlled measurement of how distillation changes rollout accuracy.",
+      "evidenceIds": [
+        "e-tokenizer",
+        "e-tokenizer-training",
+        "e-world-objective"
+      ]
+    },
+    {
+      "id": "decoder-tasks",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 7,
+      "asset": "report-assets/2309.17080/decoder-tasks.png",
+      "width": 1274,
+      "height": 1423,
+      "sourceSha256": "ecde6dba2886066af5d1c6ec26d46de0375d5f1d9495373e6a4f3cba4a9025ae",
+      "sourceUrl": "https://arxiv.org/pdf/2309.17080#page=7",
+      "crop": [
+        0.25,
+        0.088,
+        0.75,
+        0.519
+      ],
+      "alt": "Four decoder tasks show independent image denoising, temporally connected video denoising, generation using a previous frame, and interpolation between two known frames.",
+      "caption": "One decoder handles different patterns of known frames and token conditioning.",
+      "readingGuide": "Follow panels (a) through (d), checking where tokens and known images appear. In image generation, each noisy frame is decoded independently from its tokens. Video generation adds temporal connections, drawn as bidirectional arrows between frames. Autoregressive generation retains a known frame as image context while predicting the following frames from tokens and noise. Interpolation instead supplies two endpoint images and no tokens for the missing middle frame. These arrows describe information exchange in the video decoder, not the causal mask of the world model. The caption and Section 2.4 agree on the missing-token condition for interpolation.",
+      "takeaway": "The decoder learns both token fidelity and temporal coherence through complementary tasks. The same model can render coarse-rate predictions and fill the gaps needed for a smoother video. Temporal upsampling therefore adds generated intermediate imagery without requiring the world model to predict every output frame's tokens.",
+      "caution": "Panel (c) illustrates forward context, but Section 2.4 trains both directions and Section 5.2 ultimately selects backward decoding. Training conditions use real-image tokens; inference uses predicted tokens, so the illustration alone does not establish robustness to prediction errors.",
+      "evidenceIds": [
+        "e-decoder",
+        "e-decoder-tasks",
+        "e-decoding"
+      ]
+    },
+    {
+      "id": "sampling-diagnostic",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 6",
+      "page": 9,
+      "asset": "report-assets/2309.17080/sampling-diagnostic.png",
+      "width": 1658,
+      "height": 400,
+      "sourceSha256": "ecde6dba2886066af5d1c6ec26d46de0375d5f1d9495373e6a4f3cba4a9025ae",
+      "sourceUrl": "https://arxiv.org/pdf/2309.17080#page=9",
+      "crop": [
+        0.175,
+        0.091,
+        0.825,
+        0.212
+      ],
+      "alt": "Three perplexity plots compare real tokens with argmax, unrestricted sampling and top-k=50; argmax is flat and low, unrestricted sampling spikes, and top-k resembles the real trace.",
+      "caption": "Sampling changes rollout behavior even when the trained predictor is unchanged.",
+      "readingGuide": "Each panel plots token position across one 576-token image, with perplexity on the vertical axis. Cyan denotes real-image tokens and orange the chosen generation strategy. Read the panels as a comparison of distribution shapes, not a race to minimize every orange value. Argmax remains unusually low, which the authors associate with repetitive futures. Unrestricted sampling produces large spikes from improbable choices. Restricting draws to the 50 most likely tokens yields fluctuations closer to the real trace. Section 5.1 uses this diagnostic to motivate top-k sampling, rather than simply choosing the most probable token at every step.",
+      "takeaway": "Generation needs a compromise between diversity and staying within reliable predictions. In this example, top-k sampling avoids both the flat argmax pattern and the largest unrestricted-sampling spikes. This is evidence about a decoding decision, not a new training objective or an external benchmark comparison.",
+      "caution": "The plot does not report an aggregate over many contexts, uncertainty, or driving-quality scores. The displayed k=50 is a demonstrated setting; the text makes the choice dependent on tokenization rather than establishing a universally optimal value.",
+      "evidenceIds": [
+        "e-sampling"
+      ]
+    },
+    {
+      "id": "scaling",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 8",
+      "page": 11,
+      "asset": "report-assets/2309.17080/scaling.png",
+      "width": 1658,
+      "height": 620,
+      "sourceSha256": "ecde6dba2886066af5d1c6ec26d46de0375d5f1d9495373e6a4f3cba4a9025ae",
+      "sourceUrl": "https://arxiv.org/pdf/2309.17080#page=11",
+      "crop": [
+        0.175,
+        0.09,
+        0.825,
+        0.278
+      ],
+      "alt": "Validation cross-entropy decreases along a fitted scaling curve toward the GAIA-1 point; separate training curves show models from 0.65 million to 6.5 billion parameters.",
+      "caption": "The quantitative result concerns predictable image-token loss under increasing scale.",
+      "readingGuide": "Read the left plot first: blue observations from smaller models define a dashed power-law prediction, and the orange point is GAIA-1. The horizontal axis is estimated training compute in FLOPs on a logarithmic scale; lower validation cross-entropy is better. The held-out evaluation uses geofenced driving data. Then read the right plot separately: its vertical axis is training cross-entropy, and its legend identifies model sizes from 0.65M to 6.5B. Do not compare a training endpoint directly with a validation endpoint as though they were the same measurement. Section 6 estimates compute from parameter count and training tokens.",
+      "takeaway": "The orange validation point lies just below 2.0, close to the predicted curve. This is an observed plot location, not an exactly tabulated score. The result supports a scaling relationship for token prediction across this model family and training setup; it does not quantify improvement in executed driving.",
+      "caution": "No confidence intervals or exact numerical table accompany the fit. The caption and text use the ambiguous phrase “less than 20× the compute”; this edition does not reinterpret it as a precise compute-saving factor. Extrapolated benefits beyond the tested scale remain unmeasured.",
+      "evidenceIds": [
+        "e-data",
+        "e-scaling"
+      ]
+    },
+    {
+      "id": "action-conditioned-futures",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 13",
+      "page": 17,
+      "asset": "report-assets/2309.17080/action-conditioned-futures.png",
+      "width": 1658,
+      "height": 1165,
+      "sourceSha256": "ecde6dba2886066af5d1c6ec26d46de0375d5f1d9495373e6a4f3cba4a9025ae",
+      "sourceUrl": "https://arxiv.org/pdf/2309.17080#page=17",
+      "crop": [
+        0.175,
+        0.278,
+        0.825,
+        0.631
+      ],
+      "alt": "Four futures from a shared road context follow different left and right steering conditions; a fifth scene depicts an oncoming car avoiding the ego vehicle. Columns mark one through four seconds.",
+      "caption": "Changing supplied curvature changes the displayed future scene.",
+      "readingGuide": "Read each row from context and conditioning on the left to generated frames at +1, +2, +3 and +4 seconds. The first four rows share a road context; the caption identifies the conditions, in order, as left, strong left, right and strong right while maintaining speed. Compare the relative positions of the trees, curb and parked vehicles as the imagined viewpoint moves. The orange overlays indicate the conditioned maneuver rather than a measured prediction-error curve. The separate bottom row depicts an oncoming vehicle's avoidance response. The actual action inputs are scalar speed and curvature, as defined in Section 2.1.",
+      "takeaway": "The montage illustrates sensitivity to action conditioning and a plausible interaction in one selected scene. The authors describe these steering maneuvers as absent from their expert-driving data and infer extrapolation. What is directly supplied for inspection is a set of generated frames, not a quantitative test of the physical accuracy of those counterfactuals.",
+      "caution": "The caption's language about executing actions refers to generation conditions, not documented real-vehicle trials. No counterfactual ground truth, trajectory error, sample count or collision-avoidance rate is provided. Static snapshots also cannot verify every intermediate frame's temporal consistency.",
+      "evidenceIds": [
+        "e-encoding",
+        "e-world-objective",
+        "e-action-results"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Trace an action through the token ordering",
+      "text": "Begin with a known driving frame. The tokenizer converts its pixels to discrete codes, guided during pretraining by reconstruction, quantization and DINO feature objectives. T5-large text features and linear projections of speed and curvature enter the same embedding space. Within each time step, text comes first, image tokens next and actions last. This order matters: Equation (1) lets the current image depend on current text and previous actions, but not on its own later action tokens. The autoregressive target remains an image token, so providing a steering sequence asks for a visual consequence rather than asking the model to choose steering. Figure 2's feedback loop is token generation. It is not feedback from a physical vehicle or a planner optimizing a reward.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-architecture",
+        "e-encoding",
+        "e-tokenizer",
+        "e-world-objective"
+      ]
+    },
+    {
+      "heading": "Separate predicted content from rendered continuity",
+      "text": "After the world model produces image tokens at 6.25 Hz, the video decoder still has substantial work to do. Its training tasks teach independent image fidelity, temporal coupling, contextual extension and interpolation. During training, token conditions come from real images; during generation they come from the predictor. Section 5.2 first describes seven-frame decoding with two overlapping frames, then explicitly changes the preferred direction: start from the last block and decode backward to reduce flicker and improve object stability. The authors also sometimes average image-only and video denoising predictions. Two interpolation passes raise the frame rate to 25 Hz. Reader interpretation: a smooth rendered sequence is therefore evidence about the combined predictor and decoder, and cannot by itself reveal which component supplied the apparent continuity or repaired an inconsistency.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-decoder",
+        "e-decoder-tasks",
+        "e-decoding"
+      ]
+    },
+    {
+      "heading": "Keep the three levels of evidence separate",
+      "text": "Figure 8 measures token-prediction cross-entropy on held-out geofenced data, making it the clearest quantitative test of scaling. Figure 6 instead examines how a sampling rule changes the distribution of generated tokens. The driving montages then illustrate possible visual behaviors, including alternative futures and conditioned steering. These tests answer different questions: predictive likelihood, generation behavior and qualitative controllability. The authors connect the last category to world understanding and future policy learning, but provide no executed-driving or policy-improvement score. As a reader's assessment, the experiments support a promising conditional generator and a scaling recipe; they leave the usefulness of generated counterfactuals for safety-critical decisions open. A reproduction should therefore measure geometry and response to supplied actions alongside realism, rather than treating attractive videos as a complete validation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-sampling",
+        "e-scaling",
+        "e-capabilities",
+        "e-action-results",
+        "e-conclusion"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does backward decoding improve stability without changing the event?",
+      "text": "Reader-proposed check, not performed: cache identical world-model token sequences and decode them forward and backward with the same trained decoder, seven-frame blocks, two-frame overlap and 50 DDIM steps. Keep the denoising-mixture rule fixed and use repeated paired seeds. Compare tracked-object persistence, horizon flicker and discontinuities at block boundaries; independently inspect whether object identity, steering direction and event timing remain consistent with the token-conditioned scene. Include reconstruction from real-image tokens as a control for predictor errors. The claimed backward advantage would be weakened if stability does not improve, or if apparent improvement comes from changing the depicted event. This isolates decoder behavior without retraining the predictor.",
+      "evidenceIds": [
+        "e-decoder",
+        "e-decoder-tasks",
+        "e-decoding"
+      ]
+    },
+    {
+      "title": "Does the predictor use the supplied action sequence?",
+      "text": "Reader-proposed check, not performed: on held-out geofenced clips, hold video context, text, sampling settings and decoder fixed. Compare the recorded speed/curvature sequence with shuffled sequences and with action conditioning omitted. Use matched random seeds and repeated samples. Measure factual future prediction error against the recorded continuation, plus independently estimated ego-motion and scene displacement. The recorded-action condition should improve factual prediction, while changed curvature should produce consistent directional changes across seeds. Failure of either pattern would weaken the action-control interpretation. A shuffled-action future has no observed physical counterfactual here, so sensitivity alone must not be reported as proof that other agents' reactions are causally correct.",
+      "evidenceIds": [
+        "e-encoding",
+        "e-world-objective",
+        "e-data",
+        "e-sampling",
+        "e-action-results"
+      ]
+    }
+  ],
+  "visualLimitations": {
+    "kind": "analysis",
+    "text": "The supplied paper contains no quantitative tables and no numerical component-ablation table. Its quantitative evidence is Figure 8's scaling plots and Figure 6's sampling diagnostic; Figure 3 offers a qualitative tokenizer comparison. Accordingly, this edition uses original plots and diagnostics rather than inventing a results table. Sections 7.1–7.3 supply selected qualitative scenarios without control-error, closed-loop success or policy-learning metrics. The PDF provides static video snapshots, which cannot establish full temporal quality or the accuracy of every generated interaction.",
+    "evidenceIds": [
+      "e-tokenizer",
+      "e-sampling",
+      "e-scaling",
+      "e-capabilities",
+      "e-action-results",
+      "e-conclusion"
+    ]
+  },
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19
+    ],
+    "notes": "The title/author/version page and all body pages 1–19 were rendered and visually inspected, including all Figures 1–13, causal Equation (1), guidance Equation (3), decoder Equations (2)/(4), training hardware/configuration details, data splitting, inference and conclusions. All six final original crops were individually viewed at their final dimensions; the action montage was recropped to remove excess whitespace and viewed again. Architecture arrows were checked against Sections 2.1–2.4; decoder-task arrows and conditioning were checked against Figure 4's caption and Sections 2.4/5.2. The forward illustration versus final backward decoding choice is disclosed. References on pages 20–25 were read in the complete six text chunks; they contain no retained experimental-detail claim requiring additional visual pages. No appendix or tables occur in the supplied PDF. Linked videos, code and separate supplements were outside this inspection."
+  }
+}

@@ -1,0 +1,441 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2311.13549",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T04:23:33.379Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2311.13549",
+      "title": "ADriver-I: A General World Model for Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "d830a893408eeb9757fe03efbfe55321c8e902ea2ef74f4de863a2673ec6a7dd",
+      "wordCount": 7909,
+      "accessedAt": "2026-09-07T14:29:38.400655+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1. Introduction",
+      "2. Related Works (2.1–2.4)",
+      "3. Method (3.1 Architecture, 3.2 Prompt Construction, 3.3 Model Training)",
+      "4. Experiments (4.1–4.5)",
+      "5. Conclusion and Discussion",
+      "References (PDF pp. 9–12)"
+    ],
+    "omissions": [
+      "Identity/version scope: the inspected title page identifies arXiv:2311.13549v1, 22 November 2023. The exact title and all eight authors match the supplied catalog. No later revision or alternate edition was supplied or compared.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction's figure-image omission was addressed by inspecting the supplied PDF: pages 1–9, Figures 1–7 and Tables 1–6. Reference-only pages 10–12 were read in text, not rendered.",
+      "No appendix is present in the supplied 12-page PDF. No separate supplement was supplied.",
+      "Code and external resources were not inspected; no training, evaluation or reproduction experiment was run."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 3): architecture and feedback arrows",
+      "Figures 2–3 (p. 4): MLLM and GPT3.5 prompt examples",
+      "Figure 4 (p. 5): baseline architectures",
+      "Figure 5 (p. 6): control predictions",
+      "Figure 6 (p. 7): future scenes",
+      "Figure 7 (p. 8): recurrent generated sequence"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 2): input/output comparison",
+      "Table 2 (p. 5): control results",
+      "Table 3 (p. 6): number encoding",
+      "Tables 4–5 (p. 7): precision and conversation ablations",
+      "Table 6 (p. 8): generation results"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "ADriver-I couples a multimodal language model that predicts speed and steering with an action-conditioned video diffusion model. Generated frames can feed the next control prediction. Its strongest evidence concerns supervised control prediction and short-horizon video quality; the recurrent demonstration does not establish reliable autonomous driving. The inspected source is the original arXiv v1.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Can a driving system predict controls directly from visual history and imagine their consequences without explicit boxes or HD maps? The authors propose interleaved image/action tokens as an interface between control prediction and future-scene generation, replacing the usual sequence of task-specific perception and planning modules.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A shared conversation format pairs visual embeddings with textual speed and steering values, allowing an MLLM to predict current controls from three historical pairs and a current front-view image.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e05"
+      ]
+    },
+    {
+      "text": "An action-first recurrent loop connects the MLLM to a separately trained VDM. The authors call continued rollout 'infinite driving'; this describes a repeatable generation procedure rather than demonstrated indefinite stability.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e17",
+        "e18"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current front-view image and three historical image/action pairs",
+      "System prompt; action-derived motion description for VDM"
+    ],
+    "outputs": [
+      "Current speed and steering angle expressed as text",
+      "Four predicted future frames; the next frame can re-enter the control loop"
+    ],
+    "steps": [
+      {
+        "name": "Encode a driving conversation",
+        "detail": "CLIP-ViT-Large extracts visual features, a two-layer MLP adapter maps them into language space, and Vicuna-7B-1.5 processes interleaved image/action tokens. The adapter is initialized from LLaVA-7B-1.5. The implementation represents three-decimal controls as integers after multiplication by 1000.",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e07"
+        ]
+      },
+      {
+        "name": "Predict actions with intermediate supervision",
+        "detail": "Training supervises actions at t−2, t−1 and t; inference requests the current action. Historical prediction outputs in Figure 1 should not be confused with executing a sequence of earlier controls.",
+        "evidenceIds": [
+          "e03",
+          "e15"
+        ]
+      },
+      {
+        "name": "Translate action into a video condition",
+        "detail": "GPT3.5 converts consecutive numerical controls into descriptions such as turning or decelerating because the VDM text encoder struggles with raw numerical motion semantics. Stable Diffusion 2.1 is extended with temporal modules and reference-frame concatenation; motion text supplies action guidance.",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "name": "Feed imagination back into control",
+        "detail": "The VDM predicts four future frames. Selecting the first as the next current image permits repeated action prediction and generation. This is feedback through a learned image generator; no physical actuator execution or external simulator validation is reported in the recurrent demonstration.",
+        "evidenceIds": [
+          "e03",
+          "e17"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The two models are trained separately. MLLM pretraining uses nearly 1.4M private highway vision-action pairs: the LLM is frozen while the visual encoder and adapter learn. During SFT, only the visual encoder is frozen. Separate SFT runs use nuScenes and private data; cross-entropy supervises text outputs.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07"
+        ]
+      },
+      {
+        "text": "VDM inherits pretrained diffusion weights, pretrains on private data and fine-tunes on about 23K nuScenes videos. Training uses eight-frame clips at 256×512. The paper invokes a prior latent-video-diffusion training scheme without presenting its own diffusion-loss equation or a complete noise configuration.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e06",
+          "e08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The current control prediction conditions VDM through motion language; DDIM uses 50 sampling steps. Figure 1's green feedback path is inference recurrence. Its caption's 'self-learning' wording is not accompanied by an online weight-update procedure; Section 3.3 instead specifies separate offline training.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e03",
+          "e05",
+          "e06",
+          "e08"
+        ]
+      },
+      {
+        "text": "Initialization is incompletely reconciled: Section 3.1 needs three history pairs plus a current image, while Section 4.5 says the demonstration receives only three history pairs. The missing-current-frame detail remains unresolved.",
+        "kind": "open-question",
+        "evidenceIds": [
+          "e03",
+          "e17"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "F(\\hat{x}_i,x_i,\\theta)=\\begin{cases}1,&|\\hat{x}_i-x_i|\\leq\\theta\\\\0,&|\\hat{x}_i-x_i|>\\theta\\end{cases},\\qquad A_\\theta=\\frac{1}{N}\\sum_{i=0}^{N}F(\\hat{x}_i,x_i,\\theta)",
+        "explanation": "Equations (1)–(2), transcribed as printed: prediction is x-hat_i, ground truth is x_i, N is the validation-sample count, and theta is one of 0.01, 0.03, 0.05 or 0.07. F marks a prediction within tolerance; A_theta is intended as its frequency. The printed inclusive sum has N+1 terms but divides by N, an indexing ambiguity requiring clarification before reproduction.",
+        "evidenceIds": [
+          "e09"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Current-frame control prediction on nuScenes",
+      "setting": "Three historical vision-action pairs plus current image; supervised control evaluation. Exact validation split and sample count are not specified.",
+      "metric": "Speed and steering L1 error (lower); steering A_0.01 (higher)",
+      "value": "0.072 m/s speed L1; 0.091 rad steering L1; steering A_0.01 = 0.411.",
+      "comparison": "ViT-based: 0.103 m/s, 0.092 rad and 0.299. MLP-only: 0.122 m/s and 0.101 rad; CNN-based: 0.106 m/s and 0.095 rad.",
+      "interpretation": "Speed and tight-tolerance steering improve over the constructed baselines, while mean steering error barely changes against ViT. The comparison does not isolate model size or pretraining effects.",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "Current-frame control prediction on private highway data",
+      "setting": "Private-data SFT and evaluation; distinct from the nuScenes comparison.",
+      "metric": "Speed and steering L1 error",
+      "value": "0.035 m/s and 0.015 rad.",
+      "comparison": "The same table's nuScenes result is 0.072 m/s and 0.091 rad.",
+      "interpretation": "This is a cross-dataset observation. The authors cite lower highway action variance and more SFT data; it is not evidence of transfer or an isolated scaling benefit.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Action representation and supervision ablations",
+      "setting": "Section 4.3 control ablations; no separate split, seed variation or uncertainty is given.",
+      "metric": "Speed/steering prediction error, in m/s and rad",
+      "value": "Absolute Number: 0.072/0.091; Multi Round: 0.072/0.091.",
+      "comparison": "Num2English: 2.094/0.536; Special Token: 0.094/0.106; Relative Diff: 0.081/0.096. Single Round: 0.078/0.094; Temporal Fusion: 0.078/0.092. Two decimals: 0.073/0.091.",
+      "interpretation": "The results favor absolute numeric controls and intermediate supervision. Near equality between two and three decimals suggests limited benefit from the final decimal here. Single-step errors do not prove reduced long-rollout error accumulation.",
+      "evidenceIds": [
+        "e13",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "task": "Future-scene generation on nuScenes",
+      "setting": "ADriver-I predicts four frames from four observed frames, conditioned on actions. Table 6 gives different contexts and horizons for its comparators.",
+      "metric": "Frame-wise FID and FVD (lower)",
+      "value": "FID 5.5; FVD 97.0, as printed in Table 6.",
+      "comparison": "DriveGAN: 73.4/502.3 with 1F→12F. DriveDreamer: 52.6/452.0 with 1F+12B+12M→12F. All rows use control conditioning.",
+      "interpretation": "Lower reported distances accompany longer visual context and a shorter prediction horizon, so the table cannot attribute the gap solely to architecture. The introduction prints FID 5.52; no extra precision is inferred from Table 6.",
+      "evidenceIds": [
+        "e09",
+        "e16",
+        "e19"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify degraded generated frames under rapid control changes, inadequate deployment performance, separate training, and missing route information. Feeding imperfect generated observations back into the policy can propagate errors.",
+      "kind": "source",
+      "evidenceIds": [
+        "e18"
+      ]
+    },
+    {
+      "text": "Figure 7 displays a finite example through +3.5 seconds and a continuation marker. It provides neither collision/success statistics nor an intervention study separating action influence from visual-history influence. FID/FVD also do not measure driving safety.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e16",
+        "e17"
+      ]
+    },
+    {
+      "text": "Figures 2–3 describe nearly stable motion despite increasing speeds and changing steering in the displayed history. This illustrates an unresolved calibration issue in the numeric-to-language bridge, rather than validating precise action-conditioned dynamics.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e20"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "MLLM stages use two epochs each, batch 16, 336×336 images, AdamW at 2×10⁻⁵ and eight A100 80GB GPUs. VDM pretraining/fine-tuning each run 40K steps, with batches 128/32, 32/16 A100 80GB GPUs and learning rates 4×10⁻⁴/3.2×10⁻⁴.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "text": "A faithful reconstruction requires the private pretraining corpus, dataset partitions, control synchronization and scaling conventions, GPT3.5 prompt-generation settings, and full diffusion configuration. These are not fully specified. Decimal examples also differ from the integer-scaling implementation description. NuScenes-only training would test a modified setting.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "text": "Proposed checks: equalize supervised-token budgets when testing intermediate action losses; separately hold history and diffusion noise fixed while intervening on motion descriptions. These would test supervision and action-conditioning mechanisms more directly than the published aggregate comparisons.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e15",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded Dual-system classification is supported by distinct MLLM and VDM architectures and separate training. Actions are predicted from past/current observations, then condition forward video generation; they are not recovered by inverse dynamics from a desired future. 'Other mechanisms' and 'Outside quadrants' reasonably describe this staged action-first loop rather than a single backbone jointly predicting video and action. The WAM placement reflects coupled control and forecasting, with demonstrated deployment capability remaining limited.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e06",
+        "e18"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Joint video-action modeling",
+        "Autonomous driving"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "3555fa739b5406f1b9277f3b63f4e2302df07b3a0dcab92107f7b5a7f19a75b5"
+    }
+  },
+  "discussionQuestions": [
+    "How much of the control gain remains after matching pretraining exposure and capacity?",
+    "Does action-conditioned generation preserve quantitative speed and steering, or only coarse motion categories?",
+    "How does control error grow when generated observations replace measured images?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block, affiliation lines and arXiv margin stamp",
+      "detail": "The title is ADriver-I: A General World Model for Autonomous Driving. Authors, in order: Fan Jia; Weixin Mao; Yingfei Liu; Yucheng Zhao; Yuqing Wen; Chi Zhang; Xiangyu Zhang; Tiancai Wang. Affiliations: MEGVII Technology; Waseda University; University of Science and Technology of China; Mach Drive. The stamp identifies arXiv:2311.13549v1 [cs.CV], 22 Nov 2023."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1; p. 2, Table 1, ADriver-I row",
+      "detail": "The proposed system combines control prediction and future-scene generation from interleaved vision-action pairs without bounding-box or HD-map inputs. The motivation contrasts this with a perception–prediction–planning–control pipeline."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 1 and caption; Section 3.1, Overall Pipeline",
+      "detail": "Three historical image/action pairs and the current image condition the system. Training supervises predicted actions at t−2, t−1 and t. The current predicted action conditions four future frames. At inference, the first generated future frame can become the next current observation. Dashed historical output arrows denote training-only predictions; green arrows denote recurrent inference."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Multi-modal Large Language Model and Video Diffusion Model",
+      "detail": "The MLLM uses Vicuna-7B-1.5, CLIP-ViT-Large and a two-layer MLP visual adapter pretrained by LLaVA-7B-1.5. VDM builds on Stable Diffusion 2.1 with temporal modules, reference frames concatenated to diffusion input, and retained text conditioning."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.2, Prompt Construction; p. 4, Figures 2–3",
+      "detail": "Front-view images become visual tokens and numerical actions become language tokens. System prompts organize an interleaved conversation. GPT3.5 converts consecutive control signals into motion descriptions for VDM; the text defines negative steering as right and positive as left. Figures 2–3 display decimal-valued control examples."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Model Training",
+      "detail": "MLLM and VDM are trained separately and combined during inference. MLLM pretraining uses nearly 1.4M private highway vision-action pairs, freezes the LLM, and updates the visual encoder and adapter. SFT freezes the visual encoder and updates the remainder, separately on nuScenes and private data. VDM is pretrained on private data and fine-tuned on about 23K nuScenes video samples."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1, Multi-modal Large Language Model",
+      "detail": "MLLM pretraining and SFT each use two epochs, batch 16, 336×336 images, three history pairs plus the current image, and cross-entropy supervision. Numbers use three decimal places and multiplication by 1000 to form integers. AdamW learning rate is 2×10⁻⁵; hardware is eight A100 80GB GPUs."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.1, Video Diffusion Model",
+      "detail": "VDM pretraining uses 40K steps, batch 128, 32 A100 80GB GPUs and learning rate 4×10⁻⁴. Fine-tuning uses 40K steps, batch 32, 16 A100 80GB GPUs and learning rate 3.2×10⁻⁴. Both use eight-frame videos at 256×512. Inference uses DDIM with 50 sampling steps."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.2, Equations (1)–(2) and metric definitions",
+      "detail": "Control is measured by L1 error and accuracy within thresholds 0.01, 0.03, 0.05 and 0.07. Equation (1) accepts absolute errors less than or equal to the threshold. Equation (2) prints a sum from i=0 to N divided by N, while N is defined as the number of validation samples. Frame-wise FID and FVD evaluate generation."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 4 and caption; p. 6, Section 4.3, baseline descriptions",
+      "detail": "The action-only baseline uses three fully connected layers on three historical actions. CNN and ViT baselines add globally pooled visual features concatenated with action features; the latter replaces the CNN with ViT-B."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 2, nuScenes rows and all metric columns; p. 6, Section 4.3",
+      "detail": "On nuScenes, ADriver-I speed/steering L1 errors are 0.072 m/s and 0.091 rad; MLP-only reports 0.122/0.101, CNN-based 0.106/0.095, and ViT-based 0.103/0.092. Steering A0.01 is 0.411 for ADriver-I and 0.299 for ViT-based. Speed A0.01 is 0.237 versus 0.200. The authors suggest large steering-variance cases may dominate mean steering error."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 2, ADriver-I dagger row and caption; pp. 6–7, Section 4.3, cross-dataset comparison",
+      "detail": "The private-data result is 0.035 m/s speed L1 and 0.015 rad steering L1. The dagger identifies a different dataset. The authors attribute the lower errors to highway scenes with smaller action variance and larger SFT data scale, quoted as 1.4M versus 23K."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 3 and caption; p. 7, Section 4.3, Ablation Study",
+      "detail": "Speed/steering errors for Num2English, Special Token, Relative Diff and Absolute Number are respectively 2.094/0.536, 0.094/0.106, 0.081/0.096 and 0.072/0.091. The caption defines English number expressions, integer bins and adjacent-frame differences."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 4 and caption; Section 4.3, decimal-place ablation",
+      "detail": "Zero, one, two and three decimal places give speed/steering errors of 0.212/0.099, 0.094/0.093, 0.073/0.091 and 0.072/0.091. Two decimals almost match three in this experiment."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 5 and caption; Section 4.3, final ablation paragraph; p. 3, Section 3.1",
+      "detail": "Temporal Fusion, Single Round and Multi Round give speed/steering errors of 0.078/0.092, 0.078/0.094 and 0.072/0.091. Temporal fusion merges multi-frame visual/action tokens. Single-round supervises the current frame; multi-round adds intermediate action supervision. Section 3.1 specifies predicted training actions at t−2, t−1 and t."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 6 and caption; pp. 7–8, Section 4.4 and Figure 6",
+      "detail": "On nuScenes, ADriver-I uses 4F→4F and reports FID 5.5/FVD 97.0. DriveGAN uses 1F→12F with 73.4/502.3; DriveDreamer uses 1F+12B+12M→12F with 52.6/452.0. All rows are action-conditioned; F denotes frames, B boxes and M HD maps. Figure 6 shows four historical frames followed by predictions at +0.5, +1, +1.5 and +2 seconds."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 7 and caption; Section 4.5, Joint Control&Generation; p. 3, Section 3.1",
+      "detail": "The recurrent demonstration alternates MLLM control predictions and VDM scenes. Figure 7 labels frames through +3.5 seconds and then shows 'To be continued'; blue bars denote speed and orange bars steering. Section 4.5 says the demonstration is initialized with three historical pairs and describes all displayed frames as generated, whereas the general pipeline also requires a current image."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 5, Discussion, limitations (1)–(4)",
+      "detail": "The authors warn that rapid control changes can produce low-quality frames that disturb subsequent action prediction; performance is insufficient for deployment. Separate training prevents end-to-end optimization, and missing routing information limits long-distance driving."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 1, final paragraph; p. 8, Table 6, ADriver-I row",
+      "detail": "The introduction reports FID 5.52 and FVD 97; the experiment table reports FID 5.5 and FVD 97.0. The report retains the table's precision and discloses the difference."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figures 2–3, numeric action histories and generated descriptions",
+      "detail": "The illustrative history has speeds 2.948, 3.217, 3.424 and 3.63 and changing steering values. The accompanying generated language describes stable motion and little or no steering change. These examples do not establish calibrated correspondence between numerical controls and motion descriptions."
+    }
+  ]
+}
