@@ -1,0 +1,270 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2508.00795",
+  "shortTitle": "Video Policy",
+  "thesis": "A video diffusion model can supply transferable manipulation features to a separate action denoiser, but the evidence depends on task-video adaptation and comes with costly inference.",
+  "standfirst": "Video Policy asks how much robot control can be learned by predicting what successful behavior looks like. Its SVD backbone imagines future camera views, while a smaller diffusion network converts intermediate video features into executable actions. The important separation is between learning from videos and learning from action labels: a task may contribute to the first stage without contributing to the second. The following visuals trace that interface, compare simulation results, and examine where the transfer claim holds. They also show why physical success, plausible prediction and real-time deployment must be assessed separately. This edition reads the supplied arXiv v1, including its implementation appendix.",
+  "evidenceIds": [
+    "identity",
+    "architecture",
+    "objectives",
+    "transfer",
+    "real-results",
+    "implementation"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "width": 1652,
+      "height": 716,
+      "crop": [
+        0.176,
+        0.092,
+        0.824,
+        0.309
+      ],
+      "alt": "A video U-Net sends hidden features downward through a CNN video adapter into a separate action U-Net; video noise and action noise enter distinct branches.",
+      "caption": "Two coupled denoisers connect visual prediction to executable action.",
+      "readingGuide": "Start with the demonstration images at left, which indicate fine-tuning data rather than an extra deployment input. Follow video noise and task text into the upper video U-Net, then trace the downward feature connections through the CNN Video Adaptor into the lower action U-Net. Action noise enters that lower branch separately. Section 3.2 explains that five decoder-layer features are collected at every denoising step and compressed into the conditioning vector h_i. The two right-hand outputs are predicted video and robot actions. The arrows therefore represent feature conditioning during denoising, not tracking performed after a complete video has been rendered.",
+      "takeaway": "The architecture supports the catalog’s Dual-system × Joint prediction classification: distinct video and action networks generate their outputs together. The feature interface also permits training the video network on trajectories without action labels, then learning an action decoder from the subset with robot supervision.",
+      "caution": "The diagram does not show a stop-gradient marker. Section 3.3 explicitly blocks action-loss gradients into the video U-Net, and Section 4.4 describes freezing that U-Net in Two-Stage training. The shared diffusion enclosure should not be read as proof of unrestricted end-to-end gradients.",
+      "evidenceIds": [
+        "architecture",
+        "objectives",
+        "training-ablation"
+      ],
+      "asset": "report-assets/2508.00795/architecture.png",
+      "sourceSha256": "b816cc80f0368c3ab09df906de831b47c93d7f78b9a19af1ff698ae26eaa8165",
+      "sourceUrl": "https://arxiv.org/pdf/2508.00795#page=4"
+    },
+    {
+      "id": "robocasa-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 5,
+      "width": 1652,
+      "height": 1096,
+      "crop": [
+        0.176,
+        0.09,
+        0.824,
+        0.422
+      ],
+      "alt": "RoboCasa success-rate table with 24 task rows, ten model columns, and average successes of 0.63 and 0.66 for Video Policy.",
+      "caption": "RoboCasa gains are substantial on average and uneven across tasks.",
+      "readingGuide": "Read the paper’s printed bottom row first, then move upward to inspect individual tasks; the DP-VLA and DP-CLIP averages do not reproduce the simple means of their displayed rows. The two rightmost columns distinguish Video Policy trained with 50 human demonstrations per task from the configuration using 300 MimicGen demonstrations. The caption and evaluation section specify 50 rollouts per task across five scenes. Compare DP-ResNet, DP-CLIP and UVA with the main Video Policy column, then inspect the broader published baselines separately. The pick-and-place block is particularly informative, but the drawer and knob rows prevent a blanket claim that the proposed method wins everywhere. Values are success fractions; the six-percentage-point comparison uses the printed averages 0.63 and 0.57, not a recalculation from all task rows.",
+      "takeaway": "The 50-demonstration Video Policy reports 0.63 average success, compared with 0.41 for DP-ResNet, 0.43 for DP-CLIP, 0.50 for UVA and 0.57 for DP-VLA. The 300-demonstration configuration reaches 0.66. More data improves the overall score but does not improve every individual task.",
+      "caution": "Reader arithmetic check: the 24 displayed rows average 0.6325 for Video Policy (50 demonstrations), about 0.5858 for DP-VLA and 0.4067 for DP-CLIP, whereas the latter two printed averages are 0.57 and 0.43. The source supplies no alternative weighting, so this is an unresolved aggregate discrepancy, not an official correction. The table also mixes retrained and published baselines with different demonstration budgets and sources; no seed variability or confidence intervals are supplied.",
+      "evidenceIds": [
+        "robocasa",
+        "baseline-budgets",
+        "baseline-implementation"
+      ],
+      "asset": "report-assets/2508.00795/robocasa-results.png",
+      "sourceSha256": "b816cc80f0368c3ab09df906de831b47c93d7f78b9a19af1ff698ae26eaa8165",
+      "sourceUrl": "https://arxiv.org/pdf/2508.00795#page=5"
+    },
+    {
+      "id": "training-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 6,
+      "width": 1078,
+      "height": 321,
+      "crop": [
+        0.503,
+        0.472,
+        0.82,
+        0.545
+      ],
+      "alt": "Three-row training ablation: Joint 0.57, Two-Stage 0.63, and No Video Tuning 0.09 average task success.",
+      "caption": "Robot-video adaptation matters; separated training performs best in this comparison.",
+      "readingGuide": "The three rows vary how the video representation is obtained and used for action learning. Joint is the paper’s end-to-end comparator. Two-Stage first fine-tunes SVD on RoboCasa videos, then freezes the video diffusion U-Net while training the action denoiser. No Video Tuning leaves the video U-Net at its SVD initialization. Read each value as an average under standard RoboCasa validation; Appendix Table 6 supplies the corresponding per-task results and trial count. To interpret the training comparison, also consult Appendix Table 5: the listed Two-Stage schedule has 368,866 × 2 steps, whereas Joint lists 368,866.",
+      "takeaway": "Two-Stage reaches 0.63 versus Joint’s 0.57, while using an untuned SVD representation yields 0.09. The strongest supported conclusion is that adapting video prediction to robot behavior is important in this implementation. The smaller Two-Stage–Joint gap motivates closer study of optimization and representation sharing.",
+      "caution": "The comparison changes both the optimization schedule and representation updates. It does not isolate gradient blocking at matched compute. The caption’s claim that video learning is necessary and sufficient is broader than what three tested configurations can establish.",
+      "evidenceIds": [
+        "training-ablation",
+        "objectives",
+        "implementation"
+      ],
+      "asset": "report-assets/2508.00795/training-ablation.png",
+      "sourceSha256": "b816cc80f0368c3ab09df906de831b47c93d7f78b9a19af1ff698ae26eaa8165",
+      "sourceUrl": "https://arxiv.org/pdf/2508.00795#page=6"
+    },
+    {
+      "id": "prediction-horizon",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 3",
+      "page": 7,
+      "width": 1058,
+      "height": 673,
+      "crop": [
+        0.513,
+        0.148,
+        0.824,
+        0.301
+      ],
+      "alt": "Success-rate curves increase across video horizons of zero, 0.8 and 1.6 seconds, with a steeper rise for the distribution-shift group.",
+      "caption": "Predicting further ahead helps most for the more strongly shifted task group.",
+      "readingGuide": "The horizontal axis changes the video prediction horizon, while the vertical axis measures executed-task success. Blue denotes the higher-shift group and orange the lower-shift group. Section 4.4 keeps action prediction at 1.6 seconds and executed action chunks at 0.8 seconds, so the manipulated variable is visual foresight. Appendix A.1 is essential context: these experiments use sampled MimicGen environments with training-like layouts and styles. Pick-and-place tasks introduce greater changes in object positions and categories than the remaining tasks. Appendix Table 8 lists the individual 0-, 16- and 32-step results; Figure 6 illustrates the environment comparison.",
+      "takeaway": "Both grouped curves improve with a longer video horizon, with the blue curve rising more sharply. For the complete task set, Table 8 reports average success of 0.30, 0.55 and 0.67 at zero, 16 and 32 video steps, respectively. These are diagnostic results under the separate MimicGen protocol.",
+      "caution": "The labels do not mean that the orange tasks are universally in-distribution or that this is the standard validation split. Appendix A.1 describes relative shift within this diagnostic and misreferences its horizon figure as Figure 2; the plotted horizon figure is Figure 3.",
+      "evidenceIds": [
+        "horizon",
+        "horizon-protocol"
+      ],
+      "asset": "report-assets/2508.00795/prediction-horizon.png",
+      "sourceSha256": "b816cc80f0368c3ab09df906de831b47c93d7f78b9a19af1ff698ae26eaa8165",
+      "sourceUrl": "https://arxiv.org/pdf/2508.00795#page=7"
+    },
+    {
+      "id": "action-free-transfer",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 4",
+      "page": 7,
+      "width": 1648,
+      "height": 617,
+      "crop": [
+        0.177,
+        0.414,
+        0.823,
+        0.601
+      ],
+      "alt": "Per-task bars compare Video Policy and Diffusion Policy across twelve action-supervised and twelve action-unsupervised tasks, with thin fully supervised reference extensions.",
+      "caption": "Video exposure enables transfer to tasks without action labels.",
+      "readingGuide": "The dotted vertical divider separates the twelve tasks used for action-head training from twelve tasks withheld from that supervision. Orange bars are DP-ResNet and blue bars are Video Policy. Crucially, the video generator was fine-tuned using videos from all twenty-four tasks. On the right, the thin colored extensions correspond to models trained with full action supervision; the legend calls them upper bounds. They are not error bars or confidence intervals. Read the solid bars to assess actual transfer, and compare them with those reference endpoints to see how much performance remains dependent on direct action labels.",
+      "takeaway": "Video Policy achieves nonzero success on many tasks omitted from action training, although transfer is uneven and some gaps to full supervision remain large. Appendix Table 6 reports an all-task average of 0.41 for this model versus 0.21 for the half-task DP baseline. That average includes both sides of the divider.",
+      "caution": "These tasks are unseen to the action decoder’s supervision, not unseen to the video model. The experiment supports using action-free task videos; it does not establish generalization to tasks absent from all training data or a held-out-task average of 0.41.",
+      "evidenceIds": [
+        "transfer",
+        "training-ablation"
+      ],
+      "asset": "report-assets/2508.00795/action-free-transfer.png",
+      "sourceSha256": "b816cc80f0368c3ab09df906de831b47c93d7f78b9a19af1ff698ae26eaa8165",
+      "sourceUrl": "https://arxiv.org/pdf/2508.00795#page=7"
+    },
+    {
+      "id": "real-world-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 9,
+      "width": 1300,
+      "height": 307,
+      "crop": [
+        0.243,
+        0.262,
+        0.753,
+        0.355
+      ],
+      "alt": "Five physical task rows under location, object and background changes; Pick and Place scores 1.0, 0.9, 0.8, while Stack Cups scores 0.3, 0.2, 0.2.",
+      "caption": "Physical generalization depends strongly on the task and the visual change.",
+      "readingGuide": "Read across each row before comparing tasks. Each cell represents ten rollouts, following training with two hundred demonstrations per task. The first column changes positions of familiar objects, the second uses the task-specific novel object set, and the third changes background appearance. Those sets are documented in appendix photographs: for Open Drawer, object novelty is masking-tape coverage of the same cabinet, rather than a new mechanism. The paired video/rollout examples elsewhere in the paper illustrate alignment, but this table measures actual physical success. Small differences between adjacent cells correspond to very few trials and should be interpreted accordingly.",
+      "takeaway": "Pick and Place succeeds at 1.0, 0.9 and 0.8 across the three settings, but Stack Cups stays at 0.3, 0.2 and 0.2. M&Ms to Cup falls from 0.8 with varied locations to 0.2 under new backgrounds. These failures materially qualify the caption’s broad robustness claim.",
+      "caution": "No real-world baseline or uncertainty estimates accompany the table. The source’s Stack Cups training-set count is unresolved: Section 4.5 says six cups, while Figure 12 says five. Better Upright Object performance under shifts is attributed to visibility, not established as a causal effect.",
+      "evidenceIds": [
+        "real-setup",
+        "real-results",
+        "object-sets",
+        "qualitative"
+      ],
+      "asset": "report-assets/2508.00795/real-world-results.png",
+      "sourceSha256": "b816cc80f0368c3ab09df906de831b47c93d7f78b9a19af1ff698ae26eaa8165",
+      "sourceUrl": "https://arxiv.org/pdf/2508.00795#page=9"
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Follow features through diffusion, not finished frames through a tracker",
+      "kind": "source",
+      "text": "Begin with the current camera observations and the language instruction. The frozen SVD VAE provides image latents, and the text reaches the video U-Net through CLIP-based cross-attention. Video Policy arranges multiple camera streams along the temporal dimension, modifying the image conditioning for each view. At a denoising step, the video U-Net produces hidden spatiotemporal representations as it predicts future imagery. Five decoder-layer features are then collected by a CNN adapter, yielding the vector h_i that conditions the action U-Net. This exchange repeats throughout denoising, allowing video and action predictions to develop together. The robot ultimately receives the action sequence, not an instruction to imitate pixels. In simulation the actions encode gripper pose and opening state; physical deployment additionally models grasping force and uses the controller described in Appendix A.4.",
+      "evidenceIds": [
+        "architecture",
+        "objectives",
+        "views",
+        "implementation",
+        "robocasa",
+        "controller"
+      ]
+    },
+    {
+      "heading": "Separate representation learning from the action-supervision budget",
+      "kind": "analysis",
+      "text": "The two-stage recipe turns the video model into a reusable representation before training the action decoder. First it learns robot-execution video prediction; then its U-Net is frozen while action learning uses that representation. The paper’s separate losses and stop-gradient statement explain the intended protection of the video network, but the exact gradient routing of the comparator called Joint is not fully resolved by its description. A reproduction should state that route explicitly. The ablation favors Two-Stage, although its longer schedule leaves a compute confound. Figure 4 adds a different test: allow videos from every task but actions from only half. Reader interpretation: this combination supports task knowledge entering through video training, while leaving open how much the decoder still learns task-specific behavior and how well the same mechanism transfers to tasks never shown in video.",
+      "evidenceIds": [
+        "objectives",
+        "training-ablation",
+        "implementation",
+        "transfer"
+      ]
+    },
+    {
+      "heading": "Translate predictive quality into an executed-control claim carefully",
+      "kind": "analysis",
+      "text": "A useful predictor must support actions that succeed in the environment. The horizon diagnostic keeps the action horizon fixed while changing how far video prediction looks ahead, providing evidence that future visual structure helps control. Its special MimicGen evaluation must remain separate from standard RoboCasa results. Physical deployment introduces another layer: the model predicts a sequence of relative poses and jaw positions plus absolute force, and impedance control executes twenty-four of thirty-two steps with a force-based closing correction. This means the reported policy includes a concrete execution interface, not just a generated movie. Reader interpretation: the approximate nine-second generation time reported for an A100 makes scheduling and feedback a central reproduction question. Qualitative video/rollout alignment cannot answer that question, and the ten-trial physical table demonstrates both useful transfer and pronounced failure cases.",
+      "evidenceIds": [
+        "horizon",
+        "horizon-protocol",
+        "controller",
+        "implementation",
+        "qualitative",
+        "real-results"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does training separation help after controlling compute and gradient routing?",
+      "text": "Reader-proposed check, not performed: use the same RoboCasa demonstrations, SVD initialization, adapter and action head for a staged frozen-video model and concurrent-training controls. Explicitly test concurrent training both with and without action-loss gradients entering the video U-Net, since the source’s Joint label does not fully specify that distinction. First reproduce the reported schedules, then run a comparison matched by measured training compute and report video/action update counts. Use fixed evaluation scenes, multiple seeds and 50 rollouts per task. A repeatable Two-Stage advantage after matching would support a representation or optimization benefit; disappearance of the gap would weaken the claim that isolation itself explains Table 3.",
+      "evidenceIds": [
+        "robocasa",
+        "objectives",
+        "training-ablation",
+        "implementation"
+      ]
+    },
+    {
+      "title": "Is held-out-task transfer supplied by the extra task videos?",
+      "text": "Reader-proposed check, not performed: retain Figure 4’s same twelve action-supervised tasks in every arm. Compare video pretraining on all twenty-four tasks against pretraining only on the twelve action-supervised tasks. Match total video samples and optimization steps by resampling the restricted set, freeze each resulting video U-Net, and train otherwise identical action heads. Include the half-task DP baseline and the fully supervised reference. Report the twelve action-unsupervised tasks separately, alongside the all-task mean, over repeated seeds and identical evaluation rollouts. A selective loss on action-unsupervised tasks when their videos are removed would support the proposed mechanism. Similar performance would suggest broader priors or shared behavior explain more of the transfer.",
+      "evidenceIds": [
+        "transfer",
+        "training-ablation",
+        "implementation",
+        "robocasa"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "notes": "Visually inspected the title/version/author page, method text and equations, all Figures 1–15 and Tables 1–9, and appendix implementation, evaluation and controller details. All six final original-PDF crops were inspected for legibility, labels and completeness. Figure 2 feature arrows agree with the method; its omitted gradient marker is explained from Section 3.3. Figure 4 reference extensions were checked against its caption. Reference-only pages 10–13 were read as text. Separate supplemental videos and external artifacts were not supplied for inspection."
+  },
+  "featuredResultTask": "RoboCasa validation: 24-task manipulation"
+}
