@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2506.09113",
+  "shortTitle": "Seedance 1.0",
+  "thesis": "Seedance combines shared text/image-conditioned video generation with a separate resolution refiner and extensive post-training, yielding strong overall preference results while leaving individual component gains difficult to isolate.",
+  "standfirst": "A convincing generated video has to satisfy several constraints at once: depict the requested subjects, move them plausibly, preserve their appearance, and deliver useful resolution at acceptable latency. Seedance 1.0 approaches this through an entire production pipeline. Dense captions and prompt rewriting establish a language interface; alternating spatial and temporal transformer blocks generate video; a learned refiner supplies detail; preference learning and distillation shape the final output. These figures explain that information flow and distinguish architectural descriptions, training diagnostics, public preference ratings, and selected cinematic examples. The reviewed artifact is the June 2025 v2 technical report, whose experiments evaluate video generation rather than executed actions.",
+  "evidenceIds": [
+    "identity",
+    "goals",
+    "architecture",
+    "conditioning-refiner",
+    "pipeline",
+    "feedback",
+    "distillation",
+    "evaluation-protocol"
+  ],
+  "featuredResultTask": "Image-to-video public preference",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/2506.09113/architecture.png",
+      "width": 1309,
+      "height": 528,
+      "sourceSha256": "e4ec66efd7e354bc7b3d25478fc1cb21709d0dc907f70cee7000ad2bf036fd13",
+      "sourceUrl": "https://arxiv.org/pdf/2506.09113#page=5",
+      "crop": [
+        0.12,
+        0.1,
+        0.89,
+        0.34
+      ],
+      "alt": "Video frames enter a VAE and dense captions enter an LLM; interleaved shot tokens pass through alternating spatial and temporal DiT blocks. Enlarged blocks show text and vision branches only in the spatial block.",
+      "caption": "Language and vision interact spatially; visual information then propagates across time.",
+      "readingGuide": "Start with the two input streams on the left: the VAE produces visual tokens and the LLM produces caption tokens. Shot 1 through Shot N arrange these together before the repeated spatial/temporal block pair. The enlarged spatial block uses MM-RoPE and then separates vision and text MLP paths. The temporal block shows only visual tokens and a vision MLP. Its attention is labelled Spatial-temporal Attention; Section 2.2 specifies spatial windows within frames with a receptive field across time. That label therefore should not be read as evidence for unrestricted attention across every space-time token. The text stream participates only in the spatial blocks.",
+      "takeaway": "The architecture provides a concrete route for sharing text-to-video and image-to-video generation while accommodating shot-specific descriptions. Temporal processing can connect visual content across frames without repeating the text branch in every block. The paper supports this architectural description, but supplies no isolated performance gain for the factorization.",
+      "caution": "The diagram is an architectural view, not a complete inference graph: noisy inputs, conditioning masks and the refiner are explained elsewhere. Causal VAE compression does not establish a causally masked or autoregressive DiT.",
+      "evidenceIds": [
+        "vae",
+        "architecture",
+        "conditioning-refiner"
+      ]
+    },
+    {
+      "id": "training-inference",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 5",
+      "page": 8,
+      "asset": "report-assets/2506.09113/training-inference.png",
+      "width": 1306,
+      "height": 603,
+      "sourceSha256": "e4ec66efd7e354bc7b3d25478fc1cb21709d0dc907f70cee7000ad2bf036fd13",
+      "sourceUrl": "https://arxiv.org/pdf/2506.09113#page=8",
+      "crop": [
+        0.112,
+        0.609,
+        0.88,
+        0.883
+      ],
+      "alt": "Training has a base pretraining-to-CT-to-SFT-to-RLHF chain and a refiner pretraining-to-SFT-to-RLHF branch; inference runs prompt engineering, text encoding, base DiT and diffusion refinement.",
+      "caption": "The shared generator and resolution refiner have distinct training histories.",
+      "readingGuide": "Read the upper box as parameter preparation. The blue base-model path progresses through pretraining, continued training, supervised fine-tuning and feedback alignment. The downward arrow from base pretraining initializes the yellow refiner branch, consistent with Section 2.3. Read the lower box as the deployed data flow: a user prompt is rewritten, encoded, passed to the base generator, and then processed by the refiner. Section 2.3 specifies 480p base generation followed by 720p or 1080p refinement. The feedback-alignment boxes belong to training; the depicted inference chain contains no reward-model search or action-execution loop. Image conditioning is specified in the method text rather than drawn here.",
+      "takeaway": "Sharing one generator across input tasks still leaves several learned components in the full system. The refiner is trained to condition on low-resolution video and receives its own preference alignment. This explains why strong final output quality cannot automatically be attributed entirely to the base transformer.",
+      "caution": "Distillation is omitted from this overview. Section 4.4.4 explicitly applies feedback learning to the accelerated refiner, while Section 5.1 describes acceleration. The drawing alone cannot recover their complete scheduling or frozen/trainable parameter choices.",
+      "evidenceIds": [
+        "pipeline",
+        "conditioning-refiner",
+        "training",
+        "feedback",
+        "distillation"
+      ]
+    },
+    {
+      "id": "reward-curves",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 7 — training diagnostic",
+      "page": 11,
+      "asset": "report-assets/2506.09113/reward-curves.png",
+      "width": 1319,
+      "height": 887,
+      "sourceSha256": "e4ec66efd7e354bc7b3d25478fc1cb21709d0dc907f70cee7000ad2bf036fd13",
+      "sourceUrl": "https://arxiv.org/pdf/2506.09113#page=11",
+      "crop": [
+        0.11,
+        0.095,
+        0.886,
+        0.498
+      ],
+      "alt": "Six reward-versus-iteration curves: foundational, motion and aesthetic rewards for the base model above, with corresponding refiner reward curves below. All have an overall rising trend with local fluctuations.",
+      "caption": "The optimized reward signals rise for both the base model and the refiner.",
+      "readingGuide": "Read across a row to compare the three kinds of feedback, then move down to the separate refiner optimization. Blue is the foundational reward, green is motion, and orange is aesthetics. Each panel has its own vertical range, and the two rows span different iteration ranges, so compare trends within panels rather than numerical heights across models. The foundational reward targets alignment and structural stability; the aesthetic reward evaluates video keyframes. Section 4.4 explains direct reward maximization and iterative generator/reward-model learning. Although the caption describes a stable upward trend, the plotted curves visibly fluctuate; the supported observation is overall increase rather than monotonic improvement.",
+      "takeaway": "Both generation stages respond to their optimization signals, and improvement is not confined to a single displayed reward dimension. This is useful evidence that the feedback-training machinery changes measured outputs. It does not tell us which reward contributes most, or how much an independent viewer would prefer the resulting videos.",
+      "caution": "This is a training diagnostic, not a controlled ablation. There are no component-removal curves, independent human test scores, or uncertainty bands. The text's claimed superiority over DPO/PPO/GRPO has no numerical comparison in this figure.",
+      "evidenceIds": [
+        "feedback",
+        "reward-diagnostics"
+      ]
+    },
+    {
+      "id": "i2v-arena",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Figure 9, right-hand image-to-video leaderboard table",
+      "page": 16,
+      "asset": "report-assets/2506.09113/i2v-arena.png",
+      "width": 1268,
+      "height": 1250,
+      "sourceSha256": "e4ec66efd7e354bc7b3d25478fc1cb21709d0dc907f70cee7000ad2bf036fd13",
+      "sourceUrl": "https://arxiv.org/pdf/2506.09113#page=16",
+      "crop": [
+        0.512,
+        0.095,
+        0.885,
+        0.379
+      ],
+      "alt": "Reproduced Artificial Analysis image-to-video leaderboard with creator, model, Elo, 95% confidence interval offsets and appearance counts. Seedance leads at 1365, followed by Veo 3 Preview at 1240 and Kling 2.0 at 1195.",
+      "caption": "The paper's public-preference snapshot places Seedance first in image-to-video.",
+      "readingGuide": "First check the selected Image to Video tab; the adjacent original table belongs to a separate text-to-video track. The Arena ELO column summarizes public pairwise preferences. The next column displays confidence-interval offsets around each score, and the last gives appearances rather than a shared fixed prompt count. In the first row, Seedance has 1365 Elo with offsets of −13/+13 and 7,280 appearances. Veo 3 Preview and Kling 2.0 occupy the next rows. Section 7.1 explains the public preference setting, while Figure 1 contextualizes the ranking claim as June 10, 2025. This is the snapshot reproduced in the paper.",
+      "takeaway": "Seedance's displayed Elo exceeds Veo 3 Preview by 125 points and Kling 2.0 by 170 points. The original rows retain the reported uncertainty: Veo 3 Preview is 1240 with −10/+11, and Kling 2.0 is 1195 with −8/+10. These support the paper's historical preference lead in this track.",
+      "caution": "Elo differences are not percentage-point accuracy improvements. This is not a current leaderboard check or a matched-compute experiment. The table uses Kling 2.0; the internal expert benchmark instead evaluates Kling 2.1 Master.",
+      "evidenceIds": [
+        "arena-i2v",
+        "overview-caveat",
+        "evaluation-protocol"
+      ]
+    },
+    {
+      "id": "t2v-preferences",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 11",
+      "page": 17,
+      "asset": "report-assets/2506.09113/t2v-preferences.png",
+      "width": 1319,
+      "height": 842,
+      "sourceSha256": "e4ec66efd7e354bc7b3d25478fc1cb21709d0dc907f70cee7000ad2bf036fd13",
+      "sourceUrl": "https://arxiv.org/pdf/2506.09113#page=17",
+      "crop": [
+        0.11,
+        0.338,
+        0.886,
+        0.721
+      ],
+      "alt": "Four text-to-video pairwise stacked-bar panels compare Seedance with Kling 2.1, Veo 3, Sora and Wan 2.1 on motion, prompt following, visual quality and overall preference; red favors the comparator, gray is a tie and green favors Seedance.",
+      "caption": "Overall preference gains coexist with component-level tradeoffs.",
+      "readingGuide": "Read the legend before comparing lengths: green is a Seedance preference, red favors the other model, and gray records Same. Each horizontal bar occupies the full comparison distribution. Compare the green and red portions of a single row; keep ties visible rather than silently treating them as wins or discarding them. The four panels belong to the internal T2V task, for which SeedVideoBench supplies 300 prompts. In the Kling panel, prompt following favors Seedance, while motion and visual quality have longer red portions. The Overall row therefore captures a different judgment from any one component. The absolute-score plots elsewhere use a separate five-point protocol.",
+      "takeaway": "Seedance receives more overall favorable than unfavorable judgments against all four displayed competitors. Its prompt-following advantage over Kling is particularly visible, but Kling wins more motion and visual-quality comparisons. This directly limits an interpretation that the leading overall model is best on every evaluated dimension.",
+      "caution": "The bars have no printed numerical values or confidence intervals, so exact percentages are not reported here. Rater counts, agreement and complete generation settings are missing; these internal preferences should not be combined numerically with Arena Elo.",
+      "evidenceIds": [
+        "evaluation-protocol",
+        "expert-results"
+      ]
+    },
+    {
+      "id": "multi-shot",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 14",
+      "page": 20,
+      "asset": "report-assets/2506.09113/multi-shot.png",
+      "width": 1320,
+      "height": 590,
+      "sourceSha256": "e4ec66efd7e354bc7b3d25478fc1cb21709d0dc907f70cee7000ad2bf036fd13",
+      "sourceUrl": "https://arxiv.org/pdf/2506.09113#page=20",
+      "crop": [
+        0.112,
+        0.097,
+        0.888,
+        0.365
+      ],
+      "alt": "Three rows of selected frames from Seedance, Kling 2.1 and Veo 3 depict a woman in red outside a bar and a man approaching. Seedance's row includes an insert of bottles near her feet. The original prompt and row-identifying caption are retained.",
+      "caption": "A selected cinematic prompt probes event ordering and changes of view.",
+      "readingGuide": "The retained caption identifies rows: Seedance above, Kling in the middle, Veo below. Read frames from left to right within a row. The Chinese prompt requests warm cinematic imagery of a short-haired woman crying outside a bar, a cut to cigarette ends and empty bottles near her feet, then a cut to a suited man approaching and patting her shoulder. Compare which requested views appear and whether the woman, clothing and location remain recognizable. Seedance's central insert visibly changes the framing to the ground-level objects. The final interaction requires particular care: selected stills cannot establish every action or the smoothness of the transition between shots.",
+      "takeaway": "The montage illustrates the intended multi-shot interface: one prompt specifies an ordered narrative that can include close inserts and returning views. It gives a concrete example of view changes in generated content, complementing the interleaved shot-caption architecture. It supplies no frequency estimate for successful narrative completion.",
+      "caution": "These are selected frames, not full videos or repeated trials. The comparison does not isolate MM-RoPE, and a missing action between sampled frames cannot establish a failure. Broader continuity claims remain author claims without an aggregate multi-shot metric.",
+      "evidenceIds": [
+        "architecture",
+        "multi-shot"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Trace two kinds of conditioning through the generator",
+      "text": "Begin with a user request and, for image-to-video, a reference frame. Prompt engineering rewrites the request into the dense caption format used in training; a text encoder then supplies language tokens. Visual conditioning follows a different route: the unified input formulation concatenates noisy inputs with clean or zero-padded frames and identifies supplied frames with a binary mask. The spatial blocks integrate the language and visual streams, while temporal blocks connect visual information across frames. MM-RoPE additionally supports ordered shot/caption sequences. A separate conditional refiner enhances the base video's resolution. This chain explains both shared task support and the multiple components involved. Its outputs remain generated pixels: the architecture specifies no motor-action head, inverse-dynamics decoder, or environment feedback controller.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture",
+        "conditioning-refiner",
+        "prompt-engineering",
+        "pipeline"
+      ]
+    },
+    {
+      "heading": "Separate the training curriculum from evidence of causality",
+      "text": "The curriculum changes more than resolution. Pretraining introduces images and videos progressively, while continued training increases the image-to-video fraction from 20% to 40%. The latter stage also selects data with stronger aesthetics and motion and introduces captions that omit static details already visible in the first frame. SFT then changes data again, trains specialized models and merges them. Reader interpretation: motion-only captions may make language concentrate on what should change while the reference image supplies what should persist. That is a plausible explanation of the design, not an isolated experimental finding. Figure 6's selected stage comparisons cannot tell which of task frequency, captions, selection or merging caused a gain. A controlled comparison must vary those choices separately before attributing improvements to any single mechanism.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "training",
+        "reward-diagnostics",
+        "conditioning-refiner"
+      ]
+    },
+    {
+      "heading": "Keep optimization rewards, preferences and latency separate",
+      "text": "The reward curves answer whether training increases the displayed reward-model scores. The Arena table answers which complete system public participants prefer, while the internal GSB plots divide expert judgments into motion, prompt following, visual quality and overall preference. These are distinct measurements. Reader interpretation: a rise in aesthetics reward could coexist with unchanged narrative adherence, and an overall preference advantage can coexist with a weaker component score, as the Kling comparison illustrates. Acceleration introduces another axis: the reported 41.4-second generation time concerns a five-second 1080p output on L20, but the complete device and timing configuration is not given. Evaluate quality at the deployed sampling budget, preserve ties and uncertainty in preference reporting, and resist treating either reward growth or a speedup claim as a complete reproduction result.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "feedback",
+        "reward-diagnostics",
+        "arena-i2v",
+        "evaluation-protocol",
+        "expert-results",
+        "latency",
+        "distillation"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Factor task frequency from motion-only captioning",
+      "text": "Reader-proposed experiment, conditional on access to compatible checkpoints and data: start four runs from the same pretrained base in a 2×2 comparison of I2V sampling share (20% versus 40%) and caption policy (full captions versus the reported full/motion-only mixture). Hold the selected data pool, update budget, optimizer, resolution and evaluation prompts fixed, and explicitly record the mixture ratio chosen because the paper omits it. Use blinded motion, prompt-following and preservation ratings on held-out I2V cases, with uncertainty and repeated seeds. If the sampling change gives no consistent benefit at either caption policy, a task-frequency explanation of the CT gain is weakened. This isolates two factors without claiming to reproduce the full CT recipe.",
+      "evidenceIds": [
+        "training",
+        "evaluation-protocol"
+      ]
+    },
+    {
+      "title": "Test whether refiner reward gains survive human evaluation",
+      "text": "Reader-proposed experiment: compare the same accelerated refiner immediately before and after its RLHF stage, using identical held-out low-resolution base latents, prompts and matched random seeds. Keep output resolution, NFE and deployment settings fixed; do not update the evaluation reward models during the comparison. Measure the three reward signals and obtain blinded pairwise human judgments of motion, detail, prompt adherence and source-image preservation. Include a base-resolution condition to identify artifacts introduced during refinement, and report latency with device count and batching. If reward scores increase while human preferences are unchanged or worsen, the curves support optimization of the proxies without demonstrating a user-visible benefit.",
+      "evidenceIds": [
+        "conditioning-refiner",
+        "feedback",
+        "reward-diagnostics",
+        "distillation",
+        "evaluation-protocol",
+        "latency"
+      ]
+    }
+  ],
+  "visualLimitations": {
+    "kind": "analysis",
+    "text": "The source provides no controlled quantitative component-ablation table: Figures 6 and 8 are selected stage comparisons, and Figure 7 contains reward-training diagnostics. The diagnostic fills the ablation section with that limitation explicit. Figure 9 contains the original quantitative leaderboard tables. Multi-shot and style claims are illustrated by sampled frames without aggregate success rates; the PDF cannot supply playback evidence.",
+    "evidenceIds": [
+      "reward-diagnostics",
+      "feedback",
+      "arena-i2v",
+      "arena-t2v",
+      "multi-shot",
+      "styles"
+    ]
+  },
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      25,
+      26
+    ],
+    "notes": "Visually inspected the title/version block and contributor pages, all sixteen original figures, both embedded leaderboard tables, Eq. (1), and all method, training, infrastructure and evaluation pages supporting retained claims or proposed checks. All six final crops were viewed; the preference-plot crop was widened and viewed again to preserve complete row labels. Figure 2's temporal attention label was cross-checked against Section 2.2's spatial-window description, and Figure 5's refiner-initialization arrow against Section 2.3. Figure 7 has overall upward trends with visible local decreases. The short Figure 14 caption and original prompt are retained because they identify rows and requested events; their interpretation is explained in English. Contents and references were read in the complete text but were not visually inspected. Linked full-motion examples, supplements and external leaderboard updates remain outside this pass."
+  }
+}
