@@ -1,0 +1,240 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-b4155f59c47b47bdc94d",
+  "shortTitle": "DiT",
+  "thesis": "DiT makes a transformer the latent-diffusion denoiser, improving ImageNet generation through adaptive conditioning and increased model computation while retaining a pretrained convolutional VAE.",
+  "standfirst": "The central experiment in DiT is architectural: keep latent diffusion, replace its U-Net denoiser with a transformer, and ask which design choices improve generated images. The answer involves both how conditioning enters each block and how much computation the denoiser performs. Follow the architecture upward from noised latent patches to noise and covariance predictions, then use the conditioning and scaling plots to understand why the authors choose adaLN-Zero and small patches. The benchmark table shows the benefit of long training and classifier-free guidance. The final diagnostic separates a stronger model from simply taking more sampling steps. All findings here concern class-conditioned still-image generation.",
+  "evidenceIds": [
+    "e02",
+    "e04",
+    "e06",
+    "e10",
+    "e11",
+    "e12",
+    "e14"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 3,
+      "asset": "report-assets/ref-b4155f59c47b47bdc94d/architecture.png",
+      "width": 1394,
+      "height": 587,
+      "sourceSha256": "29cc26d5497bb7d40ff2d02fdf6e6c9cdebd1167a8b7c3b1ecf012336768a6bf",
+      "sourceUrl": "https://openaccess.thecvf.com/content/ICCV2023/papers/Peebles_Scalable_Diffusion_Models_with_Transformers_ICCV_2023_paper.pdf#page=3",
+      "crop": [
+        0.08,
+        0.088,
+        0.9,
+        0.355
+      ],
+      "alt": "Bottom-to-top latent denoising pipeline and three transformer block diagrams, with adaLN-Zero highlighted and conditioning-dependent scales drawn before residual additions.",
+      "caption": "DiT predicts latent noise and covariance; conditioning modulates each residual block.",
+      "readingGuide": "Read the left pipeline from bottom to top. The noised latent is patchified, while timestep t and label y enter an embedding branch; the prose calls the class label c. Repeated DiT blocks feed normalization, linear decoding and spatial rearrangement to produce Noise and Σ. In the highlighted block, input tokens pass through normalization, conditioning-dependent scale/shift, attention, and a gate before the residual addition. The feedforward sublayer repeats this pattern. The conditioning MLP supplies γ and β for normalization modulation and α for residual scaling. The two muted alternatives insert cross-attention or concatenate conditioning tokens. The arrows and gate placement agree with Section 3.2.",
+      "takeaway": "The useful change is inside the denoiser: a patch sequence can replace the U-Net's spatial hierarchy. adaLN-Zero starts each residual block as an identity function by zeroing its residual scales, then learns how timestep and class information should modulate token processing. The separate outputs are diffusion statistics, rather than two independently generated images.",
+      "caution": "This diagram shows one denoising pass, not the full sampling loop. The VAE decoder is outside the pictured transformer. Its convolutional architecture remains part of the image generator, and no action-execution interface is defined.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06",
+        "e07"
+      ]
+    },
+    {
+      "id": "conditioning",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 5",
+      "page": 5,
+      "asset": "report-assets/ref-b4155f59c47b47bdc94d/conditioning.png",
+      "width": 1190,
+      "height": 889,
+      "sourceSha256": "29cc26d5497bb7d40ff2d02fdf6e6c9cdebd1167a8b7c3b1ecf012336768a6bf",
+      "sourceUrl": "https://openaccess.thecvf.com/content/ICCV2023/papers/Peebles_Scalable_Diffusion_Models_with_Transformers_ICCV_2023_paper.pdf#page=5",
+      "crop": [
+        0.1,
+        0.092,
+        0.45,
+        0.294
+      ],
+      "alt": "Four XL/2 conditioning variants plotted against training steps, with the blue adaLN-Zero FID-50K curve below the red in-context, orange cross-attention and green adaLN curves.",
+      "caption": "Residual modulation and initialization change quality even within the XL/2 configuration.",
+      "readingGuide": "Every curve uses the XL/2 backbone and latent patch size, so read vertical separation at the same training step as a conditioning-design comparison. The horizontal axis ends at 400K steps; the vertical axis is FID-50K, where lower is better. Blue denotes adaLN-Zero, green ordinary adaLN, orange cross-attention and red in-context conditioning. Section 4 supplies the shared evaluation convention: EMA models, 250 DDPM sampling steps and no guidance unless stated. Section 5 gives the computation behind the curves: both adaLN versions cost 118.6 Gflops per pass, versus 119.4 for in-context and 137.6 for cross-attention. The plot does not show uncertainty bands.",
+      "takeaway": "adaLN-Zero stays below the other tested conditioning strategies throughout the displayed training trajectory. The authors describe its FID at 400K steps as nearly half the in-context result. Cross-attention's additional computation does not compensate for its weaker result in this class-label setting, motivating the use of adaLN-Zero for the subsequent scaling experiments.",
+      "caution": "The adaLN-to-adaLN-Zero comparison changes residual gating as well as initialization. It supports the combined design, but does not isolate zero initialization as the sole cause. These short conditioning inputs also differ from long text sequences.",
+      "evidenceIds": [
+        "e06",
+        "e08",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "id": "scaling",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 6",
+      "page": 6,
+      "asset": "report-assets/ref-b4155f59c47b47bdc94d/scaling.png",
+      "width": 1372,
+      "height": 515,
+      "sourceSha256": "29cc26d5497bb7d40ff2d02fdf6e6c9cdebd1167a8b7c3b1ecf012336768a6bf",
+      "sourceUrl": "https://openaccess.thecvf.com/content/ICCV2023/papers/Peebles_Scalable_Diffusion_Models_with_Transformers_ICCV_2023_paper.pdf#page=6",
+      "crop": [
+        0.083,
+        0.091,
+        0.89,
+        0.325
+      ],
+      "alt": "Seven FID-50K learning-curve panels: three hold patch size fixed while comparing S, B, L and XL; four hold model size fixed while comparing patch sizes 8, 4 and 2.",
+      "caption": "Depth, width and token count provide distinct ways to improve the denoiser.",
+      "readingGuide": "Start with the three upper panels. Within each, the patch-size suffix stays fixed while S, B, L and XL change the transformer configuration. Then read the four lower panels: each fixes the backbone and compares /8, /4 and /2. The bold colored lines are the active comparisons; faint lines retain the wider sweep as background context. Every horizontal axis measures training steps and every vertical axis measures FID-50K. The lower row matters because a smaller patch creates more tokens without materially increasing the downstream parameter count. Figure 4 defines this relation, while Table 1 defines the backbone configurations used here.",
+      "takeaway": "Across this sweep, larger backbones and smaller patches yield lower FID through the displayed training trajectories. The patch-size comparison shows why parameter count cannot describe the result by itself: a similar-sized set of weights performs more computation when processing a longer token sequence. The evidence therefore motivates examining computation alongside model size.",
+      "caution": "Equal training iterations do not imply equal training cost. Figure 9 on inspected PDF page 8 separately plots estimated training compute, using an approximate backward-pass multiplier. Neither view establishes a universal law beyond these architectures and this ImageNet setup.",
+      "evidenceIds": [
+        "e05",
+        "e07",
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "id": "imagenet256",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 9,
+      "asset": "report-assets/ref-b4155f59c47b47bdc94d/imagenet256.png",
+      "width": 1169,
+      "height": 867,
+      "sourceSha256": "29cc26d5497bb7d40ff2d02fdf6e6c9cdebd1167a8b7c3b1ecf012336768a6bf",
+      "sourceUrl": "https://openaccess.thecvf.com/content/ICCV2023/papers/Peebles_Scalable_Diffusion_Models_with_Transformers_ICCV_2023_paper.pdf#page=9",
+      "crop": [
+        0.083,
+        0.09,
+        0.476,
+        0.315
+      ],
+      "alt": "ImageNet 256×256 results for GAN and diffusion baselines and three DiT rows, with FID, sFID, Inception Score, precision and recall columns and missing values marked by dashes.",
+      "caption": "The best guided DiT has the lowest tabulated FID, with a visible precision–recall tradeoff.",
+      "readingGuide": "Read the three bottom rows together before comparing model families. They use the same DiT-XL/2 architecture without guidance and with classifier-free guidance scales 1.25 and 1.50. FID and sFID decrease in the preferred direction; Inception Score, precision and recall increase in their preferred direction. At scale 1.50, DiT reports FID 2.27 and recall 0.57, while the unguided row has FID 9.62 and recall 0.67. The LDM-4-G row at the same guidance scale gives FID 3.60 and recall 0.48. These are the 7M-step DiT results described on page 8, evaluated under the paper's FID-50K and 250-step convention.",
+      "takeaway": "The strongest DiT row leads this table in FID and Inception Score, but the other columns prevent an indiscriminate claim of superiority. StyleGAN-XL reports a lower sFID, and LDM-4-G at scale 1.50 reports higher precision. Within DiT, stronger guidance improves FID while reducing recall, exposing a change in distribution coverage.",
+      "caution": "Dashes are unreported metrics, not zeros. The table supplies neither equal training budgets nor uncertainty across seeds. Its 256×256 ranking also does not transfer wholesale to Table 3: at 512×512, StyleGAN-XL has a lower FID than DiT.",
+      "evidenceIds": [
+        "e09",
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "id": "sampling",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 10",
+      "page": 9,
+      "asset": "report-assets/ref-b4155f59c47b47bdc94d/sampling.png",
+      "width": 1164,
+      "height": 763,
+      "sourceSha256": "29cc26d5497bb7d40ff2d02fdf6e6c9cdebd1167a8b7c3b1ecf012336768a6bf",
+      "sourceUrl": "https://openaccess.thecvf.com/content/ICCV2023/papers/Peebles_Scalable_Diffusion_Models_with_Transformers_ICCV_2023_paper.pdf#page=9",
+      "crop": [
+        0.504,
+        0.091,
+        0.895,
+        0.289
+      ],
+      "alt": "FID-10K versus logarithmic per-image sampling Gflops for twelve DiT variants, with curves approaching different quality levels as the number of sampling steps increases.",
+      "caption": "More sampling steps do not erase the tested gap between denoiser capacities.",
+      "readingGuide": "Here the horizontal axis changes from training steps to computation spent sampling one image. All models are evaluated after 400K training iterations. Each curve belongs to one backbone/patch-size combination, and its points sweep 16, 32, 64, 128, 256 and 1000 denoising steps. Follow one curve rightward to see the return from additional sampling steps, then compare different curves at similar horizontal positions to judge the cost of image quality. The vertical axis is FID-10K, unlike the FID-50K benchmark table. Section 5.2 provides a numerical example comparing L/2 with 1000 steps against XL/2 with 128 steps; individual points do not print their exact values.",
+      "takeaway": "XL/2 at 128 steps achieves FID-10K 23.7 with 15.2 Tflops per image, compared with L/2 at 1000 steps achieving 25.9 with 80.7 Tflops. Thus, in this comparison, the larger denoiser is both better in FID and cheaper to sample from. Increasing iteration count does not replace the stronger learned denoising model.",
+      "caution": "The conclusion is bounded by the tested checkpoints, step schedules and model family. These FID-10K results cannot be numerically merged with the long-trained FID-50K results, and sampling Gflops are not a measurement of end-to-end deployment latency.",
+      "evidenceIds": [
+        "e14"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Move diffusion into latent patches without changing its target",
+      "kind": "source",
+      "text": "DiT begins from latent diffusion's separation of representation learning and generative modeling. The pretrained encoder compresses an image into a smaller spatial tensor and is frozen while the diffusion model is trained. Corruption supplies a noised latent and a timestep; the transformer is asked to predict the added noise and the reverse-process covariance. Patchification changes the denoiser's interface into a sequence, but the final linear projection rearranges that sequence back into spatial predictions. This explains why the architecture can remain close to a Vision Transformer while serving a diffusion objective. The noise predictor uses squared-error loss, whereas covariance learning needs the variational objective. At inference, successive reverse-process samples yield a latent that the VAE decoder converts into an image. No observed action or executed control command enters this chain.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "heading": "Understand why adaLN-Zero is more than a conditioning label",
+      "kind": "analysis",
+      "text": "Timestep information tells the model what corruption regime it is processing, and class information tells it which image distribution to generate. The architectural question is how those signals affect each token update. In-context conditioning lets ordinary attention discover the interaction; cross-attention installs a separate interaction layer. adaLN instead regresses scale and shift from the summed conditioning embeddings and applies the same modulation function across tokens. adaLN-Zero additionally gates each attention and feedforward residual update, starting those gates at zero. A reader interpretation is that this gives optimization an initially simple identity path while learning conditioned departures from it. Figure 5 supports the combined design's effectiveness, but it does not prove that interpretation: introducing gates and changing their initialization together leaves their separate contributions unresolved.",
+      "evidenceIds": [
+        "e06",
+        "e10"
+      ]
+    },
+    {
+      "heading": "Separate model computation, training computation and sampling computation",
+      "kind": "analysis",
+      "text": "The paper uses three related but different budgets. Forward-pass Gflops describe a single denoiser evaluation; changing backbone size or token count changes that cost. Total training compute also depends on batch size, update count and backward work, which Figure 9 estimates rather than measures directly. Sampling compute depends on how many denoising evaluations generate an image, which Figure 10 varies after fixing the training checkpoint. Keeping these budgets separate explains the experimental logic: the scaling sweep asks which denoisers learn well, while the sampling sweep asks whether a weaker denoiser can catch up by iterating longer. Finally, Table 2 combines a large denoiser, much longer training and classifier-free guidance. Reader analysis: its excellent FID is a result of that full configuration, not evidence that a backbone swap alone guarantees the same gain.",
+      "evidenceIds": [
+        "e05",
+        "e11",
+        "e12",
+        "e14"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate residual gating from zero initialization",
+      "text": "Reader-proposed check: train XL/2 with ordinary adaLN, the reported adaLN-Zero block, and an otherwise identical gated block whose residual gates start nonzero. Hold the VAE, data order, class dropout, optimizer, output-layer initialization and sampling settings fixed; use paired random seeds and multiple independent runs. Compare unguided EMA FID-50K after 400K updates with 250 DDPM steps, and report computation alongside quality. The decisive comparison is between the two gated variants, which have the same structure. If zero initialization consistently improves that comparison beyond sampling and training variability, it supports an initialization-specific contribution. If they tie while both outperform ordinary adaLN, gating is a plausible explanation requiring further tests.",
+      "evidenceIds": [
+        "e06",
+        "e08",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "title": "Test whether the sampling-compute gap survives matched evaluation",
+      "text": "Reader-proposed check: evaluate 400K-step L/2 and XL/2 checkpoints across the paper's six sampling-step counts using matched class-label draws, starting noise seeds and the same evaluator. First test the stated 1000-step L/2 versus 128-step XL/2 comparison with repeated FID-10K sample sets. Then report a separate FID-50K comparison to assess estimator sensitivity, and compare the quality frontiers at approximately matched sampling Gflops. Preserve guidance settings and exclude VAE costs consistently from the paper-style Gflops comparison; measure end-to-end latency separately. A reversal that persists across repeated sample sets or a matched-budget frontier favoring L/2 would weaken the proposed capacity advantage in this setting. This is a proposed check, not a reproduced result.",
+      "evidenceIds": [
+        "e04",
+        "e09",
+        "e14"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "notes": "All 11 supplied PDF pages were rendered and visually inspected, including the title/author block and watermark, Figures 1–10, Tables 1–3, equations, training/evaluation/compute details, conclusion and reference pages. The five final crops were separately viewed with axes, legends and table headers intact. Figure 3's arrows and residual gate placement were cross-checked against Section 3.2; its label y corresponds to class c in the prose. Page 8 supplies the uncropped training-compute evidence and page 9 supplies the uncropped 512×512 table and its 1000-real-sample precision/recall note. No appendix is present in the supplied PDF; its referenced Figure 12 and additional samples remain uninspected."
+  },
+  "featuredResultTask": "Class-conditional ImageNet generation at 256×256",
+  "visualLimitations": {
+    "kind": "analysis",
+    "text": "The supplied main-paper PDF ends after References. Its text refers to appendix Figure 12 and additional generated samples, but no appendix or separate supplement was supplied. Those additional plots and implementation details cannot be assessed here; the five visuals cover the available architecture, quantitative results and diagnostics.",
+    "evidenceIds": [
+      "e11",
+      "e15"
+    ]
+  }
+}
