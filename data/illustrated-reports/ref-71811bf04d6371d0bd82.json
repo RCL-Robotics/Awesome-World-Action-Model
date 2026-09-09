@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-71811bf04d6371d0bd82",
+  "shortTitle": "LoRA (arXiv v2)",
+  "thesis": "LoRA makes task adaptation small by learning low-rank weight updates that can be merged for inference, while useful rank and update placement remain task-dependent.",
+  "standfirst": "A large pretrained language model can be useful for many tasks, but a separate fully tuned copy for each task is expensive to train and store. LoRA keeps the shared weights fixed and learns a small additive correction. The key is that this correction is linear: its two matrices can be multiplied and absorbed into the original layer before inference. Read the mechanism first, then separate the evidence about deployment cost from the evidence about prediction quality. Finally, use the two ablations to distinguish where an update is placed from how much rank it receives. This edition covers the supplied October 2021 arXiv v2 draft, not an asserted copy of the ICLR 2022 publication.",
+  "evidenceIds": [
+    "ev-identity",
+    "ev-objective",
+    "ev-update",
+    "ev-targets",
+    "ev-allocation",
+    "ev-rank"
+  ],
+  "visuals": [
+    {
+      "id": "reparameterization",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 1,
+      "asset": "report-assets/ref-71811bf04d6371d0bd82/reparameterization.png",
+      "width": 975,
+      "height": 891,
+      "sourceSha256": "e9a0d3128767db616085dc0f4e6e455e672e89af823e8ed1282793682787395a",
+      "sourceUrl": "https://arxiv.org/pdf/2106.09685v2#page=1",
+      "crop": [
+        0.634,
+        0.66,
+        0.825,
+        0.795
+      ],
+      "alt": "Input x splits into a blue pretrained weight block and an orange A-to-B rank-r branch; their outputs are added to form h. A has Gaussian initialization and B starts at zero.",
+      "caption": "A small trainable residual runs alongside a frozen dense projection.",
+      "readingGuide": "Read upward from x. The left arrow enters the pretrained weight W, shown as a square d-by-d matrix. The right branch first passes through A, narrows to dimension r, and then passes through B. Both contributions meet at the plus sign before h. The caption says only A and B are trained. The initialization labels describe the starting values, not constraints that hold throughout training. Cross-check Section 4.1 for the general rectangular shapes and the factor α/r, which is not drawn. There is no nonlinear activation between A and B in this formulation; that linear structure makes merging possible.",
+      "takeaway": "The update changes the mapping without replacing the pretrained weight. Zero initialization of B initially suppresses the residual, while the trained product BA can later be added to the original matrix. The resulting dense layer has the original input/output dimensions and needs no separate adaptation branch after merging.",
+      "caution": "The diagram depicts the unmerged computation. Its arrows agree with Equation (3), but neither displays the α/r scale specified in the following prose. Include that scale when implementing the update or merge.",
+      "evidenceIds": [
+        "ev-update",
+        "ev-targets"
+      ]
+    },
+    {
+      "id": "latency",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 4,
+      "asset": "report-assets/ref-71811bf04d6371d0bd82/latency.png",
+      "width": 1004,
+      "height": 251,
+      "sourceSha256": "e9a0d3128767db616085dc0f4e6e455e672e89af823e8ed1282793682787395a",
+      "sourceUrl": "https://arxiv.org/pdf/2106.09685v2#page=4",
+      "crop": [
+        0.205,
+        0.1,
+        0.795,
+        0.214
+      ],
+      "alt": "Three GPT-2 medium forward-pass settings compare Fine-Tune/LoRA with AdapterL and AdapterH; the rightmost batch-1 setting shows the largest relative adapter overhead.",
+      "caption": "Small-batch inference exposes the cost of sequential adapter layers.",
+      "readingGuide": "Each column is a distinct operating point: read batch size and sequence length before reading the latency below. The |Θ| header counts trainable adapter parameters, so it is not a count of the entire GPT-2 model or of a particular LoRA configuration. Values are milliseconds from one forward pass on a Quadro RTX8000, averaged over 100 trials. Fine-Tune/LoRA shares a row because the merged LoRA model uses the original dense structure. The percentages in parentheses describe adapter overhead relative to that baseline. Appendix B's heatmaps expand this comparison across batch sizes, sequence lengths and adapter bottlenecks.",
+      "takeaway": "At batch 1 and length 128, the shared Fine-Tune/LoRA row is 19.8 ± 2.7 ms, versus 23.9 ± 2.1 for AdapterL and 25.8 ± 2.2 for AdapterH. The reported overheads are 20.7% and 30.3%, illustrating why a low parameter count alone does not ensure low latency.",
+      "caution": "These are hardware- and shape-specific forward-pass measurements. They do not measure full autoregressive response time, task-switching overhead, or mixed-task serving. The zero-added-latency argument assumes a correctly merged LoRA update.",
+      "evidenceIds": [
+        "ev-latency",
+        "ev-update",
+        "ev-targets"
+      ]
+    },
+    {
+      "id": "e2e-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 7,
+      "asset": "report-assets/ref-71811bf04d6371d0bd82/e2e-results.png",
+      "width": 1082,
+      "height": 506,
+      "sourceSha256": "e9a0d3128767db616085dc0f4e6e455e672e89af823e8ed1282793682787395a",
+      "sourceUrl": "https://arxiv.org/pdf/2106.09685v2#page=7",
+      "crop": [
+        0.182,
+        0.1,
+        0.818,
+        0.33
+      ],
+      "alt": "GPT-2 medium and large adaptation methods are compared on E2E using BLEU, NIST, MET, ROUGE-L and CIDEr alongside trainable parameter counts.",
+      "caption": "Small task updates preserve strong restaurant data-to-text performance.",
+      "readingGuide": "Separate the GPT-2 medium block above the divider from the large-model block below it. Within each block, compare trainable parameters before moving across the five quality metrics; all are higher-is-better here. E2E converts restaurant slot-value inputs into natural-language descriptions. Asterisks mark values taken from prior work, including the full-tuning and prefix-layer baselines, rather than reruns with uncertainty reported in this draft. Appendix D.3 reports means over three random seeds for the authors' GPT-2 experiments, selecting the best epoch per run. The metric labeled MET is METEOR. Table 11 supplies the training and beam-search settings needed to interpret these scores.",
+      "takeaway": "For GPT-2 medium, LoRA reaches 70.4 ± 0.1 BLEU with 0.35M trainable parameters, compared with 68.2 for full tuning of 354.92M parameters and 69.7 for similarly sized prefix-layer tuning. This supports efficient generation adaptation; it does not make every metric or model-size comparison a strict win.",
+      "caution": "The caption calls the ± values confidence intervals without specifying a confidence level. Imported baselines have no corresponding intervals here. Table 3 does not explicitly label its evaluation split, and the large-model CIDEr column does not favor LoRA over every adapter.",
+      "evidenceIds": [
+        "ev-gpt2-result",
+        "ev-data",
+        "ev-gpt2-protocol"
+      ]
+    },
+    {
+      "id": "gpt3-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 8,
+      "asset": "report-assets/ref-71811bf04d6371d0bd82/gpt3-results.png",
+      "width": 912,
+      "height": 372,
+      "sourceSha256": "e9a0d3128767db616085dc0f4e6e455e672e89af823e8ed1282793682787395a",
+      "sourceUrl": "https://arxiv.org/pdf/2106.09685v2#page=8",
+      "crop": [
+        0.232,
+        0.1,
+        0.768,
+        0.269
+      ],
+      "alt": "GPT-3 adaptation methods are compared by trainable parameters, WikiSQL accuracy, MNLI-m accuracy, and three SAMSum ROUGE scores.",
+      "caption": "Large-model adaptation remains competitive across three distinct tasks.",
+      "readingGuide": "Read each task column independently: WikiSQL measures logical-form validation accuracy, MNLI-m measures matched validation accuracy, and SAMSum lists ROUGE-1/2/L together. The parameter column describes trainable task parameters, not total model size. Two LoRA budget rows appear at the bottom, and they need not represent one common projection configuration across tasks. In particular, Table 15 links the 4.7M MNLI score of 91.7 to value-only rank-2 adaptation; query/value rank-1 adaptation has the same parameter count but reaches 91.3 there. The caption provides typical task-level seed fluctuations instead of uncertainty for each individual row.",
+      "takeaway": "At 4.7M trainable parameters, LoRA reports 91.7% MNLI-m accuracy versus 89.5% for full tuning, and SAMSum ROUGE 53.8/29.8/45.9 versus 52.0/28.0/44.5. WikiSQL gives a more restrained comparison: 73.4 at the smaller LoRA budget versus 73.8 for full tuning, with the larger LoRA budget reaching 74.0.",
+      "caution": "WikiSQL differences are within the stated typical ±0.5-point fluctuation. SAMSum's split description is ambiguous: Appendix C lists training/test counts, while D.4 says best validation performance. The source does not resolve their relationship in this table.",
+      "evidenceIds": [
+        "ev-gpt3-result",
+        "ev-gpt3-details",
+        "ev-gpt3-protocol",
+        "ev-data"
+      ]
+    },
+    {
+      "id": "weight-allocation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 5",
+      "page": 10,
+      "asset": "report-assets/ref-71811bf04d6371d0bd82/weight-allocation.png",
+      "width": 1056,
+      "height": 209,
+      "sourceSha256": "e9a0d3128767db616085dc0f4e6e455e672e89af823e8ed1282793682787395a",
+      "sourceUrl": "https://arxiv.org/pdf/2106.09685v2#page=10",
+      "crop": [
+        0.19,
+        0.305,
+        0.811,
+        0.4
+      ],
+      "alt": "At a fixed approximately 18M-parameter budget, attention projection subsets use ranks 8, 4 or 2 and yield different WikiSQL and MultiNLI validation accuracies.",
+      "caption": "Where the update is placed matters at a fixed parameter budget.",
+      "readingGuide": "Read a column as a complete allocation policy across GPT-3's 96 layers. Wq, Wk, Wv and Wo denote query, key, value and attention-output projections. One selected projection uses rank 8, two use rank 4, and all four use rank 2, keeping the total update budget approximately fixed. The table prints 18M, while Table 15 gives 18.8M for corresponding configurations. Compare columns within a task row; the uncertainty labels describe typical seed variation for that task. This design tests where to spend adaptation capacity. It is different from increasing rank while leaving the number of adapted projections unchanged.",
+      "takeaway": "Query/value rank 4 improves WikiSQL over query-only rank 8 from 70.4% to 73.7%. However, the all-four rank-2 configuration also reaches 73.7% and improves MultiNLI from query/value's 91.3% to 91.7%. The cells therefore support distributing updates while qualifying the paper's stated preference for query/value.",
+      "caution": "The caption and following paragraph call query/value best overall, but the all-four column ties or exceeds it on both displayed tasks. Preserve this discrepancy. The table also changes placement and per-matrix rank together, so it does not isolate either alone.",
+      "evidenceIds": [
+        "ev-allocation",
+        "ev-gpt3-details"
+      ]
+    },
+    {
+      "id": "rank-sweep",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 6",
+      "page": 10,
+      "asset": "report-assets/ref-71811bf04d6371d0bd82/rank-sweep.png",
+      "width": 984,
+      "height": 268,
+      "sourceSha256": "e9a0d3128767db616085dc0f4e6e455e672e89af823e8ed1282793682787395a",
+      "sourceUrl": "https://arxiv.org/pdf/2106.09685v2#page=10",
+      "crop": [
+        0.21,
+        0.618,
+        0.789,
+        0.74
+      ],
+      "alt": "WikiSQL and MultiNLI validation accuracies are shown across ranks 1, 2, 4, 8 and 64 for query-only, query/value, and all-four attention updates.",
+      "caption": "Very low rank is competitive, but increasing rank does not produce a universal gain.",
+      "readingGuide": "Choose a task block, then hold the weight-type row fixed as you move from rank 1 to rank 64. This increases the trainable parameter count, unlike the preceding fixed-budget allocation table. Next compare rows at one rank, remembering that more projection types also mean more parameters. Query-only adaptation is visibly weaker on WikiSQL than adaptation including value projections. The ± labels are task-level seed variations, not confidence intervals attached to every cell. The rank-1 query/value MNLI entry is 91.3; it should not be confused with Table 4's 91.7 result from a different configuration with the same total budget.",
+      "takeaway": "Query/value rank 1 reaches 73.4% WikiSQL and 91.3% MultiNLI, compared with 73.8% and 91.6% at rank 8. Rank 64 gives 73.5% and 91.4%, so adding capacity is not monotonically helpful. These observations support low-rank adaptation on the evaluated GPT-3 tasks without identifying one universally optimal rank.",
+      "caution": "Table 15 reports 73.6 rather than 73.5 for query/value rank-64 WikiSQL; the draft does not reconcile that difference. Its separate GPT-2 study peaks at rank 4 for BLEU and acknowledges rank-specific hyperparameter tuning.",
+      "evidenceIds": [
+        "ev-rank",
+        "ev-gpt3-details",
+        "ev-gpt2-rank"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Follow one hidden vector through the adaptation",
+      "kind": "source",
+      "text": "Start with a hidden input vector x at one dense projection. The pretrained matrix maps it directly to the original output space. LoRA sends the same vector through A into an r-dimensional intermediate space, then through B back to the output dimension; the two outputs are added. Only A and B change during adaptation. Gaussian A and zero B make the initial residual zero, so the starting layer implements its pretrained function. The text additionally scales the residual by α/r, which is absent from the schematic. Training still propagates the task objective through the network to learn the small branch. At deployment, multiplication and addition can be folded into one dense weight. This explains why a small task checkpoint saves storage while the large base model remains necessary.",
+      "evidenceIds": [
+        "ev-update",
+        "ev-objective",
+        "ev-efficiency"
+      ]
+    },
+    {
+      "heading": "Separate a parameter budget from a deployment budget",
+      "kind": "analysis",
+      "text": "Reader analysis: fewer trainable parameters answer only one resource question. Table 4 shows that small updates can preserve strong predictions, while Table 1 asks whether an adaptation mechanism adds work to each forward pass. A sequential adapter may have few weights yet introduce operations that matter at small batch sizes. LoRA's merged form avoids that additional path, but the base model is still evaluated. Likewise, storing a 35 MB task update is different from deploying a 35 MB language model: the draft explicitly retains the 350 GB GPT-3 base. Compare accuracy within each task before comparing resource costs across methods. Also retain the operating condition: one merged task is straightforward, whereas batches mixing different task updates require a different implementation and lose the simple single-weight interpretation.",
+      "evidenceIds": [
+        "ev-gpt3-result",
+        "ev-latency",
+        "ev-efficiency",
+        "ev-targets"
+      ]
+    },
+    {
+      "heading": "Read low rank as an empirical design clue",
+      "kind": "analysis",
+      "text": "Reader analysis: the two ablations ask different questions. Table 5 holds the total update budget approximately fixed and distributes it across attention projections; Table 6 keeps a projection choice and increases rank, thereby increasing trainable capacity. The first supports spreading updates beyond query-only adaptation, while the second shows that a very small rank can already be competitive. Neither proves that every downstream task has one useful adaptation direction. The separate GPT-2 experiment makes the boundary concrete: BLEU peaks at rank 4, and its caption admits that some hyperparameters were tuned at that rank. The singular-vector studies offer a possible explanation through shared leading directions, but correlation is not a causal test of feature usefulness. A defensible reproduction must control optimization and evaluation while varying rank or placement.",
+      "evidenceIds": [
+        "ev-allocation",
+        "ev-rank",
+        "ev-gpt2-rank",
+        "ev-subspace",
+        "ev-feature"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Verify the merge, then measure its cost",
+      "text": "Reader-proposed check, not performed: adapt GPT-2 medium on E2E using Table 11, retaining the pretrained weights and both low-rank matrices. With dropout disabled and identical inputs, compare logits from the explicit scaled branch against logits from the merged dense weights, first in a common high-precision reference and then in the chosen deployment precision. Use the unchanged pretrained model as an initialization control: the zero-B model should match it before training. Measure synchronized forward-pass latency over 100 trials at batch 1/length 128 and batch 32/length 512, holding device and precision fixed, and report merge time separately. A persistent logit discrepancy beyond the declared numerical tolerance falsifies the implementation's equivalence; extra steady-state latency after merging challenges the claimed deployment behavior in that implementation.",
+      "evidenceIds": [
+        "ev-update",
+        "ev-latency",
+        "ev-gpt2-protocol"
+      ]
+    },
+    {
+      "title": "Disentangle rank, placement and tuning advantage",
+      "text": "Reader-proposed check, not performed: on GPT-2 medium/E2E, compare query-only rank 8, query/value rank 4, and all-four attention projections rank 2, verifying equal trainable parameter counts. Separately sweep query/value ranks 1, 4 and 16. Use the same data partitions, training-token budget, seed set, decoding settings and learning-rate search budget for every configuration; state the α/r scaling policy. Select configurations using validation data and evaluate the untouched test split once. Report BLEU, validation loss, parameter count and seed dispersion. If placement gains disappear under matched tuning, the apparent advantage may be optimization-dependent. If rank 1 remains substantially worse across equally tuned runs, the GPT-3 small-rank result does not transfer to this task/model. This is a smaller mechanism test, not a reproduction of GPT-3 accuracy.",
+      "evidenceIds": [
+        "ev-allocation",
+        "ev-rank",
+        "ev-gpt2-rank",
+        "ev-data",
+        "ev-gpt2-protocol"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26
+    ],
+    "notes": "Visually inspected the title and author block; all main and appendix figures (1–8) and tables (1–18); objective, initialization, scaling, merge and projection-selection text; all training/evaluation configurations on pp. 18–24; and the subspace definitions and diagnostics on pp. 11–12 and 22–26. Every final crop was separately inspected. Pages 14–15 contain references and were read in text only. Figure 1's branch directions agree with Equation (3), but both omit the α/r scale stated in Section 4.1. Table 5's cells qualify its caption's claim. For uncropped diagnostics, Figure 3's displayed argument order differs from Equation (4), and Appendix G's singular-vector terminology and projection-distance equality are inconsistent; these are not silently repaired. Separate supplements, code and other editions remain outside the supplied reading."
+  },
+  "featuredResultTask": "GPT-3 MNLI-matched natural language inference"
+}

@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2502.00622",
+  "shortTitle": "GPC",
+  "thesis": "GPC improves a frozen diffusion policy by ranking or refining its actions through a separate predictive world model, trading better manipulation outcomes for substantial inference cost.",
+  "standfirst": "A diffusion policy can propose several plausible robot motions without knowing which will work best from the current situation. GPC adds a second model that imagines the consequences of each proposal. A reward predictor then selects a candidate or supplies gradients that refine it before execution. This reading follows the separation between proposal generation, future prediction, and physical control, then checks the experiments against their data and runtime budgets. In the visual Push-T ablation, combining ranking and refinement gives the highest listed IoU, while the real-world evidence is limited to small trial sets. The supplied source is the March 2026 arXiv v4 accepted preprint.",
+  "evidenceIds": [
+    "e01",
+    "e02",
+    "e03",
+    "e06",
+    "e12",
+    "e16",
+    "e18"
+  ],
+  "featuredResultTask": "Vision-based Push-T planning–latency tradeoff",
+  "visuals": [
+    {
+      "id": "gpc-planning",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 2,
+      "asset": "report-assets/2502.00622/gpc-planning.png",
+      "width": 1284,
+      "height": 746,
+      "sourceSha256": "53f1ed78305b3f19fcfd6dfd13e942241d19ebc3cf531e93a38138af791b5962",
+      "sourceUrl": "https://arxiv.org/pdf/2502.00622#page=2",
+      "crop": [
+        0.123,
+        0.06,
+        0.878,
+        0.399
+      ],
+      "alt": "Two panels show GPC-RANK evaluating several imagined action rollouts and GPC-OPT refining a single proposal through reward gradients; red stars mark selected outcomes.",
+      "caption": "Use the policy to propose actions, then use predicted consequences to choose or improve them.",
+      "readingGuide": "Start at the blue generative-policy block and follow its output to the orange predictive-world-model block. In the upper panel, several proposed action sequences produce separate imagined trajectories; the star marks the highest reward, which here is the least negative value. Read horizontally for physical time. In the lower panel, successive rows represent optimization of one proposal, while horizontal position still represents time within a predicted rollout. The dashed gradient arrows return toward the proposal through the world model. Figure 1's arrows and stars agree with Algorithm 1 and Equations (2–5): the optimized variables are actions, and the policy remains frozen.",
+      "takeaway": "The architecture gives GPC two ways to use extra computation. Ranking searches among policy samples, whereas refinement can move away from a sampled action chunk. Combining them supplies multiple starting points for optimization. The world model contributes foresight at inference rather than an auxiliary policy-training loss.",
+      "caution": "The pictured futures are model predictions, not executed robot trajectories. A high predicted reward can be wrong. Gradient refinement requires a differentiable reward and world model; the paper's VLM selector supports ranking without supplying these gradients.",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e11"
+      ]
+    },
+    {
+      "id": "visual-world-model",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2502.00622/visual-world-model.png",
+      "width": 1289,
+      "height": 1140,
+      "sourceSha256": "53f1ed78305b3f19fcfd6dfd13e942241d19ebc3cf531e93a38138af791b5962",
+      "sourceUrl": "https://arxiv.org/pdf/2502.00622#page=4",
+      "crop": [
+        0.08,
+        0.08,
+        0.459,
+        0.339
+      ],
+      "alt": "A recursive chain predicts future images on the left; the expanded conditional diffusion block on the right takes observation history at CONV IN and action at UNet, mapping noise index tau to tau minus one.",
+      "caption": "Two nested processes build a visual rollout: denoise one next image, then advance the physical prediction.",
+      "readingGuide": "Read the left column as progression through physical time: observation history and action feed a conditional predictor, whose next image becomes part of the history for subsequent predictions. The right panel expands a single prediction. History enters CONV IN, the action enters the UNet, and CONV OUT contributes to the less noisy image. The displayed superscripts decrease from tau to tau minus one, consistent with Equation (7); they are diffusion indices rather than robot time. The caption specifies repeated denoising. Section IV adds a deployment detail absent from the drawing: the initial noise is fixed to zero, with three denoising steps.",
+      "takeaway": "This design exposes predicted images to a reward model or VLM, making candidate consequences directly inspectable. Training moves from one-step supervision to supervision of recursive sequences. The frozen-noise rule makes action comparisons deterministic and is intended to stabilize the gradients used by OPT; it does not establish prediction accuracy by itself.",
+      "caution": "The notation needs care: Section IV says T recursive applications produce an inclusive T+1-frame sequence, while Section III reports a prediction horizon of 16. The crop preserves the original labels; exact implementation lengths cannot be resolved from them.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e21"
+      ]
+    },
+    {
+      "id": "simulation-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table II",
+      "page": 5,
+      "asset": "report-assets/2502.00622/simulation-results.png",
+      "width": 1249,
+      "height": 828,
+      "sourceSha256": "53f1ed78305b3f19fcfd6dfd13e942241d19ebc3cf531e93a38138af791b5962",
+      "sourceUrl": "https://arxiv.org/pdf/2502.00622#page=5",
+      "crop": [
+        0.5,
+        0.205,
+        0.92,
+        0.42
+      ],
+      "alt": "Four task rows compare Diffusion Policy, V-GPS, LaDi-WM, DreamerV3 and GPC-RANK. The GPC column includes parenthesized VLM scores for Triangle Drawing and Block Stacking.",
+      "caption": "Learned-reward GPC-RANK has the highest reported score in each simulation task.",
+      "readingGuide": "Read across one row at a time: each row is a different manipulation task, so the numbers do not define a single shared success scale. The rightmost unparenthesized entry uses GPC-RANK with a learned reward predictor and 100 proposals. Parentheses instead identify the VLM selector using 10 proposals; they are not error bars. Section V-B states that the reported scores average 50 evaluation seeds and that the enhancement baselines share training data and a pretrained diffusion policy. Keep that protocol separate from Table III, whose Push-T score and timing ablation uses 100 seeds, even where numerical entries coincide.",
+      "takeaway": "GPC-RANK reaches 0.739 on visual Push-T versus 0.642 for Diffusion Policy and 0.683 for LaDi-WM. On Block Stacking, its 0.989 score exceeds DreamerV3's 0.983 by only 0.006. The ranking favors GPC across rows, but the magnitude of improvement varies substantially by task and comparator.",
+      "caution": "Table II does not provide uncertainty estimates or explicit metric formulas for the non-Push-T tasks. The learned-reward and VLM columns also differ in candidate count, so their comparison does not isolate reward-model quality.",
+      "evidenceIds": [
+        "e10",
+        "e12"
+      ]
+    },
+    {
+      "id": "planning-cost-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table III",
+      "page": 6,
+      "asset": "report-assets/2502.00622/planning-cost-ablation.png",
+      "width": 1768,
+      "height": 217,
+      "sourceSha256": "53f1ed78305b3f19fcfd6dfd13e942241d19ebc3cf531e93a38138af791b5962",
+      "sourceUrl": "https://arxiv.org/pdf/2502.00622#page=6",
+      "crop": [
+        0.084,
+        0.064,
+        0.916,
+        0.143
+      ],
+      "alt": "A two-row table lists Push-T IoU and decision time for behavior cloning, two GPC-RANK budgets, GPC-OPT and their combination. The original BC heading reads K=1, M=1.",
+      "caption": "Read manipulation accuracy together with the time needed to make each decision.",
+      "readingGuide": "Use the column headers to separate two computation budgets: K counts action proposals and M counts gradient updates. The first numerical row measures mean IoU across 100 evaluation seeds; the second reports wall-clock seconds for one decision cycle. Increasing the ranking budget from 50 to 100 improves the listed score but also increases latency. OPT uses one policy initialization with 25 refinement steps, whereas the combined column refines 10 initializations. Section III explains why these costs differ: candidate ranking can evaluate proposals in parallel, while refinement follows a sequence of dependent gradient updates. The table's actual wall-clock times remain the relevant deployment measurements.",
+      "takeaway": "The combined setting reaches 0.882 IoU versus 0.642 for behavior cloning, an absolute gain of 0.240. It takes 374.102 seconds per decision versus 0.457 seconds. Ranking with 100 candidates achieves a smaller score of 0.739 at 11.745 seconds, illustrating a materially different accuracy–latency choice.",
+      "caution": "The BC header prints M=1, conflicting with Table I's M=0 and the algorithm's meaning of refinement. The faithful crop retains that discrepancy. Hardware is unspecified, and these simulation timings should not be conflated with the roughly three-second real-world RANK setting.",
+      "evidenceIds": [
+        "e12",
+        "e03",
+        "e06",
+        "e09",
+        "e18",
+        "e20"
+      ]
+    },
+    {
+      "id": "exploration-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 5",
+      "page": 6,
+      "asset": "report-assets/2502.00622/exploration-ablation.png",
+      "width": 1119,
+      "height": 836,
+      "sourceSha256": "53f1ed78305b3f19fcfd6dfd13e942241d19ebc3cf531e93a38138af791b5962",
+      "sourceUrl": "https://arxiv.org/pdf/2502.00622#page=6",
+      "crop": [
+        0.548,
+        0.209,
+        0.877,
+        0.399
+      ],
+      "alt": "Grouped bars compare world models trained without random exploration in blue and with random exploration in orange for GPC-RANK and GPC-OPT; the vertical score axis starts at 0.4.",
+      "caption": "Both planning strategies benefit when the world model also sees random perturbations.",
+      "readingGuide": "Compare the blue and orange bars within each planner before comparing the planners themselves. Blue denotes world-model training without random exploration; orange includes exploration. The horizontal labels distinguish ranking from gradient refinement, and both groups show an increase with exploration. The vertical axis begins at 0.4 rather than zero, which visually magnifies differences in bar height. Section III explains the intervention: humans or other controllers perturb the system without needing to complete the task, and these trajectories augment expert demonstrations for world-model learning. The policy still learns its behavior prior from expert demonstrations. The chart reports no exact labels on the bars.",
+      "takeaway": "The observed trend is consistent with the authors' explanation that a world model needs experience beyond successful demonstrations to support corrective planning. Both RANK and OPT benefit in vision-based Push-T. This supports the combined data recipe, while leaving the precise source of the improvement to be tested separately.",
+      "caution": "Adding exploration also adds training data; no matched-volume control is reported here. The chart lacks uncertainty bars and detailed per-condition training budgets. Treat the authors' approximate percentage description as qualitative rather than an exact relative or percentage-point gain.",
+      "evidenceIds": [
+        "e05",
+        "e13"
+      ]
+    },
+    {
+      "id": "real-world-results",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 8",
+      "page": 8,
+      "asset": "report-assets/2502.00622/real-world-results.png",
+      "width": 1133,
+      "height": 638,
+      "sourceSha256": "53f1ed78305b3f19fcfd6dfd13e942241d19ebc3cf531e93a38138af791b5962",
+      "sourceUrl": "https://arxiv.org/pdf/2502.00622#page=8",
+      "crop": [
+        0.116,
+        0.464,
+        0.449,
+        0.609
+      ],
+      "alt": "Five bars show success rates: Push-T baseline 0.5, Push-T GPC-RANK 0.7, Push-T GPC-OPT 0.7, clothes baseline 0.3 and clothes GPC-RANK 0.7.",
+      "caption": "Physical trials show gains on pushing and folding, with limited statistical resolution.",
+      "readingGuide": "Read the first three bars as a comparison within real-world Push-T, then read the last two as a separate clothes-folding comparison. The y-axis is success rate from zero to one; these values represent task execution rather than similarity between predicted images. Section V-C supplies the sample count missing from the chart: 10 trials for each reported evaluation. Figures 6 and 7 show representative trajectories, and their captions identify RANK with 10 proposals and no refinement. For Push-T the baseline bar reaches 0.5 and both GPC bars reach 0.7; for folding, baseline and RANK reach 0.3 and 0.7.",
+      "takeaway": "The physical results extend the evidence beyond simulation and imagined videos. They suggest that predictive selection helps both rigid-object manipulation and a deformable-object task in the tested setup. Folding improves by 0.4 in plotted success rate, while the two Push-T variants each improve by 0.2 over baseline.",
+      "caution": "Ten trials and no intervals provide limited precision; operational success thresholds are not specified. No cloth-OPT bar is shown. Figure 6 labels Push-T OPT as K=0,M=25, conflicting with Algorithm 1's K=1 warm start; that real-world configuration remains unresolved.",
+      "evidenceIds": [
+        "e15",
+        "e16",
+        "e17",
+        "e03",
+        "e20"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Give the policy and the world model different jobs",
+      "text": "The policy is trained to imitate successful action sequences, so its samples provide structured starting points for control. The predictive model has a different obligation: it must forecast what will happen when a candidate action is executed, including actions that depart from expert behavior. GPC therefore augments the world-model dataset with random perturbations while preserving expert-only policy training. Appendix A makes the asymmetry concrete: simulated Push-T includes 500 expert demonstrations and 3000 perturbation trajectories, plus seven long-horizon demonstrations. Figure 5 then compares planning with and without exploration. The reader's interpretation is that corrective action selection requires predictive coverage beyond the imitation manifold; the experiment supports the combined recipe but does not disentangle extra data volume from extra behavioral diversity.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e13",
+        "e19"
+      ]
+    },
+    {
+      "heading": "Follow gradients through predicted outcomes, then execute actions",
+      "text": "GPC-RANK only needs to compare candidate outcomes, which permits a nondifferentiable VLM to act as a selector. GPC-OPT instead differentiates a numerical reward through the world model and adjusts the input action chunk. Equation (4) uses positive-step gradient ascent, so an improving optimization trace means increasing predicted reward. The policy's weights are not updated. For visual prediction, denoising happens inside each physical prediction step, and recursively generated frames form the imagined future. Section IV fixes the initial diffusion noise to zero at inference to remove variation unrelated to the candidate actions. After selection or refinement, control executes an action segment and replans from new observations. The resulting distinction matters: optimized predicted reward, accurate imagined images, and successful execution are three separate quantities.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e06",
+        "e07",
+        "e08",
+        "e11"
+      ]
+    },
+    {
+      "heading": "Evaluate improvement under the budget actually available",
+      "text": "Table III makes inference effort part of the method rather than a secondary implementation concern. Combining 10 proposals with 25 refinement steps obtains the highest listed visual Push-T IoU, yet requires hundreds of seconds for a decision in that setting. A reader should therefore ask which planner is best under an available latency budget, not just which column has the highest score. Table II addresses another question: how GPC compares with other enhancements across four simulated tasks, using its separate 50-seed protocol. Figure 8 adds real execution, but only over 10 trials per reported evaluation. My assessment is that these results support the value of predictive selection while leaving fast closed-loop deployment, statistical robustness, and transfer to other task distributions incompletely established.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e12",
+        "e15",
+        "e16",
+        "e18"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate exploration diversity from extra training volume",
+      "text": "Reader-proposed, not performed: freeze one Push-T diffusion policy and reward predictor, and train world models on expert-only data, expert-plus-exploration data, and an expert-only control with matched training frame count and optimizer updates. If additional independent demonstrations cannot be collected, explicitly label repeated expert frames as an exposure-matched rather than diversity-matched control. Use identical held-out initial states and candidate action chunks for ranking, with K=100 and zero inference noise. Report mean executed IoU over 100 evaluation seeds, paired uncertainty, and agreement between predicted and realized candidate rewards. The diversity explanation predicts that exploration improves corrective-candidate evaluation beyond the matched expert control; disappearance of that advantage would weaken that explanation.",
+      "evidenceIds": [
+        "e05",
+        "e08",
+        "e12",
+        "e13",
+        "e19"
+      ]
+    },
+    {
+      "title": "Test whether frozen noise improves real optimization rather than only its trace",
+      "text": "Reader-proposed, not performed: for one trained visual world model, policy and reward predictor, compare zero initialization, a nonzero noise realization held fixed throughout each optimization, and fresh noise at each optimization evaluation. Hold starting policy samples, learning-rate schedule and M=25 constant, then repeat comparisons under matched measured latency against ranking. Evaluate actual simulator IoU as well as predicted reward before and after refinement, and report their disagreement across 100 common evaluation seeds. Fixed nonzero noise separates determinism from the special choice of zero noise. If predicted rewards rise without executed improvement, refinement is exploiting model or reward error; if fixed nonzero noise matches zero, determinism rather than a privileged zero-noise prediction explains the benefit.",
+      "evidenceIds": [
+        "e06",
+        "e08",
+        "e09",
+        "e12",
+        "e20"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "notes": "Visually inspected every supplied PDF page: p. 1 identity/version/affiliations; p. 2 Figure 1 and Algorithm 1; p. 3 policy training, horizons, datasets and Equations (1–5); p. 4 Figure 2, Equations (6–7), world-model training and frozen-noise remark; p. 5 Tables I–II and Figures 3–4; p. 6 Table III, Figure 5, reward and evaluation protocol; p. 7 real-world protocol and runtime limitation; p. 8 Figures 6–8 and Appendix A. All six final crops were opened and inspected at their original rendered resolution. Figure 1 selection/gradient directions and Figure 2 conditioning/denoising labels were checked against captions and equations. Table III's BC M label, Figure 6's OPT K label and horizon indexing conflicts are preserved and disclosed. The real-world bars were read against the axis; Figure 5 has no exact bar labels, so no precise values are inferred. Separate supplements, code and experiments remain outside this reading."
+  }
+}

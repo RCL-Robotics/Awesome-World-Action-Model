@@ -1,0 +1,518 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-71811bf04d6371d0bd82",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T05:35:37.171Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2106.09685v2",
+      "title": "LORA: L OW-R ANK ADAPTATION OF LARGE LAN- GUAGE MODELS",
+      "kind": "pdf",
+      "sha256": "e9a0d3128767db616085dc0f4e6e455e672e89af823e8ed1282793682787395a",
+      "wordCount": 13747,
+      "accessedAt": "2026-09-07T16:34:46.622766+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract and Sections 1–3: motivation, objective and competing adaptation strategies (pp. 1–4)",
+      "Section 4: low-rank parameterization, deployment and limitations (pp. 4–5)",
+      "Section 5: baselines and RoBERTa, DeBERTa, GPT-2 and GPT-3 experiments (pp. 5–8)",
+      "Sections 6–8: related work, update analysis and conclusions (pp. 8–13)",
+      "References (pp. 13–16)",
+      "Appendices A–C: few-shot comparison, adapter latency and datasets (pp. 16–18)",
+      "Appendix D.1–D.4: all model hyperparameters (pp. 18–21)",
+      "Appendices E–F.3: combinations, additional generation tasks and low-data experiments (pp. 20–24)",
+      "Appendices G–H.4: subspace metric, cross-layer diagnostics, GPT-2 rank and amplification (pp. 22–26)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Recovered-edition limitation: arXiv v2 preprint, explicitly labelled Version 2 on page 1. Catalog cites ICLR 2022; this draft is not asserted to be identical to the blocked ICLR publication PDF. All eight authors match; PDF uses Edward Hu where arXiv metadata and catalog use Edward J. Hu.",
+      "All eight supplied text chunks were read individually. Figures 1–8 and Tables 1–18 were also inspected in the PDF. The extraction limitation above was addressed by this visual pass; it remains part of the acquisition record.",
+      "This report reviews arXiv:2106.09685v2, dated 16 October 2021, rather than claiming to review the catalog's ICLR 2022 publication edition. Page 1 identifies Version 2 and says it adds better baselines, GLUE experiments and adapter-latency analysis relative to V1. Other editions were not supplied or compared.",
+      "The title is visually consistent with LoRA: Low-Rank Adaptation of Large Language Models. The supplied observedTitle retains extraction spacing and line-break artifacts. The title page credits Edward Hu, without the catalog's middle initial J.; all eight authors otherwise agree.",
+      "Code, linked checkpoints and external supplements were not inspected; no experiments were reproduced. Bibliography-only pages 14–15 were read as text but not rendered."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 8)",
+      "Figure 3 (p. 11)",
+      "Figure 4 (p. 12)",
+      "Figure 5 (p. 17)",
+      "Figure 6 (p. 25)",
+      "Figures 7–8 (p. 26)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 4)",
+      "Table 2 (p. 6)",
+      "Table 3 (p. 7)",
+      "Table 4 (p. 8)",
+      "Tables 5–6 (p. 10)",
+      "Table 7 (p. 12)",
+      "Table 8 (p. 17)",
+      "Table 9 (p. 19)",
+      "Tables 10–11 (p. 20)",
+      "Tables 12–13 (p. 21)",
+      "Table 14 (p. 22)",
+      "Tables 15–16 (p. 23)",
+      "Table 17 (p. 24)",
+      "Table 18 (p. 26)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "LoRA adapts a frozen language model by learning low-rank additive weight updates. These updates can be merged into the original dense layers for inference. This v2 draft demonstrates competitive language understanding and generation with far fewer trainable parameters, while its ablations show that update placement and task-specific rank matter.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "Full fine-tuning creates another full-size parameter set for every task and requires optimizer state for all updated weights. LoRA asks whether downstream adaptation can instead be encoded by small matrices while retaining the pretrained model's inference structure. The motivating problem is supervised language adaptation, not environment prediction or action execution.",
+    "kind": "source",
+    "evidenceIds": [
+      "ev-objective",
+      "ev-update"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A linear, low-rank residual parameterization separates shared pretrained weights from task-specific updates and permits merging at deployment.",
+      "kind": "source",
+      "evidenceIds": [
+        "ev-update",
+        "ev-targets"
+      ]
+    },
+    {
+      "text": "The authors report competitive adaptation across RoBERTa, DeBERTa, GPT-2 and GPT-3, and interpret rank and subspace experiments as evidence of low intrinsic adaptation rank.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "ev-glue",
+        "ev-gpt2-result",
+        "ev-gpt3-result",
+        "ev-rank",
+        "ev-subspace"
+      ]
+    },
+    {
+      "text": "GPT-3 training memory is reported as 1.2 TB versus 350 GB; query/value rank-4 task checkpoints are about 35 MB versus 350 GB. The base model remains necessary. The prose's 25% training-speedup claim and footnote's 32.5 versus 43.1 tokens/s/V100 use unreconciled percentage descriptions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-efficiency"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "A pretrained Transformer and supervised context/target token pairs or labeled language-understanding examples.",
+      "At an adapted dense layer, the same hidden input x feeds the frozen weight and the low-rank branch."
+    ],
+    "outputs": [
+      "Task-specific matrices A and B, optionally merged into a dense adapted weight.",
+      "Language-model predictions, generated text or language-understanding outputs; no physical actions."
+    ],
+    "steps": [
+      {
+        "name": "Freeze the shared model",
+        "detail": "For a pretrained matrix W₀, constrain the trainable update to BA. A reduces the input to rank r; B maps it to the output dimension. The pretrained path still runs, but its weights receive no updates.",
+        "evidenceIds": [
+          "ev-update"
+        ]
+      },
+      {
+        "name": "Choose attention projections",
+        "detail": "Most experiments adapt query and value projections. The study freezes Transformer MLP weights and leaves adaptation of MLPs, LayerNorms and biases for future investigation. Placement is a design choice tested separately from rank.",
+        "evidenceIds": [
+          "ev-targets",
+          "ev-allocation"
+        ]
+      },
+      {
+        "name": "Initialize and scale",
+        "detail": "Initialize A with Gaussian noise and B to zero, making the initial update zero. Section 4.1 scales the residual by α/r; Figure 1 and displayed Equation (3) omit that scale.",
+        "evidenceIds": [
+          "ev-update"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Optimize the task objective through the small parameter set Θ. The appendices specify AdamW and linear learning-rate schedules; the frozen network still supplies activations needed to learn A and B.",
+        "kind": "source",
+        "evidenceIds": [
+          "ev-objective",
+          "ev-update",
+          "ev-glue-protocol",
+          "ev-gpt2-protocol",
+          "ev-gpt3-protocol"
+        ]
+      },
+      {
+        "text": "RoBERTa and DeBERTa results use median performance over five seeds with best-epoch selection. Standard MRPC/RTE/STS-B runs initialize LoRA from the best MNLI adaptation; dagger-marked RoBERTa comparisons instead start from pretrained weights.",
+        "kind": "source",
+        "evidenceIds": [
+          "ev-glue-protocol"
+        ]
+      },
+      {
+        "text": "GPT-3 uses two epochs, batch size 128 and weight decay 0.1; sequence lengths are 384/768/2048 for WikiSQL/MNLI/SAMSum. Table 12 lists LoRA learning rate 2×10⁻⁴ and 250,000 warmup tokens. Best validation performance is reported.",
+        "kind": "source",
+        "evidenceIds": [
+          "ev-gpt3-protocol"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Merge the scaled low-rank update into W₀ before ordinary inference. Task switching replaces the update. The zero-extra-latency claim concerns this merged computation, not dynamic execution of multiple task-specific branches.",
+        "kind": "source",
+        "evidenceIds": [
+          "ev-update",
+          "ev-targets"
+        ]
+      },
+      {
+        "text": "GPT-2 generation uses beam size 10, no repeated four-grams, and length penalties 0.9 for E2E or 0.8 for WebNLG/DART. These decoding choices are part of the evaluated system.",
+        "kind": "source",
+        "evidenceIds": [
+          "ev-gpt2-protocol"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "h=W_0x+\\Delta W x=W_0x+BAx",
+        "explanation": "Equation (3): W₀∈ℝ^{d×k} is frozen; A∈ℝ^{r×k} and B∈ℝ^{d×r} are trained, with r≪min(d,k). x is the layer input and h its output. The following prose additionally scales BAx by α/r; α is the rank-independent scaling constant.",
+        "evidenceIds": [
+          "ev-update"
+        ]
+      },
+      {
+        "expression": "\\max_{\\Theta}\\sum_{(x,y)\\in\\mathcal{Z}}\\sum_{t=1}^{|y|}\\log p_{\\Phi_0+\\Delta\\Phi(\\Theta)}(y_t\\mid x,y_{<t})",
+        "explanation": "Equation (2): Φ₀ is the pretrained parameter set, Θ the small adaptation parameter set, and ΔΦ(Θ) its encoded update. Here x and y are context/target token sequences in dataset Z; t indexes target tokens and y<t denotes earlier target tokens.",
+        "evidenceIds": [
+          "ev-objective"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "GLUE language understanding",
+      "setting": "Table 2 standard, non-dagger runs; LoRA medians over five seeds and best epochs. Table 2 does not explicitly label the evaluation split.",
+      "metric": "Reported eight-task average; higher is better",
+      "value": "RoBERTa-base: 87.2 with 0.3M trainable parameters; DeBERTa-XXL: 91.3 with 4.7M.",
+      "comparison": "Published full-tuning baselines: 86.4 with 125M and 91.1 with 1500M, respectively.",
+      "interpretation": "Competitive aggregate results; this average combines different metrics and does not imply improvement on every task or identical tuning budgets.",
+      "evidenceIds": [
+        "ev-glue",
+        "ev-glue-protocol"
+      ]
+    },
+    {
+      "task": "E2E restaurant data-to-text generation",
+      "setting": "GPT-2 medium; E2E benchmark following the cited baseline setup, mean over three seeds with best-epoch selection. Table 3 does not explicitly name the evaluation split.",
+      "metric": "BLEU; higher is better",
+      "value": "70.4 ± 0.1 with 0.35M trainable parameters.",
+      "comparison": "Full fine-tuning: 68.2 with 354.92M; prefix-layer tuning: 69.7 with 0.35M. Both comparison values are imported from prior work.",
+      "interpretation": "A 2.2 BLEU-point gain over the listed full-tuning baseline. The caption calls ± values confidence intervals but does not give their confidence level.",
+      "evidenceIds": [
+        "ev-gpt2-result",
+        "ev-data",
+        "ev-gpt2-protocol"
+      ]
+    },
+    {
+      "task": "GPT-3 MNLI-matched natural language inference",
+      "setting": "175B model; full MNLI matched validation set, best validation performance. Table 15 identifies the 4.7M configuration as value-only rᵥ=2.",
+      "metric": "Validation accuracy (%)",
+      "value": "91.7",
+      "comparison": "Full fine-tuning: 89.5; 40.1M-parameter AdapterH: 91.5.",
+      "interpretation": "A 2.2 percentage-point gain over full tuning. Typical seed variation is about ±0.1 percentage points, not a per-row confidence interval.",
+      "evidenceIds": [
+        "ev-gpt3-result",
+        "ev-gpt3-details",
+        "ev-gpt3-protocol"
+      ]
+    },
+    {
+      "task": "GPT-3 WikiSQL semantic parsing",
+      "setting": "175B model; 56,355 training and 8,421 validation examples; logical-form evaluation.",
+      "metric": "Validation accuracy (%)",
+      "value": "73.4 at 4.7M; 74.0 at 37.7M trainable parameters.",
+      "comparison": "Full fine-tuning: 73.8.",
+      "interpretation": "The smaller LoRA model is numerically lower, and the larger is only 0.2 percentage points higher; typical variation is ±0.5. This supports competitiveness, not an assured gain.",
+      "evidenceIds": [
+        "ev-gpt3-result",
+        "ev-data",
+        "ev-gpt3-details"
+      ]
+    },
+    {
+      "task": "GPT-3 SAMSum dialogue summarization",
+      "setting": "175B model; Appendix C lists 14,732 training/819 test examples, while D.4 says best validation performance. Their relationship is not resolved in Table 4.",
+      "metric": "ROUGE-1 / ROUGE-2 / ROUGE-L",
+      "value": "53.8 / 29.8 / 45.9 at 4.7M trainable parameters.",
+      "comparison": "Full fine-tuning: 52.0 / 28.0 / 44.5.",
+      "interpretation": "Higher reported overlap scores; typical fluctuations are ±0.2/±0.2/±0.1. The split/selection ambiguity prevents describing this as an independently verified held-out test result.",
+      "evidenceIds": [
+        "ev-gpt3-result",
+        "ev-data",
+        "ev-gpt3-protocol"
+      ]
+    },
+    {
+      "task": "GPT-2 medium inference latency",
+      "setting": "One forward pass; Quadro RTX8000; batch 1, sequence 128; 100 trials; adapter budget 11M.",
+      "metric": "Milliseconds; lower is better",
+      "value": "Fine-Tune/LoRA: 19.8 ± 2.7.",
+      "comparison": "AdapterL: 23.9 ± 2.1; AdapterH: 25.8 ± 2.2.",
+      "interpretation": "The reported adapter overheads are 20.7% and 30.3%. This is a particular forward-pass benchmark, not end-to-end autoregressive serving latency.",
+      "evidenceIds": [
+        "ev-latency"
+      ]
+    },
+    {
+      "task": "GPT-3 update-placement ablation",
+      "setting": "Table 5; fixed approximately 18M trainable parameters across 96 layers.",
+      "metric": "WikiSQL / MultiNLI validation accuracy (%)",
+      "value": "Query+value, rank 4: 73.7 / 91.3.",
+      "comparison": "Query-only, rank 8: 70.4 / 91.0; all four attention projections, rank 2: 73.7 / 91.7.",
+      "interpretation": "Spreading capacity improves over query-only. Contrary to the caption's blanket preference, all-four ties query/value on WikiSQL and exceeds it on MultiNLI.",
+      "evidenceIds": [
+        "ev-allocation"
+      ]
+    },
+    {
+      "task": "GPT-3 rank ablation",
+      "setting": "Table 6; query/value updates; parameter count grows with rank.",
+      "metric": "WikiSQL / MultiNLI validation accuracy (%)",
+      "value": "r=1: 73.4 / 91.3; r=8: 73.8 / 91.6; r=64: 73.5 / 91.4.",
+      "comparison": "Query-only r=1: 68.8 / 90.7.",
+      "interpretation": "Very small ranks are competitive on these tasks; increasing rank is not monotonically beneficial, and placement remains important.",
+      "evidenceIds": [
+        "ev-rank"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Merged weights complicate mixed-task batching. Attention-only experiments do not establish the best placement for other architectures; the authors explicitly warn that small ranks may fail on different tasks or languages.",
+      "kind": "source",
+      "evidenceIds": [
+        "ev-targets",
+        "ev-rank"
+      ]
+    },
+    {
+      "text": "Subspace overlap and projected-weight norms motivate the authors' feature-amplification interpretation, but do not prove that omitted singular directions are useless. Appendix G also conflicts with Section 7.2 on left/right singular-vector terminology and prints an inconsistent projection-distance equality.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-subspace",
+        "ev-feature",
+        "ev-subspace-notation"
+      ]
+    },
+    {
+      "text": "GPT-2's separate 26,000-step rank study peaks at rank 4 for BLEU; several ranks tie the displayed minimum validation loss. Its hyperparameters were partly tuned at rank 4, so it does not identify a task-independent optimal rank.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-gpt2-rank"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A practical starting point is GPT-2 medium on E2E: AdamW, five epochs, batch 8, learning rate 0.0002, 500 warmup steps, query/value rank 4, α=32, dropout/label smoothing 0.1 and weight decay 0.01. Preserve Table 11 decoding and three-seed aggregation.",
+      "kind": "source",
+      "evidenceIds": [
+        "ev-gpt2-protocol"
+      ]
+    },
+    {
+      "text": "Dagger comparisons control initialization and sequence length, but Table 9 lists LoRA batch 4 versus adapter batch 32; do not assume identical optimization budgets. Resolve D.4's association of all-four rank 2 with 37.7M: Table 15 gives 18.8M and uses rank 4 for 37.7M. The query/value rank-64 WikiSQL score also differs between Tables 6 and 15.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-glue-protocol",
+        "ev-gpt3-protocol",
+        "ev-gpt3-details",
+        "ev-rank"
+      ]
+    },
+    {
+      "text": "The source announces a PyTorch package and selected model checkpoints. Exact code revision, package versions, GPU count and full search budgets are not established here; V100 training and the separate RTX8000 latency setup are reported. Proposed controlled checks appear in the illustrated edition.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-identity",
+        "ev-efficiency",
+        "ev-latency",
+        "ev-gpt2-protocol",
+        "ev-gpt3-protocol"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Training optimization & distillation"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "d6516264e83e14d2e6874687522e0c1dfb95d85340df5c6b35ae1e527d1a5534"
+    },
+    "reasoning": {
+      "text": "The foundational training-optimization placement is supported. LoRA changes how language-model weights are adapted; it does not define a world model, action predictor or control loop. Architecture, prediction paradigm and quadrant are therefore not applicable. This paper does not establish a distillation method merely because the catalog subcategory also mentions distillation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "ev-objective",
+        "ev-update",
+        "ev-targets"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "How much of the benefit comes from low rank versus distributing updates across attention projections?",
+    "Would rank preferences persist under equally budgeted hyperparameter searches and independently held-out evaluation?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "ev-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block, arXiv margin, Version 2 label and revision footnote",
+      "detail": "LoRA title; Edward Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang and Weizhu Chen; Microsoft Corporation. arXiv:2106.09685v2, 16 Oct 2021. Hu/Shen share equal contribution. Revision note adds baselines, GLUE and latency analysis. Abstract announces package and selected checkpoints."
+    },
+    {
+      "id": "ev-objective",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Section 2, Equations (1)–(2)",
+      "detail": "Task data are context-target token sequences. Full tuning changes Φ; parameter-efficient tuning encodes ΔΦ with smaller Θ and optimizes conditional log likelihood."
+    },
+    {
+      "id": "ev-update",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Figure 1 and caption; p. 4, Section 4.1, Equation (3) and deployment paragraph",
+      "detail": "Frozen W₀ plus BA; both branches share x and outputs are summed. A is Gaussian-initialized, B zero-initialized. Text scales residual by α/r although figure/equation omit the scale. Merging preserves the original dense computation."
+    },
+    {
+      "id": "ev-targets",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.2; p. 6, final LoRA baseline paragraph",
+      "detail": "Study adapts attention weights, freezes MLPs, generally targets query/value, and leaves MLP/LayerNorm/bias adaptation for future work. Merged task updates complicate batching different tasks."
+    },
+    {
+      "id": "ev-efficiency",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Practical Benefits and Limitations; footnotes 4–5; Section 5 hardware statement",
+      "detail": "GPT-3 memory: 1.2TB to 350GB; query/value r=4 checkpoint: 350GB to 35MB, with base model still required. Prose says 25% speedup; footnote gives 32.5 vs 43.1 tokens/s/V100 using equal numbers of weight shards. Section 5 specifies Tesla V100."
+    },
+    {
+      "id": "ev-latency",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Table 1 and caption; p. 17, Appendix B and Figure 5",
+      "detail": "Single forward pass on Quadro RTX8000, averaged over 100 trials. Batch1/length128: Fine-Tune/LoRA 19.8±2.7 ms; AdapterL 23.9±2.1 (+20.7%); AdapterH 25.8±2.2 (+30.3%). Table's |Θ| counts adapter parameters. Figure 5 varies batch, length and bottleneck."
+    },
+    {
+      "id": "ev-glue",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2, RoBERTa-base and DeBERTa-XXL rows and caption",
+      "detail": "RoBERTa-base averages: FT 86.4 (125M), LoRA 87.2 (0.3M). DeBERTa-XXL: FT 91.1 (1500M), LoRA 91.3 (4.7M). Metrics are MNLI overall accuracy, CoLA Matthews correlation, STS-B Pearson correlation and other-task accuracy. Asterisks indicate imported baselines."
+    },
+    {
+      "id": "ev-glue-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Sections 5.2–5.3; p. 18, D.1–D.2; p. 19, Table 9; p. 20, Table 10",
+      "detail": "AdamW, linear decay, best-epoch selection, five-seed medians. Standard MRPC/RTE/STS-B initialize LoRA from MNLI; dagger RoBERTa starts from pretrained model and length128. Table9 lists dagger LoRA batch4 versus adapter batch32. Tables9–10 specify query/value rank8 and model/task-specific hyperparameters."
+    },
+    {
+      "id": "ev-gpt2-result",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3, GPT-2 M and L rows and caption; Section 5.4",
+      "detail": "GPT-2 M LoRA: 0.35M, BLEU70.4±0.1, NIST8.85±0.02, MET46.8±0.2, ROUGE-L71.8±0.1, CIDEr2.53±0.02. FT BLEU68.2 at354.92M; PreLayer69.7 at0.35M, both imported. GPT-2 L LoRA BLEU70.4±0.1 at0.77M; FT68.5. Caption calls intervals confidence intervals without level."
+    },
+    {
+      "id": "ev-data",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Appendix C, GLUE/WikiSQL/SAMSum/E2E/DART/WebNLG paragraphs",
+      "detail": "WikiSQL uses schema/question→SQL and 56,355/8,421 train/validation examples. SAMSum lists14,732/819 train/test conversations/summaries. E2E restaurant slot-value generation has roughly42,000/4,600/4,600 train/validation/test examples. WebNLG distinguishes seen and unseen categories."
+    },
+    {
+      "id": "ev-gpt2-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Appendix D.3; p. 20, Table 11",
+      "detail": "GPT-2: mean of3 seeds, best epoch, AdamW,5epochs,batch8,500warmup steps,linear schedule,LR0.0002,rq=rv=4,α32. E2E weight decay0.01,dropout0.1,label smoothing0.1. Beam10,length penalty0.9(E2E)/0.8(WebNLG,DART),no-repeat4-gram."
+    },
+    {
+      "id": "ev-gpt3-result",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4 and caption; Section 5.5",
+      "detail": "GPT-3 FT WikiSQL73.8/MNLI89.5/SAMSum52.0,28.0,44.5; LoRA4.7M73.4/91.7/53.8,29.8,45.9; LoRA37.7M74.0/91.6/53.4,29.2,45.1. AdapterH40.1M MNLI91.5. Task-level typical seed variation, not per-entry uncertainty:0.5/0.1 percentage points and ROUGE0.2,0.2,0.1."
+    },
+    {
+      "id": "ev-gpt3-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 19–20, Appendix D.4; p. 21, Table 12",
+      "detail": "GPT-3 AdamW,2epochs,batch128,weight decay0.1; lengths384/768/2048; best validation performance. Table12:250,000warmup tokens,linear LR schedule,LoRA LR2e-4. D.4 describes two parameter budgets but associates all-four rank2 with37.7M, unlike Table15."
+    },
+    {
+      "id": "ev-allocation",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 7.1, Table 5, its caption and following paragraph",
+      "detail": "Across96layers with approximately18M parameters, query r8=70.4/91.0 WikiSQL/MultiNLI; query+value r4=73.7/91.3; all-four r2=73.7/91.7. Caption/text call query+value best overall, which is not the literal ordering of the reported cells."
+    },
+    {
+      "id": "ev-rank",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 7.2, Table 6 and footnote 6",
+      "detail": "Query+value ranks1/8/64: WikiSQL73.4/73.8/73.5; MultiNLI91.3/91.6/91.4. Query-only rank1=68.8/90.7. All-four rank4 WikiSQL74.0. Authors warn small ranks may not suffice for every task, including a different downstream language."
+    },
+    {
+      "id": "ev-gpt3-details",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Appendix F.2, Table 15, LoRA rows",
+      "detail": "Value-only rv2:4.7M,73.4/91.7; query/value r1:4.7M,73.4/91.3. Query/value r8:37.7M,73.8/91.6; all-four r4:37.7M,74.0/91.7. All-four r2:18.8M,73.7/91.7. Query/value r64 WikiSQL73.6, differing from Table6's73.5."
+    },
+    {
+      "id": "ev-subspace",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Section 7.2, Equation (4), Figure 3; p. 12, Figure 4; p. 25, Figure 6; p. 26, Figure 7",
+      "detail": "Normalized overlap compares leading singular-vector subspaces across ranks8/64 and seeds; Gaussian matrices provide a comparison. Main plots use layer48; appendix covers layers1,32,64,96. Authors interpret leading overlap as useful shared directions. Figure3 argument order differs from Eq4 while its axes span i≤8 and j≤64."
+    },
+    {
+      "id": "ev-feature",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Section 7.3 and Table 7; p. 24, H.3; p. 25, H.4; p. 26, Figure 8",
+      "detail": "Projected-weight norms compare update, pretrained and random directions. Authors interpret updates as amplifying directions not dominant in pretrained weights; these are matrix diagnostics and an interpretation, not direct semantic feature interventions."
+    },
+    {
+      "id": "ev-subspace-notation",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Equation (4) and right-singular-vector definition; p. 22, Appendix G; pp. 23–24, projection metric and equality",
+      "detail": "Section7.2 uses right singular vectors of A; AppendixG says left singular matrices. G defines d²=p−sum(σ²) but prints sum(σ²)/p=(1−d²)/p, algebraically inconsistent for p≠1. Equation4's normalized overlap is independently specified."
+    },
+    {
+      "id": "ev-gpt2-rank",
+      "sourceId": "primary",
+      "location": "PDF p. 24, Appendix H.2; p. 26, Table 18 and caption",
+      "detail": "Separate GPT-2 medium E2E rank study after26,000steps: rank1 BLEU68.72/loss1.23; rank4 BLEU70.38/loss1.18; rank16 loss1.16, tied at displayed precision by ranks32–512. Caption acknowledges hyperparameters partly tuned at rank4."
+    },
+    {
+      "id": "ev-appendix-experiments",
+      "sourceId": "primary",
+      "location": "PDF pp. 20–21, Appendix E; pp. 21–24, F.1–F.3, Tables 13–17",
+      "detail": "Additional DART/WebNLG comparisons, LoRA combined with prefix methods, and MNLI subsampling experiments are supplied. Table14 separates unseen/seen/all categories. Table16 uses full validation set after training on subsets; Table17 supplies separate schedules."
+    },
+    {
+      "id": "ev-future",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, Section 8",
+      "detail": "Authors identify combinations, adaptation mechanism, principled placement and possible pretrained-weight rank deficiency as open directions."
+    }
+  ]
+}
