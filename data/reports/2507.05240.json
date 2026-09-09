@@ -1,0 +1,472 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2507.05240",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T23:17:00.408Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2507.05240",
+      "title": "StreamVLN: Streaming Vision-and-Language Navigation via SlowFast Context Modeling",
+      "kind": "pdf",
+      "sha256": "e771475ef29094fbc8b0053719b18ebf6284c4bf82a05ddcfb71f119be06c886",
+      "wordCount": 5779,
+      "accessedAt": "2026-09-07T14:11:23.856418+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "PDF p. 1: title, authors, affiliations, abstract and I. Introduction",
+      "PDF p. 2: II. Related Work and III. Method overview",
+      "PDF p. 3: III-A. Multi-Turn Autoregressive Generation; III-B. Fast-Streaming Dialogue Context; III-C. Slow-Updating Memory Context; Algorithm 1",
+      "PDF pp. 3–4: III-D. Co-Training with Multi-Source Data",
+      "PDF p. 4: IV-A. Experimental Setup and IV-B. Implementation Details",
+      "PDF pp. 4–6: IV-C. Comparisons with State-of-the-Arts",
+      "PDF pp. 6–7: IV-D. Ablation Studies",
+      "PDF p. 7: V. Conclusion and Acknowledgements",
+      "PDF p. 8: References"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Identity/version: the inspected title page states arXiv:2507.05240v2, 9 July 2026. The title and all twelve authors match the catalog. The catalog submission date is 7 July 2025; the earlier edition was not supplied, so revision changes cannot be compared.",
+      "Acquisition caveat retained: Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This edition resolves that visual gap through inspection of all eight PDF pages and six original crops.",
+      "Separate supplemental material availability has not been fully verified.",
+      "No appendix is present in the supplied PDF. Linked project material, code, datasets and demonstration videos were not inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, p. 1",
+      "Figure 2, p. 2",
+      "Figure 3, p. 3",
+      "Figure 4, p. 4",
+      "Figure 5, p. 5",
+      "Figure 6, p. 6",
+      "Figure 7, p. 7"
+    ],
+    "tablesReviewed": [
+      "Table I, p. 5",
+      "Table II, p. 6",
+      "Table III, p. 7",
+      "Table IV, p. 7"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "StreamVLN turns a Video-LLM into a streaming navigation policy: it reuses recent dialogue KV states and compresses older visual context into memory. Optional geometric pruning removes repeated spatial observations. Simulation, robot and latency experiments support the design, but inconsistent prose/table scores and missing implementation details limit precise reproduction.",
+  "readingTimeMinutes": 8,
+  "problem": {
+    "text": "Continuous vision-and-language navigation needs detailed current observations, useful history and responsive action generation. Re-prefilling the entire dialogue wastes computation, while unrestricted KV caching grows memory. StreamVLN addresses this tension by separating recent dialogue from older visual memory.",
+    "kind": "source",
+    "evidenceIds": [
+      "motivation",
+      "context"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A single vision-language-action pathway combines an active dialogue window with slower visual-memory updates, enabling cross-turn KV reuse.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture",
+        "context"
+      ]
+    },
+    {
+      "text": "Training-free voxel pruning selects existing visual token states instead of learning a feature compressor; it requires geometry for back-projection.",
+      "kind": "source",
+      "evidenceIds": [
+        "pruning",
+        "navigation"
+      ]
+    },
+    {
+      "text": "Co-training combines navigation demonstrations, DAgger corrections and general multimodal examples to support navigation and visual reasoning.",
+      "kind": "source",
+      "evidenceIds": [
+        "data",
+        "training"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Language navigation instruction and incoming RGB observations",
+      "Recent dialogue KV states and retained visual memory",
+      "Depth and odometry for optional voxel pruning"
+    ],
+    "outputs": [
+      "Autoregressively generated action responses; executable commands returned to the robot"
+    ],
+    "steps": [
+      {
+        "name": "Encode an observation and continue the dialogue",
+        "detail": "The vision encoder and projector feed visual tokens to the LLaVA-Video language model alongside instruction and action history. Each turn pairs observation o_i with response a_i. Prefill caches attention key/value states; autoregressive decoding produces the action response.",
+        "evidenceIds": [
+          "architecture",
+          "context"
+        ]
+      },
+      {
+        "name": "Retain recent dialogue, consolidate older observations",
+        "detail": "A window retains N dialogue turns. At capacity, its states are offloaded; non-observation prompt and action states are discarded. Historical observation states are temporally sampled into memory for subsequent windows. This is stored observation context, not a predicted future world state.",
+        "evidenceIds": [
+          "context",
+          "pruning"
+        ]
+      },
+      {
+        "name": "Prune spatial repetition",
+        "detail": "Image patches are back-projected into shared 3D voxels. Algorithm 1 groups time indices by floor(t/K), retains the latest valid token per temporal group and voxel, then clears a frame's mask if fewer than theta times its patch count survive. The mask selects token states without a learned pruning module.",
+        "evidenceIds": [
+          "pruning"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Training uses LLaVA-Video 7B, described as using Qwen2-7B. One oracle-navigation epoch precedes DAgger collection; another epoch mixes navigation and general multimodal data. Warm-up peak learning rates are 2e-5 for the language model and 5e-6 for the vision encoder, with 128 clips per step and about 1,500 A100 GPU-hours. The visual encoder is therefore not wholly frozen.",
+        "kind": "source",
+        "evidenceIds": [
+          "training"
+        ]
+      },
+      {
+        "text": "Navigation data comprise 450K clips from 60 MP3D scenes, 300K clips from 700 HM3D scenes via ScaleVLN, and 240K corrective DAgger samples using Habitat's shortest-path follower. General data add 248K video/scene QA examples and 230K MMC4 interleaved image-text examples.",
+        "kind": "source",
+        "evidenceIds": [
+          "data"
+        ]
+      },
+      {
+        "text": "The paper describes autoregressive supervised fine-tuning but supplies no explicit loss equation, loss masking, optimizer configuration or full second-stage schedule. 'Training-free' applies to voxel pruning, not the navigation model.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "context",
+          "training",
+          "pruning"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "New observations reuse active-window KV states; window transitions require historical-context prefill. Prune-Mem operates on eight memory frames, while Prune-All also prunes streaming-frame cache tokens. Only these pruning variants use depth and odometry in Table I.",
+        "kind": "source",
+        "evidenceIds": [
+          "context",
+          "pruning-results",
+          "navigation"
+        ]
+      },
+      {
+        "text": "Physical deployment streams Go2 RGB-D observations from a RealSense D455 to a remote RTX 4090 workstation, which returns commands. The reported 0.27 s inference covers four actions; communication adds 0.2 s indoors or 1.0 s outdoors. These are separate latency components.",
+        "kind": "source",
+        "evidenceIds": [
+          "deployment"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "a_i^{W_{j+1}}=\\operatorname{Decoder}\\!\\left(o_i,\\{\\mathcal{M}_0,\\ldots,\\mathcal{M}_j\\},\\{k_{(i-N+1)}v_{(i-N+1)},\\ldots,k_{(i-1)}v_{(i-1)}\\}\\right)",
+        "explanation": "The unnumbered decoder equation conditions action response a_i in window W_{j+1} on current observation o_i, historical memory states M_0 through M_j, and recent cached key/value states k and v. N is the number of retained dialogue turns. The adjacent kv notation denotes cached states as printed in the paper; it does not specify an additional learned dynamics model.",
+        "evidenceIds": [
+          "context"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "VLN-CE navigation without extra VLN data",
+      "setting": "Habitat R2R-CE Val-Unseen; Table I unmarked RGB-only rows.",
+      "metric": "SR / SPL (%)",
+      "value": "StreamVLN: 52.8 / 47.2.",
+      "comparison": "NaVILA: 49.7 / 45.5.",
+      "interpretation": "Higher reported success and path-weighted success in this comparison; training and compute are not experimentally matched.",
+      "evidenceIds": [
+        "evaluation",
+        "navigation"
+      ]
+    },
+    {
+      "task": "VLN-CE navigation with extra VLN data",
+      "setting": "R2R-CE and RxR-CE Val-Unseen; Table I dagger-marked RGB-only models.",
+      "metric": "SR / SPL (%)",
+      "value": "StreamVLN: R2R 56.4 / 50.2; RxR 54.4 / 45.4.",
+      "comparison": "NaVILA: R2R 54.0 / 49.0; RxR 49.3 / 44.0.",
+      "interpretation": "These are table values, not the conflicting headline values in Section IV-C. Extra-data membership does not imply identical datasets.",
+      "evidenceIds": [
+        "evaluation",
+        "navigation",
+        "score-discrepancies"
+      ]
+    },
+    {
+      "task": "Inference-time spatial pruning",
+      "setting": "Table I dagger-marked variants, R2R and RxR Val-Unseen.",
+      "metric": "SR / SPL (%); token reduction (%)",
+      "value": "Prune-Mem: R2R 57.4 / 51.1, RxR 53.9 / 45.1; memory tokens reduced 28% / 22%. Prune-All: R2R 56.0 / 48.5, RxR 53.3 / 44.0; visual tokens reduced 32% / 30%.",
+      "comparison": "Unpruned: R2R 56.4 / 50.2; RxR 54.4 / 45.4.",
+      "interpretation": "Compression has a benchmark-dependent accuracy cost; pruned variants additionally require depth and odometry.",
+      "evidenceIds": [
+        "navigation",
+        "pruning-results"
+      ]
+    },
+    {
+      "task": "Physical navigation",
+      "setting": "Go2 hallway, single bedroom and room-to-room office; 20 trials per method per scenario.",
+      "metric": "SR (%)",
+      "value": "StreamVLN: 100, 85 and 60, respectively.",
+      "comparison": "NaVILA: 100, 70 and 0; NaVid: 80, 20 and 0; CMA: 25, 0 and 0.",
+      "interpretation": "Actual robot outcomes favor StreamVLN in harder scenarios. The small evaluation reports no uncertainty intervals.",
+      "evidenceIds": [
+        "deployment",
+        "robot-results"
+      ]
+    },
+    {
+      "task": "ScanQA question answering",
+      "setting": "ScanQA validation; 16 multi-view images per scan.",
+      "metric": "EM (reported score)",
+      "value": "StreamVLN: 28.8.",
+      "comparison": "NaVILA with 16 frames: 27.4.",
+      "interpretation": "Evidence for question answering, not a navigation success measure or a causal test of QA-to-navigation transfer.",
+      "evidenceIds": [
+        "scanqa"
+      ]
+    },
+    {
+      "task": "Training-data ablation",
+      "setting": "R2R Val-Unseen; no voxel pruning; equal total VL-data count for VideoQA versus VideoQA+MMC4.",
+      "metric": "SR / SPL (%)",
+      "value": "VideoQA+MMC4: 52.8 / 47.2; adding ScaleVLN: 56.4 / 50.2.",
+      "comparison": "VideoQA-only co-training: 50.8 / 45.7.",
+      "interpretation": "MMC4 yields +2.0 / +1.5 percentage points; ScaleVLN yields +3.6 / +3.0 by table arithmetic. Several prose deltas disagree.",
+      "evidenceIds": [
+        "data-ablation",
+        "score-discrepancies"
+      ]
+    },
+    {
+      "task": "Memory-context ablation",
+      "setting": "R2R Val-Unseen; oracle-only first-stage training; eight-turn window.",
+      "metric": "SR / SPL (%)",
+      "value": "8×196 memory: 45.5 / 41.6.",
+      "comparison": "2×196: 37.3 / 34.2; all visual context: 40.0 / 36.4.",
+      "interpretation": "More retained memory helps up to the tested intermediate size; retaining everything is worse. This is a different training regime from main results.",
+      "evidenceIds": [
+        "memory-ablation"
+      ]
+    },
+    {
+      "task": "Cross-turn cache latency",
+      "setting": "Figure 7; eight-turn windows; latency to generate eight action tokens over the plotted dialogue.",
+      "metric": "Latency in seconds; qualitative curve comparison",
+      "value": "Sliding-window latency stays close to full-turn caching except at window-transition spikes.",
+      "comparison": "Single-turn caching repeatedly incurs higher history-prefill latency.",
+      "interpretation": "Supports the cache-reuse mechanism; the plot does not measure peak memory or provide timing variance.",
+      "evidenceIds": [
+        "cache-latency"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The supplied revision contains unresolved numerical inconsistencies: Section IV-C headline navigation scores disagree with Table I, and several data-ablation gains disagree with Table III. Table values are retained explicitly rather than silently harmonized.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "score-discrepancies"
+      ]
+    },
+    {
+      "text": "Geometric pruning's robustness to noisy depth, pose drift or moving objects is untested. Cross-method comparisons also vary sensor inputs and training data. Robot success examples in additional environments do not establish an outdoor success rate.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "pruning",
+        "navigation",
+        "robot-results",
+        "qualitative"
+      ]
+    },
+    {
+      "text": "Window-size ablations change both context and training sample count; they do not isolate context length at fixed training cost. Main results and ablations lack reported error bars or seed variability.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "memory-ablation",
+        "data-ablation",
+        "navigation"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the exact pretrained checkpoint, Habitat scenes and splits, clip construction, DAgger collection and multimodal sampling recipe. The paper states 300K HM3D clips but later calls the ScaleVLN subset '150k' without explaining its unit; those counts should not be equated.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "data",
+        "training",
+        "reproduction-gaps"
+      ]
+    },
+    {
+      "text": "Resolve voxel size, stride K, threshold theta, depth/pose alignment, total memory retention, action vocabulary and token-to-command conversion. Section IV-B names Qwen2-7B, but reference [34] names Qwen2.5. The PDF does not resolve checkpoint identity, simulator/software versions, optimizer settings or exact timing hardware for Figure 7.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "pruning",
+        "context",
+        "deployment",
+        "training",
+        "cache-latency",
+        "reproduction-gaps"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded VLA, autoregressive and memory/long-horizon labels fit the architecture: one vision-encoder/projector/LLM pathway directly emits actions from language and observation history. SlowFast denotes two context-update rates, not two learned policies. No explicit future-observation prediction, joint future/action objective or inverse-dynamics action extraction is presented; the world-model prediction paradigm and quadrant are therefore appropriately not applicable.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "context",
+        "pruning"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "VLA",
+      "subcategories": [
+        "Autoregressive VLA",
+        "Memory & long-horizon VLA"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "c99f675ae20b29d4c3c78208d317be3f67567806cd7eb09b0992f38ccaccdc33"
+    }
+  },
+  "discussionQuestions": [
+    "Does voxel-aware selection outperform a token-count-matched geometry-free mask when depth and pose are perturbed?",
+    "Would the eight-turn window remain preferable with training exposure and compute held fixed?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block, affiliation footnote and arXiv margin",
+      "detail": "The exact title and twelve authors match the supplied catalog. The margin identifies arXiv:2507.05240v2 [cs.RO], 9 Jul 2026. Affiliations are Shanghai AI Lab, The University of Hong Kong, Zhejiang University and Shanghai Jiao Tong University."
+    },
+    {
+      "id": "motivation",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and I. Introduction",
+      "detail": "The paper motivates streaming VLN by the tradeoff between visual detail, history retention and repeated context computation."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 2 and III. Method opening",
+      "detail": "A vision encoder and projector supply tokens to one LLM; its interleaved stream includes instruction, observations and output actions, with active/inactive windows and cached states."
+    },
+    {
+      "id": "context",
+      "sourceId": "primary",
+      "location": "PDF p. 3, III-A and III-B, including the unnumbered decoder equation",
+      "detail": "Observations and action responses form dialogue turns. Prefill caches KV states; an N-turn window is offloaded at capacity, non-observation states are discarded and visual history becomes memory for future windows."
+    },
+    {
+      "id": "pruning",
+      "sourceId": "primary",
+      "location": "PDF p. 3, III-C and Algorithm 1, lines 1–12",
+      "detail": "Depth back-projects patches into uniform voxels. Valid voxel indices are nonnegative. The latest token is retained per floor(t/K) group and voxel; line 11 removes frames whose surviving mask count is strictly below theta times H times W."
+    },
+    {
+      "id": "data",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, III-D and Figure 3",
+      "detail": "The recipe lists 450K MP3D clips from 60 scenes; 300K HM3D clips from 700 scenes; 240K DAgger samples; 248K VQA samples; and 230K MMC4 samples. DAgger uses Habitat's shortest-path follower."
+    },
+    {
+      "id": "training",
+      "sourceId": "primary",
+      "location": "PDF p. 4, IV-B. Implementation Details",
+      "detail": "LLaVA-Video 7B is described as using Qwen2-7B. Training has one oracle epoch and one mixed-data epoch after DAgger collection, warm-up peak learning rates 2e-5 and 5e-6, 128 clips per step and about 1500 A100 GPU-hours."
+    },
+    {
+      "id": "evaluation",
+      "sourceId": "primary",
+      "location": "PDF p. 4, IV-A. Simulation Benchmark Setup",
+      "detail": "Evaluation uses Habitat R2R-CE and RxR-CE validation-unseen splits, 79-degree camera HFOV, and NE, SR, OS and SPL metrics."
+    },
+    {
+      "id": "navigation",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table I, StreamVLN, NaVILA and pruning rows, observation columns and both footnotes",
+      "detail": "Unmarked StreamVLN R2R SR/SPL is 52.8/47.2 versus NaVILA 49.7/45.5. Dagger StreamVLN is 56.4/50.2 on R2R and 54.4/45.4 on RxR. Prune-Mem is 57.4/51.1 and 53.9/45.1; Prune-All is 56.0/48.5 and 53.3/44.0. Dagger denotes extra VLN data; starred checks restrict odometry/depth use to pruning."
+    },
+    {
+      "id": "pruning-results",
+      "sourceId": "primary",
+      "location": "PDF p. 4, IV-C. Effectiveness of Voxel-Based Spatial Pruning",
+      "detail": "Prune-Mem prunes eight memory frames and reports 28%/22% memory-token reduction on R2R/RxR. Prune-All also prunes streaming-frame KV tokens and reports 32%/30% visual-token reduction."
+    },
+    {
+      "id": "deployment",
+      "sourceId": "primary",
+      "location": "PDF p. 4, IV-A. Real-World Evaluation Setup",
+      "detail": "Go2 uses a RealSense D455 RGB-D camera and remote RTX 4090 inference. Average inference is 0.27 seconds for four actions; communication is 0.2 seconds indoors and 1.0 seconds outdoors."
+    },
+    {
+      "id": "robot-results",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 5, SR bars; PDF pp. 5–6, IV-C. Real-World Experimental Results",
+      "detail": "The protocol specifies 20 trials per method per scenario. Hallway/bedroom/office SR is StreamVLN 100/85/60, NaVILA 100/70/0, NaVid 80/20/0 and CMA 25/0/0. The chart reports no uncertainty intervals."
+    },
+    {
+      "id": "scanqa",
+      "sourceId": "primary",
+      "location": "PDF p. 5, IV-C. Results on Video Question Answering; PDF p. 6, Table II, EM column",
+      "detail": "StreamVLN analyzes 16 multi-view images per scan. Table II gives validation EM 28.8 for StreamVLN and 27.4 for NaVILA, both with 16 frames."
+    },
+    {
+      "id": "data-ablation",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, IV-D. Data Ablation; PDF p. 7, Table III, rows 1–6",
+      "detail": "No voxel pruning is used; total VL-data count is held fixed for the VideoQA/MMC4 comparison. Row SR/SPL pairs are 45.6/42.3, 50.8/45.7, 52.8/47.2, 56.4/50.2, 50.2/47.1 and 47.9/43.6. Rows 5 and 6 omit DAgger and RxR respectively."
+    },
+    {
+      "id": "memory-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table IV and IV-D. Memory Context Size / Sliding Window Size",
+      "detail": "Oracle-only first-stage SR/SPL at window 8 is 37.3/34.2 for 2×196 memory, 38.9/35.4 for 4×196, 45.5/41.6 for 8×196 and 40.0/36.4 for all. With 8×196 memory, windows 4 and 2 give 41.4/37.5 and 43.7/40.3. Window sizes 8/4/2 yield about 450K/815K/1.5M training samples."
+    },
+    {
+      "id": "cache-latency",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 7, caption and IV-D. Effectiveness of KV-Cache Reuse",
+      "detail": "The eight-turn-window comparison measures latency for eight generated action tokens. Full-turn caching stays low; sliding-window caching spikes at transitions; single-turn caching repeats history prefill. Memory overhead is discussed but not plotted."
+    },
+    {
+      "id": "score-discrepancies",
+      "sourceId": "primary",
+      "location": "PDF p. 4, IV-C versus p. 5, Table I; PDF pp. 6–7, IV-D prose versus p. 7, Table III",
+      "detail": "The prose states R2R 56.9/51.9 and RxR 52.9/46.0 SR/SPL, unlike Table I. Table III arithmetic gives row 2 minus 1: +5.2/+3.4, row 4 minus 3: +3.6/+3.0, row 4 minus 5: +6.2/+3.1, row 4 minus 6: +8.5/+6.6; corresponding prose claims are +5.3/+4.1, +2.9/+3.7, +5.5/+3.8 and +7.8/+7.3."
+    },
+    {
+      "id": "qualitative",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 4; PDF p. 6, Figure 6 and IV-C. Real-World Experimental Results",
+      "detail": "The authors present visual-reasoning and navigation examples, including mall and outdoor scenes. These are qualitative examples, without a reported outdoor trial denominator."
+    },
+    {
+      "id": "reproduction-gaps",
+      "sourceId": "primary",
+      "location": "PDF p. 3, III-D; PDF p. 4, IV-B and IV-C; PDF p. 8, reference [34]",
+      "detail": "III-D states 300K HM3D video clips, whereas IV-C calls the ScaleVLN subset 150k without clarifying the unit. IV-B names Qwen2-7B but its citation [34] is titled Qwen2.5 technical report."
+    }
+  ]
+}
