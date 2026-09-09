@@ -1,0 +1,410 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-7fd707e94672f79511d9",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T02:17:29.903Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2409.16784",
+      "title": "World Model-based Perception for Visual Legged Locomotion",
+      "kind": "pdf",
+      "sha256": "2df0291956fd21ce758dd3fa3d69e768de0906034e1b4d04e8650817e0632ed8",
+      "wordCount": 5945,
+      "accessedAt": "2026-09-07T14:16:55.839343+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "PDF p. 1: title, author block, abstract",
+      "PDF pp. 1–2: I. Introduction",
+      "PDF p. 2: II. Related Work; III. Preliminaries",
+      "PDF pp. 2–4: IV. Method, including A. World Model Learning, B. Policy Learning, C. Training Details",
+      "PDF pp. 4–6: V. Experimental Results, including A. Simulation Comparison, B. Empirical Study, C. Real-world Evaluation",
+      "PDF p. 6: VI. Conclusion",
+      "PDF p. 7: References, entries 1–46"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "The preceding acquisition limitation was addressed by visually inspecting all seven PDF pages and all six final original crops.",
+      "Separate supplemental material availability has not been fully verified.",
+      "No separate supplement or video was supplied or reviewed. Code was not inspected and experiments were not reproduced.",
+      "Version boundary: the title page identifies arXiv:2409.16784v1 [cs.RO], 25 September 2024. Its exact title and all eight authors match the supplied catalog. The catalog records ICRA 2025; the venue edition was not supplied, so changes between it and this preprint are unverified. This report reviews the supplied v1 only."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, PDF p. 1: scandots versus depth images",
+      "Figure 2, PDF p. 3: WMP architecture",
+      "Figure 3, PDF p. 5: recurrent-state t-SNE",
+      "Figure 4, PDF p. 5: model interval and training-length diagnostics",
+      "Figure 5, PDF p. 5: real-world depth prediction",
+      "Figure 6, PDF p. 6: physical-robot success rates",
+      "Figure 7, PDF p. 6: outdoor snapshots"
+    ],
+    "tablesReviewed": [
+      "Table I, PDF p. 4: simulation returns and velocity tracking errors"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "World Model-based Perception (WMP) trains a recurrent sensor-prediction model alongside a separate locomotion policy in simulation. The model supplies remembered context to the controller; PPO uses simulator trajectories rather than imagined rollouts. Simulation comparisons and Unitree A1 trials support improved terrain traversal, while the hardest physical tests still have substantial failure rates.",
+  "readingTimeMinutes": 8,
+  "problem": {
+    "text": "A forward-facing camera sees terrain before the feet reach it, so locomotion requires memory as well as immediate proprioception. Teacher–student methods introduce imitation error and depend on privileged representations: the paper's sparse ground scandots miss precise Tilt boundaries and overhead Crawl obstacles. WMP asks whether learning to predict sensory observations can supply a useful control representation directly.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03",
+      "e04"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "WMP combines an RSSM perception module with a faster actor–critic controller in one simultaneous training stage. A stop-gradient separates policy optimization from world-model representation learning, despite the authors' description of the overall framework as end-to-end.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "text": "The experiments combine modality ablations, temporal-design diagnostics, qualitative real-world predictions, and executed locomotion. The authors attribute transfer to useful historical representations; these experiments support the approach but do not isolate predictive learning from every alternative memory objective.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e12",
+        "e14",
+        "e16"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "45-dimensional proprioception: base angular velocity, gravity projection, commands, joint positions and velocities, and previous action",
+      "64 × 64 egocentric depth image with 58° × 58° field of view",
+      "Previous recurrent/stochastic states and intervening actions; privileged scandots, contact forces, and randomized parameters are additionally available to the training critic"
+    ],
+    "outputs": [
+      "Recurrent context and reconstructed/predicted sensory observations from the world model",
+      "12 joint-position offsets from the policy, executed through a PD controller"
+    ],
+    "steps": [
+      {
+        "name": "Maintain predictive memory",
+        "detail": "Every k policy steps, a GRU advances the deterministic state using the previous recurrent state, stochastic state, and intervening actions. CNNs process depth; MLPs process proprioception. The observation-conditioned posterior and observation-free prior share the recurrent context. A decoder reconstructs observations from recurrent and stochastic states.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Condition a faster controller",
+        "detail": "The actor uses current proprioception and the held recurrent state throughout each interval. It receives neither the stochastic state directly nor privileged inputs. The critic additionally receives privileged information. Both consume detached recurrent features, and PPO trains them on simulator data; imagined world-model rollouts are explicitly unused.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "name": "Execute joint targets and receive feedback",
+        "detail": "The policy's action is added to the standing joint configuration to obtain target positions. A PD controller converts position and velocity errors to torques, with target joint velocities set to zero. New proprioception and periodically acquired depth close the sensor–action loop.",
+        "evidenceIds": [
+          "e04",
+          "e06",
+          "e08"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The RSSM minimizes observation reconstruction loss plus a beta-weighted KL penalty aligning posterior and prior. Fixed trajectory segments train temporal memory. The policy and model learn simultaneously with separate objectives; PPO gradients do not train the RSSM through its policy input.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e12"
+        ]
+      },
+      {
+        "text": "Training uses legged_gym and Isaac Gym with 4,096 simulated A1 robots across six terrains, a difficulty curriculum, physical randomization, and 100 ms depth latency. Actions run at 50 Hz; k = 5 gives a 0.1-second model interval. The selected training segment is 6.4 seconds. Rewards combine velocity tracking, obstacle-related penalties, and an AMP style term. Compared methods use the same environment and rewards.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e09",
+          "e10",
+          "e11",
+          "e12"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Physical deployment runs onboard Jetson NX. An Intel D435i supplies 424 × 240 depth at 60 Hz; spatial/temporal filtering, cropping, and downsampling produce 64 × 64 inputs with 100 ms latency. PD gains are Kp = 40 and Kd = 1.0. The policy reads the RSSM context and current proprioception; no candidate-action planning procedure is specified.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e15"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\begin{aligned}h_t&=f_\\phi(h_{t-k},z_{t-k},a_{t-k:t-1})\\\\z_t&\\sim q_\\phi(\\cdot\\mid h_t,o_t)\\\\\\hat z_t&\\sim p_\\phi(\\cdot\\mid h_t)\\\\\\hat o_t&\\sim p_\\phi(\\cdot\\mid h_t,z_t)\\end{aligned}",
+        "explanation": "Equation (4): h is deterministic recurrent memory, z the posterior stochastic state, and hats denote predictions. Observation o combines proprioception and depth; a is action, k the model interval, and phi the model parameters. Current observation enters z; h advances from the previous interval.",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      },
+      {
+        "expression": "\\mathcal L(\\phi)=\\mathbb E_{q_\\phi}\\left[\\sum_{t=n\\cdot k}^{L}-\\ln p_\\phi(o_t\\mid z_t,h_t)+\\beta\\operatorname{KL}\\left[q_\\phi(\\cdot\\mid h_t,o_t)\\Vert p_\\phi(\\cdot\\mid h_t)\\right]\\right]",
+        "explanation": "Equation (5), retaining the paper's summation notation: L is trajectory length, n a nonnegative integer indexing model-update times, and beta a hyperparameter. Reconstruction trains observation content; KL aligns posterior and prior for prediction without intervening observations.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "a_{t+i}\\sim\\pi_\\theta\\!\\left(\\cdot\\mid o^p_{t+i},\\operatorname{sg}(h_t)\\right),\\qquad i\\in\\{0,\\ldots,k-1\\}",
+        "explanation": "Equation (6): pi is the policy, theta its parameters, and sg stops gradients. Current proprioception changes at each action step while h remains fixed until the next world-model update. This specifies the actual information route to control.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Simulated gap traversal",
+      "setting": "Table I: gaps from 0–90 cm; 100 trajectories across difficulties; shared training environment and rewards.",
+      "metric": "Return ↑; planar velocity tracking mean squared error ↓",
+      "value": "WMP: return 32.37 ± 8.24; tracking error 0.26 ± 0.13.",
+      "comparison": "Teacher: 32.80 ± 7.06 and 0.23 ± 0.21; Student: 27.07 ± 12.38 and 0.35 ± 0.28; Blind return: 9.80 ± 9.51.",
+      "interpretation": "WMP approaches the privileged teacher on reported means. The paper does not define the ± statistic or provide a significance test; these are neither success percentages nor proof of optimality.",
+      "evidenceIds": [
+        "e10"
+      ]
+    },
+    {
+      "task": "Proprioception ablation on simulated Tilt",
+      "setting": "Table I: Tilt widths 32–28 cm, 100 trajectories across difficulties. The ablation removes proprioception from the world model, not the actor's direct proprioceptive input.",
+      "metric": "Return ↑; tracking error ↓",
+      "value": "WMP: 34.73 ± 3.13; 0.02 ± 0.01.",
+      "comparison": "WMP w/o Prop: 30.78 ± 7.22; 0.08 ± 0.10. Teacher and Student are N/A.",
+      "interpretation": "This supports a contribution from multimodal world modeling. The ablation changes both the model's input and prediction task, so it does not isolate proprioceptive reconstruction alone.",
+      "evidenceIds": [
+        "e06",
+        "e10"
+      ]
+    },
+    {
+      "task": "Physical A1 traversal at difficult obstacle settings",
+      "setting": "Figure 6: onboard execution, ten trials at each tested terrain difficulty; rates read from plotted markers.",
+      "metric": "Success rate ↑",
+      "value": "WMP: 85 cm Gap 40%; 55 cm Climb 60%; 28 cm Tilt 20%.",
+      "comparison": "Student and WMP w/o Prop: 0% at the 85 cm Gap and 55 cm Climb. WMP w/o Prop: 0% at 28 cm Tilt; Student is not applicable to Tilt.",
+      "interpretation": "These are executed robot outcomes. Reported maximum traversable sizes coexist with frequent failures; ten trials and absent uncertainty intervals limit reliability claims.",
+      "evidenceIds": [
+        "e10",
+        "e15",
+        "e16"
+      ]
+    },
+    {
+      "task": "Temporal design diagnostics",
+      "setting": "Figure 4 and Section V-B: separate sweeps of model interval and world-model training segment length.",
+      "metric": "Average simulation return ↑",
+      "value": "Return generally decreases as k increases from 2 to 30; the training-length curve peaks at the tested 64 × 0.1 s setting. Exact curve ordinates are not tabulated.",
+      "comparison": "The authors select k = 5 given approximately 40 ms acquisition/computation time and select a 6.4-second training length.",
+      "interpretation": "The plots motivate temporal design choices but provide no error bars or controlled separation of compute cost from representation quality.",
+      "evidenceIds": [
+        "e11",
+        "e12"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Real-world depth predictions use an initial observation and a supplied action sequence without intermediate depth. Figure 5 is qualitative: it shows useful passage geometry despite shape mismatch, but supplies no prediction-error metric or dataset-scale accuracy estimate. The t-SNE plot likewise does not establish that memory is a sufficient state for control.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "text": "Teacher/Student comparisons exclude Tilt and Crawl because their scandot representation is unsuitable. Outdoor evidence consists of snapshots and reported traversals, without quantified success rates. The conclusion proposes mixed real/simulated training and touch as future work, so those capabilities remain untested here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e17",
+        "e18"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the terrain curriculum, physical randomization, AMP reference motions, reward weights, RSSM/PPO configuration, and deployment filtering. The PDF specifies platform and timing choices but does not give complete optimizer settings, model dimensions, training budget, seed count, training GPU configuration, software versions, or filter parameters; some details are deferred to cited work.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e07",
+        "e09",
+        "e15"
+      ]
+    },
+    {
+      "text": "Before implementing the reward, resolve Equation (9): the printed exponential contains a positive squared-error term divided by sigma, while the prose describes velocity tracking and gives no sigma value or sign. Do not silently substitute a conventional negative exponent. Proposed controlled checks should also preserve depth latency and the actor's direct proprioception when changing model inputs.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e09",
+        "e10"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The core Dual-system / Other mechanisms / Outside quadrants assessment is supported: an action-conditioned RSSM predicts sensory state, while a separate PPO actor generates actions from detached context. This is neither joint future/action generation nor inverse dynamics, and simultaneous training does not make it One Model. The broad Navigation label covers terrain locomotion rather than demonstrated route planning. Latent prediction applies, but the source describes reconstruction and KL training, not a JEPA objective.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06",
+        "e08"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Navigation",
+        "Latent prediction & JEPA"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "Other mechanisms",
+      "quadrant": "Outside quadrants",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "baf54329c4c3be1e2dc9c1103295428e1d6dac696bdde1d47ae1390661b0a581"
+    }
+  },
+  "discussionQuestions": [
+    "Would a capacity-matched recurrent perception model without the predictive KL objective retain WMP's advantage?",
+    "How much of the deployment tradeoff comes from model-update frequency versus delayed depth arrival?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin stamp",
+      "detail": "Exact title and eight authors match the catalog; the observed artifact is arXiv:2409.16784v1, 25 Sep 2024. Affiliations are Shanghai Jiao Tong University and ByteDance Research, China."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Section I; Figure 1 and caption; scandot footnote",
+      "detail": "Forward vision requires remembering terrain. Sparse scandots miss precise Tilt boundaries and overhead Crawl obstacles; the simulation terrain mesh has 10 cm horizontal resolution."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section III, Equations (1)–(3); opening of Section IV",
+      "detail": "Locomotion is formulated as a POMDP. Observation combines proprioception and depth; simulator state also includes privileged information. Model and policy are learned simultaneously."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2, Section IV-A and Equation (4)",
+      "detail": "RSSM recurrence consumes previous h, z, and intervening actions every k steps. Observation-conditioned posterior, prior and decoder are specified; GRU, CNN and MLP components are described."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section IV-A, Equation (5) and adjacent explanation",
+      "detail": "World-model learning combines observation reconstruction and beta-weighted posterior/prior KL on trajectory segments; further RSSM training details are deferred to Dreamer references."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section IV-B, Equations (6)–(7) and final paragraph",
+      "detail": "Actor and critic receive stop-gradient h and current proprioception; critic also receives privileged information. PPO uses simulator data, explicitly without imagined model rollouts."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section IV-C, Environment",
+      "detail": "legged_gym/Isaac Gym supports 4,096 A1 instances on six terrains; curriculum, physical randomization, 50 Hz actions and 100 ms depth delay are described."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV-C, State and Action Space and Equation (8)",
+      "detail": "Proprioception has 45 dimensions; depth is 64 × 64 with 58° × 58° view. Twelve-dimensional actions offset standing joint positions; a PD controller uses zero target joint velocity."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV-C, Reward Function, Equations (9)–(11)",
+      "detail": "Tracking, obstacle penalties and an AMP discriminator-based style reward are described. Equation (9) prints a positive squared-error exponent divided by sigma; its value/sign and complete reward settings are not supplied."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Table I and Section V-A; PDF p. 5, Section V-A continuation",
+      "detail": "Table averages 100 trajectories over difficulties, defines N/A and excludes Teacher from boldface ranking. Gap and Tilt entries support the reported results. Blind removes depth; w/o Prop removes world-model proprioception. Teacher/Student are inapplicable to Tilt/Crawl. The ± statistic is not defined."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 4 left and Section V-B, Model Interval",
+      "detail": "Interval sweep covers k = 2–30; smaller intervals generally yield higher return. Around 40 ms acquisition/computation motivates k = 5, equivalent to 0.1 s."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 4 right and Section V-B, Training Length",
+      "detail": "Trajectory-length sweep is labeled in 0.1-second units; its highest plotted return is at 64 units. Authors describe one second as acceptable and select 6.4 seconds elsewhere."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 3 and Section V-B, Recurrent State Visualization",
+      "detail": "t-SNE displays terrain-associated recurrent-state clusters; authors note overlap between Slope and Climb and interpret separation as useful terrain representation."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 5 and Real World Prediction; PDF p. 6, opening continuation",
+      "detail": "Initial observation and action sequences generate predictions without intermediate depth images. Gap, Climb, Tilt and Crawl examples are qualitative; the text acknowledges Crawl shape mismatch while describing preserved passage position/angle."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section V-C, first paragraph",
+      "detail": "Onboard Jetson NX and Intel D435i are specified, with 60 Hz 424 × 240 depth, spatial/temporal filtering, 64 × 64 processing, 100 ms delay and PD gains 40/1.0. Five terrain types are evaluated; Slope is excluded as too easy."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 6, Gap/Climb/Tilt panels, legend and caption; Section V-C",
+      "detail": "Ten trials underlie success rates. WMP markers show 0.4 at Gap 85 cm, 0.6 at Climb 55 cm and 0.2 at Tilt 28 cm. Student and w/o Prop are zero at those Gap/Climb endpoints; w/o Prop is zero at Tilt 28 cm."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 7 and outdoor-evaluation paragraph",
+      "detail": "Outdoor snapshots accompany reported stair, platform, grass and gravel traversal, including platforms up to 45 cm; no outdoor trial count or success-rate table is given."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section VI, Conclusion",
+      "detail": "The authors attribute benefits to extracting historical perceptual information and propose mixed simulated/real training and tactile perception as future work."
+    }
+  ]
+}

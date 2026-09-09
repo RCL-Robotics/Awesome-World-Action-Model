@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-fd9fc6adf5b4623bf71d",
+  "shortTitle": "Audio World Models",
+  "thesis": "Predicting audio continuations gives a separate robot policy future context, but sparse comparisons leave the causal benefit and generalization uncertain.",
+  "standfirst": "A bottle can sound different while looking almost unchanged. This paper uses that asymmetry to predict future audio and feed it to a robot controller. The same modular idea also supplies forthcoming MIDI notes to a simulated piano player. Read the architecture as two distinct jobs: generating a sensory continuation and turning that continuation into actions. Then read the results with care: the water experiment reports physical success, while the music comparison supplies qualitative examples without numerical F1 scores. The most consequential training detail is that the policy learns with ground-truth future audio but receives generated audio during evaluation.",
+  "evidenceIds": [
+    "e02",
+    "e03",
+    "e09",
+    "e12",
+    "e14",
+    "e15"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 2,
+      "asset": "report-assets/ref-fd9fc6adf5b4623bf71d/architecture.png",
+      "width": 1381,
+      "height": 344,
+      "sourceSha256": "55fe5c9443e4ae32a93f9b5c6be2662e00aedec9aa5bb123ea50908201a36cbd",
+      "sourceUrl": "https://arxiv.org/pdf/2512.08405#page=2",
+      "crop": [
+        0.175,
+        0.1,
+        0.825,
+        0.225
+      ],
+      "alt": "Original architecture diagram: current spectrogram passes through an audio encoder, latent flow matching and audio decoder to a future spectrogram; image and future audio feed the robot policy. An inset marks button pressing, rising pitch and button releasing, beside bottle-filling and piano examples.",
+      "caption": "Audio prediction supplies future context to a separate action policy.",
+      "readingGuide": "Follow the top row from Current Spectrogram through Audio Encoder, Latent Flow Matching and Audio Decoder to Future Spectrogram. The downward arrow carries the future representation toward the policy input, while a separate camera image enters from the left. The caption and method text specify current audio as an additional policy input. In the water inset, the arrows identify pressing, rising pitch and releasing; these annotations motivate which temporal features the model should preserve. The two task pictures indicate applications, not competing branches of one trained controller: the piano experiment substitutes MusicVAE and SAC for the water task's representation and policy modules.",
+      "takeaway": "The source supports a modular information flow: future sensory prediction is an input to action generation, rather than a robot command itself. Separately trained modules also make the policy's dependence on prediction quality testable. The water inset illustrates why a continuation may reveal an approaching release event that a still image alone does not show.",
+      "caution": "Figure 1's caption describes policy training with predicted futures, but Learning Details on p. 3 explicitly specifies ground-truth futures for training and generated futures for evaluation. The detailed paragraph governs this reading. The diagram also omits the temporal-loss and inference-conditioning details.",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04",
+        "e05",
+        "e06",
+        "e08",
+        "e09",
+        "e11",
+        "e14"
+      ]
+    },
+    {
+      "id": "audio-predictions",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/ref-fd9fc6adf5b4623bf71d/audio-predictions.png",
+      "width": 1381,
+      "height": 320,
+      "sourceSha256": "55fe5c9443e4ae32a93f9b5c6be2662e00aedec9aa5bb123ea50908201a36cbd",
+      "sourceUrl": "https://arxiv.org/pdf/2512.08405#page=4",
+      "crop": [
+        0.175,
+        0.102,
+        0.825,
+        0.218
+      ],
+      "alt": "Two rows labeled Ground Truth and World Model compare three columns: green-blue water-filling spectrograms, orange-purple music spectrograms, and colored note bars on dark MIDI piano rolls. The music and water rows show similar broad patterns with visible local differences.",
+      "caption": "Qualitative continuations for water sounds and music, under different generation protocols.",
+      "readingGuide": "Read vertically within each column: Ground Truth is above World Model. The left column compares water spectrograms; the center shows music spectrograms; the right shows MIDI note patterns for the Nocturne example. The caption distinguishes closed-loop water predictions from autoregressive music generation, so the three columns are not a shared quantitative benchmark. Look for broad temporal and spectral organization, then inspect local mismatches rather than assuming similar color patterns imply identical signals. Use Section 3.1 on p. 3 for the water task outcome and Section 3.2 on this page for the piano evaluation description; neither measurement is plotted here.",
+      "takeaway": "The examples visually support the limited claim that generated audio representations retain recognizable temporal structure. Separately, the text reports 100% water-filling success over 30 trials and qualitative piano improvement against RL without lookahead. The figure does not supply a prediction-error statistic or a numerical measure of the piano controller's executed notes.",
+      "caution": "There are no calibrated axes, numerical F1 scores, uncertainty estimates, or ablation conditions in this figure. The paper's interpretation of the water release event is not a measured timing-error curve. Visual resemblance alone cannot establish a learned causal model of filling or successful piano execution.",
+      "evidenceIds": [
+        "e11",
+        "e12",
+        "e13",
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Separate predicting a sound from selecting an action",
+      "text": "The water task begins with a short observed audio window. AudioMAE compresses its spectrogram, and the latent flow model predicts a continuation that the decoder returns to spectrogram space. The action policy receives that future together with current audio and an image. This distinction matters because the paper's world model does not simulate outcomes for alternative candidate actions: its described conditioning is audio-based. The policy makes the action choice downstream. For music, the same separation becomes even clearer: predicted MIDI is converted into key and finger goals, while SAC produces joint actions. As reader analysis, the common mechanism is a controller supplied with predicted future sensory or goal information; an explicit inverse-dynamics formulation is not established for both implementations.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e08",
+        "e11",
+        "e14"
+      ]
+    },
+    {
+      "heading": "Understand which time axis the velocity loss regularizes",
+      "text": "Flow matching moves a noisy sample toward audio latents as the interpolation variable t advances from zero to one. Audio also has its own frame sequence, so there are two distinct notions of time. The additional velocity loss compares differences between adjacent audio-frame vector-field predictions and the corresponding target differences. It is intended to encourage temporal consistency, not to supervise robot speed. Robot end-effector velocities enter a separate policy-training loss. Preceding audio latents connect successive generation windows, with dropout applied to that history during training. The equations motivate a testable temporal-consistency hypothesis, but no loss-removal experiment is reported. The printed conditioning definition includes future target latents without an explicit evaluation-time construction, so a reproduction must resolve that ambiguity rather than silently supply ground truth.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e08",
+        "e17"
+      ]
+    },
+    {
+      "heading": "Follow the future-audio input across training and deployment",
+      "text": "Learning Details makes an easily missed distinction: the robot policy is trained using ground-truth future audio, then evaluated using audio generated by the world model. Separate training therefore gives the controller a clean future during learning and a potentially imperfect one at deployment. My interpretation is that this creates a specific distribution-shift question, not evidence that the method fails. The reported closed-loop water success shows that the full system can work in its stated setup, but there is no matched no-lookahead water baseline. The piano section names such a baseline yet omits its numerical F1 comparison. A useful reproduction should therefore distinguish the value of future information, the accuracy of its generator, and the controller's tolerance to prediction error. Those are different questions that the qualitative examples alone cannot settle.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e09",
+        "e11",
+        "e12",
+        "e15"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Is the future audio causally useful to water-filling control?",
+      "text": "Reader-proposed experiment: hold demonstrations, observed audio history, image input, policy capacity and evaluation containers fixed. Compare a matched policy without future input against policies given generated futures, time-shuffled futures and recorded true futures under a valid offline or repeatable replay protocol. Treat true futures only as an oracle diagnostic. Predefine fill-level tolerance, spill rate and release timing, and report outcomes across seeds and held-out trials. The anticipatory-control hypothesis predicts an advantage for correctly aligned generated futures over absent or shuffled futures. If shuffled futures perform equally well, or the oracle helps while generated futures do not, the interpretation changes. No such controlled experiment is reported here.",
+      "evidenceIds": [
+        "e03",
+        "e09",
+        "e10",
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "title": "Does temporal-difference supervision improve music control?",
+      "text": "Reader-proposed experiment: after resolving the source's evaluation-conditioning ambiguity, train otherwise matched MIDI world models with the full objective and with only the temporal-difference term removed. Keep splits, latent representation, optimization budget, inference steps and the downstream SAC policy fixed. Evaluate generation from identical 64-step prefixes; measure held-out continuation note F1, boundary timing discontinuities and executed-note F1 after conversion to goals. Repeat with declared random seeds. A benefit limited to smoother-looking music would not establish better control; the mechanism is supported more strongly if temporal regularization also improves executed-note F1. This proposal extends the source's qualitative music comparison and is not a reported ablation.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e09",
+        "e13",
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "notes": "All five original PDF pages were rendered and visually inspected. Page 1 establishes title, authors, affiliation and arXiv v1 date; page 2 supplies Figure 1 and the latent objectives; page 3 supplies inference, policy training, hardware, preprocessing, latency and water success; page 4 supplies Figure 2, piano protocol and conclusions; page 5 contains references. Both final figure crops were viewed and retain all diagram labels and result row/column labels while excluding captions and body text. Figure 1's training-caption discrepancy is disclosed above. There are no quantitative-table, ablation or appendix pages in the supplied PDF. No external supplements or cited resources were inspected."
+  },
+  "featuredResultTask": "Real-world water filling",
+  "visualLimitations": {
+    "kind": "analysis",
+    "text": "The complete supplied five-page paper contains exactly two figures: one method overview with a water-sound inset and one qualitative prediction comparison. Both are included as faithful full-figure crops. It contains no quantitative table and no ablation or separate diagnostic experiment, so this edition has two visuals instead of four to six. Water success is reported in prose; the piano section names F1 but gives no scores. Splitting or duplicating panels would not supply the missing experimental evidence.",
+    "evidenceIds": [
+      "e03",
+      "e12",
+      "e13",
+      "e15",
+      "e17"
+    ]
+  }
+}
