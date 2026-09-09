@@ -1,0 +1,288 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-c3cbdc6867eb310bf60b",
+  "shortTitle": "Mixture-of-Transformers",
+  "thesis": "MoT separates modality-specific transformer weights while retaining shared attention, improving multimodal learning efficiency at the cost of extra stored parameters and implementation-sensitive overhead.",
+  "standfirst": "Imagine processing a caption, its image and a speech segment in one sequence. A dense transformer applies the same weights to every position. MoT instead uses the token’s known modality to select its projections, feed-forward network and normalization, then lets the sequence communicate through global attention. The experiments ask whether this specialization reaches useful predictive performance with less training computation. The answer is strongest for image and speech modeling, with smaller benefits for text under Transfusion. This reading follows the original architecture, a configuration table, quantitative comparisons and a component ablation, while separating activated FLOPs, held-out quality and measured training time.",
+  "evidenceIds": [
+    "e-routing",
+    "e-parameter-boundary",
+    "e-chameleon-result",
+    "e-speech",
+    "e-text-boundary",
+    "e-systems"
+  ],
+  "featuredResultTask": "Chameleon 7B text/image validation efficiency",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 8,
+      "asset": "report-assets/ref-c3cbdc6867eb310bf60b/architecture.png",
+      "width": 1604,
+      "height": 1332,
+      "sourceSha256": "79eb51c94c39c824257c210b3d1975c4997e011b9cb3f1ee11aedd498c2f7af6",
+      "sourceUrl": "https://arxiv.org/pdf/2411.04996v2#page=8",
+      "crop": [
+        0.135,
+        0.198,
+        0.89,
+        0.682
+      ],
+      "alt": "Colored text, speech and image tokens pass through modality-specific projections and feed-forward blocks, sharing a central attention operation; adjacent panels contrast discrete prediction and continuous diffusion.",
+      "caption": "Separate weights process each modality; shared attention keeps the sequence connected.",
+      "readingGuide": "Read panel (a) from bottom to top. Yellow T, pink S and blue I tokens first enter modality indexing, then their respective embeddings and attention projections. The sequence-reordering buffer restores the interleaved stream before the green joint-attention block. Tokens are grouped again for modality-specific processing and then returned to the output queue. Algorithm 1 makes the post-attention output projection explicit, although the drawing compresses that operation. Panels (b) and (c) change the image prediction target: one discrete next token versus the next denoising state of continuous image tokens. The faded branches illustrate selective activation; they do not establish permanently frozen parameters.",
+      "takeaway": "MoT specializes token processing without removing cross-modal communication. A token uses the weights associated with its known modality, while attention can still incorporate permitted context from other modalities. The same architectural rule supports both autoregressive image tokens and image diffusion, so sparsity and the prediction objective are separate design choices.",
+      "caution": "Panel (c) says 1,000 diffusion steps; Section 3.4.1 specifies 250 at inference. The diagram does not show the attention mask: Appendix A.2 requires causal ordering across the sequence and bidirectional attention within an image. These details should be implemented from the text, preserving the original drawing.",
+      "evidenceIds": [
+        "e-routing",
+        "e-architecture",
+        "e-transfusion-objective",
+        "e-inference"
+      ]
+    },
+    {
+      "id": "transfusion-configuration",
+      "kind": "table",
+      "section": "mechanism",
+      "sourceLabel": "Table 4",
+      "page": 21,
+      "asset": "report-assets/ref-c3cbdc6867eb310bf60b/transfusion-configuration.png",
+      "width": 1615,
+      "height": 196,
+      "sourceSha256": "79eb51c94c39c824257c210b3d1975c4997e011b9cb3f1ee11aedd498c2f7af6",
+      "sourceUrl": "https://arxiv.org/pdf/2411.04996v2#page=21",
+      "crop": [
+        0.12,
+        0.254,
+        0.88,
+        0.325
+      ],
+      "alt": "Four Transfusion model configurations list model size, hidden dimension, layers, attention heads, sequence length, per-GPU batch, GPU count, token batch, steps and total tokens.",
+      "caption": "The Transfusion training budget is specified separately from model width and depth.",
+      "readingGuide": "Read each row as one model-scale configuration. The left columns determine the transformer geometry; the middle columns describe sequence length and distributed batch formation; the right columns report training exposure. The 760M row uses hidden dimension 1536, 24 layers and 24 attention heads, with sequence length 4096, batch size four per GPU and 128 GPUs. All rows list 250k steps and 0.524 trillion tokens. Section 3.4.1 additionally holds the U-Net parameter count at 0.27B across scales. That fixed count describes an architectural choice, not a frozen-module training stage, and must be considered when interpreting the abbreviated model-size labels.",
+      "takeaway": "This table makes the 760M-versus-1.4B comparison more informative than the size labels alone: training exposure is held approximately constant while the activated transformer configuration changes. It also gives a concrete starting point for reconstruction, but contains no benchmark scores and cannot itself establish a quality improvement.",
+      "caution": "The 7B Tokens/Batch cell literally reads 2.10N; no correction is supplied. The prose rounds 0.524T to 0.5T and calls four listed scales five. Preserve these discrepancies and confirm configuration details before exact replication.",
+      "evidenceIds": [
+        "e-transfusion-table",
+        "e-transfusion-setup",
+        "e-transfusion-small"
+      ]
+    },
+    {
+      "id": "chameleon-validation",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 5",
+      "page": 11,
+      "asset": "report-assets/ref-c3cbdc6867eb310bf60b/chameleon-validation.png",
+      "width": 1657,
+      "height": 1399,
+      "sourceSha256": "79eb51c94c39c824257c210b3d1975c4997e011b9cb3f1ee11aedd498c2f7af6",
+      "sourceUrl": "https://arxiv.org/pdf/2411.04996v2#page=11",
+      "crop": [
+        0.11,
+        0.105,
+        0.89,
+        0.614
+      ],
+      "alt": "Chameleon 7B loss curves, step-matching plots and eight validation bar charts compare dense, MoT, MoT at a 55.8% checkpoint and MoE-4x.",
+      "caption": "A checkpoint-level comparison supports the 55.8% validation-compute claim.",
+      "readingGuide": "Start with the bottom two rows, where the dark-red bars represent MoT stopped at 55.8% of the dense training budget. Compare each dark-red bar with its pale-blue dense counterpart within the same dataset and modality. These are the observations behind the headline validation efficiency claim. The upper curves explain why such a checkpoint is plausible: MoT reaches lower losses earlier. The upper-right matching plot compares required steps for corresponding loss levels; its displayed 0.455 slope summarizes global training loss, while the smaller image and text plots describe separate losses. Axes and vertical ranges vary across panels, so bar heights cannot be compared across datasets.",
+      "takeaway": "The early MoT checkpoint achieves comparable or lower validation losses on the displayed image and text evaluations. With the controlled per-step FLOPs used here, 55.8% of the training budget corresponds to 44.2% fewer FLOPs. This result supports faster attainment of the tested predictive-loss levels at 7B activated scale.",
+      "caution": "The 0.455 training-loss slope and the 55.8% validation checkpoint are different measurements. The paper does not show uncertainty across repeated training seeds here. Expert Choice routing also complicates interpretation of the MoE baseline’s validation loss.",
+      "evidenceIds": [
+        "e-chameleon-result",
+        "e-chameleon-setup",
+        "e-moe-caveat"
+      ]
+    },
+    {
+      "id": "transfusion-comparison",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 11",
+      "page": 20,
+      "asset": "report-assets/ref-c3cbdc6867eb310bf60b/transfusion-comparison.png",
+      "width": 1596,
+      "height": 885,
+      "sourceSha256": "79eb51c94c39c824257c210b3d1975c4997e011b9cb3f1ee11aedd498c2f7af6",
+      "sourceUrl": "https://arxiv.org/pdf/2411.04996v2#page=20",
+      "crop": [
+        0.126,
+        0.105,
+        0.877,
+        0.427
+      ],
+      "alt": "Training and matching plots compare smaller MoT models with a 1.4B dense model; labeled bars report CLIP, FID and CIDEr for dense, 163M MoT and 760M MoT.",
+      "caption": "Figure 11 reports stronger image generation and captioning from a smaller activated MoT backbone.",
+      "readingGuide": "Follow the three bottom panels separately. Higher CLIP scores indicate better prompt alignment, lower FID is the reported generation-quality criterion, and higher CIDEr evaluates captions. The dark-red 760M MoT bars beat the blue 1.4B dense bars in each panel. The lighter-red 163M model provides a useful boundary: reducing activated size further does not preserve all evaluation quality. The top row concerns diffusion training loss and required steps, so it should not be used as a substitute for the bottom evaluations. Generation uses 30,000 COCO validation prompts, while captioning uses the Karpathy test split; the default numerical protocol omits classifier-free guidance.",
+      "takeaway": "In this figure, 760M MoT obtains CLIP 0.214 versus 0.206, FID 21.145 versus 24.688, and CIDEr 0.320 versus 0.286. The authors associate this comparison with half the training/inference FLOPs. The improvement spans image generation and captioning, but does not establish an equivalent gain in text-only language modeling.",
+      "caution": "Figures 11 and 12 report conflicting FID values for corresponding model scales without a clear reconciliation. The values here belong specifically to Figure 11. Figure 10’s caption repeats this smaller-model comparison despite its 7B plots; neither discrepancy is silently repaired.",
+      "evidenceIds": [
+        "e-transfusion-small",
+        "e-transfusion-eval",
+        "e-transfusion-setup",
+        "e-numeric-discrepancies",
+        "e-transfusion-7b",
+        "e-text-boundary"
+      ]
+    },
+    {
+      "id": "component-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 14",
+      "page": 25,
+      "asset": "report-assets/ref-c3cbdc6867eb310bf60b/component-ablation.png",
+      "width": 1630,
+      "height": 371,
+      "sourceSha256": "79eb51c94c39c824257c210b3d1975c4997e011b9cb3f1ee11aedd498c2f7af6",
+      "sourceUrl": "https://arxiv.org/pdf/2411.04996v2#page=25",
+      "crop": [
+        0.118,
+        0.104,
+        0.885,
+        0.239
+      ],
+      "alt": "Four perplexity curves for Obelisc images/text and Shutterstock images/text compare dense, FFN-only specialization, attention-plus-FFN specialization with shared norms, and full MoT.",
+      "caption": "Attention specialization improves on FFN-only untying; norm untying adds little in this combination.",
+      "readingGuide": "Use the legend in the rightmost panel for all four plots. Blue is the dense baseline; orange, labeled MoMa, unties only the feed-forward module. Green uses MoT attention and feed-forward specialization while retaining shared normalization. Red is full MoT. Each vertical axis is perplexity, with lower values better, and horizontal axes show training steps. First compare orange with blue to locate the contribution of FFN untying, then compare green with orange to locate the additional attention contribution. Finally compare red with green. Their near overlap matters because the full architecture includes normalization specialization, but this particular evaluation does not show a substantial incremental benefit from it.",
+      "takeaway": "At the 880M Chameleon setting, both feed-forward and attention specialization improve held-out perplexity. Section 3.5 estimates that adding Q/K/V untying to FFN untying saves about 33.3% of image FLOPs and 10% of text FLOPs on Obelisc at matched performance. The curves support a stronger role for attention specialization than for the final normalization change.",
+      "caution": "These are nested ablations, not a full factorial test of every component. Footnote 7 explicitly leaves standalone normalization untying unresolved. The plots also lack repeated-seed uncertainty, so small separations should not be treated as established effects.",
+      "evidenceIds": [
+        "e-ablation"
+      ]
+    },
+    {
+      "id": "wall-clock",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 19",
+      "page": 34,
+      "asset": "report-assets/ref-c3cbdc6867eb310bf60b/wall-clock.png",
+      "width": 1632,
+      "height": 1375,
+      "sourceSha256": "79eb51c94c39c824257c210b3d1975c4997e011b9cb3f1ee11aedd498c2f7af6",
+      "sourceUrl": "https://arxiv.org/pdf/2411.04996v2#page=34",
+      "crop": [
+        0.116,
+        0.211,
+        0.884,
+        0.711
+      ],
+      "alt": "Chameleon 7B loss curves versus normalized wall-clock time and matching plots compare dense, MoT and MoE-4x for training and Obelisc validation.",
+      "caption": "The FLOP advantage becomes a training-time advantage in the reported A100 environment.",
+      "readingGuide": "Read the left plots as loss against elapsed training cost and the adjacent plots as time needed to match the dense model’s loss. The diagonal in each matching plot marks equal time; slopes below one favor the alternative. Image and text training occupy the upper two rows. The small bottom row repeats the comparison for held-out Obelisc data, which yields its own ratios. Section 6 specifies 256 A100 GPUs on AWS p4de.24xlarge instances, full-shard FSDP and PyTorch 2 Compiler where applicable. The horizontal axes are normalized, so the figure supports relative training-time comparisons rather than an absolute number of hours.",
+      "takeaway": "The image training-loss slope is 0.472 and the text slope is 0.756 for MoT. Held-out image/text slopes are instead 0.584 and 0.749. MoE-4x’s corresponding training slopes exceed one. This demonstrates practical value for the authors’ implementation and cluster, while retaining the distinction between training loss and validation.",
+      "caution": "These are training measurements, not serving throughput or perceptual-quality tests. Section 6 warns that relative performance can vary by cluster. Its separate GPU-scaling experiment also changes global batch and total tokens, so that experiment cannot isolate hardware count alone.",
+      "evidenceIds": [
+        "e-wall-clock",
+        "e-systems",
+        "e-scaling-control"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Follow one token without severing its context",
+      "text": "Consider an image token following a text caption. Algorithm 1 first groups it with other image tokens so the image-specific projections can be computed efficiently. Grouping does not authorize changing the sequence: the projected tokens return to their original order before attention. The image query can therefore receive information from allowed caption positions, even though the caption and image used different projection matrices. After attention, the image position again selects image-specific output and feed-forward parameters. Reader interpretation: the architecture changes how a modality processes information while preserving an interface for cross-modal exchange. The leave-one-out experiment supports this motivation conditionally: merging image and text weights removes much of their benefit, whereas merging image and speech hurts speech more strongly. Those asymmetric effects caution against treating all modality pairs as interchangeable.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-routing",
+        "e-loo"
+      ]
+    },
+    {
+      "heading": "Separate the image objective from the routing rule",
+      "text": "The Transfusion experiment changes what an image position represents. Instead of predicting the next discrete image token, the model receives noisy continuous patches and learns to predict their added noise. Appendix A compresses local VAE patch windows through a U-Net into 256 transformer tokens per image. The combined objective adds language-modeling loss to diffusion loss weighted by lambda, set to five. MoT supplies modality-specific transformer weights within this setup; it does not invent the diffusion objective. The attention mask is crucial: patches can communicate bidirectionally within their own image, while the surrounding sequence retains causal order. At generation time, BOI starts iterative denoising and EOI returns to text sampling. Reader interpretation: same-model media generation requires compatible representations, masks and decoding transitions, not merely summing two losses.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-transfusion-objective",
+        "e-inference",
+        "e-routing"
+      ]
+    },
+    {
+      "heading": "Ask which budget and which outcome improved",
+      "text": "Begin with Figure 5’s stopped checkpoint: it is evidence about validation loss at a reduced training budget. Then inspect Figure 11, where a smaller activated MoT model improves generation and captioning metrics, but retain that figure’s numbers because Figure 12 disagrees on FID. Finally use Figure 19 to ask whether the computational saving survives communication and indexing overhead. Its training and validation slopes differ, and its hardware setting matters. Reader interpretation: these comparisons form complementary tests rather than a universal speedup multiplier. The Transfusion text-only results provide a counterexample to uniform benefit, while the preliminary text-MoE hybrid suggests a way to improve that branch. A faithful reproduction should decide its target metric and budget first, then evaluate all alternatives with that same definition.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-chameleon-result",
+        "e-transfusion-small",
+        "e-numeric-discrepancies",
+        "e-wall-clock",
+        "e-systems",
+        "e-text-boundary",
+        "e-hybrid"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does Q/K/V untying add a repeatable benefit beyond FFN untying?",
+      "text": "Reader-proposed check: reproduce the four Figure 14 variants using the 880M configuration and a fixed text/image training sequence, tokenizer, optimizer and FLOP budget. Run at least three seeds and evaluate separate image/text perplexities on identical held-out data at prespecified checkpoints. Add a normalization-only variant to test the component not isolated by the paper. Report active and stored parameters separately. The attention hypothesis is weakened if FFN+Q/K/V no longer reaches the FFN-only target loss earlier beyond seed variability. If the original corpus is unavailable, label an explicitly documented public-data substitute as a mechanism test, not exact replication.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-chameleon-setup",
+        "e-parameter-boundary"
+      ]
+    },
+    {
+      "title": "Does faster convergence survive a fixed token budget and identical systems controls?",
+      "text": "Reader-proposed check: compare dense and MoT on the same A100 hardware, data order, global batch, total tokens and held-out loss target. Repeat at two GPU counts, using gradient accumulation to preserve global batch rather than increasing training exposure. Match FSDP and compilation settings, then record time per step, peak memory, synchronization overhead and total time to the target. MoT’s practical advantage is falsified for that setting if reduced steps fail to reduce end-to-end time. Report both image and text outcomes; the paper’s differing ratios make either modality alone an incomplete test.",
+      "evidenceIds": [
+        "e-systems",
+        "e-wall-clock",
+        "e-scaling-control"
+      ]
+    }
+  ],
+  "visualLimitations": {
+    "kind": "source",
+    "text": "The paper’s five tables describe datasets or training configurations; it has no tabular benchmark-results comparison. This edition therefore includes original Table 4 for quantitative configuration details and original result plots for measured outcomes. Fine-tuned generation/editing is illustrated qualitatively without an aggregate success table.",
+    "evidenceIds": [
+      "e-chameleon-setup",
+      "e-speech",
+      "e-transfusion-table",
+      "e-ablation",
+      "e-finetuning"
+    ]
+  },
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      6,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      19,
+      20,
+      21,
+      22,
+      23,
+      25,
+      26,
+      27,
+      28,
+      30,
+      31,
+      32,
+      33,
+      34,
+      42,
+      43,
+      44,
+      48
+    ],
+    "notes": "Visually inspected the title/author/version page, routing equations and Algorithm 1, Figures 3, 5–8, 10–12, 14–15, 17–22 and 26, Tables 1–5, and the method, evaluation, systems and appendix pages supporting retained claims. Inspected each of the six final original crops; the corrected Figure 5 crop was inspected again. Cross-checked Figure 3’s processing order against Algorithm 1 and Appendix A.2’s mask and inference rules. Preserved the 1,000/250 diffusion-step discrepancy, Figure 10 caption/scale mismatch, Figures 11–12 numerical differences and Table 4’s 2.10N cell. Figure 15’s duplicated Image label and Appendix B’s reversed qualitative figure references remain source discrepancies. All 48 pages were covered by the 13 text chunks; figures on other pages were not visually reviewed. No code, external supplements or reproduction runs were inspected."
+  }
+}
