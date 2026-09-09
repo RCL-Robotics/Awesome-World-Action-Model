@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-d059266d6f51d5e33520",
+  "shortTitle": "DREAMWALKER",
+  "thesis": "A learned panoramic world model makes short-horizon waypoint search useful for continuous navigation, while prediction errors and goal-distance estimation limit the benefit of imagining further.",
+  "standfirst": "Following an instruction through an unfamiliar building requires choosing paths before seeing what lies around the next corner. DREAMWALKER makes those choices by maintaining a waypoint graph, generating possible future panoramas, and scoring imagined continuations with an instruction-conditioned distance estimator. Its reported gains concern low-level navigation in simulated continuous environments. The central reading question is how useful search survives imperfect visual predictions. Read the architecture and MCTS diagrams first, then separate ordinary benchmark performance from privileged-information ablations. Finally, compare planning depth with synthesis drift. Several inconsistencies in the published equations and implementation descriptions matter for anyone trying to reproduce the reported behavior.",
+  "evidenceIds": [
+    "e02",
+    "e03",
+    "e04",
+    "e05",
+    "e06",
+    "e07",
+    "e11",
+    "e12",
+    "e15",
+    "e18"
+  ],
+  "featuredResultTask": "VLN-CE test navigation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure I",
+      "page": 11,
+      "asset": "report-assets/ref-d059266d6f51d5e33520/architecture.png",
+      "width": 1386,
+      "height": 657,
+      "sourceSha256": "927fc75286d9f782803bb1508407e3351956ff93a38dbd7aef0e3b976faf7500",
+      "sourceUrl": "https://arxiv.org/pdf/2308.07498#page=11",
+      "crop": [
+        0.08,
+        0.093,
+        0.895,
+        0.392
+      ],
+      "alt": "Two linked pipelines turn RGBD subviews into waypoint candidates and use point-cloud projection plus a generator to attach imagined panoramic observations to a hypothetical environment graph.",
+      "caption": "Geometry supplies a partial view; learned synthesis fills the unseen content used for planning.",
+      "readingGuide": "Start at the upper left: panoramic RGBD subviews enter the waypoint network, which produces a heatmap and candidate positions. Filled blue circles denote visited waypoints; yellow rings denote unvisited ones. Follow the candidate translation downward into the scene synthesizer. The lower branch converts a panorama and its RedNet semantic estimate into a point cloud, reprojects it from the candidate position, and feeds guidance images into a generator. The synthesized panorama then moves upward into the graph in 'Mind'. The bidirectional equirectangular arrow reconciles the subview and panoramic representations; it does not signify executed movement. Actual navigation happens after the separate planner selects an action.",
+      "takeaway": "The world model has explicit geometry and memory as well as learned image completion. Its output is a hypothetical observation associated with a candidate waypoint, enabling another round of imagined expansion. The source describes the synthesizer as independently trained, so the diagram supports a modular model-and-planner interpretation rather than one joint action decoder.",
+      "caution": "Figure I labels guidance as RGB/semantic, while §I also specifies depth guidance and the original RGB input to the generator. Those textual inputs are not fully drawn. Sparse projections and mesh-intersecting waypoints remain documented failure cases.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e09",
+        "e16"
+      ]
+    },
+    {
+      "id": "mental-planning",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 5,
+      "asset": "report-assets/ref-d059266d6f51d5e33520/mental-planning.png",
+      "width": 994,
+      "height": 508,
+      "sourceSha256": "927fc75286d9f782803bb1508407e3351956ff93a38dbd7aef0e3b976faf7500",
+      "sourceUrl": "https://arxiv.org/pdf/2308.07498#page=5",
+      "crop": [
+        0.505,
+        0.083,
+        0.895,
+        0.237
+      ],
+      "alt": "Four MCTS panels show maximum-UCT branch selection, addition of a leaf, a distance-guided rollout of K steps, and upward reward backup.",
+      "caption": "Search evaluates several imagined continuations before committing to one root action.",
+      "readingGuide": "Read the panels from left to right. Each small graph is a whole possible environment state, not a single physical location. Selection follows maximum UCT, balancing estimated action value against visit-count exploration. 'Extension' in the graphic corresponds to expansion in the text: a new leaf receives an imagined state. Rollout samples additional waypoint transitions using the distance function, with K marking the maximum depth. The right-hand upward arrow backs the resulting reward through the tree. The outer loop repeats this process. After search, Eq. (7) selects the root edge with greatest Q; the exploration bonus is used for search selection, not the final action.",
+      "takeaway": "Imagined futures directly participate in inference. The system executes the selected waypoint through low-level actions, refreshes its real graph after a first visit, and plans again. Selecting an already visited waypoint instead triggers movement there followed by stop, a specific termination mechanism that a reproduction must preserve.",
+      "caution": "The arrows agree with the four-phase description, but reward/rollout signs in Eqs. (11)–(12) conflict with distance-reduction intuition. Algorithm I also differs from Eqs. (4),(6) in exploration scaling and backup. The graphic does not resolve those numerical ambiguities.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e18"
+      ]
+    },
+    {
+      "id": "benchmark",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 7,
+      "asset": "report-assets/ref-d059266d6f51d5e33520/benchmark.png",
+      "width": 1449,
+      "height": 343,
+      "sourceSha256": "927fc75286d9f782803bb1508407e3351956ff93a38dbd7aef0e3b976faf7500",
+      "sourceUrl": "https://arxiv.org/pdf/2308.07498#page=7",
+      "crop": [
+        0.088,
+        0.089,
+        0.656,
+        0.193
+      ],
+      "alt": "VLN-CE comparison table with seen validation, unseen validation and test columns; DREAMWALKER reports SR 59, 49 and 49 and SPL 48, 44 and 44.",
+      "caption": "DREAMWALKER improves reported success across the three splits, with distinct baseline gaps.",
+      "readingGuide": "First choose a split, then compare matching metric columns within that block. SR is success rate, OR is oracle success rate, SPL weights success by path length, NE is navigation error, and TL is traveled length. The source prioritizes SR; lower NE and higher SR, OR and SPL are preferred. For held-out test scenes, compare DREAMWALKER's last row with Sim2Sim and BridgingGap. Keep success improvements separate from path cost: DREAMWALKER's test TL is 11.8 m, between those baselines' 11.4 and 13.3 m. These are continuous-environment simulator episodes, with the success criterion defined by stopping near the target.",
+      "takeaway": "On test, DREAMWALKER reports 49% SR and 44 SPL, compared with Sim2Sim's 44% and 37 and BridgingGap's 42% and 36. These are gains of five and seven SR percentage points respectively. On unseen validation, its 49% SR exceeds BridgingGap's 44%.",
+      "caution": "Table 1's original caption mistakenly describes component impacts. Its seen SR values imply a nine-point gain over BridgingGap, although §4.3 says seven. No seeds or uncertainty are reported; identical baseline compute and evaluator configurations are not established.",
+      "evidenceIds": [
+        "e02",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "id": "component-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "asset": "report-assets/ref-d059266d6f51d5e33520/component-ablation.png",
+      "width": 1204,
+      "height": 264,
+      "sourceSha256": "927fc75286d9f782803bb1508407e3351956ff93a38dbd7aef0e3b976faf7500",
+      "sourceUrl": "https://arxiv.org/pdf/2308.07498#page=7",
+      "crop": [
+        0.418,
+        0.22,
+        0.89,
+        0.3
+      ],
+      "alt": "Component comparison showing ordinary DREAMWALKER, Perfect Imagination, Copy Memory and Greedy Selection across seen and unseen navigation metrics.",
+      "caption": "Oracle views, memory copying, and greedy decisions expose different limits of imagined planning.",
+      "readingGuide": "Use the first row as the ordinary learned system. 'Perfect Imagination' replaces predicted future scenes with the actual observations at those locations, granting information the ordinary agent cannot access. 'Copy Memory' uses the nearest stored observation as its future prediction. 'Greedy Selection' chooses a currently visible waypoint from estimated goal distance without explicit lookahead planning. Read the unseen block for generalization: its SR column is 49, 54, 27 and 42 from top to bottom. Then inspect SPL in the same block to check whether better success comes with useful path efficiency. Keep these interventions conceptually separate: they change different parts of the decision process.",
+      "takeaway": "DREAMWALKER exceeds the greedy control by seven unseen SR percentage points and eight SPL points. Copying memory is substantially worse. Replacing synthesis with actual future views adds five SR points, suggesting remaining headroom in the world model under this particular planner and distance estimator.",
+      "caution": "Perfect Imagination is an oracle diagnostic, not an attainable deployment result or universal upper bound. Copy Memory changes the quality and content of predictions, so its gap does not isolate the value of MCTS alone. The table supplies no uncertainty.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "id": "planning-horizon",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 8,
+      "asset": "report-assets/ref-d059266d6f51d5e33520/planning-horizon.png",
+      "width": 1308,
+      "height": 287,
+      "sourceSha256": "927fc75286d9f782803bb1508407e3351956ff93a38dbd7aef0e3b976faf7500",
+      "sourceUrl": "https://arxiv.org/pdf/2308.07498#page=8",
+      "crop": [
+        0.085,
+        0.193,
+        0.598,
+        0.28
+      ],
+      "alt": "Planning horizons zero, two, four and six give unseen success rates 42, 47, 49 and 48, with runtimes 0.09, 1.15, 1.43 and 2.05 seconds per step.",
+      "caption": "Four imagined steps give the strongest tested horizon tradeoff on unseen validation.",
+      "readingGuide": "The first substantive column sets the maximum imagined trajectory length. Table 4's caption fixes the maximum search rounds at 50, so the primary intervention is planning horizon. Horizon zero matches the greedy setting: no future rollout is used. Compare the unseen SR and SPL columns before looking at runtime on the far right. Moving from zero to four steps increases SR from 42 to 49 and SPL from 36 to 44. Going further to six steps reduces these to 48 and 41 while runtime rises. Runtime is reported per step; the source does not fully specify how that timing was measured.",
+      "takeaway": "In this sweep, more imagination helps up to four steps, then costs more without improving navigation. The six-step configuration takes 2.05 s/step against 1.43 for four steps. This supports a bounded-horizon design choice, while Figure 5 motivates the possibility that poorer distant predictions help explain the reversal.",
+      "caution": "Horizon changes both prediction depth and computation. No confidence intervals establish whether a one-point SR difference is reliable. The training GPU is specified elsewhere, but the runtime table does not explicitly identify its measurement hardware.",
+      "evidenceIds": [
+        "e08",
+        "e12",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "id": "prediction-drift",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 5",
+      "page": 8,
+      "asset": "report-assets/ref-d059266d6f51d5e33520/prediction-drift.png",
+      "width": 1013,
+      "height": 783,
+      "sourceSha256": "927fc75286d9f782803bb1508407e3351956ff93a38dbd7aef0e3b976faf7500",
+      "sourceUrl": "https://arxiv.org/pdf/2308.07498#page=8",
+      "crop": [
+        0.603,
+        0.084,
+        0.901,
+        0.262
+      ],
+      "alt": "FID versus prediction step: a green unseen curve lies above a yellow dashed seen curve, and both generally rise with deeper prediction.",
+      "caption": "Longer imagined trajectories drift further from the distribution of observed panoramas.",
+      "readingGuide": "The horizontal axis is prediction step, and the vertical axis is Fréchet Inception Distance between synthesized views and corresponding ground-truth scenes as described in §4.7. The yellow dashed line is the seen setting and the green solid line is unseen. Follow each curve along the horizontal axis: both generally rise as predictions extend further, with brief flat stretches. The unseen curve remains above the seen curve. Compare this tendency with Table 4 rather than interpreting a plotted FID value as an episode success probability. The graph is a diagnostic of synthesis fidelity; it does not show the selected action or the correctness of a particular route.",
+      "takeaway": "The observed trend is consistent with recursive prediction accumulating error, and unseen scenes are harder for synthesis throughout the displayed sweep. Together with the horizon table, it motivates limiting imagined depth. The paper attributes the weakening of long-horizon planning to overloaded world-model capacity, but the plot alone does not isolate that cause.",
+      "caution": "FID is not a direct test of obstacle geometry, goal-distance calibration, or executable paths. This figure provides neither error bars nor a complete FID sampling and feature-extraction protocol. Exact point values are not tabulated, so this reading retains the qualitative trend.",
+      "evidenceIds": [
+        "e15",
+        "e16"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Turn a continuous building into a graph that can be extended in imagination",
+      "text": "The agent begins with an instruction and panoramic RGBD observations, not a preloaded navigation graph. A waypoint predictor gives nearby candidate positions; the environment graph records observations at locations actually reached and their geometric relationships. To reason about a candidate before moving, the scene synthesizer first uses depth to reproject known content into that viewpoint. Learned generation completes the missing regions, producing a panorama that can itself support another predicted waypoint. This separates the current episode's memory from general scene knowledge learned during training. In the supplement, semantic information comes from RedNet and accompanies the geometric synthesis pipeline. The distinction between actual and imagined observations is essential: an appealing generated doorway is a hypothesis, and collision can make the reached location differ from the intended waypoint.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04",
+        "e09",
+        "e16"
+      ]
+    },
+    {
+      "heading": "Teach a distance estimator to score graphs containing synthetic observations",
+      "text": "A graph attention network combines visual waypoint features, geometric edges and the instruction; a small MLP estimates remaining goal distance for each node. Training progressively builds graphs along target-directed trajectories and adds random accessible alternatives, so the estimator sees more than one narrow demonstration path. It first learns from real observations, then receives graphs with some observations replaced by the synthesizer's outputs. At inference, this estimator helps score and sample imagined continuations inside MCTS. The search expands candidate states, estimates rollout value and propagates it toward the root before selecting a waypoint. The source's intended role is to prefer progress toward the goal. Its printed positive distance softmax and distance-increase reward remain inconsistent with that role, so a faithful implementation requires resolving the signs rather than assuming a correction.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e08",
+        "e18"
+      ]
+    },
+    {
+      "heading": "Separate the value of prediction from the value of a good goal score",
+      "text": "The ablations probe two different bottlenecks. Perfect Imagination changes the observations available to search, while ground-truth distance replacement changes how imagined outcomes are scored. Neither intervention is available to the ordinary deployed policy. Reader analysis: their benefits suggest that plausible visual futures are useful only when the scorer ranks their relevance to the instruction correctly. The greedy comparison provides evidence for lookahead within this architecture, but does not establish that every world model needs MCTS. Likewise, the horizon sweep and rising FID support a short planning horizon without proving that image error alone causes the six-step decline. A stronger causal test would independently vary observation accuracy and distance accuracy while holding waypoint candidates, search budget and evaluation episodes fixed, then check which intervention restores the benefit of deeper planning.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e12",
+        "e13",
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Resolve reward signs and MCTS backup semantics before benchmark training",
+      "text": "Reader-proposed check, not executed: construct a small deterministic waypoint graph with known goal distances, one progress branch, one regress branch, and stopping states on either side of the 3 m threshold. Compare the printed Eqs. (11)–(12) with explicitly sign-reversed progress variants, holding candidate order, visits, random seeds and rollout depth fixed. Record rollout probabilities, backed-up Q values and selected root actions. Separately compare Eq. (6)'s recursive backup with Algorithm I's depth-discounted accumulation; keep the UCT coefficient matched when testing its factor-two difference. A progress-consistent variant should favor the nearer branch and valid stop. Failure to do so would falsify the proposed correction; success would still not identify which implementation generated the paper's results.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e18"
+      ]
+    },
+    {
+      "title": "Factor observation accuracy and distance accuracy across planning horizons",
+      "text": "Reader-proposed check, not executed: on the same VLN-CE val-unseen episodes, compare learned versus actual future observations crossed with learned versus ground-truth distances, at horizons two, four and six with 50 search rounds. Freeze candidate waypoint sets for each matched search state to prevent improved synthesis from silently changing the action space; use the same initial graphs and random seeds. Report SR, SPL, distance-estimation error, decision latency and paired episode uncertainty. The actual-observation and ground-truth-distance conditions are diagnostics only. If prediction drift limits depth, actual observations should reduce the four-to-six-step loss with the scorer held fixed. If oracle distances remove that loss while actual views do not, scoring rather than image fidelity is the stronger bottleneck.",
+      "evidenceIds": [
+        "e10",
+        "e12",
+        "e13",
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+    ],
+    "notes": "Visually inspected the title/version/author page; all main and supplementary method, training, evaluation and discussion pages; Figures 1–6 and I–V; Tables 1–4; and Algorithm I. All six final crops were viewed with readable labels, axes and legends. Figure I's abbreviated input labels were checked against supplementary §I; Figure 3's arrows and selection rule were checked against Eqs. (4)–(13) and Algorithm I. Equation/pseudocode, backbone and results-prose discrepancies are preserved in the reading. References on pp. 17–19 were read as text; cited external works and the linked code were not inspected. No separately hosted supplement or physical experiment was reviewed."
+  }
+}
