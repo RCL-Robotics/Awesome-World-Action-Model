@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-5514771916f15e54d7e6",
+  "shortTitle": "DINO",
+  "thesis": "DINO improves object detection by choosing image-specific anchor positions, teaching noisy anchors when to reject objects, and sharing box supervision across adjacent decoder layers.",
+  "standfirst": "DINO asks how a Transformer detector can learn accurate object sets quickly while remaining competitive at larger scale. Its answer combines three changes to the query pipeline: initialize positions from the image, train on both reconstructable and rejectable noisy anchors, and let later box predictions supervise an adjacent earlier refinement. The figures below connect those operations to a diagnostic and two quantitative comparisons. Read the results with their configurations attached: the longer-training comparison uses unequal epoch budgets, and the component ablation has a different endpoint from the revised main table. This edition reviews the supplied July 2022 arXiv v4, not a separately verified ICLR 2023 edition.",
+  "evidenceIds": [
+    "e01",
+    "e04",
+    "e05",
+    "e07",
+    "e08",
+    "e10",
+    "e11",
+    "e13"
+  ],
+  "featuredResultTask": "COCO val2017 object detection with longer training",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 6,
+      "asset": "report-assets/ref-5514771916f15e54d7e6/architecture.png",
+      "width": 1414,
+      "height": 499,
+      "sourceSha256": "2cda48e74a49e3552aedbf61bc6436767ed3867cb710bbd2b79e48624fd66126",
+      "sourceUrl": "https://arxiv.org/pdf/2203.03605#page=6",
+      "crop": [
+        0.095,
+        0.065,
+        0.915,
+        0.26
+      ],
+      "alt": "Multi-scale image features and positional embeddings feed an encoder. Query selection initializes decoder anchors, encoder outputs provide keys and values, and separate learned content queries and noisy ground-truth queries enter the decoder.",
+      "caption": "Encoder evidence supplies anchor positions and attention memory; a separate denoising branch supplies training supervision.",
+      "readingGuide": "Start at the feature maps on the left and follow the flattening arrows into the encoder. The encoder outputs have two destinations: the decoder’s key/value input and the query-selection block. Follow the latter’s long arrow to the decoder’s initial anchors. The content queries enter separately as learnable parameters; the caption explicitly distinguishes them from selected encoder features. On the far right, positive and negative ground-truth perturbations occupy the CDN branch, beside the matching queries. The vertical repetition labels N and M denote encoder and decoder layer counts. The drawing combines the ordinary prediction pathway with the additional training pathway.",
+      "takeaway": "DINO separates where a query starts from the content it will gather. Image-conditioned anchors provide spatial guidance, while decoder attention builds content for classification. The noisy-ground-truth branch supervises that shared detector during training; the source describes final inference outputs as object boxes and classes.",
+      "caution": "Figure 2 is an architectural overview, not a complete attention-mask or loss specification. Ground-truth inputs belong to denoising training. The diagram contains no temporal rollout, action prediction or interaction with an environment.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e07"
+      ]
+    },
+    {
+      "id": "contrastive-denoising",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 8,
+      "asset": "report-assets/ref-5514771916f15e54d7e6/contrastive-denoising.png",
+      "width": 1164,
+      "height": 528,
+      "sourceSha256": "2cda48e74a49e3552aedbf61bc6436767ed3867cb710bbd2b79e48624fd66126",
+      "sourceUrl": "https://arxiv.org/pdf/2203.03605#page=8",
+      "crop": [
+        0.16,
+        0.052,
+        0.835,
+        0.258
+      ],
+      "alt": "Two denoising groups each contain positive and negative queries. Positive outputs lead to reconstruction loss and negatives to no-object targets. Concentric colored squares illustrate inner positive and outer negative noise regions.",
+      "caption": "Each denoising group pairs reconstruction targets with nearby background targets.",
+      "readingGuide": "Read each group from the query tokens at the bottom through the shared decoder to the targets at the top. Yellow positives lead to reconstruction loss; brown negatives lead to “no object.” The concentric squares at right are a conceptual view of perturbation magnitude around a ground-truth box. Section 3.3 specifies positive noise below λ1 and negative noise greater than λ1 but below λ2, consistent with the inner and outer regions in the caption. The actual anchors have four coordinates; this two-dimensional illustration does not describe literal square regions on the input image. Multiple groups repeat this supervision with perturbed examples.",
+      "takeaway": "The contrast is between two supervised responses to noisy anchors: recover an object or reject the candidate. Positive box reconstruction uses L1 and GIoU plus focal classification loss; negative queries use background focal loss. This extends reconstruction-only denoising with an explicit rejection target.",
+      "caution": "The graphic does not show a feature-similarity contrastive objective. Its spatial analogy is schematic. Appendix D.3’s noise radii and Table 8’s noise-scale entry are not explicitly reconciled, so the drawing alone cannot determine a reproduction’s sampling configuration.",
+      "evidenceIds": [
+        "e05",
+        "e21",
+        "e22"
+      ]
+    },
+    {
+      "id": "look-forward-twice",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 6",
+      "page": 10,
+      "asset": "report-assets/ref-5514771916f15e54d7e6/look-forward-twice.png",
+      "width": 1432,
+      "height": 371,
+      "sourceSha256": "2cda48e74a49e3552aedbf61bc6436767ed3867cb710bbd2b79e48624fd66126",
+      "sourceUrl": "https://arxiv.org/pdf/2203.03605#page=10",
+      "crop": [
+        0.09,
+        0.765,
+        0.92,
+        0.91
+      ],
+      "alt": "Side-by-side box-refinement graphs compare look forward once and twice. Dashed arrows mark gradient detachment; the twice graph adds separate prediction routes using undetached boxes and adjacent offsets.",
+      "caption": "Look forward twice changes the supervised gradient route while retaining detached refinement inputs.",
+      "readingGuide": "Use the dashed-arrow legend first: a dashed connection preserves the forward box value but detaches its gradient. In both panels, follow the lower sequence from an undetached refined box b_i′ to its detached counterpart b_i and then to the next layer’s offset. The right panel separates the supervised predictions from that refinement sequence. Equation (2) resolves the exact operation: the prediction at layer i combines the preceding undetached box b_(i−1)′ with offset Δb_i. That distinction lets the adjacent prediction loss affect an earlier refinement. The equation and footnote, rather than the schematic arrow geometry, define the normalized-coordinate box update.",
+      "takeaway": "“Twice” describes reuse of a predicted offset in the training graph. The next supervised prediction can improve the preceding box estimate as well as its own offset. It does not prescribe running the complete detector twice or eliminating all gradient detachment between layers.",
+      "caution": "The claimed benefit is conditional on the training design. Table 4 measures this addition after mixed query selection, rather than across every component combination. The source’s Update operation uses inverse-sigmoid/sigmoid coordinates, not raw coordinate addition.",
+      "evidenceIds": [
+        "e08",
+        "e13"
+      ]
+    },
+    {
+      "id": "anchor-diagnostic",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 4",
+      "page": 9,
+      "asset": "report-assets/ref-5514771916f15e54d7e6/anchor-diagnostic.png",
+      "width": 1444,
+      "height": 469,
+      "sourceSha256": "2cda48e74a49e3552aedbf61bc6436767ed3867cb710bbd2b79e48624fd66126",
+      "sourceUrl": "https://arxiv.org/pdf/2203.03605#page=9",
+      "crop": [
+        0.08,
+        0.352,
+        0.917,
+        0.535
+      ],
+      "alt": "Three epoch plots compare yellow DN and blue DINO curves: ATD(100) on all objects, ATD(100) on small objects, and small-object AP. Small-object distance is generally lower and later small-object AP higher for DINO.",
+      "caption": "A tail-distance diagnostic makes the small-object anchor-selection hypothesis more specific.",
+      "readingGuide": "Read the legend independently in each panel: yellow is DN and blue is DINO. Panels (a) and (b) report ATD(100), so lower is better: Equation (1) averages the 100 largest L1 distances between ground-truth boxes and the initial anchors whose final predictions match them. Panel (a) pools all objects; panel (b) restricts to small objects. Panel (c) changes metric and epoch range, showing small-object AP, where higher is better. Its vertical axis uses fractional values, unlike the AP-point notation in the tables. Compare trends within panels rather than treating their different vertical scales as directly comparable.",
+      "takeaway": "The all-object distance curves are similar, while the small-object diagnostic more often favors DINO. The accompanying text reports a 1.3 AP-point small-object gain over DN in the 12-epoch ResNet-50 setting. The evidence focuses the authors’ explanation on anchor quality for small objects rather than uniform improvement across all anchors.",
+      "caution": "ATD is computed after matching final predictions and measures a selected tail of initial-anchor distances. It is not final-box error or a direct duplicate count. These curves show no uncertainty bands and do not prove that ATD causally mediates the AP gain.",
+      "evidenceIds": [
+        "e06",
+        "e05"
+      ]
+    },
+    {
+      "id": "longer-training-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 13,
+      "asset": "report-assets/ref-5514771916f15e54d7e6/longer-training-results.png",
+      "width": 1455,
+      "height": 695,
+      "sourceSha256": "2cda48e74a49e3552aedbf61bc6436767ed3867cb710bbd2b79e48624fd66126",
+      "sourceUrl": "https://arxiv.org/pdf/2203.03605#page=13",
+      "crop": [
+        0.078,
+        0.052,
+        0.922,
+        0.323
+      ],
+      "alt": "ResNet-50 COCO val2017 detection table lists training epochs and AP metrics. DN-Deformable-DETR reaches 48.6 AP at 50 epochs; DINO reaches 50.4 or 51.3 at 24 epochs and 50.9 or 51.2 at 36 epochs.",
+      "caption": "DINO exceeds the listed DN baseline with fewer training epochs, with separate four- and five-scale configurations.",
+      "readingGuide": "Read the Epochs column before the bold AP values. The DN-Deformable-DETR reference row is a 50-epoch model, whereas DINO’s first two rows use 24 epochs and its final two use 36. Within each DINO pair, distinguish four scales from five scales. The parenthetical AP increments use the 48.6 baseline; they are AP-point differences, not relative percentages. AP50 and AP75 report the table’s IoU-specific measures, while the S, M and L subscripts separate object sizes. The caption fixes the shared backbone and evaluation split as ResNet-50 and COCO val2017, but does not make the training budgets identical.",
+      "takeaway": "At 24 epochs, four-scale DINO reaches 50.4 AP and five-scale DINO 51.3, compared with 48.6 for the 50-epoch DN baseline. The five-scale score is 51.2 at 36 epochs, so longer training does not produce a monotonic gain for every configuration in this table.",
+      "caution": "Epoch count is not elapsed compute. Table 1 reports a substantial throughput difference between DINO’s four- and five-scale models. Table 2 provides no variability estimates, so its small within-family differences should not be interpreted as statistically established effects.",
+      "evidenceIds": [
+        "e09",
+        "e11",
+        "e10"
+      ]
+    },
+    {
+      "id": "component-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 15,
+      "asset": "report-assets/ref-5514771916f15e54d7e6/component-ablation.png",
+      "width": 1457,
+      "height": 298,
+      "sourceSha256": "2cda48e74a49e3552aedbf61bc6436767ed3867cb710bbd2b79e48624fd66126",
+      "sourceUrl": "https://arxiv.org/pdf/2203.03605#page=15",
+      "crop": [
+        0.078,
+        0.052,
+        0.923,
+        0.168
+      ],
+      "alt": "Six ablation rows add engineering optimization, pure then mixed query selection, look forward twice, and contrastive denoising. Overall AP rises from 43.4 to 47.9; columns show which components are enabled.",
+      "caption": "The component table separates engineering gains from the three proposed changes.",
+      "readingGuide": "Follow the row descriptions and component columns together. QS means query selection, CDN means contrastive denoising and LFT means look forward twice. Row 2 first improves DN-DETR with pipeline engineering. Row 3 adds pure query selection and forms the strong baseline. Row 4 changes that selection to mixed, row 5 adds LFT, and row 6 adds CDN; the checkmarks agree with those descriptions. Read the AP column for overall performance, then inspect AP_S: mixed selection raises it, LFT lowers it in the next row, and CDN raises it again. This is a sequential construction, not a complete grid of independent interventions.",
+      "takeaway": "Beyond the 46.5-AP strong baseline, mixed selection adds 0.5 point, LFT adds 0.4 and CDN adds 0.5, reaching 47.9. CDN also raises AP_S from 29.9 to 31.2 in the final step. The table therefore supports incremental benefit in this particular component order.",
+      "caution": "The source does not fully map this table’s 47.9 endpoint to the revised main table’s 49.0/49.4 configurations. Do not transfer its increments to those endpoints as an exact decomposition. Missing component combinations and uncertainty estimates limit causal interpretation.",
+      "evidenceIds": [
+        "e13",
+        "e10"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Let the image choose the anchor’s position",
+      "text": "Begin with the separation between position and content in a decoder query. An anchor box gives the decoder a spatial starting point, but the content representation still has to gather useful image evidence. Pure query selection derives both components from selected encoder features. DINO instead uses the selected positions to initialize anchors while leaving content queries as learned parameters. Figure 5 makes “static” precise: the initial content is the same across images at inference, although decoder attention subsequently makes its representation image-dependent. The authors argue that selected encoder content may cover part of an object or multiple objects. Reader interpretation: this division trusts encoder localization as a starting cue without forcing the decoder to inherit all of its preliminary semantic ambiguity.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e07"
+      ]
+    },
+    {
+      "heading": "Teach the anchor when reconstruction is the wrong response",
+      "text": "Denoising starts from supervision unavailable at inference: a ground-truth box and label. Perturbing that box creates a nearby anchor whose intended target is known, easing training. DINO adds a second, more strongly perturbed anchor with a background target. Figure 3 should therefore be read as a supervised distinction between recovering an object and rejecting a candidate, rather than as a generic embedding-similarity loss. Figure 4 then asks whether the initial anchors associated with successful matches lie closer to their objects, especially small ones. Reader interpretation: the diagnostic is compatible with the proposed rejection mechanism but is not sufficient to prove it. Table 7 helps constrain the alternative that improvement merely comes from more queries: 100 CDN pairs outperform 200 ordinary DN queries at equal total count.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e18"
+      ]
+    },
+    {
+      "heading": "Separate the refinement value from the path that trains it",
+      "text": "Look forward twice is easiest to understand by distinguishing numerical boxes from their gradient history. Detaching a refined box leaves its value unchanged, allowing the next decoder layer to continue refinement without backpropagating through that input. DINO retains that route, but constructs the supervised prediction with the previous undetached box and the current layer’s offset. Equation (2) expresses the distinction directly. A later prediction loss can consequently improve the preceding refinement as well as the current offset. Reader interpretation: this is a local extension of credit assignment across adjacent layers, not temporal prediction. Table 4 reports an improvement after adding this route to mixed query selection, but it does not establish the same gain for every baseline or show that removing all detachment would work.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e13"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Hold the denoising query budget constant",
+      "text": "Reader-proposed check, not an executed experiment: compare 100 CDN pairs with 200 ordinary DN queries using the same ResNet-50, COCO split, 12-epoch schedule, matching-query count, feature scales, mixed selection, LFT and loss coefficients. Record actual padded query counts and memory so nominal equality does not hide different workloads. Repeat at least three seeds and report AP, AP_S and ATD(100) for all and small objects. Also preregister a fixed matching rule for counting duplicate detections. If CDN fails to improve AP_S or duplicate counts at equal budget, the rejection explanation weakens; lower ATD alone would not establish a useful detector improvement. Document how the conflicting noise settings were resolved before comparing outcomes.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e09",
+        "e18",
+        "e19",
+        "e21",
+        "e22"
+      ]
+    },
+    {
+      "title": "Isolate the adjacent prediction gradient",
+      "text": "Reader-proposed check, not an executed experiment: start two models from identical parameters and inputs, retain the detached refinement chain in both, and vary only whether the supervised prediction receives the preceding undetached box or its detached counterpart. Before training, confirm equal forward box values and backpropagate one selected decoder prediction loss to check whether the preceding box-update head receives the extra gradient only in the LFT condition. Then train under a fixed 12-epoch ResNet-50 configuration across repeated seeds, holding query selection and denoising constant. Compare AP and AP75 alongside gradient diagnostics. A correct gradient difference without reproducible AP benefit would verify the implementation while failing to replicate the reported accuracy benefit.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e13",
+        "e21",
+        "e22"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "notes": "Visually inspected the title/author/version page; Figures 1–8; Tables 1–8; method text, Equations (1)–(3), evaluation protocols and Appendix A–D configuration pages listed here. All six final crops were separately viewed after rendering at 300 DPI; arrows, gradient-detachment marks, noise-region definitions, legends and table columns were checked against captions and equations. Pages 3–4 and 16–18 were read in the complete text but contain no additional retained claim requiring visual verification in this bundle. Separate supplements, other revisions and code remain outside this pass. The artwork was preserved; no chart was reconstructed."
+  }
+}
