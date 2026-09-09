@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-ceb20cc004172847c348",
+  "shortTitle": "Perceptive FDM",
+  "thesis": "Predicting platform-specific motion and failure risk makes MPPI navigation more effective on tested rough terrain, while retaining dependencies on training coverage and planner tuning.",
+  "standfirst": "A velocity command tells a robot what to attempt; terrain and the locomotion controller determine what actually happens. This paper learns that gap from trajectories. Its forward dynamics model combines a local height scan with recent robot measurements, predicts where candidate commands will lead, and estimates failure risk. A separate sampling planner uses these predictions to select the next command. The six visuals below trace the training pipeline, the planning loop, the main comparisons and two ablations. Read the simulation navigation results separately from real-world prediction improvements: the latter support adaptation of motion estimates, but do not quantify real-world navigation safety.",
+  "evidenceIds": [
+    "e02",
+    "e04",
+    "e07",
+    "e12",
+    "e13",
+    "e15"
+  ],
+  "featuredResultTask": "MPPI navigation in simulated 2D and 3D environments",
+  "visuals": [
+    {
+      "id": "fdm-training",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/ref-ceb20cc004172847c348/fdm-training.png",
+      "width": 1428,
+      "height": 279,
+      "sourceSha256": "41c3267f317e235076d3035e3cc3829c92e77f4b70e0fb312085ebd0d4e261f4",
+      "sourceUrl": "https://arxiv.org/pdf/2504.19322v2#page=4",
+      "crop": [
+        0.08,
+        0.068,
+        0.92,
+        0.195
+      ],
+      "alt": "Training pipeline with simulation and real data feeding replay, history and height encoders, action-conditioned forward recurrence, pose integration and a failure-probability head.",
+      "caption": "Training connects commanded motion to observed outcomes through a residual dynamics model.",
+      "readingGuide": "Read from left to right. Simulation and real trajectories enter the replay buffer; sampling separates commands, observation history, the current height scan and future-state labels. In the blue model block, a history GRU and a height-scan encoder produce context for forward prediction. Candidate commands pass through an action encoder, while the upper command line also reaches trajectory integration. That bypass matters: Section V-B explains that the pose head predicts corrections to intended velocities, which are added before integration. The lower prediction branch estimates failure probability. Follow the bottom future-state line to the loss: these are training targets, not future observations supplied during deployment.",
+      "takeaway": "The architecture makes the prediction conditional on both the proposed motion and what the robot can currently perceive. Its learned correction can capture tracking error and terrain interactions that constant-velocity integration misses. The two output branches support different planning questions: where a command sequence leads and whether it is risky.",
+      "caution": "The graphic labels proprioception as m1…6, but Table I and Section V-B specify m1…7, including previous joint actions. This guide follows the table. The appendix module listing also does not fully resolve the context-to-recurrence wiring described in the main text.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e06",
+        "e20"
+      ]
+    },
+    {
+      "id": "mppi-planner",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/ref-ceb20cc004172847c348/mppi-planner.png",
+      "width": 1394,
+      "height": 620,
+      "sourceSha256": "41c3267f317e235076d3035e3cc3829c92e77f4b70e0fb312085ebd0d4e261f4",
+      "sourceUrl": "https://arxiv.org/pdf/2504.19322v2#page=4",
+      "crop": [
+        0.08,
+        0.267,
+        0.49,
+        0.408
+      ],
+      "alt": "MPPI perturbs an initial action solution, sends candidates and observations through the FDM, scores predicted poses and risk, and feeds maximum-reward actions back into the search.",
+      "caption": "The planner searches predicted outcomes and repeatedly feeds its solution back into candidate generation.",
+      "readingGuide": "Start at the initial solution in the green block and follow the perturbation arrow down to the candidate action distribution. The candidate sequences enter the blue FDM along with observation o_t. Its predicted poses and risk flow into the yellow reward block, which combines goal progress and risk assessment. The upward arrow returns the preferred actions to the next iteration. The red-to-blue scale on the right marks low-to-high reward, not a measured success probability. Figure 3 emphasizes maximum-reward selection; Equations (6)–(7) additionally describe reward-weighted perturbation updates. After the search, the receding horizon system executes the next command and observes the robot again.",
+      "takeaway": "Action selection belongs to MPPI, while the learned network evaluates consequences. This separation supports changing planning objectives without training a new navigation policy. It also explains the paper's main taxonomy placement: command-conditioned forward prediction is used inside an external controller, rather than jointly generating future states and actions.",
+      "caution": "Figure 3 omits the reward weights shown in Equation (13). More seriously, maximization coexists with a distance expression lacking an explicit minus sign, and the risk weight appears in both Equations (13) and (15). The intended goal-seeking, risk-penalizing behavior is clear; exact signs and scaling remain unresolved.",
+      "evidenceIds": [
+        "e07",
+        "e19"
+      ]
+    },
+    {
+      "id": "dynamics-comparison",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table II",
+      "page": 8,
+      "asset": "report-assets/ref-ceb20cc004172847c348/dynamics-comparison.png",
+      "width": 1401,
+      "height": 576,
+      "sourceSha256": "41c3267f317e235076d3035e3cc3829c92e77f4b70e0fb312085ebd0d4e261f4",
+      "sourceUrl": "https://arxiv.org/pdf/2504.19322v2#page=8",
+      "crop": [
+        0.508,
+        0.327,
+        0.92,
+        0.458
+      ],
+      "alt": "Position offsets and failure-classification precision, recall, accuracy and F1 for constant velocity, Kim et al. and the proposed FDM across Plane, 2D, 2D-3D and 3D environments.",
+      "caption": "Prediction quality improves in complex terrain, but collision recall and rare-event behavior need separate attention.",
+      "readingGuide": "Read one environment block at a time. Position offset measures final predicted-location error in metres; lower is better. The remaining columns evaluate failure classification, with a risky action sequence treated as positive. Precision asks whether a predicted failure is correct; recall asks how many actual failures are detected. The displayed precision, recall and accuracy values use a percentage scale, while F1 uses a zero-to-one scale. Dashes for constant velocity indicate absent failure predictions. Section VI-B uses 50k evaluation samples per environment and trains the learned baseline on the same data, while preserving its original architecture, objective and training hyperparameters.",
+      "takeaway": "In 3D terrain, the proposed model reports 0.28 ± 0.35 m position offset, compared with 0.44 ± 0.45 m for Kim and 0.99 ± 1.06 m for constant velocity. F1 rises from Kim's 0.80 to 0.85, while recall is slightly lower: 86.51% versus 86.62%.",
+      "caution": "Planar failures occur in only 0.042% of samples: 98.32% accuracy therefore coexists with F1 0.10. High accuracy is not a safety guarantee. The table does not define ± as a confidence interval, and its 2D accuracy of 89.13% contradicts the conclusion's stated minimum of 89.20%.",
+      "evidenceIds": [
+        "e10",
+        "e15"
+      ]
+    },
+    {
+      "id": "planning-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table III",
+      "page": 9,
+      "asset": "report-assets/ref-ceb20cc004172847c348/planning-results.png",
+      "width": 1394,
+      "height": 365,
+      "sourceSha256": "41c3267f317e235076d3035e3cc3829c92e77f4b70e0fb312085ebd0d4e261f4",
+      "sourceUrl": "https://arxiv.org/pdf/2504.19322v2#page=9",
+      "crop": [
+        0.509,
+        0.35,
+        0.919,
+        0.433
+      ],
+      "alt": "MPPI navigation success, mean path length and mean path time for the proposed FDM, Kim's FDM and a heuristic traversability baseline in 2D and 3D simulation.",
+      "caption": "Improved predictions translate into higher goal-reaching success under the paper's separately tuned planning configurations.",
+      "readingGuide": "Begin with Success, then distinguish the Suc. and All subcolumns under mean path length (MPL) and mean path time (MPT). Suc. includes trajectories that reach the goal; All also includes failures. Early collisions can shorten averages, whereas timeouts and circling can lengthen them. Comparisons therefore need both the success rate and the appropriate subset. The 3D block is particularly relevant because stairs and ramps challenge the baseline's horizontal sensing and the heuristic cost map. Unlike Table II, the Kim FDM here is trained only on 2D terrain. Appendix F also reports changes to its candidate population, risk weight and timeout.",
+      "takeaway": "In 3D simulation, success is 73.75% for the proposed planner, 48.75% for Kim and 33.13% for heuristics. The advantage over Kim is 25.00 percentage points, calculated from these entries. Among successful trajectories, the proposed method reports 3.93 m and 8.68 s versus Kim's 7.20 m and 18.60 s.",
+      "caution": "These are system comparisons with unequal planner configurations, not an isolated estimate of the FDM's causal effect. Trial counts, seed variability and confidence intervals are not supplied. Successful-path means compare different subsets, and the table does not quantify physical-robot navigation success.",
+      "evidenceIds": [
+        "e13",
+        "e18",
+        "e14"
+      ]
+    },
+    {
+      "id": "input-ablations",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table V",
+      "page": 15,
+      "asset": "report-assets/ref-ceb20cc004172847c348/input-ablations.png",
+      "width": 1375,
+      "height": 653,
+      "sourceSha256": "41c3267f317e235076d3035e3cc3829c92e77f4b70e0fb312085ebd0d4e261f4",
+      "sourceUrl": "https://arxiv.org/pdf/2504.19322v2#page=15",
+      "crop": [
+        0.231,
+        0.067,
+        0.77,
+        0.265
+      ],
+      "alt": "Four environment blocks compare the full model against removal of state observations, proprioception or height scans using position offset and failure-classification metrics.",
+      "caption": "Removing height scans damages both pose prediction and risk assessment; other modalities have environment-dependent effects.",
+      "readingGuide": "Each block starts with the complete model, followed by variants without state observations, proprioceptive observations or height scans. Make comparisons within a block and against this table's own full-model row. For the 3D block, removing state observations preserves the displayed position offset but slightly lowers F1. Removing the height scan raises position error and lowers F1 more substantially. The planar block shows a different sensitivity: losing proprioception strongly damages position prediction. Read the failure columns together, since higher recall can accompany poorer precision. These ablations concern learned prediction performance; they do not by themselves measure how each missing modality changes closed-loop navigation.",
+      "takeaway": "For the 3D ablation, the full model has 0.27 ± 0.32 m offset and F1 0.88. Without height scans, these become 0.41 ± 0.41 m and 0.80. Without state observations, offset remains 0.27 ± 0.32 m and F1 becomes 0.87, showing a smaller effect in this environment.",
+      "caution": "The full-model scores differ from Table II, so do not pool the two tables. Appendix D says history improves F1 by up to 0.06, but the planar rows show 0.37 versus 0.28, a 0.09 difference. The table gives no uncertainty across retraining runs.",
+      "evidenceIds": [
+        "e16",
+        "e10"
+      ]
+    },
+    {
+      "id": "risk-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table VI",
+      "page": 15,
+      "asset": "report-assets/ref-ceb20cc004172847c348/risk-ablation.png",
+      "width": 1162,
+      "height": 208,
+      "sourceSha256": "41c3267f317e235076d3035e3cc3829c92e77f4b70e0fb312085ebd0d4e261f4",
+      "sourceUrl": "https://arxiv.org/pdf/2504.19322v2#page=15",
+      "crop": [
+        0.272,
+        0.327,
+        0.728,
+        0.39
+      ],
+      "alt": "Planning success, mean path length and time with and without failure estimation, showing higher success but longer times when risk is included.",
+      "caption": "Adding the risk reward trades faster completion for a higher observed goal-reaching rate.",
+      "readingGuide": "Compare the two rows inside each environment before looking across environments. The first row uses the proposed planner; the second is labeled 'w/o Failure Estimation'. Appendix D narrows that label to removing the planner's failure-risk reward. It does not establish that the prediction network loses its risk head or is retrained. Read Success as a percentage, MPL as metres and MPT as seconds. In both environment blocks, the risk-aware row has higher success and longer reported time, while path lengths remain close. This is the paper's most direct diagnostic of whether explicitly scoring predicted risk helps the planner beyond its pose predictions.",
+      "takeaway": "In 3D, adding risk changes success from 69.17% to 73.75%, a calculated gain of 4.58 percentage points. Reported mean time changes from 5.74 s to 8.68 s, with lengths of 3.96 m and 3.93 m. In 2D, success similarly rises from 85.86% to 88.33%.",
+      "caution": "Unlike Table III, this table does not label successful versus all-path aggregation; its full-model length/time entries match Table III's successful-path values. No confidence intervals are given. The rounded 2.5% and 4.6% prose changes should be read as percentage-point differences, not relative improvements.",
+      "evidenceIds": [
+        "e17",
+        "e13"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Predict the motion that follows a command",
+      "kind": "source",
+      "text": "Imagine offering the same velocity sequence to a robot facing a wall and to one facing traversable stairs. Constant-velocity integration gives the same nominal motion in both cases. The FDM first reads the local height scan and recent robot measurements, then conditions a forward recurrent network on the candidate sequence. Its correction head estimates how followed velocities differ from intended commands, and its risk head estimates failure along the prediction. The training target is expressed in the robot frame at the start of the sample. Ten predictions spaced by 0.5 seconds provide a five-second forecast, while historical measurements are spaced by 0.05 seconds. These are distinct temporal roles, motivating separate history and forward recurrent units. The model predicts pose and risk without reconstructing future camera images.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e08"
+      ]
+    },
+    {
+      "heading": "Separate motion adaptation from proof of safety",
+      "kind": "analysis",
+      "text": "Simulation provides the failures that would be too costly to collect on hardware. The training loss therefore supervises both poses and risk, and keeps target poses stationary after a failure. Safe real trajectories add information about slipping, vegetation and sensor behavior that rigid-body simulation misses. Section VI-D reports lower prediction error after this fine-tuning on new datasets in similar environments. Reader analysis: better motion prediction and calibrated failure probability are different claims. Safe real data can correct motion bias without showing whether simulated collision labels transfer faithfully. This matters because MPPI may exploit a falsely optimistic prediction during search. The paper acknowledges the absent real collision demonstrations, and its physical deployments are qualitative navigation evidence. They should not be assigned the simulation success percentages or treated as a quantified safety guarantee.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e12",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "heading": "Locate where the planner's advantage comes from",
+      "kind": "analysis",
+      "text": "MPPI uses the learned forecast as an evaluator. It perturbs candidate command sequences, scores predicted terminal progress and risk, refines its solution, and executes the next command before replanning. The headline planning comparison tests this complete arrangement against separately tuned alternatives. Reader analysis: Table VI is more specific about mechanism because it removes the risk reward from the proposed planner, whereas Table III changes models and planner settings together. The ablation's higher success with longer time supports a cautious-motion tradeoff in the tested setup. It does not establish that every part of the full comparison comes from the risk head. A reproduction must also distinguish the 2048-trajectory onboard configuration from the appendix's simulation baseline settings, and resolve the printed reward signs before using the equations as executable specifications.",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e13",
+        "e17",
+        "e18"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Repeat the height-scan ablation on paired terrain and command samples",
+      "text": "Reader-proposed check, not performed: train full and no-height-scan variants on the same trajectory splits, command distribution, augmentation policy and training budget, with multiple matched seeds. Evaluate both on identical five-second command sequences in held-out walls, ramps and stairs. Report final position error, failure precision/recall/F1, and errors separately for collision and non-collision cases, following the motivation of Figure 13. Control for changed parameter count when removing the encoder, and document that choice. The mechanism predicts a persistent advantage for the full model on geometry-dependent outcomes. If that gap disappears under matched data and retraining, the claimed necessity of height information would need a narrower interpretation.",
+      "evidenceIds": [
+        "e04",
+        "e08",
+        "e10",
+        "e16",
+        "e21"
+      ]
+    },
+    {
+      "title": "Isolate the planner's risk reward with a fixed learned model",
+      "text": "Reader-proposed check, not performed: keep one trained FDM checkpoint, candidate count, initial poses/goals, action limits, perturbation seeds, neighbor rule and timeout fixed. Toggle only the planner's risk contribution. Before navigation, verify that the implemented reward prefers a closer safe endpoint and penalizes an otherwise identical risky trajectory; document how the printed sign/scaling ambiguity was resolved. Run paired simulation trials and report success, collision frequency, timeouts, and length/time for both successful and all paths. Reproducing higher success with risk at the cost of longer time would support Table VI's interpretation. An effect that vanishes when sampling and timeout are matched would weaken attribution to explicit risk scoring.",
+      "evidenceIds": [
+        "e07",
+        "e13",
+        "e17",
+        "e18",
+        "e19"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18
+    ],
+    "notes": "Original PDF pages 1–10 and 13–18 were rendered and visually inspected, covering the title/authors/version, every figure (1–14), every table (I–VI), method equations, training and onboard hardware, evaluation protocols, limitations, architecture listing and platform adaptation. Pages 11–12 contain acknowledgments/references and were read in the complete text pass. All seven supplied text chunks were read individually. Each of the six final crops was viewed; the risk-ablation crop was tightened to remove caption spillover and then viewed again. Figure 2's proprioceptive label was checked against Table I and Section V-B; the MPPI arrows and maximum-reward label were checked against Equations (4)–(7) and (13)–(15). Source discrepancies are disclosed in the corresponding cautions. Separate supplements, linked code, datasets and videos remain outside this reading."
+  }
+}

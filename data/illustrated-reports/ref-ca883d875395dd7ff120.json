@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-ca883d875395dd7ff120",
+  "shortTitle": "AdaWorld",
+  "thesis": "Pretraining a world model on continuous latent actions makes new control interfaces easier to learn, while leaving action selection to an external planner.",
+  "standfirst": "A video model can generate plausible motion without knowing how to respond to a new environment's controls. AdaWorld addresses that gap by first learning a compact description of the transition between two frames. A separate diffusion model then learns to predict the next frame given that description and recent history. At adaptation time, demonstrations or labeled interactions connect unfamiliar controls to the learned interface. The illustrations below follow that information flow, then distinguish three tests: transferring motion between videos, improving prediction after finetuning, and reaching goals through executed simulator actions. The strongest evidence concerns adaptation under the paper's particular data and planning budgets.",
+  "evidenceIds": [
+    "e02",
+    "e03",
+    "e05",
+    "e06",
+    "e08",
+    "e09",
+    "e10"
+  ],
+  "featuredResultTask": "Procgen goal-reaching with visual MPC",
+  "visuals": [
+    {
+      "id": "latent-action-autoencoder",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/ref-ca883d875395dd7ff120/latent-action-autoencoder.png",
+      "width": 982,
+      "height": 379,
+      "sourceSha256": "7c460f4327ec664c1300d1e4bc1db8f4ec5acf7da880a1c91da3fe7c78a6a633",
+      "sourceUrl": "https://raw.githubusercontent.com/mlresearch/v267/main/assets/gao25u/gao25u.pdf#page=3",
+      "crop": [
+        0.089,
+        0.082,
+        0.474,
+        0.197
+      ],
+      "alt": "Two game frames enter a latent action encoder. A sampled action and a direct connection from the earlier frame enter the decoder, which predicts the later frame.",
+      "caption": "The earlier frame supplies context while a compact latent variable describes the transition.",
+      "readingGuide": "Start with the two images at left: both the earlier frame and the later frame feed the encoder. Follow the middle path through the continuous latent space to the sampled action, then into the decoder. The long upper connection carries only the earlier frame directly to that decoder. This distinction agrees with Section 2.1 and Equation (2): the encoder may observe the transition being represented, while reconstruction conditions on the earlier frame and compressed action. The later frame is the reconstruction target. The decoder therefore has a separate route for existing appearance, reducing the need to transmit unchanged scene details through the action variable.",
+      "takeaway": "The bottleneck is designed to spend limited information on change. AdaWorld uses a 32-dimensional action representation, and its β-weighted objective balances reconstruction against compression. This gives the subsequent world model a common conditioning format across videos whose original action labels may be absent or incompatible.",
+      "caution": "A small code does not guarantee that every encoded change is an agent action. The design assumes actions often dominate transitions; the source acknowledges blocked actions and imperfect physics. The diagram itself provides no causal-identification guarantee.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e13",
+        "e19",
+        "e20"
+      ]
+    },
+    {
+      "id": "action-aware-pretraining",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 3,
+      "asset": "report-assets/ref-ca883d875395dd7ff120/action-aware-pretraining.png",
+      "width": 979,
+      "height": 558,
+      "sourceSha256": "7c460f4327ec664c1300d1e4bc1db8f4ec5acf7da880a1c91da3fe7c78a6a633",
+      "sourceUrl": "https://raw.githubusercontent.com/mlresearch/v267/main/assets/gao25u/gao25u.pdf#page=3",
+      "crop": [
+        0.502,
+        0.083,
+        0.886,
+        0.252
+      ],
+      "alt": "A training next frame is noised and concatenated with augmented historical frames. An extracted latent action conditions the world model. A dashed loop returns its next-frame prediction to memory.",
+      "caption": "Training extracts action conditions from known transitions; generation rolls predicted frames back into memory.",
+      "readingGuide": "Read the upper path as diffusion training: the target next frame receives noise, enters the world model with the history representation, and is compared with the prediction through the red dashed loss connection. The middle encoder path uses the current and next frames to extract a training action condition. At the bottom, noise augmentation modifies historical frames during training. The gray dashed arrow runs from the predicted next frame back to short-term memory and indicates autoregressive inference. Section 2.2 clarifies that the actual implementation operates with encoded image latents and an SVD-initialized model; the pictorial noisy image is a schematic, not an additional pixel-space architecture specification.",
+      "takeaway": "Action recognition and high-quality prediction serve different roles. The small autoencoder decoder makes coarse predictions, so AdaWorld learns a separate diffusion simulator. Its training objective teaches the simulator to respond to the extracted action while maintaining recent visual context, rather than using the reconstruction decoder for long rollouts.",
+      "caution": "The next-frame input to the action encoder belongs to training or an observed demonstration. Future target observations are not available during deployment; control then comes from transferred latent actions or a learned command interface. No stop-gradient or attention-mask rule is specified by this schematic.",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "id": "action-transfer-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "asset": "report-assets/ref-ca883d875395dd7ff120/action-transfer-results.png",
+      "width": 992,
+      "height": 271,
+      "sourceSha256": "7c460f4327ec664c1300d1e4bc1db8f4ec5acf7da880a1c91da3fe7c78a6a633",
+      "sourceUrl": "https://raw.githubusercontent.com/mlresearch/v267/main/assets/gao25u/gao25u.pdf#page=6",
+      "crop": [
+        0.5,
+        0.113,
+        0.889,
+        0.195
+      ],
+      "alt": "Action transfer table comparing action-agnostic, flow-conditioned, discrete-conditioned and AdaWorld models on LIBERO and SSv2 using FVD, ECS and human success.",
+      "caption": "Continuous latent actions lead all three reported transfer measures in both datasets.",
+      "readingGuide": "Each dataset has three columns. Lower FVD indicates closer video-distribution similarity; higher ECS measures better frame-level I3D embedding similarity; the Human column reports judged action-transfer success. Compare within each column rather than combining their incompatible scales. Evaluation pairs a demonstration with a different initial context and generates 20 frames, using 1,300 pairs across the datasets. The human columns come from a smaller sample: four volunteers judge 50 pairs per dataset. The other rows replace AdaWorld's continuous condition with zeros, optical flow, or eight discrete codes under the aligned comparison training setting. The shaded row is AdaWorld, not a separate finetuned variant.",
+      "takeaway": "On LIBERO, AdaWorld reaches FVD 767.0 and human success 70.5%, compared with 1545.2 and 0% for action-agnostic pretraining. SSv2 shows the same ordering: 473.4 FVD and 61.5% human success versus 847.2 and 1%. This agreement between automatic and human measures supports better demonstrated-motion transfer in generated videos.",
+      "caution": "These are video-generation outcomes, not executed manipulation success. No error bars are reported. Although the text calls the evaluation datasets unseen, SSv2 also appears in the training mixture; exact split independence is unresolved in the supplied source.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e12"
+      ]
+    },
+    {
+      "id": "adaptation-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "asset": "report-assets/ref-ca883d875395dd7ff120/adaptation-results.png",
+      "width": 1264,
+      "height": 194,
+      "sourceSha256": "7c460f4327ec664c1300d1e4bc1db8f4ec5acf7da880a1c91da3fe7c78a6a633",
+      "sourceUrl": "https://raw.githubusercontent.com/mlresearch/v267/main/assets/gao25u/gao25u.pdf#page=7",
+      "crop": [
+        0.115,
+        0.116,
+        0.859,
+        0.204
+      ],
+      "alt": "Prediction quality after adaptation to Habitat, Minecraft, DMLab and nuScenes. AdaWorld has the highest PSNR and lowest LPIPS in all four environments.",
+      "caption": "Prediction quality improves after a fixed adaptation budget across discrete and continuous controls.",
+      "readingGuide": "The first three environment groups use discrete action spaces, while nuScenes uses continuous displacements. Read each pair of columns together: higher PSNR and lower LPIPS both favor AdaWorld. The table's source caption specifies 800 finetuning steps with 100 samples per discrete action or 100 continuous trajectories. Section 3.2.1 separately identifies 300 validation samples per environment. Those are different quantities and should not be treated as one shared sample count. For the continuous interface, a two-layer MLP also receives 3K initialization steps on action/latent-action pairs before world-model adaptation. The table therefore compares the resulting adapted pipelines, including their prescribed initialization methods.",
+      "takeaway": "Minecraft improves from 19.44 PSNR and 0.532 LPIPS for action-agnostic pretraining to 21.59 and 0.457 for AdaWorld. The discrete latent baseline is closer at 21.33 and 0.465. All four domains support action-aware pretraining, with continuous latent actions providing the best reported values under this particular budget.",
+      "caution": "Prediction fidelity is not a success rate, and no uncertainty estimates appear here. The table combines pretraining and interface-initialization choices; the adjacent ablation is needed to assess their separate contributions. Continuous-interface initialization adds optimization beyond the 800 world-model steps.",
+      "evidenceIds": [
+        "e09",
+        "e16"
+      ]
+    },
+    {
+      "id": "interface-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 6",
+      "page": 7,
+      "asset": "report-assets/ref-ca883d875395dd7ff120/interface-ablation.png",
+      "width": 1345,
+      "height": 556,
+      "sourceSha256": "7c460f4327ec664c1300d1e4bc1db8f4ec5acf7da880a1c91da3fe7c78a6a633",
+      "sourceUrl": "https://raw.githubusercontent.com/mlresearch/v267/main/assets/gao25u/gao25u.pdf#page=7",
+      "crop": [
+        0.092,
+        0.214,
+        0.883,
+        0.467
+      ],
+      "alt": "Seven PSNR-versus-training-step plots compare data-initialized AdaWorld, AdaWorld without interface initialization and action-agnostic pretraining at several Minecraft and nuScenes sample budgets.",
+      "caption": "Initialization buys an early advantage, while pretrained controllability also helps random interfaces learn.",
+      "readingGuide": "The horizontal axis counts finetuning steps and the vertical axis is PSNR. Read one panel at a time because its title fixes the available data. Minecraft's upper row uses 50, 100, 150 or 200 samples per action; nuScenes' lower row uses 100, 200 or 300 samples. Blue uses the proposed embedding or MLP initialization, green omits it, and red is action-agnostic pretraining. Blue versus green tests initialization within AdaWorld. Green versus red asks whether action-aware pretraining helps even after discarding that initialization. The two comparisons answer different questions, so blue versus red alone should not be credited entirely to a single mechanism.",
+      "takeaway": "The green curves recover quickly and the source reports overtaking the baseline after 200 steps, supporting a benefit from the pretrained interface itself. Blue generally provides an earlier advantage. The plots also qualify a simple 'more finetuning is better' story: low-data nuScenes predictions deteriorate after an early peak.",
+      "caution": "There are no uncertainty bands. Section 3.2.1 says AdaWorld starts better in all cases, but the 100-sample nuScenes panel places blue below red initially. Preserve this exception; neither the graphic nor its text supports uniformly superior starting performance.",
+      "evidenceIds": [
+        "e09",
+        "e16"
+      ]
+    },
+    {
+      "id": "procgen-planning",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 8,
+      "asset": "report-assets/ref-ca883d875395dd7ff120/procgen-planning.png",
+      "width": 994,
+      "height": 294,
+      "sourceSha256": "7c460f4327ec664c1300d1e4bc1db8f4ec5acf7da880a1c91da3fe7c78a6a633",
+      "sourceUrl": "https://raw.githubusercontent.com/mlresearch/v267/main/assets/gao25u/gao25u.pdf#page=8",
+      "crop": [
+        0.195,
+        0.133,
+        0.78,
+        0.267
+      ],
+      "alt": "Success rates with standard errors for four Procgen games. AdaWorld is shown with and without finetuning, alongside random, action-agnostic, Q-learning and oracle simulator baselines.",
+      "caption": "A better adaptable simulator supports more successful goal-reaching, with substantial room below oracle MPC.",
+      "readingGuide": "Each game column summarizes 30 selected scenes, and the rightmost column averages across the four games. Entries report success rates and standard errors across five seeds, as specified in the source caption. Compare the two AdaWorld rows first: 'without finetuning' still initializes action embeddings from collected interactions. The finetuned row additionally adapts for 500 steps. The action-agnostic row uses an adapted model, while the bottom oracle uses ground-truth simulation within the planning strategy. Appendix B.4 describes CEM search over candidate action sequences and execution of the first five actions before replanning. Success requires reaching the goal within 20 executed steps, rather than merely generating a goal-like frame.",
+      "takeaway": "Finetuned AdaWorld averages 56.67±2.16%, versus 26.00±0.98% for the action-agnostic model; even the unfinetuned variant reaches 44.83±1.37%. Oracle MPC reaches 80.67±2.11%, exposing remaining model-related headroom within this planner. Finetuning is not uniformly beneficial: Jumper falls from 68.00% to 58.67% while the overall average rises.",
+      "caution": "These are simulator results on deliberately reachable scenes, not all Procgen tasks. Ground-truth search selected the scenes and survival-oriented games were excluded. The oracle is a reference for this planning strategy, not a proof of globally optimal control.",
+      "evidenceIds": [
+        "e10",
+        "e15",
+        "e22"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Why the earlier frame bypasses the action bottleneck",
+      "text": "Imagine two demonstrations of the same movement with different colors and backgrounds. An unconstrained encoding of their later frames could store those appearances rather than a reusable movement. AdaWorld gives the decoder the earlier frame directly, then makes the latent action compact and penalizes excess information through β. The source's rationale is that reconstruction can reuse existing context and reserve the latent channel for critical variation. My interpretation is that this is an architectural incentive, not a guarantee of semantic action recovery. Figure 7 supports a qualitative tradeoff: reducing β separates representations more finely but weakens overlap of corresponding actions across environments. The acknowledged blocked-action cases also matter: a command can produce little visible change, so a transition-derived representation need not uniquely identify the intended command.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e19"
+      ]
+    },
+    {
+      "heading": "Follow the change from training target to inference condition",
+      "text": "During autoencoder learning, both frames are observed and the later frame supplies the reconstruction target. During world-model pretraining, that observed transition also supplies a latent action, while a separate diffusion model learns next-frame prediction from the action and recent history. This ordering explains why the action encoder can see the next frame in Figure 3 without implying access to future deployment observations. At transfer time, the observed demonstration supplies the action sequence and a new initial image supplies the context. At adaptation time, labeled interactions initialize discrete embeddings or an MLP that maps continuous commands. Generated frames then enter short-term memory. The autoencoder decoder is not the rollout engine: Section 2.2 says its coarse single-pass predictions degrade, motivating the independent diffusion model for generation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "heading": "Ask which resource each adaptation result saves",
+      "text": "The experiments support several distinct efficiency claims. Video transfer reuses a demonstration without additional training, but measures generated videos. Table 2 then fixes a small adaptation dataset and evaluates prediction fidelity after 800 world-model steps, with extra MLP initialization for nuScenes. Table 3 goes further: a planner uses the adapted predictions to choose actions that are actually executed in Procgen. Even its unfinetuned variant requires interaction-derived embeddings, so that row saves model updates rather than eliminating interaction data. Finally, VP2 uses only 1K adaptation steps but thousands of training trajectories: 5K for Robosuite and 35K for RoboDesk. My reading is that AdaWorld most clearly improves reuse of a learned control interface; its experiments do not establish one uniform notion of few-shot, zero-interaction or low-total-compute control.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e10",
+        "e11",
+        "e15"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate pretrained controllability from embedding initialization",
+      "text": "Reader-proposed check, not performed: repeat Minecraft adaptation with the same 100 labeled samples per action and independent held-out validation samples. Compare action-agnostic pretraining, AdaWorld with random embeddings, and AdaWorld with averaged embeddings, using matched 50K-step pretraining runs and the source's batch size, learning rates and 0–800-step adaptation range. Repeat across seeds and report PSNR, LPIPS and uncertainty at identical checkpoints. If random-interface AdaWorld reliably overtakes the action-agnostic baseline near 200 steps, the pretrained interface contributes beyond initialization. If only averaged initialization wins, the stronger mechanism claim is weakened. Keep sample identities and embedding initialization costs explicit.",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e16"
+      ]
+    },
+    {
+      "title": "Test whether the β tradeoff reflects action or context information",
+      "text": "Reader-proposed check, not performed: train matched latent-action autoencoders at the source's β values, 2×10⁻⁴ and 2×10⁻⁶, holding architecture, data and updates fixed. On Habitat, Minecraft and DMLab, collect the same labeled commands across varied contexts, separating successful movements from obstacle-blocked attempts. Measure cross-environment action retrieval and how well a probe recovers environment identity from the codes; add independently moving distractors as a controlled stress condition. Evaluate transferred actions with the corresponding world-model conditions rather than relying only on UMAP. The bottleneck explanation predicts better action transfer with less recoverable context at the larger β. Failure under distractors or blocked transitions would delimit that interpretation.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e13",
+        "e19",
+        "e20"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      15,
+      16,
+      17,
+      18,
+      19,
+      28
+    ],
+    "notes": "Inspected the title/author page; Figures 1–9 and 21; Tables 1–7 and 9; all method equations; and the appendix pages supporting training, hardware, preprocessing, sampling, planning, evaluation selection and proposed checks. Page 16's dense Table 8 was inspected as a layout, while its full extracted list was read without claiming visual validation of every entry. Figures 10–20 remain outside visual inspection although their captions and accompanying text were read. All six final original crops were individually viewed and retain the relevant arrows, axes, legends, headers and complete data rows. Figure 3's training and inference paths were checked against Sections 2.1–2.3 and Equations (2)–(3). Figure 6's initially weaker 100-sample nuScenes result qualifies the broader prose claim, as disclosed in its caution. Separate supplements, code and linked project media were not inspected."
+  }
+}
