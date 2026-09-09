@@ -1,0 +1,450 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2604.04198",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T18:00:14.171Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2604.04198",
+      "title": "DriveVA: Video Action Models are Zero-Shot Drivers",
+      "kind": "pdf",
+      "sha256": "1e991299738a5dfc300567d09f90f8ce3188bc47d39094ee8b81bdbcec49ab74",
+      "wordCount": 10706,
+      "accessedAt": "2026-09-07T14:03:32.162770+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; Sections 1–2: Introduction and Related Work",
+      "Section 3: Preliminary flow matching",
+      "Sections 4.1–4.4: formulation, preprocessing, joint generation and objective",
+      "Sections 5.1–5.7: datasets, training, comparisons, transfer, consistency, qualitative results and ablations",
+      "Section 6; Acknowledgements; References",
+      "Appendices A–G, including joint formulation, DPVO verification, Dev10, design ablations, failures and additional visualizations"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The supplied artifact is arXiv:2604.04198v2, dated 1 July 2026. Its title and all ten authors match the catalog; the catalog submission date is 5 April 2026. The earlier version was not supplied, so changes between versions were not compared.",
+      "Text extraction does not reconstruct figure images; this was addressed by inspecting the retained PDF, with visual scope recorded separately.",
+      "Separate supplemental material availability has not been fully verified. The appendices embedded in the supplied PDF were read completely.",
+      "Code was not inspected and experiments were not reproduced. No external sources were accessed.",
+      "Figure 1 was read through its extracted labels and caption but not visually inspected; Figures 2–12 and Tables 1–11 were visually inspected."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8",
+      "Figure 9",
+      "Figure 10",
+      "Figure 11",
+      "Figure 12"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7",
+      "Table 8",
+      "Table 9",
+      "Table 10",
+      "Table 11"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "DriveVA adapts a pretrained video generator to denoise future video and ego-trajectory tokens together. Its strongest evidence combines NAVSIM planning scores, direct transfer to nuScenes and CARLA, and ablations of video supervision. Jointly consistent outputs can still choose the wrong behavior; closed-loop evidence remains preliminary.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A driving model should transfer across visual domains while keeping planned motion compatible with its imagined scene evolution. The authors target both weaknesses by adapting video priors and supervising future observations together with actions.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "One diffusion transformer jointly generates future video latents and trajectory tokens, with mutual target attention during denoising.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-architecture",
+        "e-joint"
+      ]
+    },
+    {
+      "text": "History-conditioned video continuation supports repeated short predictions. The reported experiments examine transfer, supervision, rollout length, tuning strategy and sampling budget.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-interface",
+        "e-main-ablation",
+        "e-further-ablation"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Front-camera history: four frames at 2 FPS",
+      "Current ego velocity components vx and vy",
+      "Language/high-level command; optional in Figure 2"
+    ],
+    "outputs": [
+      "Eight future ego waypoints, each containing x, y and yaw, over 4 seconds",
+      "Eight future video frames at 2 FPS, generated through latent prediction"
+    ],
+    "steps": [
+      {
+        "name": "Encode context",
+        "detail": "Wan2.2-TI2V-5B supplies a frozen text encoder and a causal video VAE. Text enters through cross-attention. Flattened/projected history latents and MLP-embedded ego state form the clean condition stream.",
+        "evidenceIds": [
+          "e-architecture",
+          "e-encoding",
+          "e-training"
+        ]
+      },
+      {
+        "name": "Generate a common future",
+        "detail": "Future video latents and MLP-embedded action tokens form one noisy target block. A single DiT predicts their conditional flow velocity; default target attention permits information exchange in both directions.",
+        "evidenceIds": [
+          "e-flow",
+          "e-joint"
+        ]
+      },
+      {
+        "name": "Continue with observations",
+        "detail": "Inference encodes only observed history, generates both future modalities from noise, and decodes video latents. The formulation then executes the action chunk, acquires observations and slides the history window. Waypoints require a controller; the paper does not fully specify that integration.",
+        "evidenceIds": [
+          "e-interface",
+          "e-encoding",
+          "e-flow",
+          "e-implementation-gaps"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Training uses 832×480 clips, NVIDIA H20 GPUs and distributed bf16 AdamW, with learning rate 10^-4 and weight decay 0.01. It runs 20k steps at batch 80, then 10k at effective batch 640 through accumulation. A 1k-step linear warm-up starts at 10^-3 of the base rate, followed by a constant rate.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training"
+        ]
+      },
+      {
+        "text": "Full backbone fine-tuning performs best. Equation (9) describes flow matching over joint targets, while Section 5.2 describes video flow loss plus trajectory loss; exact modality weighting and the additional trajectory-loss formulation remain unspecified.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-flow",
+          "e-training",
+          "e-further-ablation",
+          "e-implementation-gaps"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "The reported configuration uses two sampling steps. One step scores 13.2 PDMS; two and three both score 90.9. This establishes a sampling-quality tradeoff, but the source supplies no measured end-to-end latency establishing real-time deployment.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-training",
+          "e-further-ablation"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "Y^{(l,s)}=(1-s)\\epsilon+sY_0^{(l)},\\qquad \\mathcal{L}_{\\mathrm{FM}}=\\mathbb{E}_{l,s,Y_0^{(l)},\\epsilon}\\!\\left[\\left\\|\\hat v_\\theta^{(l,s)}-(Y_0^{(l)}-\\epsilon)\\right\\|_2^2\\right]",
+        "explanation": "At driving timestep l, Y_0 contains clean future video/action tokens. Gaussian noise is epsilon, s is uniform flow time, and the DiT velocity estimate is conditioned on fixed history/state and text. Only targets are noised; s runs from noise to data.",
+        "evidenceIds": [
+          "e-flow"
+        ]
+      },
+      {
+        "expression": "\\pi_\\theta(\\mathcal F_{l+1:l+N},\\mathcal A_{l+1:l+K}\\mid C_l)=\\pi_\\theta(\\mathcal F_{l+1:l+N}\\mid C_l)\\,\\pi_\\theta(\\mathcal A_{l+1:l+K}\\mid C_l,\\mathcal F_{l+1:l+N})",
+        "explanation": "Appendix B factors the joint distribution into video continuation and action grounding. C_l comprises history, instruction and ego state; N and K count future frames and actions. This is a probabilistic interpretation, not a separate inverse-dynamics inference pipeline.",
+        "evidenceIds": [
+          "e-joint",
+          "e-interface"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "NAVSIMv1 planning",
+      "setting": "Navtest; front-camera DriveVA; Table 1's metric vector matches the simulation-mixed configuration in Table 5.",
+      "metric": "PDMS ↑",
+      "value": "90.9",
+      "comparison": "WoTE 88.3; PWM and DiffusionDrive 88.1; NAVSIM-only DriveVA 90.5.",
+      "interpretation": "Best reported score among these rows, but differing sensor inputs and simulation mixing prevent attributing the whole margin solely to architecture.",
+      "evidenceIds": [
+        "e-navsim",
+        "e-sim-mix",
+        "e-protocol"
+      ]
+    },
+    {
+      "task": "Zero-shot transfer to nuScenes",
+      "setting": "NAVSIM-trained models, no target fine-tuning; 150-scene validation split; Table 2 reports 1-, 2- and 3-second values and author-labelled Avg summaries.",
+      "metric": "Average L2 (m) ↓; collision rate (%) ↓",
+      "value": "0.84 m; 0.06%",
+      "comparison": "PWM: 3.99 m, 0.36%; DriveVLA-W0: 1.43 m, 0.77%.",
+      "interpretation": "The reported PWM reductions are 78.9% and 83.3% relative, not percentage-point reductions, calculated from the printed Avg entries. PWM's displayed collision values 0.12%, 0.15% and 0.86% have an arithmetic mean of about 0.38%, whereas the table prints 0.36%. The source does not explain this aggregation difference, so the printed collision average and derived reduction remain qualified author-reported values. This diagnostic recomputation does not replace an experimental result. These trajectory metrics do not establish sustained interactive driving.",
+      "evidenceIds": [
+        "e-transfer",
+        "e-protocol"
+      ]
+    },
+    {
+      "task": "Zero-shot real-to-simulation transfer",
+      "setting": "NAVSIM training; direct Bench2Drive validation evaluation without target fine-tuning; Table 2 reports 1–3-second values and author-labelled Avg summaries.",
+      "metric": "Average L2 (m) ↓; collision rate (%) ↓",
+      "value": "1.33 m; 1.79%",
+      "comparison": "PWM: 2.80 m, 3.76%; DriveVLA-W0: 3.00 m, 2.52%.",
+      "interpretation": "This transfer table reports trajectory metrics; the separate Dev10 study supplies the explicitly closed-loop evidence. Its DriveVA collision values of 1.38%, 1.97% and 2.65% have an arithmetic mean of 2.00%, while the printed Avg is 1.79%. The source does not explain the aggregation difference. Retain 1.79% as the author-reported summary, with this unresolved qualification; the diagnostic mean is not a replacement experimental result.",
+      "evidenceIds": [
+        "e-transfer",
+        "e-protocol",
+        "e-closed-loop"
+      ]
+    },
+    {
+      "task": "Video–trajectory consistency",
+      "setting": "DPVO reconstruction, per-trajectory 2D similarity alignment, future 4 seconds.",
+      "metric": "Average L2 ↓; units not explicitly stated in Table 4",
+      "value": "Predicted-video reconstruction versus predicted trajectory: NAVSIM 0.16; nuScenes 0.14.",
+      "comparison": "Ground-truth video reconstruction versus ground-truth trajectory: 0.09 and 0.07.",
+      "interpretation": "Supports aligned geometric consistency after fitting a similarity transform; it does not establish absolute-scale accuracy or behavioral correctness.",
+      "evidenceIds": [
+        "e-dpvo",
+        "e-failure"
+      ]
+    },
+    {
+      "task": "Video supervision and continuation ablation",
+      "setting": "NAVSIM PDM evaluation; Table 5 changes one listed switch relative to its full configuration.",
+      "metric": "PDMS ↑",
+      "value": "Full 90.9; no video loss 71.4; no continuation 84.6; no CARLA mix 90.5.",
+      "comparison": "Table 11 separately reports causal/bidirectional masks at 90.1/90.9 and action-only/joint targets at 47.0/90.9.",
+      "interpretation": "Video supervision matters strongly here. Removing its loss and removing video prediction targets are distinct interventions; their action-only scores must not be merged.",
+      "evidenceIds": [
+        "e-main-ablation",
+        "e-mask-ablation"
+      ]
+    },
+    {
+      "task": "Preliminary closed-loop driving",
+      "setting": "Bench2Drive Dev10, a small diagnostic route split.",
+      "metric": "Driving Score ↑; Success Rate ↑",
+      "value": "67.47 DS; 70.00 SR (reported scale).",
+      "comparison": "DriveMamba-12L: 66.50/40.00; DriveTransformer: 60.45/30.00.",
+      "interpretation": "Auxiliary simulated closed-loop evidence only; the authors explicitly caution against treating Dev10 as full Bench2Drive evaluation.",
+      "evidenceIds": [
+        "e-closed-loop"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Figure 8 shows consistently incorrect stopping under cyclist interaction and at an intersection. Video/action agreement is therefore insufficient for choosing the correct future mode.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-failure"
+      ]
+    },
+    {
+      "text": "DPVO alignment absorbs scale, rotation and translation differences. Table 4 supplies neither sample counts nor uncertainty; the main comparison and ablation tables also omit uncertainty. Selected qualitative examples cannot measure failure frequency.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-dpvo",
+        "e-navsim",
+        "e-transfer",
+        "e-main-ablation",
+        "e-qualitative"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the Wan backbone, driving clips/commands/ego states, the specified frame timing and optimizer schedule, and separate NAVSIM-only and simulation-mixed checkpoints. GPU count, software versions, action normalization, mixing ratio and controller details remain unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-encoding",
+        "e-training",
+        "e-protocol",
+        "e-sim-mix",
+        "e-implementation-gaps"
+      ]
+    },
+    {
+      "text": "Reader-proposed checks: distinguish zeroing video loss from deleting video targets under identical training conditions; then test whether aligned DPVO agreement predicts correct progress on held-out stopping/interaction cases. Neither check was performed in this reading.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-main-ablation",
+        "e-mask-ablation",
+        "e-dpvo",
+        "e-failure"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded One Model × Joint prediction classification is supported by architecture: a single DiT jointly denoises future video and trajectory tokens, with bidirectional target interaction. Separate encoders do not constitute separate world/action predictors. The IDM-style factorization is explanatory, not a cascaded inverse-dynamics model.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-joint"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Joint video-action modeling",
+        "Generalization & action alignment"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q1 · One Model × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "4b440c5090ff1ccde051ddd24ee949737293bea30bf91111b303604ab584a2b4"
+    }
+  },
+  "discussionQuestions": [
+    "How much transfer benefit survives equalizing data exposure and training budget?",
+    "Does video–trajectory agreement predict correct interaction decisions once stopping failures and similarity alignment are accounted for?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block and arXiv margin",
+      "detail": "The title and ten authors match the supplied catalog. The artifact is arXiv:2604.04198v2 [cs.CV], dated 1 July 2026; the affiliations are University of Twente, Xiaomi EV, University of Cambridge and University of Bath."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Abstract; p. 8, Section 4.1 continuation",
+      "detail": "The authors motivate transferable driving with aligned visual and trajectory forecasts and propose adapting pretrained video dynamics through a shared generative process."
+    },
+    {
+      "id": "e-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 2 and caption; p. 8, Section 4.2",
+      "detail": "Figure 2 shows encoded history, language and ego state conditioning a unified DiT with noisy future video and action tokens. Section 4.2 specifies that text enters by cross-attention, rather than concatenation with the visual/action stream."
+    },
+    {
+      "id": "e-interface",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1, numbered outputs and rolling-horizon paragraph; p. 15, Section 5.7, Prediction time horizon",
+      "detail": "Each action represents ego x, y and yaw. The model predicts an action chunk and future video; the stated rolling-horizon procedure executes actions, obtains observations and updates the history buffer. The trajectory horizon is K=8, spanning 4 seconds."
+    },
+    {
+      "id": "e-encoding",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.2, Eq. (4); p. 9, Section 4.3, Eqs. (5)–(7)",
+      "detail": "A frozen Wan2.2-TI2V-5B text encoder supplies text tokens. A 3D causal video VAE produces temporally downsampled latents; visual latents are flattened/projected, and MLPs embed ego state and actions. History/state form a fixed clean condition block."
+    },
+    {
+      "id": "e-flow",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Sections 4.3–4.4, Eqs. (6)–(9); p. 7, Section 3, Eq. (3)",
+      "detail": "Future video and action tokens comprise the generative target. Linear interpolation runs from Gaussian noise at s=0 to clean targets at s=1; the DiT regresses the clean-target-minus-noise velocity, conditioned on history/state and text."
+    },
+    {
+      "id": "e-joint",
+      "sourceId": "primary",
+      "location": "PDF pp. 22–23, Appendix B, Eqs. (10)–(11) and Conditioning interface",
+      "detail": "The video/action joint distribution admits a chain-rule interpretation as video continuation and action grounding, but implementation uses one DiT. Target modalities attend bidirectionally during denoising; history/state conditions remain noise-free."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 5.2, Training Details",
+      "detail": "Wan2.2-TI2V-5B training uses four history and eight future frames at 2 FPS, 832×480 images, NVIDIA H20 GPUs, AdamW, learning rate 10^-4, weight decay 0.01 and distributed bf16. Training runs 20k steps at batch 80, then 10k at effective batch 640; warm-up lasts 1k steps. Inference uses two sampling steps."
+    },
+    {
+      "id": "e-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 5.1; p. 11, Table 2 caption and Section 5.3",
+      "detail": "NAVSIMv1 Navtest uses PDM-based metrics. Zero-shot evaluation trains on NAVSIM and tests directly on the 150-scene nuScenes validation split and Bench2Drive validation split without target fine-tuning. DriveVA uses front-view camera input; simulation-enhanced training is a separate setting."
+    },
+    {
+      "id": "e-navsim",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 1, Ours, WoTE, PWM and DiffusionDrive rows",
+      "detail": "Ours reports NC 99.2, DAC 97.5, TTC 98.7, comfort 100, ego progress 83.5 and PDMS 90.9. WoTE reports 88.3 PDMS; PWM and DiffusionDrive each report 88.1. Sensor modalities differ across rows."
+    },
+    {
+      "id": "e-transfer",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 2, all rows and dataset/metric headers; p. 12, Section 5.4 continuation",
+      "detail": "For nuScenes, DriveVA/PWM/DriveVLA-W0 report Avg L2 0.84/3.99/1.43 m and collision 0.06/0.36/0.77%. On Bench2Drive they report 1.33/2.80/3.00 m and 1.79/3.76/2.52%. Table 2 places author-labelled Avg columns beside 1-, 2- and 3-second values. Two collision summaries do not reproduce the arithmetic mean of their displayed horizons: PWM nuScenes 0.12/0.15/0.86 gives about 0.38, versus printed 0.36; DriveVA Bench2Drive 1.38/1.97/2.65 gives 2.00, versus printed 1.79. No aggregation explanation resolving these differences was located in the supplied text. These recomputations diagnose an unresolved source inconsistency and do not replace the printed experimental values."
+    },
+    {
+      "id": "e-dpvo",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Table 4; pp. 23–24, Appendix D, Eq. (12)",
+      "detail": "DPVO reconstructs motion from ground-truth and generated videos; each reconstruction is aligned to its own reference by a 2D similarity transform before 4-second average L2 evaluation. NAVSIM GT/predicted errors are 0.09/0.16; nuScenes errors 0.07/0.14; cross-dataset averages 0.08/0.15. Table 4 does not explicitly label units or sample counts."
+    },
+    {
+      "id": "e-main-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Table 5, rows 1–4 and caption; p. 14, Section 5.7, Effect of key designs",
+      "detail": "Full configuration has PDMS 90.9. Removing video loss gives 71.4; removing CARLA mix training gives 90.5; removing video continuation gives 84.6. Other switches remain enabled in each corresponding row."
+    },
+    {
+      "id": "e-sim-mix",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Table 5, rows 2 and 4; Simulation-Enhanced Real-World Transferring paragraph",
+      "detail": "Mixing NAVSIM and simulation data raises PDMS from 90.5 to 90.9. The mixed configuration reproduces the full metric vector of Table 1; it must be distinguished from NAVSIM-only zero-shot training."
+    },
+    {
+      "id": "e-further-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Tables 6–9; p. 15, Section 5.7",
+      "detail": "Four/eight/twelve future frames yield PDMS 82.1/90.9/86.7. Scratch/LoRA/full fine-tuning yields 62.9/74.9/90.9. One/two/three sampling steps yield 13.2/90.9/90.9. The 14B LoRA model scores 80.6, below the 5B fully fine-tuned model's 90.9."
+    },
+    {
+      "id": "e-mask-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 26, Table 11 and Appendix E.2",
+      "detail": "Causal-mask and bidirectional variants score 90.1 and 90.9 PDMS. The prediction-target ablation reports Action Only 47.0 and Video + Action 90.9. The text says the causal mask restricts interaction between future video and action tokens."
+    },
+    {
+      "id": "e-closed-loop",
+      "sourceId": "primary",
+      "location": "PDF p. 26, Table 10 and Appendix E.1",
+      "detail": "On the small Bench2Drive Dev10 diagnostic split, DriveVA reports DS 67.47 and SR 70.00; DriveMamba-12L reports 66.50/40.00 and DriveTransformer 60.45/30.00. The authors explicitly treat this as preliminary auxiliary evidence, not full Bench2Drive evaluation."
+    },
+    {
+      "id": "e-failure",
+      "sourceId": "primary",
+      "location": "PDF p. 27, Figure 8, caption and Appendix F",
+      "detail": "The two failures predict stopping when ground truth bypasses a cyclist or proceeds through an intersection. Generated video and predicted trajectory remain mutually consistent despite selecting the wrong future mode."
+    },
+    {
+      "id": "e-qualitative",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Figure 3; p. 14, Figure 4; p. 15, Figure 5; pp. 24–25, Figures 6–7; pp. 28–30, Figures 9–12",
+      "detail": "Qualitative examples compare forecasts and trajectories, show DPVO reconstructions, and illustrate transfer to nuScenes and CARLA. They are selected visual examples rather than a quantified failure-frequency study."
+    },
+    {
+      "id": "e-implementation-gaps",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Eq. (9); p. 10, Sections 5.1–5.2; pp. 22–23, Appendix B; p. 26, Appendices E.1–E.2",
+      "detail": "The source gives token noising, optimizer and training schedule, but does not fully specify loss weighting, action normalization, CARLA mixing ratio, exact mask implementation, GPU count, software versions or trajectory-to-control integration. Section 5.2 mentions a trajectory loss alongside video flow matching, without a separate complete formula."
+    }
+  ]
+}
