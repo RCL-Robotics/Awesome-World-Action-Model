@@ -1,0 +1,444 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-9112f4a198ea02dfd27c",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T00:47:18.630Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2412.18607",
+      "title": "DrivingGPT: Unifying Driving World Modeling and Planning with Multi-modal Autoregressive Transformers",
+      "kind": "pdf",
+      "sha256": "d0d9b8e4d5d847c3f63680fe04afc8f18f84bff2398fa3bc18c972bd4530c027",
+      "wordCount": 8111,
+      "accessedAt": "2026-09-07T14:14:44.425116+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1. Introduction",
+      "2. Related Works, including 2.1–2.3",
+      "3. Driving as Next Token Prediction, including 3.1–3.2",
+      "4. Experiments, including 4.1–4.5",
+      "5. Conclusion",
+      "References",
+      "Supplementary A. Refining Video Generation with SVD Decoder",
+      "Supplementary B. The Effect of Sampling Parameters on Video Generation"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity/edition note: the inspected title and all three authors match the catalog. PDF p. 1 identifies arXiv:2412.18607v1, 24 December 2024. The catalog records ICCV 2025; this report reviews the supplied v1 artifact, not a verified ICCV camera-ready edition. Differences from that later edition were not supplied or compared (e-identity).",
+      "All five supplied text chunks were read individually, covering all 15 PDF pages. References were read as supplied bibliography; the cited works were not independently inspected.",
+      "Acquisition omission preserved: text extraction does not reconstruct figure images. The retained PDF was subsequently visually inspected for Figures 1–7, Tables 1–7, equations and supporting method/evaluation pages.",
+      "Separate supplemental material availability has not been fully verified. The supplementary pages embedded in this PDF were read and inspected; no separate supplement was supplied.",
+      "Code, project links and external resources were not inspected. No experiments were run or reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, PDF p. 1",
+      "Figure 2, PDF p. 4",
+      "Figure 3, PDF p. 5",
+      "Figure 4, PDF p. 7",
+      "Figure 5, PDF p. 8",
+      "Figure 6, PDF p. 14 (supplement p. 2)",
+      "Figure 7, PDF p. 15 (supplement p. 3)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2, PDF p. 6",
+      "Tables 3–4, PDF p. 7",
+      "Tables 5–7, PDF p. 8"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "DrivingGPT turns front-camera frames and relative ego motion into interleaved discrete tokens. A single causal transformer predicts both future imagery and motion, then integrates motion into trajectories. Its strongest planning comparison is on NAVSIM navmini, with separate navtest video-quality evaluations. The results support a unified prediction architecture, while leaving reactive driving, causal benefits of joint training and deployment efficiency unresolved.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "The paper seeks a shared sequence model for an observation-space driving transition model and a driving policy. The authors argue that predominantly visual diffusion world models make this integration difficult. Their solution learns image and motion continuations together; differentiable model-based planning is a motivation and future direction, rather than a demonstrated reward-search procedure.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem",
+      "e-sequence"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A driving vocabulary combines compressed images with three separately quantized relative-motion components. Frame-wise interleaving allows one next-token objective to cover both world modeling and planning.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-tokenization",
+        "e-sequence"
+      ]
+    },
+    {
+      "text": "The study reports video-generation comparisons, non-reactive planning scores, and diagnostics of motion copying, data curation, tokenizers and action position embeddings.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-video",
+        "e-planning",
+        "e-tokenizers",
+        "e-copy",
+        "e-curation",
+        "e-position"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Historical front-camera images",
+      "Historical frame-to-frame longitudinal/lateral translations and yaw; action conditioning for video prediction"
+    ],
+    "outputs": [
+      "Future discrete visual tokens and decoded images",
+      "Future relative-motion tokens, unbinned and integrated into an ego trajectory"
+    ],
+    "steps": [
+      {
+        "name": "Compress observations",
+        "detail": "A pretrained VQ-VAE maps each image to a spatial token grid. Images are resized to 288 × 512; downsampling by 8 or 16 gives 2,304 or 576 tokens. Only the front camera is used.",
+        "evidenceIds": [
+          "e-tokenization",
+          "e-training"
+        ]
+      },
+      {
+        "name": "Represent local motion",
+        "detail": "Each action is the next frame's longitudinal translation, lateral translation and yaw relative to the current frame. Overlapping long-horizon action labels would expose future targets in the prefix. Components are clamped to their first/99th percentiles and uniformly quantized using separate vocabularies.",
+        "evidenceIds": [
+          "e-tokenization"
+        ]
+      },
+      {
+        "name": "Predict the interleaved stream",
+        "detail": "Image blocks precede their action triplets in z1, q1, z2, q2, … . A Llama-like causal transformer uses frame-wise 1D rotary embeddings for both modalities. Its shared vocabulary has 16,384 image entries plus 128 entries per action component, totaling 16,768.",
+        "evidenceIds": [
+          "e-sequence",
+          "e-training"
+        ]
+      },
+      {
+        "name": "Decode a plan",
+        "detail": "Predicted image tokens enter the VQ-VAE decoder. Action tokens are unbinned into relative poses, converted to planar transformation matrices, and composed into an absolute trajectory. Figure 2's steering/pedal icons are illustrative: the defined outputs are pose increments, not actuator commands.",
+        "evidenceIds": [
+          "e-tokenization",
+          "e-sequence",
+          "e-integration"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Train next-token cross entropy for 100k iterations, batch 16, with AdamW: learning rate 10^-4, weight decay 0.05, momenta 0.9/0.95, gradient norm clipping 1.0 and token dropout 0.1. Horizontal image flips also transform waypoints/yaws. nuPlan clips contain 16 frames at 10 Hz; NAVSIM clips contain four history and eight future frames at 2 Hz.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training"
+        ]
+      },
+      {
+        "text": "Supplement A separately fine-tunes an SVD video decoder on tokens from input images and conditions it on predicted tokens at inference. VQ-VAE features are upsampled, reduced to four channels and concatenated with Gaussian noise for the denoising UNet, producing 576 × 1024 videos.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-refinement"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Image sampling uses temperature 1.0 and top-k 2000; modality-incompatible logits are masked. NAVSIM planning conditions on two seconds of observations/actions and generates a four-second trajectory. The paper excludes an additional ego-status input but retains historical relative actions.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-inference",
+          "e-planning"
+        ]
+      },
+      {
+        "text": "Section 4.1 says long videos produce 16 frames conditioned on eight previous frames. Supplement A instead specifies eight new frames from eight preceding frames, then SVD decoding in four 16-frame blocks. These descriptions are preserved without assuming identical schedules.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-inference",
+          "e-refinement"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\sum_t -\\log p_\\theta(x_t\\mid x_{<t})",
+        "explanation": "Equation (1): x is the unified visual/action token sequence and p_theta is the autoregressive transformer. Each token is predicted from earlier tokens; the sum is the cross-entropy training objective. Here t indexes the serialized token stream.",
+        "evidenceIds": [
+          "e-sequence"
+        ]
+      },
+      {
+        "expression": "p_\\theta(z_t\\mid z_{<t},q_{<t}),\\qquad p_\\theta(q_t\\mid z_{\\le t},q_{<t})",
+        "explanation": "Section 3.2 identifies the world-model and policy conditionals. At frame t, z_t is the image-token block and q_t the action triplet. The policy sees the current image; the next image can depend on preceding actions.",
+        "evidenceIds": [
+          "e-sequence"
+        ]
+      },
+      {
+        "expression": "T_{t+1\\to t}=\\begin{bmatrix}\\cos\\theta_t&-\\sin\\theta_t&x_t\\\\\\sin\\theta_t&\\cos\\theta_t&y_t\\\\0&0&1\\end{bmatrix},\\qquad T_{t+k\\to t}=\\prod_{i=1}^{k}T_{t+i\\to t+i-1}",
+        "explanation": "Equation (2) and its following composition: here x_t, y_t and theta_t denote decoded longitudinal translation, lateral translation and yaw, not serialized token IDs. T maps consecutive poses; k is the number of future steps composed.",
+        "evidenceIds": [
+          "e-integration"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "NAVSIM end-to-end planning",
+      "setting": "navmini; two-second history, four-second non-reactive simulation; front camera, no additional ego-status input.",
+      "metric": "PDMS and subscores, percentages; higher is better",
+      "value": "PDMS 82.4; NC 98.9, DAC 90.7, TTC 94.9, comfort 95.6, ego progress 79.7.",
+      "comparison": "ResNet-50 + MLP: PDMS 77.8, comfort 96.3. Constant velocity: PDMS 24.2.",
+      "interpretation": "The PDMS gain is 4.6 percentage points over the visual baseline, with slightly worse comfort. This is a non-reactive benchmark result, not physical deployment.",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-planning"
+      ]
+    },
+    {
+      "task": "Video-generation quality",
+      "setting": "512 navtest videos; Table 1; DrivingGPT trained on navtrain, SVD also compared after navtrain fine-tuning.",
+      "metric": "FVD / FID; lower is better",
+      "value": "142.61 / 12.78.",
+      "comparison": "Fine-tuned SVD: 227.54 / 24.03; off-the-shelf SVD: 483.76 / 27.80; CogvideoX: 848.87 / 31.78.",
+      "interpretation": "Distributional visual quality improves over the listed models. Pretraining differs, and these metrics do not measure action execution.",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-video"
+      ]
+    },
+    {
+      "task": "Long-video generation",
+      "setting": "Separate 512-clip navtest selection with more than 64 frames per source clip; Table 2 evaluates 16/32/64-frame outputs.",
+      "metric": "FID / FVD; lower is better",
+      "value": "At 16/32/64 frames: FID 15.04/16.30/20.45; FVD 278.11/454.28/506.95.",
+      "comparison": "SVD: FID 30.48/35.57/46.45; FVD 418.93/786.68/1079.28.",
+      "interpretation": "DrivingGPT deteriorates with horizon but remains better in this comparison. These values belong to Table 2's long-clip protocol, not Table 1.",
+      "evidenceIds": [
+        "e-long-video"
+      ]
+    },
+    {
+      "task": "Replacing predicted motion with history copying",
+      "setting": "Planning diagnostic; replace one predicted component with its last historical value.",
+      "metric": "PDMS, percentage; higher is better",
+      "value": "All predicted: 82.4; copy longitudinal x: 53.5; copy lateral y: 79.4; copy yaw: 73.1.",
+      "comparison": "Copying x produces the largest degradation, despite comfort increasing to 100.0.",
+      "interpretation": "Predicted motion outperforms these copying controls. The intervention does not isolate visual conditioning or the world-model loss.",
+      "evidenceIds": [
+        "e-copy"
+      ]
+    },
+    {
+      "task": "Training-data and position-embedding diagnostics",
+      "setting": "Table 6 compares nuPlan uniform (651k sequences, 16 frames) with NAVSIM train (104k, 12 frames); Table 7 changes action position embeddings.",
+      "metric": "PDMS, percentage; higher is better",
+      "value": "Data: 74.6 versus 82.4. Position embeddings: images only 65.3; images and actions 82.4.",
+      "comparison": "Smaller curated training data and action position embeddings are associated with better scores.",
+      "interpretation": "Data curation is confounded with sampling rate, sequence length and distribution; Table 6 does not establish a universal quality-over-quantity law.",
+      "evidenceIds": [
+        "e-training",
+        "e-curation",
+        "e-position"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Front-only sensing omits surrounding cameras, LiDAR and IMUs. Non-reactive evaluation and qualitative examples leave reactive interaction, physical execution and safety under distribution shift unestablished.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-tokenization",
+        "e-evaluation",
+        "e-qualitative"
+      ]
+    },
+    {
+      "text": "The reported ablations do not compare matched joint versus action-only training. No repeated-run uncertainty is supplied. LlamaGen wins reconstruction FVD/FID, whereas Cosmos wins PSNR/SSIM, so tokenizer selection depends on the criterion.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-tokenizers",
+        "e-copy",
+        "e-curation",
+        "e-position"
+      ]
+    },
+    {
+      "text": "Supplement A acknowledges temporal inconsistency from independent frame decoding. Its SVD refinement adds another model, while Supplement B shows a qualitative smoothness/detail tradeoff with top-k; neither supplies a quantified planning benefit.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-refinement",
+        "e-sampling"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction needs the matching nuPlan/NAVSIM splits, pretrained tokenizer and its downsampling choice, component percentile thresholds, token ordering, rotary indexing, modality masks and pose integration. Preserve navmini planning versus navtest visual evaluation and the separate long-clip sample.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-tokenization",
+        "e-sequence",
+        "e-integration",
+        "e-training",
+        "e-evaluation",
+        "e-long-video"
+      ]
+    },
+    {
+      "text": "Missing specifications include numerical action thresholds, exact transformer scale, full frozen-module inventory, action sampling/unbinning convention, hardware, runtime, software versions and SVD training hyperparameters. Resolve the rollout wording and whether reported video tables use refinement before claiming exact replication.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-training",
+        "e-inference",
+        "e-video",
+        "e-long-video",
+        "e-refinement"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "Figure 2 and the two conditional distributions support One Model × Joint prediction: one causal transformer generates future visual and action tokens in one stream. This is not an inverse-dynamics-only action extractor. Tokenizers and supplementary SVD refinement remain separate components; the classification describes the shared prediction core, not an entirely single-network rendering pipeline.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-sequence",
+        "e-refinement"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Autonomous driving",
+        "Joint video-action modeling"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q1 · One Model × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "941749afae188ca09dd44ed57e785083d37f393907a97a2e25ba9b54e152e89d"
+    }
+  },
+  "discussionQuestions": [
+    "Would matched action-only training preserve the planning gain attributed to the unified formulation?",
+    "How much does visual-token sampling alter later predicted actions and accumulated pose error?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block and arXiv margin stamp",
+      "detail": "Exact observed title matches the catalog. Authors are Yuntao Chen, Yuqi Wang and Zhaoxiang Zhang. The stamp is arXiv:2412.18607v1 [cs.CV], 24 Dec 2024. Three institutional affiliations appear below the author names."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 1; p. 3, Section 3.1; pp. 8–9, Section 5",
+      "detail": "The authors motivate joint world modeling and planning, define observation-space dynamics and a policy, and describe differentiable model-based planning as future exploration in the conclusion."
+    },
+    {
+      "id": "e-tokenization",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.2, Observation Tokenization and Action Tokenization",
+      "detail": "Front-camera images become VQ-VAE tokens. Relative translations/yaw avoid overlapping long-horizon labels leaking future actions. Each component is clamped to first/99th percentiles and uniformly binned with its own vocabulary."
+    },
+    {
+      "id": "e-sequence",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and caption; Section 3.2, Unified Visual Action Sequence Modeling, Eq. (1) and following conditionals",
+      "detail": "A single causal transformer predicts interleaved image/action tokens with frame-wise rotary embeddings and cross entropy. Image tokens condition on earlier image/action blocks; current actions also condition on current image tokens. The figure routes images through VQ-VAE and motion through binning/unbinning."
+    },
+    {
+      "id": "e-integration",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2, Integrating Action into Trajectory, Eq. (2) and subsequent product",
+      "detail": "Decoded longitudinal/lateral translations and yaw define a 3×3 planar transformation; consecutive relative transformations are multiplied into an absolute future pose."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 4.1, Training",
+      "detail": "Input resolution is 288×512; spatial rates 8/16 yield 2304/576 image tokens. The vocabulary is 16384+3×128=16768. AdamW uses learning rate 10^-4, weight decay 0.05, momenta 0.9/0.95, clip norm 1.0, dropout 0.1, batch 16 and 100k iterations. nuPlan/NAVSIM clips are 16 frames at 10 Hz and 12 frames at 2 Hz respectively. Horizontal flips transform actions too. Exact hardware and transformer scale are not stated here."
+    },
+    {
+      "id": "e-inference",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1, Inference",
+      "detail": "Image sampling uses temperature 1.0, top-k 2000 and masking of foreign-modality logits. The main-text long-generation description says 16 frames at a time conditioned on the previous eight."
+    },
+    {
+      "id": "e-evaluation",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.2, NAVSIM, Planning Metrics and World Modeling Metrics",
+      "detail": "The paper reports navtrain with 1192 scenarios, navtest with 136 and an independent navmini with 396. Planning is measured on navmini after four-second non-reactive simulation using NC, DAC, TTC, comfort and ego progress combined as PDMS. Visual evaluation selects 512 navtest videos for FVD/FID."
+    },
+    {
+      "id": "e-video",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, FVD/FID columns, and Section 4.3, Comparison of Generated Videos",
+      "detail": "DrivingGPT: 142.61/12.78; navtrain-fine-tuned SVD: 227.54/24.03; off-the-shelf SVD: 483.76/27.80; CogvideoX: 848.87/31.78. The text says DrivingGPT is trained from scratch and diffusion comparisons use released models, with SVD additionally fine-tuned on navtrain. No refinement-specific rows or uncertainty are given."
+    },
+    {
+      "id": "e-long-video",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 3/caption; p. 6, Section 4.3, Long Video Generation and Table 2",
+      "detail": "The long-video evaluation selects 512 navtest clips longer than 64 frames. At 16/32/64 frames, DrivingGPT FID is 15.04/16.30/20.45 and FVD 278.11/454.28/506.95; SVD FID is 30.48/35.57/46.45 and FVD 418.93/786.68/1079.28. Figure 3 shows a 64-frame, 32-second example and its caption labels SVD as panel (a), DrivingGPT as (b)."
+    },
+    {
+      "id": "e-planning",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3, all rows/columns, and Section 4.4",
+      "detail": "DrivingGPT NC/DAC/TTC/comfort/EP/PDMS: 98.9/90.7/94.9/95.6/79.7/82.4 percent. ResNet-50+MLP: 92.6/89.9/86.2/96.3/73.7/77.8. Constant velocity PDMS is 24.2. Planning conditions on two seconds of observations/actions for four seconds ahead; DrivingGPT and the visual baseline use front images without additional ego status."
+    },
+    {
+      "id": "e-tokenizers",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 4 and Section 4.5, Comparison of Different Visual Tokenizers",
+      "detail": "Evaluation uses navtest, 512×288 images and spatial downsampling 16; the text states 12146 video samples. LlamaGen rFVD/rFID/PSNR/SSIM: 68.40/5.67/23.09/0.652; OpenMAGVIT2: 96.32/6.70/15.57/0.410; Cosmos: 178.50/27.12/25.05/0.695. The authors select LlamaGen."
+    },
+    {
+      "id": "e-copy",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4.5, Does DrivingGPT Learn or Copy Planning Solutions?; p. 8, Table 5 and caption",
+      "detail": "Replacing one component with the last historical action gives PDMS 53.5 for x, 79.4 for y and 73.1 for yaw versus 82.4 for all predicted. Copy-x gives NC 75.9, TTC 63.1, comfort 100.0 and EP 48.2. The authors attribute its large drop to stop-and-go acceleration scenes. These are copying interventions, not action-only training comparisons."
+    },
+    {
+      "id": "e-curation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 6 and Section 4.5, Training Data Curation for Planning",
+      "detail": "Uniform nuPlan: 651k sequences, 16 frames/sequence, PDMS 74.6. NAVSIM train: 104k sequences, 12 frames/sequence, PDMS 82.4. The authors hypothesize that many ordinary driving trajectories contain little action change."
+    },
+    {
+      "id": "e-position",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 7 and Section 4.5, Position Embedding for Actions",
+      "detail": "Rotary position embeddings for image tokens only give PDMS 65.3; applying them to both image and action tokens gives 82.4."
+    },
+    {
+      "id": "e-qualitative",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Mitigating Object Hallucination; p. 7, Figure 4/caption; p. 8, Figure 5/caption",
+      "detail": "Figure 4 contrasts object appearance/disappearance in SVD with a DrivingGPT example. Figure 5 displays unprotected left turn, curved turn, merging and an author-labeled better-path example; blue denotes generated and brown human trajectories. These are qualitative selections without execution evidence."
+    },
+    {
+      "id": "e-refinement",
+      "sourceId": "primary",
+      "location": "PDF p. 13 (supplement p. 1), Appendix A; p. 14 (supplement p. 2), Figure 6/caption",
+      "detail": "A separately fine-tuned SVD decoder addresses temporally inconsistent independent decoding. Training conditions on input-image tokens; inference uses predicted tokens. Eight new token frames are predicted from eight previous frames until 64 frames/32 seconds. Upsampled VQ-VAE features are reduced to four channels and concatenated with noise; SVD decodes four 16-frame blocks at 576×1024. Figure 6 provides four qualitative nuPlan examples without a numerical refinement comparison."
+    },
+    {
+      "id": "e-sampling",
+      "sourceId": "primary",
+      "location": "PDF p. 13 (supplement p. 1), Appendix B; p. 15 (supplement p. 3), Figure 7/caption",
+      "detail": "Figure 7 has columns T+4, T+6, T+8 and rows K=1,5,25,125,625,2000. The authors describe smaller k as smoother and larger k as more detailed but sometimes distorted. No quantitative sampling-quality or planning comparison is supplied."
+    }
+  ]
+}
