@@ -1,0 +1,520 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-393a36f38d60db8631f4",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T00:32:03.596Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://diffusion-policy.cs.columbia.edu/diffusion_policy_ijrr.pdf",
+      "title": "Diffusion Policy: Visuomotor Policy Learning via Action Diffusion",
+      "kind": "pdf",
+      "sha256": "efc284c0e414f90c6ef69e1a4eb43423618971be68f9401801f34b0ddff3c073",
+      "wordCount": 14593,
+      "accessedAt": "2026-09-07T14:14:14.368626+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract and title block (p. 1)",
+      "1 Introduction and journal-extension statement (pp. 1–2)",
+      "2 Diffusion Policy Formulation, including 2.1–2.3 (pp. 2–3)",
+      "3 Key Design Decisions, including 3.1–3.4 (pp. 3–4)",
+      "4 Intriguing Properties, including 4.1–4.5 (pp. 4–6)",
+      "5 Evaluation, including 5.1–5.4 (pp. 6–9)",
+      "6 Realworld Evaluation, including 6.1–6.3 (pp. 9–11)",
+      "7 Realworld Bimanual Tasks, including 7.1–7.5 (pp. 11–12)",
+      "8 Related Work; 9 Limitations and Future Work; 10 Conclusion; 11 Acknowledgement; Funding (pp. 12–13)",
+      "References (pp. 14–16)",
+      "Appendix A, implementation, normalization, rotations, augmentation, hyperparameters and data efficiency (pp. 16–17)",
+      "Appendix B, observation horizon and improvement calculation (pp. 16–17)",
+      "Appendix C, real-world demonstrations and evaluation protocols (pp. 17–18)",
+      "Appendix D, robot stations and all bimanual rollout montages (pp. 18–19)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "All nine supplied text chunks and all 19 PDF pages were read; no supplied body or appendix section was omitted.",
+      "Identity/version: the observed title and eight authors match the catalog apart from title capitalization. Page 2 identifies this as an extension of Chi et al. (2023), adding control-theory discussion, encoder ablations and three bimanual tasks. The supplied 19-page author-hosted IJRR artifact has no explicit revision number/date or publisher pagination establishing equivalence to the catalog's 2025 journal pages 1684–1704; the publisher edition and earlier conference PDF were not supplied.",
+      "The title block has affiliation superscripts but no institutional key; affiliations and equal-contribution semantics cannot be verified from those marks alone.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This supplied limitation was addressed by inspecting all PDF pages and six final original crops.",
+      "Separate supplemental material availability has not been fully verified.",
+      "No supplemental videos, external website, linked code or dataset files were inspected, and no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 3)",
+      "Figures 3–5 (p. 5)",
+      "Figure 6 (p. 6)",
+      "Figures 7–9 (p. 10)",
+      "Figure 10 (p. 11)",
+      "Figures 11–13 (p. 12)",
+      "Figures 14–15 (p. 16)",
+      "Figures 16–17 (p. 18)",
+      "Figures 18–21 (p. 19)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–3 (p. 7)",
+      "Table 4 (p. 8)",
+      "Tables 5–6 (p. 9)",
+      "Tables 7–8 (p. 17)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Diffusion Policy learns a conditional distribution over demonstrated action sequences, then repeatedly denoises a candidate sequence and executes a short segment before observing again. Visual features condition action generation rather than being predicted as future images. The journal extension adds encoder studies and bimanual manipulation. Its strongest evidence combines simulation comparisons with executed real-robot tasks, while heterogeneous protocols and conflicting configuration statements limit simple headline comparisons.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Human demonstrations can offer several valid actions for the same observation, yet a robot must commit to a coherent trajectory and make precise corrections. Single-step regression can average incompatible choices; independently sampled multimodal actions can alternate between them. The paper investigates whether diffusion over action sequences can represent this diversity while remaining trainable and responsive.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem",
+      "e-multimodal",
+      "e-horizon"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The method combines conditional action diffusion, receding-horizon execution and visual features computed once per policy inference. It provides both a temporal CNN and a time-series diffusion transformer.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-formulation",
+        "e-backbones"
+      ]
+    },
+    {
+      "text": "The authors report a 46.9% average relative improvement. Appendix B.2 selects the best diffusion variant and baseline per column of Tables 1, 2 and 4, excluding MH columns. This is a selected relative-improvement average, not a pooled success rate or a 46.9-percentage-point gain.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-aggregate"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Recent observations O_t over T_o steps: task state or RGB images plus proprioception.",
+      "Demonstrated action sequences for supervised training; noisy action sequences and diffusion iteration k for denoising."
+    ],
+    "outputs": [
+      "A denoised action sequence over prediction horizon T_p; T_a actions are executed before replanning.",
+      "Desired end-effector positions/poses and, where applicable, gripper commands; no predicted future images."
+    ],
+    "steps": [
+      {
+        "name": "Encode observations",
+        "detail": "Each camera has a separate ResNet-18 encoder; frames are encoded independently and concatenated. The default encoder is trained from scratch with the policy, uses spatial softmax pooling, and replaces BatchNorm with GroupNorm to accommodate exponential moving averages.",
+        "evidenceIds": [
+          "e-vision"
+        ]
+      },
+      {
+        "name": "Refine a sequence",
+        "detail": "The CNN uses temporal convolutions and FiLM conditioning on observations and diffusion iteration. The transformer takes noisy action tokens, incorporates observation cross-attention, and uses causal action attention as defined in Figure 2's caption. The authors recommend starting with the CNN; the transformer can handle sharper action changes but needs more tuning.",
+        "evidenceIds": [
+          "e-formulation",
+          "e-backbones"
+        ]
+      },
+      {
+        "name": "Execute and observe again",
+        "detail": "At time t, predict T_p actions using T_o observations, execute T_a without replanning, then update observations. Section 2.3 also describes warm-starting from unexecuted actions when prediction extends beyond execution. This is an available procedure, not a separately demonstrated gain.",
+        "evidenceIds": [
+          "e-formulation"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Sample a demonstration, diffusion iteration and Gaussian corruption; regress the injected noise with mean squared error. Visual encoders train jointly with the denoiser. The square-cosine noise schedule is used; the training objective does not require the negative samples used to estimate an energy-based policy's normalization constant.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-formulation",
+          "e-vision",
+          "e-stability"
+        ]
+      },
+      {
+        "text": "Appendix A specifies per-dimension action scaling to [-1,1], except rotations and nearly constant dimensions; position control uses a 6D rotation representation. Training uses random image crops and inference uses center crops. State/image batch sizes are 256/64, with cosine learning-rate scheduling and CNN/transformer warmups of 500/1000 steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-preprocessing"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Initialize the candidate sequence with Gaussian noise and repeatedly subtract predicted noise according to the schedule. Observations stay fixed through this loop. The resulting commands are executed by robot controllers; no explicit dynamics rollout, reward optimization or inverse-dynamics action extractor is used.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-formulation",
+          "e-hardware"
+        ]
+      },
+      {
+        "text": "Section 3.4 reports 100 training diffusion steps and 10 DDIM inference steps, yielding 0.1-second latency on an Nvidia 3080. Appendix A.4 and Tables 7–8 instead specify 16 real-world inference steps; simulation uses 100. These settings are not silently reconciled.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-latency",
+          "e-preprocessing",
+          "e-hyperparameters"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "A_t^{k-1}=\\alpha\\left(A_t^k-\\gamma\\varepsilon_\\theta(O_t,A_t^k,k)+\\mathcal{N}(0,\\sigma^2 I)\\right)",
+        "explanation": "Equation (4), in the paper's schedule-dependent notation: A_t^k is the noisy action sequence at diffusion iteration k, O_t is its observation conditioning, and ε_θ predicts noise. The schedule determines α, γ and σ; I appears in the Gaussian covariance. Denoising iteration k is distinct from robot time t.",
+        "evidenceIds": [
+          "e-ddpm",
+          "e-formulation"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}=\\operatorname{MSE}\\left(\\varepsilon^k,\\varepsilon_\\theta(O_t,A_t^0+\\varepsilon^k,k)\\right)",
+        "explanation": "Equation (5): A_t^0 is the demonstration action sequence and ε^k is its sampled corruption. The supervised target is the injected noise, not a predicted future observation. This reproduces the paper's simplified presentation.",
+        "evidenceIds": [
+          "e-formulation"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Robomimic visual Transport (PH)",
+      "setting": "200 proficient-human demonstrations; 3000 training epochs. Three training seeds; the p. 8 footnote corrects Robomimic evaluation to 22 initializations, despite the table's stated 50.",
+      "metric": "Success rate: best checkpoint / average of last 10 checkpoints",
+      "value": "CNN: 1.00 / 0.93; transformer: 0.98 / 0.81.",
+      "comparison": "LSTM-GMM: 0.88 / 0.62; IBC: 0.00 / 0.00.",
+      "interpretation": "The CNN improves both selections; action spaces differ across methods, so this is a system comparison rather than an isolated denoiser ablation.",
+      "evidenceIds": [
+        "e-visual-results",
+        "e-protocol",
+        "e-data"
+      ]
+    },
+    {
+      "task": "Franka Kitchen four-subtask completion",
+      "setting": "State observations; 656 demonstrations, each performing four interactions; 4500 training epochs and Section 5.2 checkpoint protocol.",
+      "metric": "p4: frequency of completing at least four interactions",
+      "value": "CNN 0.99; transformer 0.96.",
+      "comparison": "BET 0.44; LSTM-GMM 0.34; IBC 0.24.",
+      "interpretation": "Supports long-horizon execution under the benchmark. The prose's 213% improvement does not follow from the printed 0.99 versus 0.44 pair; retain the table values.",
+      "evidenceIds": [
+        "e-multistage",
+        "e-protocol",
+        "e-data"
+      ]
+    },
+    {
+      "task": "Vision-encoder ablation on visual Square (PH)",
+      "setting": "CNN policy; Table 5 states 500 epochs, evaluation every 50 epochs and 50 initializations.",
+      "metric": "Reported success rate",
+      "value": "CLIP ViT-B/16: scratch 0.22, frozen 0.70, fine-tuned 0.98.",
+      "comparison": "ResNet-18: 0.94, 0.58, 0.92 respectively; ResNet-34: 0.92, 0.40, 0.94.",
+      "interpretation": "Adaptation matters, but pretraining does not improve every architecture. The 50-epoch claim in adjacent prose and the global 22-initialization footnote leave aggregation details unresolved.",
+      "evidenceIds": [
+        "e-encoder-ablation",
+        "e-protocol"
+      ]
+    },
+    {
+      "task": "Real-world Push-T",
+      "setting": "136 demonstrations; 12-hour training budget; 20 matched initial conditions. Last checkpoint except IBC, selected by minimum training-action MSE.",
+      "metric": "End-state IoU; thresholded success; mean episode duration",
+      "value": "CNN with end-to-end vision: 0.80 IoU, 95% success, 22.9 seconds.",
+      "comparison": "Human: 0.84, 100%, 20.3 seconds; best LSTM-GMM success 20%; IBC 0%. Frozen R3M diffusion reaches 80%.",
+      "interpretation": "Executed two-stage manipulation: align the block, then clear the view. Success thresholds use minimum demonstration IoU; perturbation examples were a separate episode.",
+      "evidenceIds": [
+        "e-real-push",
+        "e-push-protocol",
+        "e-perturbation"
+      ]
+    },
+    {
+      "task": "Real-world mug flipping",
+      "setting": "20 trials; varied mug poses. Table 3 lists 250 demonstrations; LSTM-GMM uses an unspecified subset of the same data.",
+      "metric": "Task success",
+      "value": "Diffusion Policy 90%.",
+      "comparison": "LSTM-GMM 0%.",
+      "interpretation": "Demonstrates 3D reorientation, but the unequal, incompletely specified training subsets prevent a clean data-matched attribution.",
+      "evidenceIds": [
+        "e-mug",
+        "e-data"
+      ]
+    },
+    {
+      "task": "Real-world sauce pouring and spreading",
+      "setting": "Franka tasks; last checkpoint after 1000 epochs. Appendix C.2 says 50 demonstrations with 90% training per task, conflicting with Table 3's 90.",
+      "metric": "Pouring IoU and success; spreading coverage and success",
+      "value": "Pouring 0.74 / 0.79; spreading 0.77 / 1.00.",
+      "comparison": "Human 0.79 / 1.00 for both; LSTM-GMM pouring 0.06 / 0.00 and spreading 0.27 / 0.00.",
+      "interpretation": "Different geometric metrics must remain separate. The reported pouring success fraction's trial denominator is not explicitly resolved by the protocol.",
+      "evidenceIds": [
+        "e-sauce",
+        "e-sauce-protocol",
+        "e-data"
+      ]
+    },
+    {
+      "task": "Bimanual egg beating, mat unrolling and shirt folding",
+      "setting": "20 trials per task; respectively 210, 162 and 284 demonstrations.",
+      "metric": "Task success",
+      "value": "55%, 75% and 75%, respectively.",
+      "comparison": "No learned-policy baseline reported for these three tasks.",
+      "interpretation": "Extends executed behavior to coordinated tool use and deformable objects. Failures include missed grasps, unfamiliar egg-beater positions and repeated unsuccessful corrections; no cross-task transfer test is established.",
+      "evidenceIds": [
+        "e-bimanual"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify dependence on adequate demonstration data and higher inference cost than simpler policies. Action chunks mitigate latency but may be insufficient for high-rate control.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-limitations"
+      ]
+    },
+    {
+      "text": "Main comparison tables omit confidence intervals. Best-variant selection, action-space differences and the Robomimic initialization bug qualify broad superiority claims. Figure 5 shows near-peak rather than literally identical performance across small delays; the prose's four-step robustness statement should not become a general latency guarantee.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-protocol",
+        "e-aggregate",
+        "e-horizon"
+      ]
+    },
+    {
+      "text": "Internal inconsistencies affect reproduction: 10 versus 16 real-world denoising steps, conflicting sauce dataset counts, and ambiguous encoder-ablation checkpoint reporting. Figure 2's caption describes T_a outputs, whereas Section 2.3 explicitly predicts T_p and executes T_a.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-latency",
+        "e-hyperparameters",
+        "e-data",
+        "e-sauce-protocol",
+        "e-encoder-ablation",
+        "e-formulation"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "For visual Square, Table 7 specifies position control, T_o=2, T_a=8, T_p=16, two 84×84 images cropped to 76×76, 256M denoiser parameters, 22M vision parameters, learning rate 10^-4 and weight decay 10^-6. Reproduction needs the demonstrations, exact preprocessing, sampler and checkpoint-selection rules.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-hyperparameters",
+        "e-preprocessing",
+        "e-protocol"
+      ]
+    },
+    {
+      "text": "Real Push-T needs synchronized front/wrist observations and UR5 execution: 10-Hz policy commands are interpolated to 125 Hz. Bimanual inference uses the non-haptic controller with explicit kinematic constraints; haptic demonstration collection is a separate control mode. The paper links resources but does not establish their inspected availability here.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-hardware",
+        "e-bimanual",
+        "e-identity"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded foundational action-policy/diffusion classification is supported. World-action architecture, prediction paradigm and quadrant remain not applicable: the learned distribution is over actions conditioned on observations, without an explicit future-world prediction branch. Section 4.5's linear example motivates implicitly learning task-relevant dynamics, but does not establish a joint world/action model or an inverse-dynamics pipeline.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-formulation",
+        "e-control"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Action policy foundations",
+        "Diffusion & flow-matching foundations"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "523239b418de02a521948a5a94befc382f52c3bde18feaa6bc206d0c60ce9ee7"
+    }
+  },
+  "discussionQuestions": [
+    "How much of the gain remains when every method uses matched action spaces and checkpoint rules?",
+    "Can action-sequence prediction's implicit dynamics representation generalize beyond the demonstrated control task?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block; p. 2, Introduction extension paragraph; p. 14, Chi et al. (2023) reference",
+      "detail": "The title is Diffusion Policy: Visuomotor Policy Learning via Action Diffusion. Authors are Cheng Chi, Zhenjia Xu, Siyuan Feng, Eric Cousineau, Yilun Du, Benjamin Burchfiel, Russ Tedrake and Shuran Song. The paper explicitly extends the 2023 RSS work with control-theory discussion, encoder ablations and three bimanual tasks; it links project resources."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract, Figure 1 and Introduction",
+      "detail": "Motivates multimodal distributions, temporal correlation, precision, action-sequence diffusion, visual conditioning and stable training."
+    },
+    {
+      "id": "e-ddpm",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 2.1, Equations (1)–(2)",
+      "detail": "Defines Gaussian-initialized iterative denoising, noise predictor εθ and schedule factors α, γ and σ."
+    },
+    {
+      "id": "e-formulation",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2 and caption; Sections 2.2–2.3, Equations (3)–(5)",
+      "detail": "Conditions action diffusion on observations; predicts T_p actions from T_o observations and executes T_a. Describes warm-starting unexecuted actions and noise-MSE training. Caption defines causal action attention and denoising subtraction, but describes outputs as T_a steps."
+    },
+    {
+      "id": "e-backbones",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1; Figure 2(b–c)",
+      "detail": "CNN temporal convolution uses FiLM; transformer action tokens use observation embeddings and diffusion iteration conditioning. CNN is recommended first; transformer is more sensitive to tuning."
+    },
+    {
+      "id": "e-vision",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Sections 3.2–3.3",
+      "detail": "Default separate camera encoders are ResNet-18 without pretraining, with spatial softmax and GroupNorm, trained end-to-end; square-cosine noise schedule is used."
+    },
+    {
+      "id": "e-latency",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.4",
+      "detail": "Reports 100 training and 10 DDIM inference iterations with 0.1-second latency on an Nvidia 3080 GPU."
+    },
+    {
+      "id": "e-multimodal",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 3 and caption; Section 4.3; p. 4, Section 4.1",
+      "detail": "Push-T qualitative trajectories use 40-step rollouts from best checkpoints. Diffusion shows two routes with within-rollout commitment; other methods show bias or inconsistent paths. The text motivates temporal consistency and idle-action handling."
+    },
+    {
+      "id": "e-horizon",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 5 and caption; p. 8, Section 5.3 action-horizon and latency paragraphs",
+      "detail": "Plots performance differences from task maxima for Push-T and Square. Both peak at action horizon 8; long horizons degrade. Small delays have modest effects, although the plotted Square curve slightly declines before the prose's claimed four-step peak-preservation limit. Latency is measured from last observation to first executable action."
+    },
+    {
+      "id": "e-stability",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.4, Equations (6)–(8), Figure 6 and caption",
+      "detail": "The score removes the action-independent normalization term; diffusion avoids estimating it with negative samples. Figure 6 compares training-action MSE on real Push-T with rollout performance on simulated Push-T."
+    },
+    {
+      "id": "e-control",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.5, Equation (9) and following derivation",
+      "detail": "A linear-system/linear-feedback example recovers the demonstration policy and expresses future actions through closed-loop dynamics, motivating task-relevant implicit dynamics representation rather than explicit state prediction."
+    },
+    {
+      "id": "e-visual-results",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2, Transport PH column and all model rows; Table 1 caption",
+      "detail": "Transport PH visual results (best/last-ten average): CNN 1.00/0.93, transformer 0.98/0.81, LSTM-GMM 0.88/0.62, IBC 0.00/0.00. The paired format is defined in Table 1's caption."
+    },
+    {
+      "id": "e-data",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 5.1; p. 7, Table 3",
+      "detail": "Robomimic PH datasets contain 200 demonstrations per task; MH variants contain 300. Kitchen has 656 demonstrations of four interactions. Table 3 lists 136 real Push-T, 250 mug-flip and 90 demonstrations for each sauce task."
+    },
+    {
+      "id": "e-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5.2 and bottom footnote; p. 7, Tables 1–2 captions",
+      "detail": "Three seeds, nominally 50 initializations, last ten checkpoints saved every 50 epochs; best checkpoints also reported for Robomimic/Push-T. Footnote corrects Robomimic to 22 initializations for all methods. State/image training lasts 4500/3000 epochs; methods use their selected action spaces. Push-T uses target coverage, unlike binary-success tasks."
+    },
+    {
+      "id": "e-multistage",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4, Kitchen p4 column and caption; Section 5.3 long-horizon paragraph",
+      "detail": "Kitchen p4 is 0.99 CNN, 0.96 transformer, 0.44 BET, 0.34 LSTM-GMM and 0.24 IBC. It measures at least four interactions. The adjacent prose claims 213% improvement, which is inconsistent with the displayed best-versus-best pair."
+    },
+    {
+      "id": "e-aggregate",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Appendix B.2; pp. 7–8, Tables 1, 2 and 4",
+      "detail": "B.2 excludes MH columns, selects maximum baseline and diffusion-variant performance in each remaining column, averages relative improvements and reports 0.46858 ≈46.9%."
+    },
+    {
+      "id": "e-encoder-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5.4; p. 9, Table 5 and continuation of Section 5.4",
+      "detail": "ResNet-18/34 use ImageNet-21k pretraining, ViT-B/16 uses CLIP. Scratch/frozen/fine-tuned success is 0.94/0.58/0.92, 0.92/0.40/0.94 and 0.22/0.70/0.98. Fine-tuning uses tenfold lower encoder learning rate. Caption states 500 epochs and evaluation every 50 epochs under 50 initializations; prose says ViT reaches 98% after 50 epochs. Exact table checkpoint aggregation is not specified."
+    },
+    {
+      "id": "e-real-push",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 6, all metric rows and caption; Section 6.1",
+      "detail": "CNN end-to-end vision yields 0.80 end-state IoU, 0.95 success, 22.9-second duration; human 0.84/1.00/20.3. Best LSTM-GMM success is 0.20, IBC 0.00, frozen-R3M diffusion 0.80. Success uses minimum demonstration IoU; the robot must enter an end-zone. Figure labels separate policy cameras from evaluation-only top-down camera."
+    },
+    {
+      "id": "e-push-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Appendix C.1.1–C.1.2",
+      "detail": "136 demonstrations; 12 hours training; last checkpoint except IBC's minimum training-action-MSE checkpoint; 20 matched initial conditions. Stop after 0.5 seconds in end-zone or 60 seconds. IoU is measured in top-down pixel space."
+    },
+    {
+      "id": "e-perturbation",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 6.1 robustness paragraph; p. 10, Figures 7–8 and captions",
+      "detail": "Illustrates recovery after camera occlusion and block displacement. These interventions were applied in a separate episode from Table 6's quantitative comparison."
+    },
+    {
+      "id": "e-mug",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 6.2, Figure 9 and caption",
+      "detail": "Mug goal is lip down and handle left. Diffusion success is 90% over 20 trials; LSTM-GMM is 0% with a subset of the same training data, whose size is not stated."
+    },
+    {
+      "id": "e-sauce",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 6.3; p. 11, Figure 10 table and caption",
+      "detail": "Pouring uses IoU to a centered circle; spreading uses sauce coverage. Diffusion reports 0.74 IoU/0.79 success and 0.77 coverage/1.00 success; human 0.79/1.00 for both; LSTM-GMM 0.06/0.00 and 0.27/0.00. Success thresholds use minimum human performance."
+    },
+    {
+      "id": "e-sauce-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Appendix C.2.1–C.2.2",
+      "detail": "States 50 demonstrations with 90% training per task, 1000 epochs and last checkpoints. Initial positions are matched but sauce shape is not; quantity is fixed. Episodes end after upward spoon motion for 0.5 seconds or an unsafe behavior judgment. Coverage uses homography and the larger of the two camera estimates."
+    },
+    {
+      "id": "e-bimanual",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Sections 7.1–7.5 and Figures 11–13; pp. 18–19, Appendix D.2, Figures 16–21",
+      "detail": "Bimanual observations include actual/desired poses and gripper widths plus two scene/two wrist cameras; actions cover both arms and grippers. Egg beating uses haptic demonstrations, mat and shirt use VR. Success over 20 trials is 55%/75%/75% after 210/162/284 demonstrations. Reports task-specific grasp/initial-position/termination failures and shows rollout endpoints; no learned-policy baseline appears."
+    },
+    {
+      "id": "e-limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Section 9",
+      "detail": "Identifies behavior-cloning dependence on adequate data and increased inference computation/latency, which action-sequence execution only partly mitigates."
+    },
+    {
+      "id": "e-preprocessing",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix A.1–A.5 and B.1; Figures 14–15",
+      "detail": "Specifies action scaling exceptions, rotation representation, image crops, batch sizes, warmups, simulation's 100-step iDDPM and real-world 16-step DDIM. State Push-T CNN Table 1 uses inpainting rather than FiLM. Observation horizon two is a practical compromise; data-size plots compare diffusion and LSTM-GMM."
+    },
+    {
+      "id": "e-hyperparameters",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Tables 7–8, headers, captions and Square/Real Push-T/Block Push rows",
+      "detail": "CNN Square uses position control, horizons 2/8/16, two 84×84 images cropped to 76×76, 256M diffusion/22M vision parameters, learning rate 1e-4, weight decay 1e-6 and 100/100 diffusion steps. Real Push-T uses horizons 2/6/16 and 100/16 steps. Table 8 specifies velocity control for transformer Block Push, an exception to the general position-control description."
+    },
+    {
+      "id": "e-hardware",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix D.0.1 and D.1; p. 9, Section 6.1; p. 11, Section 7.1",
+      "detail": "UR5 interpolates 10-Hz commands to 125 Hz, with two policy cameras. Franka non-haptic inference uses constrained differential kinematics and joint control; haptic data collection uses a distinct torque controller. The bimanual section adds wrist cameras beyond the generic station's two-camera description."
+    }
+  ]
+}
