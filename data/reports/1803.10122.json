@@ -1,0 +1,425 @@
+{
+  "schemaVersion": 1,
+  "paperId": "1803.10122",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T07:43:58.724Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/1803.10122",
+      "title": "World Models",
+      "kind": "pdf",
+      "sha256": "b0c1e30aab53efd28ddf61d661f680150918d4d03b77bae62bc52d62dbd76cce",
+      "wordCount": 13090,
+      "accessedAt": "2026-09-07T14:33:08.711809+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; Sections 1–2.4 (PDF pp. 1–4)",
+      "Sections 3–3.4: Car Racing Experiment (PDF pp. 4–6)",
+      "Sections 4–4.5: VizDoom Experiment (PDF pp. 6–10)",
+      "Section 5: Iterative Training Procedure (PDF pp. 10–11)",
+      "Sections 6–7: Related Work and Discussion (PDF pp. 11–13)",
+      "Acknowledgements and Appendix A.1–A.5 (PDF pp. 13–15)",
+      "References (PDF pp. 16–21)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The supplied title page identifies arXiv:1803.10122v4, 9 May 2018, with the catalog title and both catalog authors. The catalog submission date is 27 March 2018; earlier revisions were not supplied, so differences between revisions were not assessed.",
+      "All eight supplied text chunks were read. PDF pages 1–15 and all six final crops were visually inspected; reference pages 16–21 were read as text.",
+      "The PDF contains static versions of interactive demonstrations. The linked interactive article, external references and code were not opened; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figures 1–4 (PDF pp. 1–2): motivation and V/M/C overview",
+      "Figures 5–8 (PDF p. 3): VAE, MDN-RNN and agent flow",
+      "Figures 9–13 (PDF pp. 4–6): CarRacing observations, reconstructions and dreams",
+      "Figures 14–18 (PDF pp. 7–9): Doom, transfer and exploitation demonstrations",
+      "Figures 19–21 (PDF pp. 10–12): memory and historical controller diagrams",
+      "Figure 22 (PDF p. 13): ConvVAE tensor shapes",
+      "Figures 23–24 (PDF p. 14): recurrent decoder and CarRacing training",
+      "Figures 25–29 (PDF p. 15): return histograms, ablations and DoomRNN training"
+    ],
+    "tablesReviewed": [
+      "Unnumbered parameter-count tables (PDF pp. 5 and 7)",
+      "Table 1 (PDF p. 6): CarRacing-v0 scores",
+      "Table 2 (PDF p. 10): Take Cover temperature sweep"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "World Models separates visual compression, recurrent prediction and reward-driven control. A VAE and an MDN-RNN learn from random gameplay; a small controller then uses their representations. CarRacing demonstrates useful predictive features during simulator-based policy training. VizDoom demonstrates policy training inside a learned latent simulator followed by transfer to the original game. Its temperature sweep exposes the central risk: a controller can exploit model errors and obtain excellent imagined returns while failing after transfer.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "How can visual reinforcement learning use a large predictive network without making reward-based optimization search all its weights? The paper assigns representation learning to a world model and restricts policy optimization to a compact controller. It also asks whether learned dynamics can replace the environment during controller training. The authors present a simplified experimental realization of earlier recurrent world-model/controller ideas.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-framework"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A modular Vision–Memory–Controller agent separates visual and temporal representation learning from black-box policy optimization.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-framework",
+        "e-car-procedure"
+      ]
+    },
+    {
+      "text": "CarRacing tests recurrent state against single-frame latent features, including a larger vision-only controller.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-car-results",
+        "e-car-ablation"
+      ]
+    },
+    {
+      "text": "VizDoom tests latent-simulator policy transfer and uses sampling temperature to examine the tradeoff between realism and exploitability.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-doom-procedure",
+        "e-temperature",
+        "e-exploitation"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "RGB game frames resized to 64 × 64; action histories for dynamics learning",
+      "Current latent observation and recurrent state for control"
+    ],
+    "outputs": [
+      "Action-conditioned next-latent distribution; additionally a death probability for Doom",
+      "Bounded game actions; decoded images for reconstruction or visualization"
+    ],
+    "steps": [
+      {
+        "name": "Compress each observation",
+        "detail": "V is a convolutional VAE with four convolutional encoder layers and four deconvolutional decoder layers. Its latent dimension is 32 for CarRacing and 64 for Doom; pixels are scaled to [0,1]. The decoder reconstructs images but does not select actions.",
+        "evidenceIds": [
+          "e-vae"
+        ]
+      },
+      {
+        "name": "Learn temporal dynamics",
+        "detail": "M is an LSTM with a five-component, diagonal-covariance Gaussian-mixture output. It predicts the next latent conditioned on current latent, action and recurrent state. The LSTM has 256 units for CarRacing and 512 for Doom.",
+        "evidenceIds": [
+          "e-rnn",
+          "e-framework"
+        ]
+      },
+      {
+        "name": "Act from learned features",
+        "detail": "C maps concatenated latent and memory features to actions. Appendix A.3 adds tanh-based action bounding to the main text’s linear map. CarRacing uses the LSTM output state; Doom uses both output and cell states and converts a scalar continuous output into left/stay/right actions.",
+        "evidenceIds": [
+          "e-framework",
+          "e-controller"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "For each task, collect 10,000 random-policy rollouts and train V before M. V receives one epoch of reconstruction L2 plus KL training. M receives 20 epochs of teacher-forced training; cached encoder means and scales are resampled into latent inputs for each batch. The PDF does not give a complete scalar MDN/death-loss weighting recipe.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-car-data",
+          "e-doom-procedure",
+          "e-vae",
+          "e-rnn"
+        ]
+      },
+      {
+        "text": "CMA-ES then optimizes C separately, keeping V and M fixed. Population size is 64; candidate fitness averages 16 randomly seeded rollouts. CarRacing uses original-environment rewards, which V and M never receive. Doom optimizes virtual survival. The controllers have 867 and 1,088 parameters respectively.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-car-procedure",
+          "e-doom-procedure",
+          "e-es"
+        ]
+      },
+      {
+        "text": "The proposed iterative loop collects new trajectories and learns observation, reward, action and termination predictions. Curiosity and hierarchical skill absorption are future directions; the reported simple tasks use one collection/training iteration.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-iterative"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "In the original environment, encode the current frame, compute the action from current latent and memory, execute it, and update memory using that latent and action. CarRacing selects actions directly without searching hypothetical future rollouts.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-framework",
+          "e-car-results"
+        ]
+      },
+      {
+        "text": "Inside DoomRNN, M samples the next latent instead of receiving rendered frames. Termination occurs when predicted death probability exceeds 50%, with a 2,100-step episode cap. V need not encode dream observations. Deployment restores real-frame encoding and retains C; no original-Doom policy fine-tuning is reported.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-doom-procedure",
+          "e-rnn",
+          "e-doom-appendix"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "a_t = W_c [z_t\\;h_t] + b_c",
+        "explanation": "Equation (1): action a_t is an affine map of latent z_t and recurrent state h_t, with controller weights W_c and bias b_c. Appendix A.3 supplies action bounding and Doom’s cell-state detail; Section 4.2 writes the Doom controller without bias.",
+        "evidenceIds": [
+          "e-framework",
+          "e-doom-procedure",
+          "e-controller"
+        ]
+      },
+      {
+        "expression": "P(z_{t+1} \\mid a_t,z_t,h_t), \\qquad P(z_{t+1},d_{t+1} \\mid a_t,z_t,h_t)",
+        "explanation": "M predicts the next latent; Doom also predicts the next binary done/death event d. Temperature tau changes latent sampling uncertainty. These are forward prediction targets, not inverse-dynamics action decoding.",
+        "evidenceIds": [
+          "e-framework",
+          "e-doom-procedure",
+          "e-temperature"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "CarRacing-v0 control",
+      "setting": "Randomly generated tracks; final controller evaluated over 100 random trials in the original simulator.",
+      "metric": "Average cumulative reward, with the paper’s reported ± spread",
+      "value": "906 ± 21",
+      "comparison": "Vision-only linear: 632 ± 251; vision-only with hidden layer: 788 ± 141; cited Gym leader: 838 ± 11.",
+      "interpretation": "Exceeds the stated 900-average solving criterion. Within-paper ablations support recurrent features; literature rows are not a matched-compute rerun. The source does not explicitly define the ± statistic.",
+      "evidenceIds": [
+        "e-car-data",
+        "e-car-results",
+        "e-car-ablation"
+      ]
+    },
+    {
+      "task": "DoomTakeCover-v0 dream-to-game transfer",
+      "setting": "Controller trained only in DoomRNN at tau = 1.15, then tested in the original game over 100 random rollouts; episodes capped at 2,100 steps.",
+      "metric": "Average survival time in game steps, with reported ± spread",
+      "value": "1092 ± 556",
+      "comparison": "Table 2: virtual score 918 ± 546; random actual score 210 ± 108; cited Gym leader 820 ± 58.",
+      "interpretation": "Exceeds the 750-step mean-survival threshold in a game simulator. Appendix A.5 separately reports 959 over 1,024 virtual rollouts; that evaluation differs from the table’s virtual score and the transfer test.",
+      "evidenceIds": [
+        "e-doom-procedure",
+        "e-temperature",
+        "e-doom-appendix"
+      ]
+    },
+    {
+      "task": "Doom temperature sensitivity",
+      "setting": "Separate controllers trained at different virtual sampling temperatures; actual-environment evaluation over 100 random rollouts.",
+      "metric": "Virtual versus actual mean survival steps, with reported ± spread",
+      "value": "tau = 0.10: 2086 ± 140 virtual, 193 ± 58 actual; tau = 1.30: 732 ± 269 virtual, 753 ± 139 actual.",
+      "comparison": "tau = 1.00 gives 868 ± 511 actual; tau = 1.15 gives 1092 ± 556 actual.",
+      "interpretation": "Near-perfect dream survival can transfer worse than random. Increasing temperature helps only within a range; the highest tested value sacrifices mean return while reducing reported spread.",
+      "evidenceIds": [
+        "e-temperature",
+        "e-exploitation"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Controllers can visit states outside the random-policy training distribution and exploit inaccurate dynamics, including suppressing fireballs. Access to M’s hidden state makes exploitation easier; stochastic sampling mitigates rather than eliminates this failure.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-exploitation"
+      ]
+    },
+    {
+      "text": "Standalone reconstruction may preserve irrelevant Doom brick textures while losing reward-relevant CarRacing road tiles. The discussion identifies limited recurrent capacity and catastrophic forgetting, and leaves hierarchical reasoning and unified controller/model extensions untested.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-discussion"
+      ]
+    },
+    {
+      "text": "Two game tasks do not establish physical-robot transfer or broad task generalization. Trial spreads are not uncertainty across independently trained models; training-seed replication and formal significance tests are not supplied.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-car-results",
+        "e-temperature",
+        "e-doom-appendix"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reconstruction requires the original environment variants, random-rollout data, VAE/MDN training and CMA-ES protocol. Appendix A.4 uses a 64-core machine and reevaluates the best CarRacing candidate every 25 generations on 1,024 rollouts; 900.46 is reached after 1,800 generations. This differs from the final 100-trial score.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-car-data",
+        "e-doom-procedure",
+        "e-es"
+      ]
+    },
+    {
+      "text": "The PDF leaves optimizer rates, batch sizes, exact software versions and complete seed lists unspecified. Figure 22 uses sigma as a sampling scale, whereas Appendix A.1 places it in the Gaussian covariance argument; resolve that notation before implementing. The single-GPU timing statement does not identify the GPU model.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-vae",
+        "e-rnn",
+        "e-es",
+        "e-car-data"
+      ]
+    },
+    {
+      "text": "Proposed checks: compare predictive memory with shuffled and untrained recurrent features under equal controller budgets, and repeat the temperature sweep with model selection separated from final transfer testing.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-car-ablation",
+        "e-temperature"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The foundational classical-world-model classification fits the modular dynamics and controller experiments. V, M and C are separate trained components, not one joint future/action predictor. Actions condition M and are chosen by C; there is no inverse-dynamics extraction. The recorded architecture, prediction-paradigm and quadrant remain Not applicable within this catalog, rather than asserting that the paper lacks an architecture. Section 5’s action-predicting extension is proposed, not evaluated.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-framework",
+        "e-doom-procedure",
+        "e-iterative"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Classical world models & model-based RL"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "4cd5e3eb4a90279300b6d8ba5b51d6a7c5dd5d095f86e2c085f5899ad942bfe5"
+    }
+  },
+  "discussionQuestions": [
+    "Would equally sized recurrent features trained without next-latent prediction retain the CarRacing benefit?",
+    "How should temperature be selected without repeatedly consulting the final transfer benchmark?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author affiliations and arXiv margin stamp",
+      "detail": "World Models; David Ha (Google Brain) and Jürgen Schmidhuber (NNAISENSE; Swiss AI Lab, IDSIA (USI & SUPSI)); arXiv:1803.10122v4, 9 May 2018."
+    },
+    {
+      "id": "e-framework",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–4, Sections 2–2.4, Figures 4–8, Eq. (1) and rollout pseudocode",
+      "detail": "V compresses observations, M predicts action-conditioned latent distributions, and separately trained C selects actions. Pseudocode executes an action before updating memory for the next step."
+    },
+    {
+      "id": "e-car-data",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1 and footnotes 2–3",
+      "detail": "CarRacing uses steering, acceleration and brake on random tracks; training data contain 10,000 random rollouts. The solving criterion averages 900 over 100 trials. The authors report under one hour per V/M model on one unspecified GPU."
+    },
+    {
+      "id": "e-car-procedure",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, opening paragraph and unnumbered parameter table",
+      "detail": "Car latent dimension is 32; V/M do not receive reward; CMA-ES optimizes an 867-parameter controller after VAE and MDN-RNN training."
+    },
+    {
+      "id": "e-car-results",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.3, Table 1 (all method rows)",
+      "detail": "Full world model scores 906 ± 21 over 100 random trials; V-only 632 ± 251; V with hidden layer 788 ± 141; Gym leader 838 ± 11. The policy uses recurrent features without online future-rollout planning."
+    },
+    {
+      "id": "e-car-dream",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.4 and Figure 13",
+      "detail": "The already-trained CarRacing controller is demonstrated in a sampled latent environment rendered with the VAE decoder; this is not the reported CarRacing controller-training protocol."
+    },
+    {
+      "id": "e-doom-procedure",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Sections 4.1–4.3, procedure steps 1–6 and parameter table",
+      "detail": "Doom uses 10,000 random rollouts, 64-dimensional latents, next-latent/death prediction and a 1,088-parameter controller trained for virtual survival; original-game evaluation has a 750-step mean criterion and 2,100-step cap."
+    },
+    {
+      "id": "e-doom-transfer",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Sections 4.3–4.4, Figures 16–17",
+      "detail": "Increased sampling temperature makes the virtual world less predictable; a dream-trained controller transfers to original VizDoom despite imperfect reconstruction of monsters."
+    },
+    {
+      "id": "e-exploitation",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 4.5 and Figure 18",
+      "detail": "The authors report controllers suppressing hallucinated fireballs and discuss hidden-state access, off-distribution trajectories, discrete mixture modes and low-temperature collapse."
+    },
+    {
+      "id": "e-temperature",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 2 (temperature rows and baselines) and adjacent Section 4.5 text",
+      "detail": "Virtual/actual scores: 0.10, 2086 ± 140 / 193 ± 58; 0.50, 2060 ± 277 / 196 ± 50; 1.00, 1145 ± 690 / 868 ± 511; 1.15, 918 ± 546 / 1092 ± 556; 1.30, 732 ± 269 / 753 ± 139. Random actual: 210 ± 108; Gym leader: 820 ± 58. Actual scores use 100 random rollouts."
+    },
+    {
+      "id": "e-iterative",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 5, four-step iterative procedure",
+      "detail": "The proposed loop adds new actual-environment data and predicts observations, rewards, actions and termination. One iteration sufficed for the simple reported tasks; curiosity and hierarchical learning are proposed extensions."
+    },
+    {
+      "id": "e-discussion",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, Section 7",
+      "detail": "Standalone VAE training can preserve irrelevant features and lose relevant ones; recurrent capacity and forgetting constrain richer worlds. Hierarchical reasoning and One Big Net extensions are left for future experiments."
+    },
+    {
+      "id": "e-vae",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix A.1 and Figure 22",
+      "detail": "RGB inputs are 64 × 64 × 3; four stride-two convolutions and four deconvolutions surround 32/64-dimensional latents. One-epoch training uses L2 reconstruction and KL losses. Figure 22 writes z = mu + sigma N(0,1), while prose writes N(mu,sigma I), leaving scale/covariance notation ambiguous."
+    },
+    {
+      "id": "e-rnn",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A.2 and Figure 23",
+      "detail": "MDN-LSTMs have 256/512 hidden units, five factored Gaussian components, 20 training epochs and teacher-forced inputs resampled from cached encoder parameters. Doom declares death when its predicted probability exceeds 50%."
+    },
+    {
+      "id": "e-controller",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A.3",
+      "detail": "Actions are bounded with tanh; Doom discretizes a continuous range into thirds. CarRacing uses LSTM output h, whereas Doom supplies both cell c and output h."
+    },
+    {
+      "id": "e-es",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A.4 and Figure 24",
+      "detail": "CMA-ES population 64; each fitness averages 16 rollouts. Every 25 generations the best candidate is evaluated on 1,024 rollouts on a 64-core machine. At 1,800 generations the evaluation average reaches 900.46; graph distinguishes population statistics and reevaluated best-agent reward."
+    },
+    {
+      "id": "e-car-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A.4, Figures 25–27 and intervening paragraph",
+      "detail": "Histograms show full, z-only and z-only-with-hidden-layer CarRacing evaluations. The larger z-only controller uses 40 tanh hidden units and 1,443 parameters; scores are 906 ± 21, 632 ± 251 and 788 ± 141."
+    },
+    {
+      "id": "e-doom-appendix",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A.5, Figures 28–29",
+      "detail": "Policy training used DoomRNN rather than actual VizDoom. At temperature 1.15 the best agent achieved 959 over 1,024 virtual rollouts and 1092 ± 556 over 100 original-game trials; Figure 29 plots survival frequencies."
+    }
+  ]
+}

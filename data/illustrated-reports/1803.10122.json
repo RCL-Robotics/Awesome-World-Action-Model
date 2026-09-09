@@ -1,0 +1,268 @@
+{
+  "schemaVersion": 1,
+  "paperId": "1803.10122",
+  "shortTitle": "World Models",
+  "thesis": "A separately learned visual and recurrent world model makes a small controller effective, but training inside its predictions requires guarding against exploitable simulator errors.",
+  "standfirst": "A useful world model need not reconstruct every visual detail, but it must preserve the information that control depends on. Ha and Schmidhuber explore that distinction through a VAE, a recurrent mixture-density predictor and a small evolved controller. Read the two experiments separately: CarRacing tests learned features while its controller trains in the original simulator; VizDoom trains its controller in a sampled latent world and then tests transfer. The most revealing result is the temperature sweep, where almost perfect dream survival can coincide with worse-than-random performance in the original game. This edition reads the supplied arXiv v4, dated 9 May 2018.",
+  "evidenceIds": [
+    "e-identity",
+    "e-framework",
+    "e-car-results",
+    "e-doom-procedure",
+    "e-temperature"
+  ],
+  "featuredResultTask": "DoomTakeCover-v0 dream-to-game transfer",
+  "visuals": [
+    {
+      "id": "agent-loop",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 8",
+      "page": 3,
+      "asset": "report-assets/1803.10122/agent-loop.png",
+      "width": 1081,
+      "height": 717,
+      "sourceSha256": "b0c1e30aab53efd28ddf61d661f680150918d4d03b77bae62bc52d62dbd76cce",
+      "sourceUrl": "https://arxiv.org/pdf/1803.10122#page=3",
+      "crop": [
+        0.518,
+        0.644,
+        0.836,
+        0.807
+      ],
+      "alt": "Environment observations enter VAE V; latent z and recurrent state h enter controller C; actions return to both the environment and MDN-RNN M.",
+      "caption": "One action loop connects visual compression, recurrent memory and a small controller.",
+      "readingGuide": "Start at the environment box and follow the observation into V. The latent z branches toward both M and C; the recurrent state h supplies C with temporal information. C’s action returns to the environment and also enters M, because the next observation depends on what the agent does. The unindexed diagram compresses time: its caption and the page-4 pseudocode specify that C uses the current z and h, executes the action, then updates M to obtain the next state. The blue boundary encloses V and M as the world model; C remains a separate policy optimized for reward.",
+      "takeaway": "The architectural economy comes from placing perception and temporal representation inside V and M while keeping reward-driven search confined to C. In CarRacing, the controller can use predictive memory features directly; selecting an action does not require generating candidate future trajectories or searching a rollout tree.",
+      "caution": "This diagram depicts the original-environment loop. Doom’s virtual training replaces incoming observations with sampled latent states, so V is not repeatedly encoding dream frames. The figure alone does not specify that alternate training protocol.",
+      "evidenceIds": [
+        "e-framework",
+        "e-car-results",
+        "e-doom-procedure"
+      ]
+    },
+    {
+      "id": "vae-architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 22",
+      "page": 13,
+      "asset": "report-assets/1803.10122/vae-architecture.png",
+      "width": 969,
+      "height": 1782,
+      "sourceSha256": "b0c1e30aab53efd28ddf61d661f680150918d4d03b77bae62bc52d62dbd76cce",
+      "sourceUrl": "https://arxiv.org/pdf/1803.10122#page=13",
+      "crop": [
+        0.59,
+        0.174,
+        0.78,
+        0.444
+      ],
+      "alt": "A vertical ConvVAE diagram reduces a 64 by 64 RGB image through four convolutional layers to Gaussian parameters, samples z, and decodes a reconstructed RGB image.",
+      "caption": "The visual bottleneck determines what information the downstream controller can receive.",
+      "readingGuide": "Read downward from the 64 × 64 × 3 RGB image. Four stride-two convolutions reduce spatial resolution while expanding the channel count, ending at a 2 × 2 × 256 tensor. Dense branches produce the encoder parameters mu and sigma; the central sampling operation creates z. A dense expansion and four deconvolutions reconstruct the original image size. Italic labels specify activation, channel count and filter size; the final sigmoid bounds reconstructed pixels. Appendix A.1 sets the latent width to 32 for CarRacing and 64 for Doom and trains this network with reconstruction and KL losses before recurrent dynamics learning.",
+      "takeaway": "The controller receives compressed observations instead of the complete image tensor. This supports compact control, but reconstruction is an imperfect proxy for task relevance: the discussion reports preserved Doom wall textures alongside missing CarRacing road-tile detail. The bottleneck can therefore discard information that a reward-aware representation might retain.",
+      "caution": "The diagram writes z = mu + sigma N(0,1), treating sigma as a sampling scale; the adjacent prose writes N(mu, sigma I). This scale-versus-covariance notation is unresolved in the PDF and should not be silently normalized into an implementation recipe.",
+      "evidenceIds": [
+        "e-vae",
+        "e-discussion",
+        "e-car-procedure"
+      ]
+    },
+    {
+      "id": "carracing-training",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 24",
+      "page": 14,
+      "asset": "report-assets/1803.10122/carracing-training.png",
+      "width": 989,
+      "height": 598,
+      "sourceSha256": "b0c1e30aab53efd28ddf61d661f680150918d4d03b77bae62bc52d62dbd76cce",
+      "sourceUrl": "https://arxiv.org/pdf/1803.10122#page=14",
+      "crop": [
+        0.5,
+        0.505,
+        0.888,
+        0.686
+      ],
+      "alt": "CarRacing reward versus generation, with blue population mean, orange worst candidate, green best candidate and red reevaluated best-agent reward; a dashed line marks 900.",
+      "caption": "Candidate fitness and repeated evaluation answer different questions during evolution.",
+      "readingGuide": "Read the horizontal axis as CMA-ES generations and the vertical axis as average cumulative reward. The blue, orange and green curves summarize the population mean, worst performer and best performer. Each candidate’s fitness averages 16 rollouts, with 64 candidates per generation. The red curve comes from a different calculation: every 25 generations, the best candidate is evaluated on 1,024 random rollouts. Follow that red trace against the dashed 900 line when assessing sustained task performance. A high green value alone can reflect the best candidate under its smaller rollout sample, rather than the broader evaluation used for the red trace.",
+      "takeaway": "The appendix reports that the broader evaluation reaches 900.46 after 1,800 generations. This makes the policy-search effort visible alongside the small controller size. The separate final evaluation gives 906 ± 21 over 100 trials, so the two reported values describe different evaluation samples and should remain distinct.",
+      "caution": "These curves describe population variation within the reported evolution process. They are not confidence bands across independently repeated training runs. The red evaluation schedule also differs from the final 100-trial benchmark and should not be relabeled as that test.",
+      "evidenceIds": [
+        "e-es",
+        "e-car-results"
+      ]
+    },
+    {
+      "id": "carracing-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "asset": "report-assets/1803.10122/carracing-results.png",
+      "width": 1000,
+      "height": 393,
+      "sourceSha256": "b0c1e30aab53efd28ddf61d661f680150918d4d03b77bae62bc52d62dbd76cce",
+      "sourceUrl": "https://arxiv.org/pdf/1803.10122#page=6",
+      "crop": [
+        0.088,
+        0.55,
+        0.48,
+        0.669
+      ],
+      "alt": "Table of CarRacing scores: DQN 343 ± 18, continuous A3C 591 ± 45, discrete A3C 652 ± 10, Gym leader 838 ± 11, V only 632 ± 251, V with hidden layer 788 ± 141, full model 906 ± 21.",
+      "caption": "Predictive memory improves the reported CarRacing result beyond the vision-only controls.",
+      "readingGuide": "Begin with the bottom three rows, because they compare the paper’s own controller variants. The V model supplies only z; the next row adds a hidden layer to that vision-only controller; the full world model supplies z together with recurrent memory. Appendix A.4 identifies the added layer as 40 tanh units and the resulting controller as 1,443 parameters, compared with 867 in the full model. Next read the upper rows as historical comparison scores compiled from cited methods and the Gym leaderboard. The full-model headline is measured over 100 random trials on randomly generated tracks.",
+      "takeaway": "The full model reports 906 ± 21, compared with 632 ± 251 for a linear vision-only controller and 788 ± 141 after adding its hidden layer. The full model crosses the stated mean-reward solving criterion of 900. Increasing the vision-only controller’s size alone does not recover that result.",
+      "caution": "The ± statistic is not explicitly defined in the supplied paper. Literature rows differ in preprocessing and are not controlled reruns. The ablation also does not isolate predictive training from every possible benefit of recurrent memory.",
+      "evidenceIds": [
+        "e-car-data",
+        "e-car-procedure",
+        "e-car-results",
+        "e-car-ablation"
+      ]
+    },
+    {
+      "id": "temperature-transfer",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 10,
+      "asset": "report-assets/1803.10122/temperature-transfer.png",
+      "width": 971,
+      "height": 416,
+      "sourceSha256": "b0c1e30aab53efd28ddf61d661f680150918d4d03b77bae62bc52d62dbd76cce",
+      "sourceUrl": "https://arxiv.org/pdf/1803.10122#page=10",
+      "crop": [
+        0.09,
+        0.233,
+        0.471,
+        0.359
+      ],
+      "alt": "Take Cover table comparing virtual and actual survival scores across temperatures 0.10, 0.50, 1.00, 1.15 and 1.30, with random-policy and Gym-leader baselines.",
+      "caption": "Dream return can be a misleading objective when the learned simulator is exploitable.",
+      "readingGuide": "Compare each row horizontally before comparing temperatures vertically. The virtual column evaluates behavior in the learned simulator; the actual column reports transfer to the original game after training at the listed temperature tau. At 0.10 and 0.50, excellent virtual returns coexist with poor actual survival. Moving to 1.00 and then 1.15 sharply improves transfer, while 1.30 lowers the actual mean and the reported spread. The bottom rows provide actual-environment baselines rather than additional temperature conditions. The surrounding text specifies 100 random actual-environment rollouts; Appendix A.5 separately describes a 1,024-rollout virtual training evaluation, which should not replace this table’s virtual entries.",
+      "takeaway": "At tau = 0.10, the model gives 2086 ± 140 virtual steps but only 193 ± 58 actual steps, below the random-policy mean of 210. At tau = 1.15, actual survival reaches 1092 ± 556. The result supports checking transfer directly instead of trusting a controller’s dream score.",
+      "caution": "Temperature changes the simulator’s sampling distribution, not the training dataset’s coverage. The sweep shows an empirical tradeoff, not a guarantee against exploitation. No separate temperature-selection split or repeated-training uncertainty is reported, so the best row is not an unbiased estimate of hyperparameter selection.",
+      "evidenceIds": [
+        "e-temperature",
+        "e-exploitation",
+        "e-doom-appendix"
+      ]
+    },
+    {
+      "id": "doom-survival",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 29",
+      "page": 15,
+      "asset": "report-assets/1803.10122/doom-survival.png",
+      "width": 1056,
+      "height": 685,
+      "sourceSha256": "b0c1e30aab53efd28ddf61d661f680150918d4d03b77bae62bc52d62dbd76cce",
+      "sourceUrl": "https://arxiv.org/pdf/1803.10122#page=15",
+      "crop": [
+        0.515,
+        0.668,
+        0.87,
+        0.846
+      ],
+      "alt": "Histogram of survival time over 100 DoomTakeCover-v0 trials, with outcomes spread across the axis and a large bar at the 2,100-step episode limit.",
+      "caption": "Successful mean transfer still includes a broad distribution of individual outcomes.",
+      "readingGuide": "Read survival time along the horizontal axis and trial frequency along the vertical axis. This histogram concerns the original DoomTakeCover-v0 environment, not latent-world training scores. Appendix A.5 identifies the controller as trained in DoomRNN at tau = 1.15 and reports 100 transfer trials. Outcomes occupy a broad span of survival times, with a conspicuous bar at the right boundary. Section 4.1 defines that boundary as the 2,100-step episode cap. Compare the shape with the reported average and with the task’s mean-survival threshold; neither a single long episode nor a short one determines whether the average criterion is met.",
+      "takeaway": "The reported mean of 1092 ± 556 exceeds the 750-step criterion after policy training inside the learned environment. The histogram makes the variability visible: crossing an average-based threshold does not imply uniformly long survival across trials. This is evidence of policy transfer between game simulators, with uneven episode outcomes.",
+      "caution": "The rightmost outcomes are limited by the episode cap; the figure cannot reveal how long those runs would otherwise continue. It summarizes trials for a selected controller, not the reliability of independently repeating the complete training procedure.",
+      "evidenceIds": [
+        "e-doom-procedure",
+        "e-doom-appendix",
+        "e-temperature"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Separate learning a representation from learning what to do",
+      "text": "Begin with the random-policy dataset. Its observations teach V to compress frames, while the paired actions and successive latents teach M about transitions. This training does not require solving the control task, and CarRacing’s V and M never receive reward. Once those representations are learned, CMA-ES searches only the small controller’s parameters. At deployment, z tells C about the current frame and h carries information accumulated by the predictive recurrent network. The resulting policy is a direct mapping from features to bounded actions. The interpretation is that expensive representation capacity and a small reward-search space can coexist. The CarRacing ablations support the usefulness of that representation, but do not by themselves establish that next-frame prediction is superior to every alternative way of learning recurrent features.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-framework",
+        "e-car-data",
+        "e-car-procedure",
+        "e-rnn",
+        "e-controller",
+        "e-car-results",
+        "e-car-ablation"
+      ]
+    },
+    {
+      "heading": "Replace the Doom environment while preserving its policy interface",
+      "text": "The CarRacing dream demonstration deploys a controller already trained in the original environment. Doom reverses that direction. Its recurrent model predicts both the next latent and a death event, which is enough to construct a survival task in latent space. Each controller action becomes an input to the next modeled transition; predicted death ends the episode, and survival duration supplies fitness. The VAE decoder can make this process visible, but image rendering is unnecessary for the controller’s latent-space interaction. After evolution, the original game supplies frames again, V encodes them, and the same controller acts using latent and recurrent features. The policy-transfer claim is therefore stronger than showing plausible generated video, while remaining limited to the evaluated game and the random-rollout data used to learn its simulator.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-car-dream",
+        "e-doom-procedure",
+        "e-rnn",
+        "e-doom-appendix"
+      ]
+    },
+    {
+      "heading": "Treat uncertainty as part of the simulator, then measure transfer",
+      "text": "A controller optimized against an imperfect model is rewarded for exploiting whatever that model allows. In Doom, the authors observed policies that suppressed fireballs in the learned world. Low-temperature mixture sampling can also collapse toward trajectories where those threats hardly appear. Raising tau changes the virtual environment and can make such behavior less profitable, but it also moves simulation away from faithful dynamics. Table 2 shows why the balance must be measured: the best dream scores transfer poorly, intermediate temperature improves actual survival, and further temperature increase reduces the actual mean. The reader’s inference is that model realism, policy robustness and controllability are different objectives. The sweep motivates transfer evaluation and new-data collection; it does not establish calibrated uncertainty or prove that stochastic models cannot be exploited.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-exploitation",
+        "e-temperature",
+        "e-iterative"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does predictive training add useful memory beyond extra features?",
+      "text": "Reader-proposed experiment: freeze one CarRacing VAE and compare controllers receiving z alone, z plus trained M state, z plus an equally sized randomly initialized recurrent state, and z plus temporally shuffled trained states. Match controller parameter budgets and CMA-ES rollout budgets, use the same evaluation-track seeds, and repeat training independently. Report mean return and lower-tail returns on held-out tracks. If untrained or shuffled memory matches trained M, the claim that learned temporal prediction supplies the useful control information is weakened. A consistent trained-state advantage would support that mechanism beyond the published vision-only comparison.",
+      "evidenceIds": [
+        "e-framework",
+        "e-rnn",
+        "e-car-results",
+        "e-car-ablation",
+        "e-es"
+      ]
+    },
+    {
+      "title": "Does temperature improve transfer after separating selection from testing?",
+      "text": "Reader-proposed experiment: freeze a Doom V/M pair and train replicated controllers at the five published temperatures with equal CMA-ES budgets. Use one set of original-game seeds for temperature selection and a disjoint set for final transfer evaluation. Keep death-probability threshold, episode cap and action discretization identical. Measure virtual and actual survival, early-failure frequency, and the occurrence of suppressed-fireball trajectories. If an intermediate temperature repeatedly reduces exploitation and improves held-out transfer, the robustness account is supported. If its advantage vanishes across training seeds or after selection is separated from testing, the single sweep overstates reliability.",
+      "evidenceIds": [
+        "e-doom-procedure",
+        "e-exploitation",
+        "e-temperature",
+        "e-rnn",
+        "e-controller",
+        "e-es",
+        "e-doom-appendix"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "notes": "Actually inspected PDF pages 1–15, including the title/author/version block, all numbered figures on these pages, both parameter-count tables, Tables 1–2, and Appendix A.1–A.5. Inspected all six final PNG crops. Figure 8’s unindexed arrows were checked against its caption, Eq. (1) and the page-4 rollout order; Figure 22’s sampling notation was checked against Appendix A.1 and its ambiguity is disclosed. Every page supporting retained method, numerical, training, evaluation and proposed-reproduction claims is included. Reference pages 16–21 were read in the supplied text chunks but were not visually inspected. Static PDF images cannot reproduce the linked interactive demonstrations; separate supplements remain unverified."
+  }
+}
