@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2510.25889",
+  "shortTitle": "πRL",
+  "thesis": "Tractable stochastic denoising enables online RL for flow-based robot policies, improving familiar-task execution while leaving new-task generalization limited.",
+  "standfirst": "A pretrained flow VLA can turn an instruction and camera images into a smooth action sequence, yet that generator is awkward to optimize with policy gradients: its final-action probability is difficult to calculate. πRL changes the training process by inserting Gaussian transitions whose probabilities are accessible. The two alternatives differ in how they inject noise and organize denoising decisions. This reading follows that mechanism into the benchmark evidence, emphasizing the distinction between stochastic exploration and ODE evaluation. The supplied January 2026 revision reports large simulation gains, a useful efficiency ablation, and a much narrower physical transfer demonstration; its protocol inconsistencies remain explicit.",
+  "evidenceIds": [
+    "e01",
+    "e02",
+    "e03",
+    "e04",
+    "e05",
+    "e06",
+    "e16",
+    "e18"
+  ],
+  "visuals": [
+    {
+      "id": "noise-injection",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "width": 1319,
+      "height": 814,
+      "crop": [
+        0.09,
+        0.084,
+        0.478,
+        0.269
+      ],
+      "alt": "A frozen vision-language model supplies a KV cache to a trainable action expert, whose velocity and noise determine Gaussian transitions from initial noise to an action.",
+      "caption": "Exploration is inserted into the action denoising process.",
+      "readingGuide": "Start at the observation box, then follow the arrow through the vision-language model and its KV cache into the action expert. The snowflake and flame mark the frozen VLM and trainable expert during the main RL stage. Across the top, the blue circles are successive action candidates, beginning at Gaussian noise and ending at the action. The lower-right box distinguishes learned diagonal noise in Flow-Noise from the fixed schedule and drift correction in Flow-SDE. Its formulas agree with Equations (4) and (9). The state list in this schematic should be read alongside the model-specific qualification below.",
+      "takeaway": "The trainable stochastic object is the action-generation trajectory. Gaussian transitions provide a tractable density for RL updates while preserving the pretrained VLM as a conditioning module. Flow-Noise learns the noise scale; Flow-SDE fixes its schedule and modifies the mean as well as the variance.",
+      "caution": "The schematic includes proprioception, and Figure 4 feeds state into π0.5’s VLM; Appendix B.2 explicitly says the experimental π0.5 configuration omits state. This unresolved source difference prevents treating the drawing as an exact input specification for every run. A separate formula concern is unresolved: this figure repeats Equation (9), but pp. 3–5 use inconsistent time/score conventions. The printed expressions do not establish marginal preservation under the stated noise-to-action time direction. This issue is distinct from finite-step sampling error; implementation behavior has not been checked.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e07",
+        "e08"
+      ],
+      "asset": "report-assets/2510.25889/noise-injection.png",
+      "sourceSha256": "484e9f8be118be4f7adfd18470abc330e29b1b4cf457d316dc85a63e65299d36",
+      "sourceUrl": "https://arxiv.org/pdf/2510.25889#page=4"
+    },
+    {
+      "id": "nested-mdp",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "width": 1278,
+      "height": 1017,
+      "crop": [
+        0.51,
+        0.083,
+        0.886,
+        0.314
+      ],
+      "alt": "Flow-Noise groups denoising inside an environment transition; Flow-SDE expands it into observation–noisy-action states and rewards only the outer environment transition.",
+      "caption": "The two formulations expose different units of policy optimization.",
+      "readingGuide": "Read the upper panel as an environment transition with a complete denoising trajectory attached. Its product of Gaussian probabilities is the trajectory density in Equation (5). In the lower panel, each green observation is paired with a blue noisy action candidate to form an inner state. The repeated observation means the robot has not yet advanced in the environment. The solid environment arrow appears only after the final denoised action; it produces a new observation and reward, then resets the next action candidate to Gaussian noise. This ordering matches the branches at flow time below one and equal to one in Equations (10)–(12).",
+      "takeaway": "Flow-SDE turns denoising itself into a policy decision process, so the likelihood needed by PPO can be computed at a Gaussian transition. The hybrid variant described in the text then selects one stochastic transition and wraps the remaining ODE steps to shorten the effective training horizon.",
+      "caution": "The inner states are computational action candidates, not simulated future observations. The full two-layer drawing also does not display the single-stochastic-step hybrid implementation; Section 4.2.3 is needed to understand that efficiency modification.",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e07"
+      ],
+      "asset": "report-assets/2510.25889/nested-mdp.png",
+      "sourceSha256": "484e9f8be118be4f7adfd18470abc330e29b1b4cf457d316dc85a63e65299d36",
+      "sourceUrl": "https://arxiv.org/pdf/2510.25889#page=4"
+    },
+    {
+      "id": "libero-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 14,
+      "width": 1358,
+      "height": 647,
+      "crop": [
+        0.088,
+        0.104,
+        0.887,
+        0.398
+      ],
+      "alt": "LIBERO success rates across Spatial, Object, Goal and Long suites for full-data SFT baselines and few-shot SFT followed by Flow-SDE or Flow-Noise.",
+      "caption": "Few-shot initialization plus RL can exceed the reported full-data SFT baseline.",
+      "readingGuide": "First separate the gray full-dataset block from the two few-shot-plus-RL blocks. Within each lower block, compare the SFT row with Flow-SDE and Flow-Noise for the same base model. The four suite columns report success percentages, and Avg. aggregates them. The final column subtracts the corresponding few-shot SFT average, so its entries are percentage-point gains. For π0.5, look especially at Long: the weak 43.9 baseline rises to 94.0 under Flow-Noise. Appendix C.1 specifies 40 demonstrations across the four suites and evaluation on 500 initial states per suite; “one-shot” does not mean one trajectory for the entire benchmark.",
+      "takeaway": "π0.5 Flow-Noise reaches 98.3% average success, compared with 77.1% for its few-shot starting policy and 96.9% for full-data SFT. Its Long improvement is 50.1 percentage points. This is strong evidence that simulator interaction can refine a demonstration-limited action policy on these tasks.",
+      "caution": "The RL policies receive additional online interaction, so the comparison does not hold total experience or compute fixed. The table reports no seed-level uncertainty, and these LIBERO results do not establish physical deployment success.",
+      "evidenceIds": [
+        "e09"
+      ],
+      "asset": "report-assets/2510.25889/libero-results.png",
+      "sourceSha256": "484e9f8be118be4f7adfd18470abc330e29b1b4cf457d316dc85a63e65299d36",
+      "sourceUrl": "https://arxiv.org/pdf/2510.25889#page=14"
+    },
+    {
+      "id": "ood-generalization",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 5",
+      "page": 7,
+      "width": 1314,
+      "height": 420,
+      "crop": [
+        0.104,
+        0.269,
+        0.877,
+        0.46
+      ],
+      "alt": "CALVIN bars show 61.3% versus 79.1%, a ManiSkill radar compares SFT and RL across variations, and MetaWorld curves contrast improving training performance with oscillating held-out-task performance.",
+      "caption": "Environmental robustness and new-task transfer behave differently.",
+      "readingGuide": "Treat these panels as three separate protocols. The CALVIN bars concern the source’s ABC-to-D OOD experiment. The ManiSkill radar moves through instruction, image, texture, confounder and position variations; farther from the center means higher success. Use Table 7 for exact variant scores because this figure labels the RL curve generically. In MetaWorld, the blue line is performance on the training distribution, while the red line evaluates held-out tasks under ML45. Those task objectives differ from the 45 training tasks. The scales also differ: CALVIN displays percentages, while the other panels use success fractions.",
+      "takeaway": "The CALVIN bars report a 17.8-percentage-point increase, and the ManiSkill radar shows broadly improved robustness. The MetaWorld held-out curve oscillates while training success rises. Together these results support transfer to environmental changes more clearly than transfer to entirely new manipulation objectives.",
+      "caution": "Appendix D.2 defines ABC→D but inserts D→D into its results sentence; the protocol conflict remains unresolved. The 79.1% figure must remain separate from Table 5’s 87.0% main result. Generic RL labels here do not identify every sampler.",
+      "evidenceIds": [
+        "e11",
+        "e12",
+        "e13",
+        "e14"
+      ],
+      "asset": "report-assets/2510.25889/ood-generalization.png",
+      "sourceSha256": "484e9f8be118be4f7adfd18470abc330e29b1b4cf457d316dc85a63e65299d36",
+      "sourceUrl": "https://arxiv.org/pdf/2510.25889#page=7"
+    },
+    {
+      "id": "mdp-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 7",
+      "page": 8,
+      "width": 1314,
+      "height": 310,
+      "crop": [
+        0.103,
+        0.274,
+        0.876,
+        0.415
+      ],
+      "alt": "LIBERO-Goal success and explained variance curves for three MDP formulations, with update-time bars of 814.2, 428.6 and 821.4 seconds.",
+      "caption": "Shortening the effective denoising chain reduces update cost.",
+      "readingGuide": "Match the cyan two-layer curve, blue hybrid curve and magenta one-layer curve across the success and explained-variance panels. The one-layer formulation improves fastest early in training, but the final success levels are similar. Then compare the update-time bars: the hybrid bar is substantially lower even though its final task performance is comparable. Section 5.3.2 holds the noise-injection strategy fixed for this comparison, separating MDP organization from learned-versus-fixed noise. The one-layer formulation still recomputes complete denoising trajectories for likelihood estimation, which explains why its shorter conceptual environment chain does not automatically reduce computation.",
+      "takeaway": "The hybrid formulation reports 428.6 seconds per update versus 814.2 for the full two-layer formulation and 821.4 for one-layer optimization. The first comparison is approximately 1.9× faster. The result supports selective stochastic denoising as a practical efficiency mechanism on this benchmark.",
+      "caution": "These are update times for π0 on LIBERO-Goal, not an end-to-end training or inference speed measurement. The figure gives no timing variability, and similar final curves do not establish statistical equivalence.",
+      "evidenceIds": [
+        "e06",
+        "e16"
+      ],
+      "asset": "report-assets/2510.25889/mdp-ablation.png",
+      "sourceSha256": "484e9f8be118be4f7adfd18470abc330e29b1b4cf457d316dc85a63e65299d36",
+      "sourceUrl": "https://arxiv.org/pdf/2510.25889#page=8"
+    },
+    {
+      "id": "hyperparameter-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 9,
+      "width": 1358,
+      "height": 313,
+      "crop": [
+        0.088,
+        0.117,
+        0.887,
+        0.259
+      ],
+      "alt": "Success rates for π0 Flow-SDE on LIBERO-Spatial, grouped by noise level, denoising steps and action chunk, with separate SFT/RL and Train/Eval rows.",
+      "caption": "Good stochastic rollouts and good RL learning require different checks.",
+      "readingGuide": "Read each column group as a separate sweep, rather than a full factorial experiment. Train means stochastic rollout performance; Eval means ODE-based evaluation, not a dataset train/test split. The SFT rows describe the initial checkpoint and the RL rows describe performance after 100 training steps. Under noise level, the initial Eval score stays at 65.2 while Train deteriorates as noise rises. Under denoising steps, one-step sampling has a large initial Train–Eval gap. Under action chunk, longer execution postpones observation feedback. These distinctions connect the table to the clipping, denoising and explained-variance curves on the same page.",
+      "takeaway": "Noise 0.8 yields 98.1% RL Eval versus 73.1% at noise 0.2, despite worse initial stochastic performance. More denoising is not uniformly better either: the two-step setting reaches 97.0% RL Eval and the eight-step setting 86.7%. Initialization quality alone is an incomplete tuning criterion.",
+      "caution": "These are π0 LIBERO-Spatial results after a fixed number of training steps. They do not identify a universal optimum or equal-compute winner. The source’s marginal-preservation motivation must be distinguished from finite-step sampling behavior.",
+      "evidenceIds": [
+        "e05",
+        "e17",
+        "e21"
+      ],
+      "asset": "report-assets/2510.25889/hyperparameter-ablation.png",
+      "sourceSha256": "484e9f8be118be4f7adfd18470abc330e29b1b4cf457d316dc85a63e65299d36",
+      "sourceUrl": "https://arxiv.org/pdf/2510.25889#page=9"
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "1. Make the action generator expose a usable probability",
+      "kind": "source",
+      "text": "The starting model already has a useful conditional action distribution from flow matching. Its VLM supplies image and language features, and its action expert transforms Gaussian noise into an action chunk. πRL keeps that information flow but changes the rollout distribution during RL. In Flow-Noise, the original Euler update becomes the mean of a Gaussian transition, with a learned noise network setting diagonal covariance. The product of these conditional densities is a probability for the complete denoising trajectory. This distinction matters: the paper optimizes a surrogate based on that trajectory, rather than claiming to have directly evaluated the final action’s marginal density. Once fine-tuning ends, the extra noise network is discarded and the evaluation sampler returns to ODE denoising.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e17"
+      ]
+    },
+    {
+      "heading": "2. Decide which denoising transitions PPO should optimize",
+      "kind": "source",
+      "text": "Flow-SDE separates two clocks. During flow time, the observation remains fixed while the noisy action evolves; during environment time, the completed action is executed and the robot receives new feedback. The reward belongs to this outer transition. The full two-layer MDP makes Gaussian denoising decisions available to PPO, but extends the effective optimization chain. Hybrid sampling selects a single stochastic denoising time for each environment step and lets a wrapper perform the other ODE updates. PPO then combines the resulting likelihood ratio with a GAE advantage computed from chunk rewards and a shared critic. The critic’s feature source is model-specific: π0 uses the action expert with trajectory averaging, whereas π0.5 uses the VLM. The source’s conflicting π0.5 state-input descriptions still require implementation clarification.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "heading": "3. Read the gains as action refinement under particular distributions",
+      "kind": "analysis",
+      "text": "The most defensible interpretation is that online interaction improves execution within a learned repertoire. LIBERO supplies a concrete example: the π0.5 few-shot Long score improves from 43.9% to 94.0%, although the RL policy also receives additional simulator experience. ManiSkill’s environmental perturbations provide evidence that those gains are not confined to the exact training appearance. MetaWorld ML45 sets a harder boundary: changing the task objective produces an oscillating held-out curve rather than consistent improvement. This is a reader interpretation of the reported evaluations, not proof of which internal representation changed. The separate 40% physical transfer result adds an execution demonstration, but its unreported trial count prevents a precision assessment. Reproduction should therefore test task success, exploration stability and computational cost separately.",
+      "evidenceIds": [
+        "e09",
+        "e11",
+        "e13",
+        "e14",
+        "e18"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does hybrid sampling reduce total time to comparable success?",
+      "text": "Reader-proposed check: start one-layer, full two-layer and hybrid two-layer runs from the same π0 LIBERO-Goal SFT checkpoint, using fixed noise, identical critic, prediction/replan horizons and the Table 11 configuration. Use several independent seeds and the same 500 evaluation states. Measure update time, rollout time, environment transitions and total time to a prespecified success threshold. Figure 7’s efficiency interpretation is strengthened if hybrid preserves final success while reducing total time; it is weakened if the update saving disappears through slower learning or rollout overhead.",
+      "evidenceIds": [
+        "e06",
+        "e09",
+        "e16",
+        "e22"
+      ]
+    },
+    {
+      "title": "Separate exploration magnitude from low-noise optimization instability",
+      "text": "Reader-proposed check: repeat the π0 LIBERO-Spatial noise sweep at 0.2, 0.5 and 0.8 with checkpoint, denoising steps, action horizon and interaction budget fixed. Include the paper’s common-learning-rate comparison and a separate learning-rate sweep for each noise level. Measure initial stochastic/ODE success, PPO clipping fraction, gradient norms and final ODE success across seeds. If suitably reduced learning rates rescue low-noise performance, optimization instability explains part of the original ranking; if low noise still limits final success after stabilization, restricted exploration remains a plausible explanation.",
+      "evidenceIds": [
+        "e17",
+        "e19",
+        "e22"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24
+    ],
+    "notes": "Visually inspected the title/author page, Figures 1–17, Tables 1–13, method equations, evaluation protocols, physical-transfer description and all appendix configuration pages. All six final original crops were viewed at their saved resolution; the two narrow method figures were rendered at 400 DPI and the other crops at 200 DPI. Figure 2 formulas were checked against Equations (4) and (9), and Figure 3 transition/reward ordering against Equations (10)–(12). The π0.5 input and CALVIN protocol discrepancies are disclosed in the guides. All eight supplied text chunks, including reference pages 11–12, were read; those reference-only pages were not visually inspected. Separate supplements and linked code remain outside the supplied review."
+  },
+  "featuredResultTask": "LIBERO few-shot manipulation"
+}
