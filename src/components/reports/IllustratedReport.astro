@@ -14,6 +14,8 @@ const { paper, report, edition } = Astro.props;
 const titleBlock = (paperMetadata as Record<string, { authors: string; affiliations?: string; sourceSha256: string; page?: number; location?: string }>)[paper.id];
 if (!titleBlock || titleBlock.sourceSha256 !== report.sources[0].sha256) throw new Error(`Unverified title-block metadata for ${paper.id}`);
 const seriesIndex = illustratedReports.findIndex(item => item.paperId === paper.id);
+const hasGifStills=edition.visuals.some(item=>item.htmlSource?.kind==='html-gif-derived-still');
+const hasAnimationStills = edition.visuals.some(item => item.htmlSource?.kind === 'html-animation-derived-still') || hasGifStills;
 const methodVisuals = edition.visuals.filter(item => item.section === 'mechanism');
 const resultVisuals = edition.visuals.filter(item => item.section === 'results');
 const ablationVisuals = edition.visuals.filter(item => item.section === 'ablation');
@@ -46,7 +48,7 @@ const coreContribution = report.contributions[0];
       <p><strong>Authors:</strong> {titleBlock.authors}</p>
       {titleBlock.affiliations && <p><strong>Affiliations:</strong> {titleBlock.affiliations}</p>}
       <p><strong>Source:</strong> {paper.venue ? `${venueLabel(paper.venue)} · ` : ''}<a href={report.sources[0].url}>{paper.id} ↗</a>{paper.projectUrl && <> · <a href={paper.projectUrl}>Project page ↗</a></>} · <a href={paperPath(paper.id)}>Catalog record</a></p>
-      <p><strong>Reading:</strong> {seriesIndex + 1} / {illustratedReports.length} · {edition.visuals.length} original {edition.visuals.length === 1 ? 'visual' : 'figures & tables'} · ~{readingMinutes} min · <button id="print-report" type="button">Print / save PDF</button></p>
+      <p><strong>Reading:</strong> {seriesIndex + 1} / {illustratedReports.length} · {edition.visuals.length} {hasAnimationStills ? 'source visuals, including animation-derived stills' : edition.visuals.length === 1 ? 'original visual' : 'original figures & tables'} · ~{readingMinutes} min · <button id="print-report" type="button">Print / save PDF</button></p>
     </div>
   </header>
   <ReportContents sections={illustratedSections}/>
@@ -128,7 +130,7 @@ const coreContribution = report.contributions[0];
       <h3>8.1 Requirements and known gaps</h3>{report.reproduction.map(claim => <Claim claim={claim}/>)}
       <h3>8.2 Proposed reproduction checks</h3><p>The following checks are proposals motivated by the paper. They have not been run as part of this reading.</p>
       {edition.reproductionChecks.map((check,index) => <div class="ir-audit-card"><h4>Check {index + 1}: {check.title}</h4><p>{check.text} <EvidenceRefs ids={check.evidenceIds}/></p></div>)}
-      <h3 id="coverage">8.3 Reading coverage</h3><div class="ir-note"><p><strong>Visual audit:</strong> {edition.visualAudit.notes}</p><p>PDF pages inspected for this edition: {edition.visualAudit.inspectedPages.join(', ')}. Appendix coverage: {appendixLabel[report.coverage.appendix].toLowerCase()}.</p><p>Original figures and tables remain the work of the paper’s authors. Crops preserve their scientific content; the surrounding reading notes are our own.</p></div>
+      <h3 id="coverage">8.3 Reading coverage</h3><div class="ir-note"><p><strong>Visual audit:</strong> {edition.visualAudit.notes}</p><p>{edition.visualAudit.inspectedSections ? `Original HTML supporting sections inspected: ${edition.visualAudit.inspectedSections.join(', ')}` : `PDF pages inspected for this edition: ${edition.visualAudit.inspectedPages?.join(', ')}`}. Appendix coverage: {appendixLabel[report.coverage.appendix].toLowerCase()}.</p><p>{hasGifStills ? 'Original HTML tables and the original GIF belong to the source’s authors. The GIF-derived still shows composited frame 0 at 0 ms, loop 0, at its native size; wrapper layout differs from the source webpage. This does not establish full animation viewing or undisclosed color/class semantics. All four official source documents and their individual evidence links are listed below.' : hasAnimationStills ? 'Original raster assets and animation geometry remain the work of the source’s authors. Animation-derived stills disclose their component times, background and wrapper; they do not establish full-animation or video inspection. The surrounding reading notes are our own.' : 'Original figures and tables remain the work of the source’s authors. Extractions preserve their scientific content; any HTML wrapper layout is disclosed with each figure. The surrounding reading notes are our own.'}</p></div>
       <details class="ir-detail"><summary>Text reading scope & known omissions</summary><ul>{report.coverage.sectionsRead.map(section => <li>{section}</li>)}</ul><h4>Outside the original text pass</h4><ul>{report.coverage.omissions.map(omission => <li>{omission}</li>)}</ul><p>The visual audit above records the subsequent illustrated pass.</p></details>
       <h3>8.4 Traceable evidence</h3>
       <div class="rn-evidence-list">{report.evidence.map(evidence => <details class="rn-evidence" id={reportAnchor('evidence',evidence.id)}><summary><span>{evidence.id}</span><strong>{evidence.location}</strong><span class="rn-expand-label">Inspect</span></summary><div><p>{evidence.detail}</p><a href={`#${reportAnchor('source',evidence.sourceId)}`}>Go to primary source ↓</a></div></details>)}</div>

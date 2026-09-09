@@ -1,6 +1,11 @@
+import {validateIdentitySupportContext} from './identity-support.mjs';
+import {validateOpenSceneReviewContext} from './openscene-original-evidence.mjs';
+import { validateMediaReviewContext } from './html-original-media.mjs';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+
+import { validateSourceDetailContext } from './source-details.mjs';
 
 // Enumeration prevents invented identity strings;
 // validateVisualReview must still check pairs, inventory and scientific verdicts.
@@ -10,6 +15,9 @@ export function visualReviewSchemaForContext(context, template) {
   if (!context || !nonempty(context.paperId) || !hash(context.sourceSha256) || !Array.isArray(context.images) || !context.images.length) {
     throw new Error('A fixed context with paper identity, source SHA256 and images is required');
   }
+  validateIdentitySupportContext(context);
+  validateMediaReviewContext(context);
+  const nativeContext=validateOpenSceneReviewContext(context);
   const ids = new Set();
   const hashes = new Set();
   for (const image of context.images) {
@@ -19,6 +27,7 @@ export function visualReviewSchemaForContext(context, template) {
     ids.add(image.imageId);
     hashes.add(image.sha256);
   }
+  validateSourceDetailContext(context);
   const schema = structuredClone(template);
   if (schema?.type !== 'object' || schema.properties?.images?.type !== 'array' || schema.properties.images.items?.type !== 'object') {
     throw new Error('Unexpected visual-review template shape');
@@ -34,6 +43,12 @@ export function visualReviewSchemaForContext(context, template) {
       throw new Error('Expected unconstrained identity string fields in the template');
     }
     field.enum = values;
+  }
+  if (context.identitySupport || context.sourceDetails || nativeContext || context.policy?.version==='wam-original-html-media-evidence-v1') {
+    const item = schema.properties.images.items;
+    if (Object.hasOwn(item.properties, 'reviewRole') || !Array.isArray(item.required)) throw new Error('Unexpected role schema');
+    item.properties.reviewRole = { type: 'string', enum: [...new Set(context.images.map(image => image.reviewRole))] };
+    item.required.push('reviewRole');
   }
   return schema;
 }

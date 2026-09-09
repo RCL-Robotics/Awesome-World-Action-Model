@@ -1,3 +1,5 @@
+import {validateIdentitySupportContext} from './identity-support.mjs';
+import {openScenePolicyVersion,loadOpenSceneEvidence,validateOpenSceneChunks,validateOpenSceneBundle,validateOpenSceneReviewContext} from './openscene-original-evidence.mjs';
 import { access, copyFile, lstat, mkdir, readFile, realpath, rename, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -6,6 +8,10 @@ import { promisify } from 'node:util';
 import { homedir } from 'node:os';
 import { hashText, readJSON, writeJSON, validateReport } from './reports.mjs';
 import { validateIllustratedReport, validateIllustratedMetadata } from './illustrated-reports.mjs';
+import { validateMediaReviewContext, mediaPolicyVersion } from './html-original-media.mjs';
+import { loadHtmlEvidence, renderHtmlEvidence, htmlLocator, snapshotHtmlEvidence, verifyHtmlInputPin, preparedHtmlImages, htmlSourceDisclosure } from './html-original-evidence.mjs';
+
+import { validateSourceDetailContext } from './source-details.mjs';
 
 const RUNTIME = join(homedir(), '.cache/codex-runtimes/codex-primary-runtime/dependencies');
 export const DEFAULT_PYTHON = join(RUNTIME, 'python/bin/python3');
@@ -69,15 +75,18 @@ function splitSourceText(text) {
   }
   return parts;
 }
-export async function verifyStoredContext(context, manifest, { python = DEFAULT_PYTHON, pdftoppm = DEFAULT_PDFTOPPM } = {}) {
+export async function verifyStoredContext(context, manifest, { python = DEFAULT_PYTHON, pdftoppm = DEFAULT_PDFTOPPM, attempt, htmlVisualBundle, htmlVisualBundleSha256 } = {}) {
   const config = context.config;
   if (!config || config.python !== python || config.pdftoppm !== pdftoppm || config.sourceFile !== (manifest.kind === 'pdf' ? 'source.pdf' : 'source.raw') || JSON.stringify(config.manifest) !== JSON.stringify(manifest)) throw new Error('Untrusted retained source configuration');
   const text = await readFile(manifest.textPath, 'utf8');
   if (hashText(text) !== manifest.textSha256) throw new Error('Retained source text fingerprint changed');
   const expected = splitSourceText(text).map((part, index) => ({ path: `chunks/${index + 1}.txt`, sha256: hashText(part) }));
-  if (!expected.length || JSON.stringify(config.chunks) !== JSON.stringify(expected)) throw new Error('Retained text chunk inventory changed');
+  const nativePack=config.htmlVisuals?(await loadHtmlEvidence(attempt,config)):null;
+  if(nativePack?.descriptor.policyVersion===openScenePolicyVersion)await validateOpenSceneChunks(attempt,config,nativePack);
+  else if (!expected.length || JSON.stringify(config.chunks) !== JSON.stringify(expected)) throw new Error('Retained text chunk inventory changed');
+  if (config.htmlVisuals) await verifyHtmlInputPin({ attempt, config, bundlePath: htmlVisualBundle, expectedSha256: htmlVisualBundleSha256 });
 }
-export async function snapshotSource({ attempt, manifest, repository, python = DEFAULT_PYTHON, pdftoppm = DEFAULT_PDFTOPPM }) {
+export async function snapshotSource({ attempt, manifest, repository, htmlVisualBundle, htmlVisualBundleSha256, shouldStop, python = DEFAULT_PYTHON, pdftoppm = DEFAULT_PDFTOPPM }) {
   await mkdir(join(attempt, 'chunks'), { recursive: true });
   const sourceFile = manifest.kind === 'pdf' ? 'source.pdf' : 'source.raw';
   await copyFile(manifest.sourcePath, join(attempt, sourceFile));
@@ -94,7 +103,8 @@ export async function snapshotSource({ attempt, manifest, repository, python = D
   if (!chunks.length) throw new Error('Source text is empty');
   await copyFile(join(repository, 'scripts/reading/illustrated-source.py'), join(attempt, 'source-tool.py'));
   await writeFile(join(attempt, 'fonts.conf'), `<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig><dir>${DEFAULT_FONTS}</dir><cachedir>${attempt}/fontcache</cachedir></fontconfig>`);
-  const config = { sourceFile, manifest, chunks, python, pdftoppm };
+  let config = { sourceFile, manifest, chunks, python, pdftoppm };
+  if (htmlVisualBundle) config = await snapshotHtmlEvidence({ attempt, config, bundlePath: htmlVisualBundle, expectedSha256: htmlVisualBundleSha256, helperPath: join(repository, 'scripts/lib/html-original-evidence.mjs'), shouldStop });
   await writeJSON(join(attempt, 'source-config.json'), config);
   return config;
 }
@@ -135,7 +145,9 @@ export async function validateBundle({ attempt, context, verifyCrops = verifyOri
     ? (manifest.omissions || []).filter(note => !draft.coverage.omissions.includes(note)) : [];
   const normalized = sourceOmissionsAdded.length
     ? { ...draft, coverage: { ...draft.coverage, omissions: [...sourceOmissionsAdded, ...draft.coverage.omissions] } } : draft;
-  const report = validateReport(normalized, { paperIds: context.paperIds, manifest });
+  const htmlPack=config.htmlVisuals?await loadHtmlEvidence(attempt,config):null;
+  if(htmlPack?.descriptor.policyVersion===openScenePolicyVersion)await validateOpenSceneChunks(attempt,config,htmlPack);
+  const report = validateReport(normalized, { paperIds: context.paperIds, manifest, ...(htmlPack?.verifiedHtmlSources?{verifiedHtmlSources:htmlPack.verifiedHtmlSources}:{}) });
   if (report.generatedAt !== generatedAt || JSON.stringify(report.taxonomy.recordedClassification) !== JSON.stringify(classification)) throw new Error('Report generation/classification provenance changed');
   const metadata = validateIllustratedMetadata(await read('metadata.json'), report);
   if (metadata.title !== manifest.observedTitle) throw new Error('Verified metadata title differs from primary identity');
@@ -155,11 +167,15 @@ export async function validateBundle({ attempt, context, verifyCrops = verifyOri
   if (manifest.kind === 'pdf') requirePage(metadata.page);
   let edition = null, assets = [];
   if (receipt.outcome === 'illustration-unavailable') {
+    if (config.htmlVisuals) throw new Error('An explicit original HTML evidence bundle requires a visual edition or a recoverable error, not an unavailable shortcut');
     if (receipt.editionPath !== null || !receipt.reason.trim() || !receipt.evidenceIds.length || await exists(join(attempt, 'edition.json'))) throw new Error('Unavailable outcome must be explicit and must not include an edition');
     if (manifest.kind === 'pdf' && manifest.scope !== 'abstract-only') throw new Error('A readable PDF requires a visual edition or a recoverable error, not an unavailable shortcut');
   } else {
     if (receipt.editionPath !== 'edition.json') throw new Error('Missing illustrated edition');
     edition = validateIllustratedReport(await read('edition.json'), report);
+    if (manifest.kind === 'html') {
+      return validateHtmlBundleEvidence({ attempt, context, report, edition, metadata, receipt, audit, sourceOmissionsAdded, reviewImages });
+    }
     for (const page of edition.visualAudit.inspectedPages) requirePage(page);
     for (const visual of edition.visuals) {
       const name = `assets/${visual.id}.png`, bytes = await readFile(await safeFile(attempt, name));
@@ -188,6 +204,43 @@ export async function validateBundle({ attempt, context, verifyCrops = verifyOri
   }
   return { receipt, report, edition, metadata, assets, sourceOmissionsAdded };
 }
+export async function validateHtmlBundleEvidence({ attempt, context, report, edition, metadata, receipt, audit, sourceOmissionsAdded, reviewImages }) {
+  const pack = await loadHtmlEvidence(attempt, context.config);
+  const d = pack.descriptor;
+  const prepared = await preparedHtmlImages(attempt, context.config);
+  if(d.policyVersion===openScenePolicyVersion)validateOpenSceneBundle(pack,report,edition);
+  if (metadata.page !== undefined || metadata.location !== d.identitySectionId || !edition.visualAudit.inspectedSections.includes(d.identitySectionId)) throw new Error('HTML title metadata must name the actual inspected identity section');
+  const sections = edition.visualAudit.inspectedSections;
+  if (sections.some(id => pack.fragments.get(id)?.role !== 'supporting-section')) throw new Error('HTML supporting-section inventory changed');
+  const figureIds = edition.visuals.map(v => v.htmlSource?.fragmentId);
+  if (new Set(figureIds).size !== figureIds.length || figureIds.some(id => pack.fragments.get(id)?.role !== 'original-figure')) throw new Error('HTML original-figure inventory changed');
+  if(d.policyVersion===mediaPolicyVersion && (JSON.stringify([...figureIds].sort())!==JSON.stringify([...pack.fragments.values()].filter(f=>f.role==='original-figure').map(f=>f.id).sort()) || JSON.stringify([...sections].sort())!==JSON.stringify([...d.requiredSupportingSections].sort()))) throw new Error('Media bundle must include conceptual raster, architecture and required supporting sections');
+  for (const visual of edition.visuals) {
+    const fragment = pack.fragments.get(visual.htmlSource.fragmentId);
+    if (JSON.stringify(visual.htmlSource) !== JSON.stringify(htmlLocator(fragment, pack.descriptorSha256, d)) || visual.sourceRendering !== htmlSourceDisclosure(fragment,d) || visual.sourceLabel !== fragment.sourceLabel) throw new Error('HTML visual source locator or disclosure changed');
+  }
+  for (const id of [...sections, ...figureIds]) if (!audit.some(a => a.operation === 'html-delivery' && a.id === id && a.descriptorSha256 === pack.descriptorSha256)) throw new Error('A declared HTML image has no coordinator-source delivery record');
+  const directory = join(attempt, `html-verification-${Date.now()}-${process.pid}`);
+  const fresh = await renderHtmlEvidence({ root: attempt, config: context.config, ids: [...sections, ...figureIds], outputDirectory: directory, shouldStop: context.isStopping });
+  if(d.policyVersion===openScenePolicyVersion&&JSON.stringify(prepared.nativeEvidence.binding)!==JSON.stringify(fresh.nativeEvidence.binding))throw new Error('Fresh native runtime/source/derivation binding differs');
+  if (d.policyVersion===mediaPolicyVersion && JSON.stringify(prepared.mediaEvidence)!==JSON.stringify(fresh.mediaEvidence)) throw new Error('Fresh media runtime/derivation differs from preparation');
+  const assets = [], images = [];
+  for (const id of sections) {
+    const item = fresh.records.find(r => r.id === id);
+    images.push({ imageId: `section-${id}`, path: item.path, sha256: item.sha256, kind: 'source-html-section', locator: item.locator, description: id === d.identitySectionId ? metadata : { sourceLabel: item.sourceLabel, evidenceIds: Object.keys(edition.visualAudit.htmlEvidence).filter(key => edition.visualAudit.htmlEvidence[key].includes(id)) } });
+  }
+  for (const visual of edition.visuals) {
+    const item = fresh.records.find(r => r.id === visual.htmlSource.fragmentId), name = `assets/${visual.id}.png`;
+    const bytes = await readFile(await safeFile(attempt, name));
+    if (sha(bytes) !== item.sha256 || visual.width !== item.width || visual.height !== item.height) throw new Error('HTML asset pixels differ from independent fresh original render');
+    assets.push({ id: visual.id, path: name, sha256: item.sha256, width: item.width, height: item.height, htmlSource: item.locator, destination: `public/${visual.asset}` });
+    images.push({ imageId: `figure-${visual.id}`, path: item.path, sha256: item.sha256, kind: 'html-original-figure', locator: item.locator, description: visual });
+  }
+  if (!reviewImages || await reviewImages({ attempt, context, report, edition, metadata, images, ...(fresh.mediaEvidence ? {htmlMediaRendering:fresh.mediaEvidence} : {}), ...(fresh.nativeEvidence?{htmlOpenSceneRendering:fresh.nativeEvidence}:{}) }) !== true) throw new Error('Independent HTML image review did not approve this bundle');
+  await loadHtmlEvidence(attempt, context.config);
+  for (const asset of assets) if (await fileHash(await safeFile(attempt, asset.path)) !== asset.sha256) throw new Error('HTML asset changed during independent review');
+  return { receipt, report, edition, metadata, assets, sourceOmissionsAdded };
+}
 export async function verifyOriginalCrops({ attempt, context, assets, pages = [] }) {
   const directory = join(dirname(attempt), `verification-${Date.now()}`);
   await mkdir(directory);
@@ -202,11 +255,17 @@ export async function verifyOriginalCrops({ attempt, context, assets, pages = []
   for (const page of pages) await execute(config.python, [join(context.repository, 'scripts/reading/illustrated-source.py'), '--root', directory, 'render', String(page)], { timeout: 60_000, maxBuffer: 2_000_000 });
   return { directory };
 }
-export function validateVisualReview(review, { paperId, sourceSha256, images }) {
+export function validateVisualReview(review, context) {
+  const identityContext=validateIdentitySupportContext(context);
+  const mediaContext=validateMediaReviewContext(context);
+  const nativeContext=validateOpenSceneReviewContext(context);
+  const { paperId, sourceSha256, images } = context;
+  validateSourceDetailContext(context);
   if (review.schemaVersion !== 1 || review.paperId !== paperId || review.sourceSha256 !== sourceSha256 || review.approved !== true || review.identityMatches !== true || typeof review.identityNotes !== 'string' || !review.identityNotes.trim() || !Array.isArray(review.images) || review.images.length !== images.length) throw new Error('Independent visual reviewer rejected identity or bundle');
   const seen = new Set();
   for (const item of review.images) {
     const image = images.find(image => image.imageId === item.imageId);
+    if ((context.identitySupport || context.sourceDetails || mediaContext || nativeContext) && item.reviewRole !== image?.reviewRole) throw new Error('Independent source-detail receipt role mismatch');
     if (!image || seen.has(item.imageId) || item.sha256 !== image.sha256 || item.legible !== true || item.matchesDescription !== true || item.claimsSupported !== true || typeof item.observedDetail !== 'string' || !item.observedDetail.trim()) throw new Error('Independent visual reviewer rejected an image, claim or fingerprint');
     seen.add(item.imageId);
   }

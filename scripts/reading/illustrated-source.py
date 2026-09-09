@@ -90,7 +90,7 @@ def main():
         if config["manifest"]["kind"] == "pdf":
             from pypdf import PdfReader
             pages = len(PdfReader(contained(root, config["sourceFile"])).pages)
-        print(json.dumps({"chunks": len(chunks), "pages": pages, "scope": config["manifest"].get("scope"), "omissions": config["manifest"].get("omissions", [])}))
+        print(json.dumps({"chunks": len(chunks), "pages": pages, "scope": config["manifest"].get("scope"), "omissions": config["manifest"].get("omissions", []), **({"sources": config["verifiedHtmlSources"], "documentChunks": [{"chunk": i+1, "sourceId": c["sourceId"], "sourceChunk": c["sourceChunk"]} for i,c in enumerate(chunks)]} if config.get("verifiedHtmlSources") else {})}))
     elif arguments.command == "read":
         chunks = config["chunks"]
         if not 1 <= arguments.chunk <= len(chunks):
@@ -101,6 +101,7 @@ def main():
             raise ValueError("Text chunk changed")
         # Hash original bytes before decoding; universal-newline reads alter CR/CRLF.
         text = data.decode("utf-8")
+        if "sourceId" in chunk: print(f"DOCUMENT {chunk['sourceId']} — document chunk {chunk['sourceChunk']}")
         print(f"SOURCE CHUNK {arguments.chunk}/{len(chunks)} — retain existing page/section labels\n{text}")
         record(root, {"operation": "read", "chunk": arguments.chunk, "sha256": chunk["sha256"]})
     elif arguments.command == "render":

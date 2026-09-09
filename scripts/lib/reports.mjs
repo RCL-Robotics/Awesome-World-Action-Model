@@ -1,3 +1,4 @@
+import {validateOpenSceneSources} from './openscene-original-evidence.mjs';
 import { readFile, readdir, mkdir, rename, writeFile } from 'node:fs/promises';
 import { resolve, dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -32,7 +33,7 @@ function structure(value, rule, at = 'report') {
     }
   }
 }
-export function validateReport(report, { paperIds, manifest } = {}) {
+export function validateReport(report, { paperIds, manifest, verifiedHtmlSources } = {}) {
   structure(report, schema);
   if (!/^[a-zA-Z0-9._-]+$/.test(report.paperId)) throw new Error('Unsafe report identity');
   if (paperIds && !paperIds.has(report.paperId)) throw new Error('Report does not belong to this catalog');
@@ -75,7 +76,8 @@ export function validateReport(report, { paperIds, manifest } = {}) {
     if (manifest.paperId !== report.paperId || !['full-text', 'partial-text'].includes(manifest.accessStatus)) throw new Error('No readable source manifest for this report');
     if (manifest.titleMatch !== true) throw new Error('Manifest identity is not verified');
     const primary = report.sources[0];
-    if (report.sources.length !== 1) throw new Error('Report cites a source not supplied to this text-only reading');
+    if (verifiedHtmlSources) { validateOpenSceneSources(manifest,verifiedHtmlSources); if(JSON.stringify(report.sources)!==JSON.stringify(verifiedHtmlSources))throw new Error('Report sources differ from verified four-document inventory'); }
+    else if (report.sources.length !== 1) throw new Error('Report cites a source not supplied to this text-only reading');
     if (primary.sha256 !== manifest.sha256 || primary.url !== manifest.canonicalUrl || primary.wordCount !== manifest.wordCount || (manifest.observedTitle && primary.title !== manifest.observedTitle) || (manifest.kind && primary.kind !== manifest.kind) || (manifest.accessedAt && Date.parse(primary.accessedAt) !== Date.parse(manifest.accessedAt))) throw new Error('Report provenance differs from the supplied source');
     if (manifest.accessStatus !== 'full-text' && report.reportStatus === 'full-text-reviewed') throw new Error('A partial source cannot produce a full-text review');
     if (manifest.readingMode === 'text-only' && report.coverage.figuresReviewed.length) throw new Error('Text-only reading cannot claim visual figure inspection');

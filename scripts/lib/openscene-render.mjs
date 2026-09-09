@@ -1,0 +1,59 @@
+// Coordinator-only offline renderer. Source HTML is inert; only this wrapper executes telemetry.
+import {readFile,writeFile,lstat,realpath} from 'node:fs/promises';import {resolve,join,dirname} from 'node:path';import {pathToFileURL} from 'node:url';
+import {loadOpenSceneEvidence,nativeFile,assertDerivationBinding,openSceneLocator,verifyObservedRuntime,openSceneCodeSha256,openSceneProcessCodeSha256} from './openscene-original-evidence.mjs';
+import {compactNativeMaps} from './openscene-original-evidence.mjs';
+import {hash,requireValue as need,runBounded,mappedNativeFiles,processRows,descendants} from './openscene-process.mjs';
+export const rendererSha256=hash(await readFile(new URL(import.meta.url)));
+export async function installOpenSceneMonitor(context){
+ await context.addInitScript(()=>{const state={version:'openscene-csp-monitor-v1',installedAt:location.href,violations:[]};Object.defineProperty(globalThis,'__opensceneCsp',{value:state,writable:false});document.addEventListener('securitypolicyviolation',e=>state.violations.push({effectiveDirective:e.effectiveDirective,blockedURI:e.blockedURI}));});
+}
+export async function requireOpenSceneCsp(page,url,requests){
+ await page.evaluate(()=>new Promise(r=>setTimeout(r,0)));
+ const ready=await page.evaluate(()=>({url:location.href,state:globalThis.__opensceneCsp}));
+ need(ready.url===url&&ready.state?.version==='openscene-csp-monitor-v1'&&ready.state.installedAt===url,'CSP monitor not installed in actual source document');
+ need(Array.isArray(ready.state.violations)&&ready.state.violations.length===0&&requests.length===0,'CSP or unexpected network request');return ready.state;
+}
+export async function executeOpenSceneRender(spec){
+ const root=resolve(spec.root),output=resolve(spec.outputDirectory);need(output.startsWith(root+'/')&&await realpath(dirname(output))===dirname(output),'unsafe render output');need((await lstat(output)).isDirectory()&&!(await lstat(output)).isSymbolicLink(),'render output missing');
+ need(typeof spec.jobId==='string'&&/^[a-f0-9-]{36}$/.test(spec.jobId),'fresh trusted job identity');const config=spec.config;const pack=await loadOpenSceneEvidence(root,config,spec.rendererCodeSha256),d=pack.descriptor;
+ need(d.native.renderCodeSha256===rendererSha256,'trusted render code pin changed');need(JSON.stringify(spec.ids)===JSON.stringify([...pack.fragments.keys()]),'render must include exact16 original images');
+ const validation=await runBounded(d.runtime.pythonPath,['-I','-B',await nativeFile(root,d.native.tools.validator.path)],{cwd:root,input:{root:pack.recipeRoot},maxRssBytes:768000000});const validated=JSON.parse(validation.stdout);need(validated.pass===true&&validated.gifFrame0Decoded===false,'source validator did not establish exact original evidence');verifyObservedRuntime(validated,d,root);
+ const framePath=join(output,'original-frame-0.png');const decoding=await runBounded(d.runtime.pythonPath,['-I','-B',await nativeFile(root,d.native.tools.decoder.path)],{cwd:root,input:{source:await nativeFile(pack.recipeRoot,pack.recipe.asset.source.path),output:framePath,frameIndex:0,timeMs:0,loopIteration:0},maxRssBytes:768000000});const decoded=JSON.parse(decoding.stdout);verifyObservedRuntime(decoded,d,root);const derivation=assertDerivationBinding(pack.recipe,decoded);const frame=await readFile(framePath);need(hash(frame)===decoded.pngSha256,'fresh frame output changed');
+ const loadedPlaywright=await import(pathToFileURL(d.runtime.playwrightPath));const {chromium}=loadedPlaywright.default??loadedPlaywright;const server=await chromium.launchServer({headless:true,executablePath:d.runtime.chromePath,args:['--disable-background-networking','--disable-component-update','--disable-sync','--no-first-run','--host-resolver-rules=MAP * ~NOTFOUND','--disable-gpu']});let browser;
+ verifyObservedRuntime({loadedNativeImages:process.report.getReport().sharedObjects},d,root);
+ const records=[],fontSet=new Set(),nativeMaps=[];let pixels=0,totalBytes=0;
+ try{
+  browser=await chromium.connect(server.wsEndpoint());need(browser.version()===d.runtime.browserVersion,'actual browser version changed');
+  for(const f of pack.fragments.values()){
+   const context=await browser.newContext({viewport:{width:1408,height:900},deviceScaleFactor:1,offline:true,serviceWorkers:'block',javaScriptEnabled:true});const requests=[],violations=[];
+   const url='https://openscene-wrapper.invalid/'+f.id;
+   let parts=[];
+   for(const p of f.parts){let original=(await readFile(await nativeFile(pack.recipeRoot,p.path))).toString();if(f.derivation){const x=f.derivation;if(x.sourceNodeStart>=p.startCharacter&&x.sourceNodeEnd<=p.endCharacter){const chars=Array.from(original),a=x.sourceNodeStart-p.startCharacter,b=x.sourceNodeEnd-p.startCharacter;need(hash(chars.slice(a,b).join(''))===x.sourceNodeSha256,'source img node changed');original=chars.slice(0,a).join('')+`<img src="data:image/png;base64,${frame.toString('base64')}" width="960" height="540">`+chars.slice(b).join('');}}parts.push(original);}
+   const body=`<div class="wrapper-note">Extracted original HTML in a disclosed local wrapper${f.derivation?' · GIF frame 0 at 0 ms, loop 0; native 960 × 540 (original HTML width 996px)':''}</div><section id="original-evidence">${parts.join('<div class="fragment-boundary"></div>')}</section>`;
+   const markup=`<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; connect-src 'none'; font-src https://openscene-wrapper.invalid; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>${pack.css}</style></head><body><main>${body}</main></body></html>`;
+   // Installed BEFORE page creation, then actual controlled navigation. No setContent attestation.
+   await installOpenSceneMonitor(context);
+   await context.route('**/*',async route=>{const req=route.request();if(req.url()===url&&req.isNavigationRequest()&&req.method()==='GET')return route.fulfill({body:markup,contentType:'text/html'});const dep=pack.dependencies.get(req.url());if(dep&&req.method()==='GET'&&req.resourceType()==='font')return route.fulfill({body:dep.bytes,contentType:dep.mimeType});requests.push({url:req.url(),type:req.resourceType()});return route.abort();});
+   try{
+    const page=await context.newPage();await page.goto(url,{waitUntil:'load',timeout:30000});await page.evaluate(()=>document.fonts.ready);await page.evaluate(()=>Promise.all([...document.images].map(i=>i.decode())));
+    const ready=await page.evaluate(()=>({url:location.href,state:globalThis.__opensceneCsp}));need(ready.url===url&&ready.state?.version==='openscene-csp-monitor-v1'&&ready.state.installedAt===url,'CSP monitor not installed in actual source document');
+    const text=await page.locator('#original-evidence').innerText();need(hash(text.replace(/\s+/g,' ').trim())===f.visibleTextSha256,'complete original visible text/labels mismatch');
+    const metrics=await page.evaluate(()=>({width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight,images:[...document.images].map(i=>({width:i.width,height:i.height,naturalWidth:i.naturalWidth,naturalHeight:i.naturalHeight})),overflows:[...document.querySelectorAll('main *')].filter(x=>x.getBoundingClientRect().width>0&&(x.getBoundingClientRect().right>1376.1||x.getBoundingClientRect().left<31.9)).length}));need(metrics.width===1408&&metrics.height<=6000&&metrics.overflows===0,'clipped or unbounded original evidence');
+    if(f.derivation)need(JSON.stringify(metrics.images)===JSON.stringify([{width:960,height:540,naturalWidth:960,naturalHeight:540}]),'native GIF frame resized');else need(metrics.images.length===0,'unknown image dependency');
+    const cdp=await context.newCDPSession(page);await cdp.send('DOM.enable');await cdp.send('CSS.enable');const doc=await cdp.send('DOM.getDocument');const nodes=await cdp.send('DOM.querySelectorAll',{nodeId:doc.root.nodeId,selector:'main *'}),fonts=new Map();
+    for(const nodeId of nodes.nodeIds){for(const font of (await cdp.send('CSS.getPlatformFontsForNode',{nodeId})).fonts)if(font.glyphCount){need(pack.recipe.fonts.allowedActualFonts.some(p=>p.postScriptName===font.postScriptName&&p.isCustomFont===font.isCustomFont),'unapproved actual glyph font');fonts.set(font.postScriptName+'|'+font.isCustomFont,{postScriptName:font.postScriptName,isCustomFont:font.isCustomFont});fontSet.add(font.postScriptName);}}
+    await requireOpenSceneCsp(page,url,requests);
+    const path=join(output,f.id+'.png');const png=await page.screenshot({fullPage:true,animations:'disabled'});need(png.length<=20000000,'PNG byte budget');await writeFile(path,png,{flag:'wx'});pixels+=png.readUInt32BE(16)*png.readUInt32BE(20);totalBytes+=png.length;
+    for(const child of descendants(await processRows(),server.process().pid)){if(nativeMaps.some(m=>m.pid===child.pid))continue;const mapped=await mappedNativeFiles(child.pid);for(const name of mapped.paths)need(d.runtime.filePins.some(p=>p.path===name)||d.runtime.systemNativeImages.includes(name),'unbound browser native mapping: '+name);nativeMaps.push({pid:child.pid,paths:mapped.paths,rawSha256:mapped.rawSha256});}
+    records.push({id:f.id,path,sha256:hash(png),width:png.readUInt32BE(16),height:png.readUInt32BE(20),role:f.role,sourceLabel:f.sourceLabel,locator:openSceneLocator(f,pack.descriptorSha256,d,spec.rendererCodeSha256),visibleTextSha256:f.visibleTextSha256,actualFonts:[...fonts.values()].sort((a,b)=>a.postScriptName.localeCompare(b.postScriptName))});
+   }finally{await context.close();}
+  }
+  need(pixels<=70000000&&totalBytes<=80000000,'aggregate render budget');
+  need(nativeMaps.length>0,'missing browser native execution closure');
+ }finally{if(browser)await browser.close();await server.close();}
+ for(const f of pack.recipe.fonts.allowedActualFonts)need(fontSet.has(f.postScriptName),'required source glyph font never rendered');
+ const stable=await loadOpenSceneEvidence(root,config,spec.rendererCodeSha256);need(stable.descriptorSha256===pack.descriptorSha256,'source changed during independent render');
+ const binding={policyVersion:d.policyVersion,profile:d.native.profile,sourceBundleSha256:d.native.sourceBundleSha256,recipeSha256:d.native.recipe.sha256,descriptorSha256:pack.descriptorSha256,codeSha256:openSceneCodeSha256,processCodeSha256:openSceneProcessCodeSha256,renderCodeSha256:rendererSha256,decoderSha256:d.native.tools.decoder.sha256,validatorSha256:d.native.tools.validator.sha256,wrapperSha256:d.wrapper.sha256,runtimeSha256:hash(JSON.stringify(d.runtime)),derivationSha256:hash(JSON.stringify(derivation)),sourceScopesSha256:hash(JSON.stringify(pack.recipe.documents.map(x=>({documentId:x.documentId,article:x.article,textScope:x.textScope})))),imageIds:records.map(r=>r.id)};
+ return {records,descriptorSha256:pack.descriptorSha256,nativeEvidence:{kind:'executed-openscene-original-evidence-v1',binding,execution:{jobId:spec.jobId,outputDirectory:output,nodeNativeImages:process.report.getReport().sharedObjects,rendererPid:process.pid,decoderPid:decoded.pid,sourceValidatorPid:validated.pid,...compactNativeMaps(nativeMaps),sourceBudget:validation.execution,decoderBudget:decoding.execution,sourceCodeExecuted:false,unapprovedNetworkRequests:0,cspMonitorVersion:'openscene-csp-monitor-v1',actualGlyphFonts:[...fontSet].sort(),decoded:{sourceSha256:decoded.sourceSha256,pngSha256:decoded.pngSha256,rgbaSha256:decoded.rgbaSha256,metadataSha256:hash(JSON.stringify(decoded.metadata))},totalPixels:pixels,totalPngBytes:totalBytes}}};
+}
+if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){let input='';for await(const b of process.stdin){input+=b;need(input.length<=100000,'renderer input size');}executeOpenSceneRender(JSON.parse(input)).then(x=>console.log(JSON.stringify(x))).catch(e=>{console.error(e.stack);process.exitCode=1;});}

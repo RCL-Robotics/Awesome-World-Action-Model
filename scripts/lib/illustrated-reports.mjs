@@ -30,11 +30,23 @@ export function validateIllustratedReport(edition, report) {
     if (!['figure', 'table'].includes(visual.kind) || !['mechanism', 'results', 'ablation'].includes(visual.section)) fail(`${visual.id}: invalid visual type or section`);
     if (!new RegExp(`^report-assets/${edition.paperId.replaceAll('.', '\\.')}/[a-z0-9-]+\\.png$`).test(visual.asset)) fail(`${visual.id}: unsafe asset path`);
     for (const key of ['sourceLabel', 'alt', 'caption', 'readingGuide', 'takeaway', 'caution']) if (!nonempty(visual[key])) fail(`${visual.id}: ${key} is required`);
-    if (![visual.width, visual.height, visual.page].every(value => Number.isInteger(value) && value > 0)) fail(`${visual.id}: invalid image dimensions or PDF page`);
+    if (![visual.width, visual.height].every(value => Number.isInteger(value) && value > 0)) fail(`${visual.id}: invalid image dimensions`);
     const source = report.sources.find(item => item.sha256 === visual.sourceSha256);
-    if (!source || source.kind !== 'pdf' || visual.sourceUrl !== `${source.url.split('#')[0]}#page=${visual.page}`) fail(`${visual.id}: source URL, PDF page or fingerprint does not match the verified report`);
-    const c = visual.crop;
-    if (!Array.isArray(c) || c.length !== 4 || c.some(n => typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 1) || c[0] >= c[2] || c[1] >= c[3]) fail(`${visual.id}: invalid normalized crop`);
+    if (source?.kind === 'html' && visual.htmlSource) {
+      const locator = visual.htmlSource;
+      const native=['html-original-table','html-gif-derived-still'].includes(locator.kind);
+      if(native&&(edition.paperId!=='ref-236eff7a0d0d26ae758e'||locator.policyVersion!=='wam-openscene-original-html-gif-evidence-v1'||locator.sourceId!==source.id||locator.sourceSha256!==source.sha256||!['readme','dataset_stats','challenge_2024','getting_started'].includes(locator.documentId)||locator.sourceBundleSha256!=='eca200b677f40fa93987ee0aeef6d52e9702260865393b12d70e3796eb73e6fd'||locator.recipeSha256!=='f4858135945364329e9ba1e68d827b208e67dd90f68771827e70a23a73c2178a'))fail('Unbound native document/source locator');
+      if(locator.kind==='html-gif-derived-still'&&([locator.frameIndex,locator.timeMs,locator.loopIteration].some(n=>n!==0)||locator.nativeWidth!==960||locator.nativeHeight!==540||locator.authoredHtmlWidth!=='996px'||locator.originalAssetUrl!=='https://raw.githubusercontent.com/OpenDriveLab/OpenScene/72860746787a67946bef07aa1f78bbbc6b20e445/assets/OpenScene_data_stats.gif'||locator.framePngSha256!=='1554706d8304f665ef7261af47ed84f35fdfcb6837663b0c648a652c1914c9a9'||locator.rgbaSha256!=='d4687cf21eaad0c9883b659577c5c16ef9918143a97e40fdd9c17bb013df969c'))fail('Unbound original GIF frame locator');
+      if (visual.page !== undefined || visual.crop !== undefined || !['html-original','html-original-raster','html-animation-derived-still','html-original-table','html-gif-derived-still'].includes(locator.kind) || !/^[a-z0-9-]+$/.test(locator.fragmentId) || !(locator.anchor===null && (native||locator.mediaPolicyVersion==='wam-original-html-media-evidence-v1') || /^[a-z0-9-]+$/.test(locator.anchor)) || visual.sourceUrl !== `${source.url.split('#')[0]}${locator.anchor===null?'':'#'+locator.anchor}`) fail(`${visual.id}: invalid HTML source locator; no PDF page or crop is permitted`);
+      if (!native && locator.kind!=='html-original' && (locator.mediaPolicyVersion!=='wam-original-html-media-evidence-v1' || !/^[a-f0-9]{64}$/.test(locator.mediaCodeSha256) || !/^[a-f0-9]{64}$/.test(locator.originalAssetSha256))) fail('Unbound original media locator');
+      for (const key of ['descriptorSha256', 'wrapperSha256', 'rendererSha256', 'rendererCodeSha256']) if (!/^[a-f0-9]{64}$/.test(locator[key] || '')) fail(`${visual.id}: missing HTML provenance`);
+      if (!Array.isArray(locator.parts) || !locator.parts.length || locator.parts.some(p => !Number.isInteger(p.startCharacter) || !Number.isInteger(p.endCharacter) || p.startCharacter < 0 || p.endCharacter <= p.startCharacter || !/^[a-f0-9]{64}$/.test(p.sha256 || ''))) fail(`${visual.id}: invalid HTML source ranges`);
+      if (!nonempty(visual.sourceRendering)) fail(`${visual.id}: HTML extraction needs a wrapper disclosure`);
+    } else {
+      if (visual.htmlSource !== undefined || !Number.isInteger(visual.page) || visual.page < 1 || !source || source.kind !== 'pdf' || visual.sourceUrl !== `${source.url.split('#')[0]}#page=${visual.page}`) fail(`${visual.id}: source URL, PDF page or fingerprint does not match the verified report`);
+      const c = visual.crop;
+      if (!Array.isArray(c) || c.length !== 4 || c.some(n => typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 1) || c[0] >= c[2] || c[1] >= c[3]) fail(`${visual.id}: invalid normalized crop`);
+    }
     references(visual, visual.id);
   }
   if (!hasVisualLimitations && !['mechanism', 'results', 'ablation'].every(section => edition.visuals.some(visual => visual.section === section))) fail('include method, result and ablation/diagnostic visuals');
@@ -49,7 +61,12 @@ export function validateIllustratedReport(edition, report) {
     if (!nonempty(check.title) || !nonempty(check.text)) fail('invalid reproduction proposal');
     references(check, 'reproduction proposal');
   }
-  if (!edition.visualAudit || !nonempty(edition.visualAudit.notes) || !Array.isArray(edition.visualAudit.inspectedPages) || edition.visualAudit.inspectedPages.some(page => !Number.isInteger(page) || page < 1) || edition.visuals.some(visual => !edition.visualAudit.inspectedPages.includes(visual.page))) fail('every cropped page needs a recorded visual audit');
+  if (report.sources[0]?.kind === 'html') {
+    const audit = edition.visualAudit;
+    if (!audit || !nonempty(audit.notes) || audit.inspectedPages !== undefined || !Array.isArray(audit.inspectedSections) || !audit.inspectedSections.length || new Set(audit.inspectedSections).size !== audit.inspectedSections.length || audit.inspectedSections.some(id => !/^[a-z0-9-]+$/.test(id)) || !audit.htmlEvidence || typeof audit.htmlEvidence !== 'object') fail('HTML evidence needs inspected supporting sections, without invented PDF pages');
+    for (const item of report.evidence) if (!Array.isArray(audit.htmlEvidence[item.id]) || !audit.htmlEvidence[item.id].length || audit.htmlEvidence[item.id].some(id => !audit.inspectedSections.includes(id))) fail('every HTML evidence claim needs a supporting section');
+    if (Object.keys(audit.htmlEvidence).some(id => !knownEvidence.has(id))) fail('unknown HTML evidence ID');
+  } else if (!edition.visualAudit || !nonempty(edition.visualAudit.notes) || !Array.isArray(edition.visualAudit.inspectedPages) || edition.visualAudit.inspectedPages.some(page => !Number.isInteger(page) || page < 1) || edition.visuals.some(visual => !edition.visualAudit.inspectedPages.includes(visual.page))) fail('every cropped page needs a recorded visual audit');
   return edition;
 }
 
