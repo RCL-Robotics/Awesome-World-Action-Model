@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2501.09747",
+  "shortTitle": "FAST",
+  "thesis": "Compressing action chunks into quantized frequency coefficients and BPE tokens makes autoregressive robot policies easier to train, but the resulting decoder remains slower than the compared flow-matching policy at inference.",
+  "standfirst": "A robot moving smoothly at high frequency can produce many action samples that say almost the same thing. FAST changes the prediction target: instead of asking a transformer to emit every sampled action coordinate, it asks for a compact encoding of the whole action chunk. The encoding combines an analytical cosine transform with quantization and a learned BPE dictionary. This reading follows the supplied January 2025 arXiv v1 from that mechanism to real manipulation results. The central distinctions are between compression and reconstruction fidelity, tokenizer transfer and policy transfer, and training efficiency and deployment latency. Appendix qualifications, including laundry fine-tuning, remain part of the result.",
+  "evidenceIds": [
+    "e01",
+    "e02",
+    "e03",
+    "e04",
+    "e13",
+    "e14",
+    "e19"
+  ],
+  "featuredResultTask": "Generalist VLA training efficiency",
+  "visuals": [
+    {
+      "id": "fast-pipeline",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 5,
+      "asset": "report-assets/2501.09747/fast-pipeline.png",
+      "width": 1413,
+      "height": 506,
+      "sourceSha256": "3739b31f5fecdde371509ff5bb13619979734e894a255a9b264253f4cc53934a",
+      "sourceUrl": "https://arxiv.org/pdf/2501.09747#page=5",
+      "crop": [
+        0.085,
+        0.073,
+        0.916,
+        0.303
+      ],
+      "alt": "Five numbered panels show normalized action traces, DCT frequency components, a sparse coefficient matrix, frequency-first flattening and BPE compression into action tokens.",
+      "caption": "FAST concentrates temporal information before learning a discrete compression dictionary.",
+      "readingGuide": "Follow the top row left to right, then the long flattening arrow back to the lower-left panel. The first traces are normalized action channels. DCT changes their representation to frequency coefficients; quantization creates the many zeros in panel 3. Each matrix row is an action dimension. Panel 4 reads down the first column before moving to the next frequency: 124, −86, 344, −45 and 178 therefore precede 12. This agrees with the frequency-first ordering in Section V-B. Finally, panel 5 groups adjacent coefficient values into BPE tokens. Those token IDs, rather than the original scalar actions, become policy prediction targets.",
+      "takeaway": "The two compression stages do different jobs. Quantization trades away small coefficient detail, while BPE losslessly shortens the resulting integer sequence. The source learns only the BPE dictionary within the tokenizer; the DCT does not require a trained neural encoder. This distinction explains both the simplicity and the reconstruction tradeoff.",
+      "caution": "Reverse decoding cannot undo rounding loss. Algorithm 1 also inconsistently omits quantization bars on later entries of its flattening line; Figure 4 and Section V-B clearly describe flattening the quantized matrix. The diagram's arrows agree with that sequence.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e09"
+      ]
+    },
+    {
+      "id": "token-counts",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table I",
+      "page": 7,
+      "asset": "report-assets/2501.09747/token-counts.png",
+      "width": 1069,
+      "height": 284,
+      "sourceSha256": "3739b31f5fecdde371509ff5bb13619979734e894a255a9b264253f4cc53934a",
+      "sourceUrl": "https://arxiv.org/pdf/2501.09747#page=7",
+      "crop": [
+        0.508,
+        0.204,
+        0.927,
+        0.29
+      ],
+      "alt": "Table compares action dimensions, control frequencies and average naive versus FAST token counts for BridgeV2, DROID, Bussing and Shirt Fold; compression ratios range from 1.75 to 13.2.",
+      "caption": "For one-second chunks, FAST's token count grows much less than naive timestep-wise binning.",
+      "readingGuide": "Read the action dimension and control frequency before comparing the two token-count columns. Every row uses a one-second chunk, so naive token counts grow with both the number of channels and the number of timesteps. The green column is FAST's average token count; the last column reports naive count divided by FAST count. Shirt Fold is the clearest example: 14 channels sampled at 50 Hz require 700 naive tokens, versus 53 FAST tokens. DROID moves from 105 to 29. Section VI-B states that these default configurations have comparable reconstruction accuracy, which is essential context for interpreting the reductions.",
+      "takeaway": "The table supports a large representation-size advantage on the tested high-frequency data: 13.2× for Shirt Fold and 5.0× for Bussing, compared with 1.75× for BridgeV2. It is consistent with removing temporal redundancy rather than retaining one token for every sampled coordinate, though the rows also differ in task and embodiment.",
+      "caution": "This is a token-count comparison, not a timing benchmark or a policy-success table. Comparable reconstruction accuracy is stated in the prose; this table does not print reconstruction errors or uncertainty on the average counts.",
+      "evidenceIds": [
+        "e09"
+      ]
+    },
+    {
+      "id": "compression-fidelity",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 12",
+      "page": 16,
+      "asset": "report-assets/2501.09747/compression-fidelity.png",
+      "width": 1051,
+      "height": 1584,
+      "sourceSha256": "3739b31f5fecdde371509ff5bb13619979734e894a255a9b264253f4cc53934a",
+      "sourceUrl": "https://arxiv.org/pdf/2501.09747#page=16",
+      "crop": [
+        0.509,
+        0.069,
+        0.921,
+        0.549
+      ],
+      "alt": "Six log-scale plots compare reconstruction error against token count on CALVIN, LIBERO, Bridge, DROID, ARX-Laundry and UR5-Bussing, with FAST curves, FAST+ stars, naive subsampling and FSQ baselines.",
+      "caption": "Compression should be judged at the reconstruction fidelity the controller needs.",
+      "readingGuide": "Each panel plots reconstruction error vertically against the number of output tokens horizontally, both on logarithmic scales. At a fixed token budget, lower is better; at a fixed error level, farther left is better. Green curves sweep FAST's rounding scale, yellow curves vary FSQ's latent-token count, and blue curves vary naive temporal subsampling. Black stars mark the fixed FAST+ tokenizer, while black dots mark naive tokenization without subsampling. Vocabulary size is held constant across tokenizers. Compare curves within each dataset: the point is how the tradeoff changes as greater precision is requested, not which dataset has the smallest absolute error.",
+      "takeaway": "FAST is not uniformly the best choice at every fidelity. The caption acknowledges that learned quantization can be more efficient at coarse reconstruction, while FAST scales better toward high fidelity. This helps explain why a tokenizer that looks adequate under a loose reconstruction budget can still be weak for fine-grained manipulation.",
+      "caution": "These are offline reconstruction measurements, not robot rollouts. The caption does not define the statistical meaning of the green shaded band, so it should not be read as a specified confidence interval. No exact curve values are inferred here.",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "id": "policy-comparison",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 6",
+      "page": 8,
+      "asset": "report-assets/2501.09747/policy-comparison.png",
+      "width": 1147,
+      "height": 385,
+      "sourceSha256": "3739b31f5fecdde371509ff5bb13619979734e894a255a9b264253f4cc53934a",
+      "sourceUrl": "https://arxiv.org/pdf/2501.09747#page=8",
+      "crop": [
+        0.155,
+        0.073,
+        0.83,
+        0.248
+      ],
+      "alt": "Grouped bars compare Naive, FSQ, FAST and FAST+ policies on LIBERO, DROID, Table Bussing and T-shirt Folding, plus an average panel, with error bars and task-specific metric labels.",
+      "caption": "Compressed action targets improve executed-policy performance, especially on the harder high-frequency manipulation tasks.",
+      "readingGuide": "Use the legend to distinguish naive binning, FSQ, dataset-specific FAST and universal FAST+. First read the metric printed above each task: LIBERO and shirt folding use success, while DROID and bussing use task progress. The source caption identifies the error bars as 95% confidence intervals. Then compare methods within a task. The near-zero naive bars on bussing and shirt folding contrast with substantial FAST performance; FSQ improves but remains below the FAST variants. The two green bars are often close, showing that a shared tokenizer can support policy training comparably to a tokenizer fitted separately for the dataset.",
+      "takeaway": "The evidence goes beyond reconstructing trajectories: these are policy evaluations, including real robot execution. The strongest qualitative separation is on bussing and shirt folding. FAST+ tracks the dataset-specific variant across the plotted tasks, supporting a reusable tokenizer without establishing identical performance in every condition.",
+      "caution": "The average panel is labeled success, although its inputs mix success and progress. It is not a pooled binary success rate. FAST+ training includes data from the real-robot evaluation tasks; this comparison does not establish tokenizer transfer to wholly unseen task datasets.",
+      "evidenceIds": [
+        "e05",
+        "e10",
+        "e18"
+      ]
+    },
+    {
+      "id": "bpe-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Section VI-D, unnumbered BPE ablation plot",
+      "page": 9,
+      "asset": "report-assets/2501.09747/bpe-ablation.png",
+      "width": 826,
+      "height": 964,
+      "sourceSha256": "3739b31f5fecdde371509ff5bb13619979734e894a255a9b264253f4cc53934a",
+      "sourceUrl": "https://arxiv.org/pdf/2501.09747#page=9",
+      "crop": [
+        0.326,
+        0.615,
+        0.488,
+        0.761
+      ],
+      "alt": "Green FAST bars exceed yellow FAST-without-BPE bars for table-bussing progress and T-shirt-folding success; both groups include error bars.",
+      "caption": "Keeping DCT while removing BPE weakens downstream control on both tested tasks.",
+      "readingGuide": "The green bars use the complete FAST pipeline; yellow removes its last BPE compression step. This leaves the frequency transform in place, so it probes what happens after information has already been concentrated into coefficients. Read the two groups separately: the left score measures bussing progress and the right measures successful shirt folding. Both decline without BPE, with a particularly large visual gap on folding. Section VI-D explains that a quantized DCT matrix can still contain many repeated zeros; BPE removes much of this sequential redundancy. The plot therefore complements the pipeline figure by testing the utility of its final stage.",
+      "takeaway": "DCT alone is useful according to the accompanying text, but the full tokenizer gives better rollout performance. A sparse coefficient matrix is not automatically a short autoregressive sequence. BPE converts that sparsity into fewer predicted tokens, making its role relevant to both learning and decoding.",
+      "caution": "Removing BPE changes sequence length, token statistics and decoding cost together. The experiment does not isolate which change causes the gain. This small plot does not print exact means or define its error bars; numerical values and confidence levels are not assigned here.",
+      "evidenceIds": [
+        "e04",
+        "e12"
+      ]
+    },
+    {
+      "id": "training-convergence",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 1, upper training-convergence panel",
+      "page": 1,
+      "asset": "report-assets/2501.09747/training-convergence.png",
+      "width": 1038,
+      "height": 1000,
+      "sourceSha256": "3739b31f5fecdde371509ff5bb13619979734e894a255a9b264253f4cc53934a",
+      "sourceUrl": "https://arxiv.org/pdf/2501.09747#page=1",
+      "crop": [
+        0.513,
+        0.29,
+        0.92,
+        0.593
+      ],
+      "alt": "Green π0-plus-FAST checkpoints reach high evaluation scores earlier than yellow π0 checkpoints on an iteration axis; an original annotation states fivefold faster VLA training.",
+      "caption": "FAST reaches strong manipulation scores earlier in training; the headline GPU-hour claim needs the main-text protocol.",
+      "readingGuide": "Track the green and yellow checkpoint curves against the horizontal training-iteration axis. The vertical axis is evaluation score, not training loss. Section VI-F explains that this plot averages table bussing and T-shirt folding; it is not the complete five-task generalist evaluation. The arrow above the curves carries the paper's fivefold training-speed claim. To interpret it, read the accompanying Section VI-F statement about GPU hours, rather than treating the plotted iteration axis as elapsed time. Figure 11 gives the wider task comparison, and Appendix Figure 15 adds a compute-matched control whose advantage is strongest on some tasks rather than universal.",
+      "takeaway": "The authors report a fivefold reduction in training GPU hours while maintaining comparable overall generalist performance. This supports efficient training of an autoregressive VLA from compressed actions. It does not imply that every task improves: the inspected compute-matched plot still favors diffusion on the toaster task.",
+      "caution": "Training iterations and GPU hours are different quantities; the fivefold number comes from the source's compute claim. FAST inference is approximately 750 ms per chunk versus diffusion's typical ≤100 ms. Appendix E also specifies laundry fine-tuning despite broader zero-shot wording.",
+      "evidenceIds": [
+        "e13",
+        "e14",
+        "e19"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Predict the shape of a chunk before its small temporal changes",
+      "text": "Start from the paper's observation-conditioned action chunk. With naive binning, increasing the sampling rate lengthens the token stream even when the physical trajectory is unchanged. The spline experiment exposes this issue without changing the underlying curves. FAST first changes basis: a smooth trajectory can concentrate much of its information in a few frequency coefficients. Quantization removes insignificant detail, and BPE makes the sparse coefficient sequence short. The flattening order then presents the lowest-frequency terms across all action dimensions before finer components, which the authors say stabilizes rollouts. Reader interpretation: the representation reorganizes what each next-token decision must explain. It does not predict a future camera image or simulate the consequences of candidate actions; the final decoded object is still a sequence of robot commands.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04",
+        "e06"
+      ]
+    },
+    {
+      "heading": "Separate learning the tokenizer from learning the controller",
+      "text": "FAST contains a learned dictionary, but that dictionary is not itself a robot policy. Its BPE training observes sequences of quantized action coefficients and merges recurring patterns. FAST+ performs this step on a diverse collection of approximately one million one-second chunks, with the appendix describing the mixture and action padding. Policy training then uses the resulting action vocabulary as output targets for a pretrained vision-language backbone. Camera encodings, language and proprioception condition the transformer, and all policy weights are fine-tuned. At deployment, autoregressive tokens are decoded back into actions. This separation matters when reading transfer claims: offline compression on a new morphology tests the tokenizer, while successful control on that morphology would additionally require a trained and evaluated policy. The paper explicitly leaves several such policy tests for future work.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e07",
+        "e11",
+        "e15",
+        "e16"
+      ]
+    },
+    {
+      "heading": "Follow the efficiency claim all the way to robot execution",
+      "text": "The policy results establish that compressed targets can improve learning, but three quantities must remain separate: tokens per action chunk, compute needed to train a useful model, and time required to generate a new chunk. Table I addresses the first; the generalist convergence comparison addresses the second. The inference discussion gives the counterweight: FAST takes approximately 750 milliseconds per one-second chunk on the stated GPU, whereas diffusion π0 typically takes at most 100 milliseconds. DROID executes a selected portion of the predicted chunk open-loop, so generation delay and execution horizon affect opportunities to incorporate new observations. Reader interpretation: a deployment comparison should measure feedback timing alongside task score. The static manipulation experiments support the reported setting; they do not settle how the same tradeoff behaves when objects or targets move rapidly.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e13",
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does BPE help after reconstruction fidelity is held fixed?",
+      "text": "Reader-proposed check: repeat table-bussing policy training with identical normalized chunks, quantized DCT coefficients, frequency-first order, backbone, data splits and initialization seeds. Compare BPE encoding against the uncompressed coefficient sequence, verifying identical decoded reconstruction before training. Evaluate both at matched optimizer updates and matched GPU hours; record token count, rollout progress and chunk-generation latency separately. A gain confined to the compute-matched comparison would favor an efficiency explanation, while a persistent update-matched gain would motivate investigating token statistics. Failure to reproduce either rollout advantage would weaken the interpretation of the BPE ablation. No such experiment was run here.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e09",
+        "e12",
+        "e17",
+        "e18"
+      ]
+    },
+    {
+      "title": "Does deployment delay change the FAST–diffusion comparison?",
+      "text": "Reader-proposed check: evaluate FAST and diffusion policies in matched DROID scenes using the same instructions, observations, action parameterization and explicit task-progress rubric. First reconcile the prose's 16 tasks with Table II's 17 listed tasks, retaining its 44-trial allocation. Compare 8-step and 15-step open-loop execution, recording actual observation-to-command delay. Add a control that delays the faster decoder to match the slower decoder's measured delay. If a performance gap disappears under matched delay, timing is a plausible contributor; if it remains, investigate policy quality and language grounding separately. Report per-task uncertainty and failure modes. This is a proposed test, not a reproduction claim.",
+      "evidenceIds": [
+        "e08",
+        "e13",
+        "e18"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      16,
+      17,
+      18,
+      19
+    ],
+    "notes": "Visually inspected the title/version/author page, all Figures 1–15, both unnumbered Section VI-D ablation plots, Algorithm 1, Tables I–III and the Appendix A mixture table. Method and training prose on pages 3–7 and 16–17, result protocols on pages 7–10 and 17–18, and limitations on page 11 were checked against the text. All six final original crops were individually viewed with axes, legends and table headers retained. The narrow BPE crop was rendered at 600 DPI and is readable at its native 826-pixel width. Figure 4's arrows and column-first ordering agree with Section V-B; Algorithm 1's inconsistent quantization bars are disclosed. Figure 6's mixed metrics, Figure 1's iteration-versus-GPU-hour distinction and the appendix protocol inconsistencies are preserved. Reference-only pages 12–15 were read as text; external videos, code and separate supplements were not inspected."
+  }
+}
