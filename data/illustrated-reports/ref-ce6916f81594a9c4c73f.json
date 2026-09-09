@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-ce6916f81594a9c4c73f",
+  "shortTitle": "MeanFlow",
+  "thesis": "Learning an interval-average velocity turns trajectory integration into a single prediction, at the cost of a derivative-based training target and configuration-sensitive optimization.",
+  "standfirst": "A flow model usually tells a sampler which direction to move at the current instant. MeanFlow asks for the average direction and magnitude over the whole remaining interval. The distinction matters because even straight data-to-noise interpolation paths can induce curved marginal trajectories. Its training rule derives an average-velocity target from an instantaneous velocity and a network derivative, avoiding a teacher trajectory solver. Guidance is also incorporated into training. Read the diagrams first to understand the displacement, then the algorithm and ablations to see how it is learned. The ImageNet headline is 3.43 FID with one generator evaluation; the pretrained VAE and single-run evaluation remain part of that result's scope.",
+  "evidenceIds": [
+    "e02",
+    "e03",
+    "e04",
+    "e06",
+    "e08",
+    "e11",
+    "e21"
+  ],
+  "featuredResultTask": "Class-conditional ImageNet 256×256 generation",
+  "visuals": [
+    {
+      "id": "average-velocity",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/ref-ce6916f81594a9c4c73f/average-velocity.png",
+      "width": 1388,
+      "height": 270,
+      "sourceSha256": "c0b560a099c17966bbb0bb293f6c8d295f4a5a5f47b5698b4f26bd2d0f793caa",
+      "sourceUrl": "https://proceedings.neurips.cc/paper_files/paper/2025/file/6d13e085b79d454da5910e4ca82a3d9d-Paper-Conference.pdf#page=4",
+      "crop": [
+        0.172,
+        0.063,
+        0.825,
+        0.161
+      ],
+      "alt": "Four flow diagrams contrast purple instantaneous tangent arrows with orange average-velocity arrows aligned with chords between times r and t.",
+      "caption": "Average velocity follows an interval's displacement rather than a local tangent.",
+      "readingGuide": "Start at the left panel: purple arrows follow the curved path, while the orange arrow is parallel to the chord joining the marked times r and t. Multiplying average velocity u by t-r produces that chord's displacement. The remaining panels show that the relevant average field changes as the upper endpoint t changes. The arrows are drawn in the increasing-time direction. Equation (12) uses the same displacement with a minus sign when sampling backward from noise at t to an earlier r. Thus the graphic and sampling rule agree; an arrow pointing toward t should not be read as the generation direction.",
+      "takeaway": "The desired prediction is an integral summarized per unit time. An accurate u can therefore replace many local velocity evaluations for the chosen interval. This geometric change explains why MeanFlow conditions its field on two times, even though generation can request only the single interval from 1 to 0.",
+      "caution": "These are schematic fields, not measured trajectories of trained ImageNet models. The identity describes the exact target field; approximation quality and optimization success require experimental evidence.",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e18"
+      ]
+    },
+    {
+      "id": "training-sampling",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Algorithms 1 and 2",
+      "page": 5,
+      "asset": "report-assets/ref-ce6916f81594a9c4c73f/training-sampling.png",
+      "width": 1085,
+      "height": 1465,
+      "sourceSha256": "c0b560a099c17966bbb0bb293f6c8d295f4a5a5f47b5698b4f26bd2d0f793caa",
+      "sourceUrl": "https://proceedings.neurips.cc/paper_files/paper/2025/file/6d13e085b79d454da5910e4ca82a3d9d-Paper-Conference.pdf#page=5",
+      "crop": [
+        0.5,
+        0.524,
+        0.819,
+        0.857
+      ],
+      "alt": "Original training pseudocode constructs noisy data, computes a JVP with tangent (v,0,1), detaches the corrected target, and contrasts this with two-line one-step sampling.",
+      "caption": "Training computes the derivative correction; sampling uses one subtraction.",
+      "readingGuide": "Read Algorithm 1 from the interpolation z to the JVP call. Its first output is the network prediction u; its second is the total time derivative dudt. In input coordinates (z,r,t), the tangent (v,0,1) moves z along velocity, holds r fixed and advances t. The target subtracts the interval times this derivative from v. The stopgrad marker applies to the complete target: optimization differentiates the prediction branch but does not backpropagate through the target's JVP. Algorithm 2 then removes all these training operations. It draws noise and subtracts the predicted average velocity over the full interval.",
+      "takeaway": "The extra derivative is a training cost, while the generated sample requires one call to fn. At t=r the correction becomes zero, connecting the method to Flow Matching. Appendix B.4 measures about 16% additional training wall time for one JAX B/4 benchmark on v4-8 TPUs.",
+      "caution": "The pseudocode shows the unguided core and leaves time sampling and the loss metric abstract. ImageNet training additionally uses the guidance target, adaptive weights and pretrained VAE; one NFE is not a complete image-decoding latency measurement.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e07",
+        "e08",
+        "e17",
+        "e19"
+      ]
+    },
+    {
+      "id": "ablations",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 1a–f",
+      "page": 8,
+      "asset": "report-assets/ref-ce6916f81594a9c4c73f/ablations.png",
+      "width": 1648,
+      "height": 696,
+      "sourceSha256": "c0b560a099c17966bbb0bb293f6c8d295f4a5a5f47b5698b4f26bd2d0f793caa",
+      "sourceUrl": "https://proceedings.neurips.cc/paper_files/paper/2025/file/6d13e085b79d454da5910e4ca82a3d9d-Paper-Conference.pdf#page=8",
+      "crop": [
+        0.14,
+        0.086,
+        0.916,
+        0.339
+      ],
+      "alt": "Six ablation tables report one-evaluation FID for unequal-time ratios, JVP tangents, positional embeddings, time samplers, loss powers and guidance scales.",
+      "caption": "Interval training and the correct derivative dominate the small-model diagnostic.",
+      "readingGuide": "All six panels use ImageNet 256×256, B/4, 80 training epochs and FID on 50,000 generated images with one evaluation. Gray marks the default settings. Compare within each panel, rather than treating its rows as stages of one cumulative recipe. Panel (a) varies how often r differs from t; panel (b) intentionally changes the JVP tangent. Panels (c) through (e) test representation and optimization choices. Panel (f) introduces guidance into the otherwise unguided default. Its omega sweep uses the basic guidance formulation, with kappa=0; it is not the improved mixing experiment of Appendix Table 5.",
+      "takeaway": "Allowing 25% unequal-time pairs lowers FID from 328.91 to 61.06. Using (v,0,0) instead of (v,0,1) raises it to 268.06. Guidance at omega=3 reaches 15.53. Together these results support the interval correction and show that the final quality also depends strongly on guidance.",
+      "caution": "The incorrect tangents are destructive controls. They establish sensitivity to the derivative calculation, not superiority over optimized alternative objectives. Results are single-run scores and use a smaller, shorter-trained backbone than the headline model.",
+      "evidenceIds": [
+        "e04",
+        "e08",
+        "e09",
+        "e10",
+        "e16",
+        "e21"
+      ]
+    },
+    {
+      "id": "imagenet-results",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 4",
+      "page": 9,
+      "asset": "report-assets/ref-ce6916f81594a9c4c73f/imagenet-results.png",
+      "width": 1091,
+      "height": 629,
+      "sourceSha256": "c0b560a099c17966bbb0bb293f6c8d295f4a5a5f47b5698b4f26bd2d0f793caa",
+      "sourceUrl": "https://proceedings.neurips.cc/paper_files/paper/2025/file/6d13e085b79d454da5910e4ca82a3d9d-Paper-Conference.pdf#page=9",
+      "crop": [
+        0.179,
+        0.082,
+        0.5,
+        0.225
+      ],
+      "alt": "Line chart of one-evaluation ImageNet FID against training epochs for B/2, M/2, L/2 and XL/2, ending at 6.17, 5.01, 3.84 and 3.43.",
+      "caption": "Longer training improves each plotted model; the largest reaches 3.43 FID.",
+      "readingGuide": "The horizontal axis is training epochs, not inference steps. Every curve retains one generator evaluation at inference. Follow a color across epochs to see improvement with longer training, then compare the labeled 240-epoch endpoints across model sizes. Table 2 on the same page confirms those values and supplies external comparisons: Shortcut has 10.60 FID at one evaluation, while IMM has 7.77 at one step with two evaluations for guidance. These are different efficiency categories. The figure's original vertical range excludes some early values above the plot; the crop preserves that original range and does not infer hidden endpoints.",
+      "takeaway": "At 240 epochs, the reported B/2, M/2, L/2 and XL/2 FIDs are 6.17, 5.01, 3.84 and 3.43. The method remains effective at larger scales instead of losing its one-evaluation behavior. The evidence concerns image-distribution quality under the reported training recipes.",
+      "caution": "Model size comparisons also change guidance settings in Table 4. Epochs do not equal matched compute, and no error bars are reported. Separately, Table 2 lists SiT at 2.06 while the preceding prose says 2.15; neither value is silently substituted for the other.",
+      "evidenceIds": [
+        "e08",
+        "e11",
+        "e12",
+        "e14",
+        "e21",
+        "e23"
+      ]
+    },
+    {
+      "id": "configurations",
+      "kind": "table",
+      "section": "mechanism",
+      "sourceLabel": "Table 4",
+      "page": 21,
+      "asset": "report-assets/ref-ce6916f81594a9c4c73f/configurations.png",
+      "width": 1306,
+      "height": 974,
+      "sourceSha256": "c0b560a099c17966bbb0bb293f6c8d295f4a5a5f47b5698b4f26bd2d0f793caa",
+      "sourceUrl": "https://proceedings.neurips.cc/paper_files/paper/2025/file/6d13e085b79d454da5910e4ca82a3d9d-Paper-Conference.pdf#page=21",
+      "crop": [
+        0.189,
+        0.175,
+        0.804,
+        0.529
+      ],
+      "alt": "Configuration table gives MeanFlow model sizes, transformer depths, optimizer settings, time sampling, adaptive weighting and model-specific guidance scales and intervals.",
+      "caption": "The recipe changes along with model size and training duration.",
+      "readingGuide": "Read each model as a column. The first block specifies architecture; the middle block gives training duration and shared optimizer settings; the final blocks specify interval learning and guidance. Centered shared entries apply across the relevant columns, rather than indicating missing values. The B/4 column points to the main ablation panels for settings varied there. Distinguish effective guidance omega' from omega in the target: Appendix B.1 relates them through kappa. The bottom row gives the time interval in which guidance is triggered. These rows are essential when comparing XL/2 with XL/2+, despite their identical parameter counts.",
+      "takeaway": "XL/2+ keeps 676M parameters but trains for 1000 epochs instead of 240 and changes its guidance recipe. The reported two-evaluation improvement from 2.93 to 2.20 therefore combines longer training with configuration changes. A reproduction that only increases epochs would not match the specified experiment.",
+      "caution": "Table 4 does not isolate the effects of those changes. It also does not identify random seeds, exact software versions, the FID reference-statistics artifact or the intermediate time used for two-step sampling.",
+      "evidenceIds": [
+        "e11",
+        "e14",
+        "e16",
+        "e08",
+        "e19"
+      ]
+    },
+    {
+      "id": "generation-examples",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 5",
+      "page": 23,
+      "asset": "report-assets/ref-ce6916f81594a9c4c73f/generation-examples.png",
+      "width": 1333,
+      "height": 509,
+      "sourceSha256": "c0b560a099c17966bbb0bb293f6c8d295f4a5a5f47b5698b4f26bd2d0f793caa",
+      "sourceUrl": "https://proceedings.neurips.cc/paper_files/paper/2025/file/6d13e085b79d454da5910e4ca82a3d9d-Paper-Conference.pdf#page=23",
+      "crop": [
+        0.187,
+        0.088,
+        0.814,
+        0.273
+      ],
+      "alt": "A three-row grid of generated animals, flowers, landscapes, food and other objects, including a parrot, dogs, a snail, mountains and a fossil.",
+      "caption": "Curated one-evaluation examples show recognizable objects and fine textures.",
+      "readingGuide": "Inspect these as selected outputs from the class-conditional XL/2 model, not as a sequence of states or a set of held-out input/output pairs. The grid includes animals, vegetation, food and landscapes, allowing a reader to examine different kinds of texture and scene structure. For example, feathers, petals and fur provide visually distinct detail, while mountain and coastal scenes test a different scale of composition. The caption identifies this model with the 3.43-FID result and explicitly calls the examples curated. That selection statement matters as much as the apparent quality of any individual tile.",
+      "takeaway": "The examples demonstrate that the one-evaluation generator can produce visually detailed and recognizable images across the displayed categories. They provide a qualitative companion to the aggregate ImageNet FID result, making the output type concrete without adding a new quantitative claim.",
+      "caution": "No random sampling protocol or failure rate accompanies this grid. Its visual variety does not measure distributional coverage, class accuracy, memorization or typical quality; the authors' curated selection limits those conclusions.",
+      "evidenceIds": [
+        "e20",
+        "e11",
+        "e21"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Why average velocity removes an integration problem",
+      "text": "Flow Matching begins with easily sampled data/noise pairs, but the learned field averages over pairs that can pass through the same noisy state. That marginal field need not trace a straight path. Consequently, even an exact instantaneous prediction can be a poor approximation to a large displacement. MeanFlow defines a different target: integrate the marginal velocity over an interval and divide by its duration. The network receives both interval endpoints because different endpoints generally imply different averages. Its prediction is still a velocity-shaped tensor, but multiplying it by the interval produces displacement. The reader's interpretation is that MeanFlow moves the burden of trajectory integration into learning the target field. This changes the approximation task; it does not guarantee that the finite network learns the exact integral.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e05",
+        "e18"
+      ]
+    },
+    {
+      "heading": "How a derivative supplies an integral target",
+      "text": "Directly supervising the integral would require trajectories that the training loop wants to avoid computing. Differentiate the defining displacement with respect to the upper time while holding the lower time fixed. The product rule gives the average velocity plus an interval-scaled derivative; the integral derivative gives the instantaneous velocity. Rearranging yields the target form used in Algorithm 1. The total derivative includes both motion through state space and explicit time dependence, which explains the JVP tangent (v,0,1). Replacing the unknown field derivative by the current network derivative creates a self-dependent regression target. Detaching that target avoids higher-order parameter gradients. Equal-time samples remove the correction, while unequal-time samples exercise interval prediction. Table 1 tests both this sampling mixture and deliberately incorrect tangents.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e09"
+      ]
+    },
+    {
+      "heading": "How guidance changes the meaning of one step",
+      "text": "Ordinary classifier-free guidance combines conditional and unconditional predictions during sampling, so one sampling step can require two evaluations. MeanFlow instead defines a guided instantaneous field and learns its corresponding average field. Training uses same-time network predictions inside the target, and Appendix B.1 mixes conditional and unconditional terms through kappa. The trained sampler then requests the guided average directly. This is why the paper separates IMM's one-step, two-evaluation row from one-evaluation rows. The reader should also separate evaluation count from training cost: a JVP is needed during training, and model-specific guidance windows alter the recipe. The strongest two-evaluation number belongs to the longer-trained XL/2+ variant. Finally, ImageNet's pretrained VAE remains a dependency even when the generator itself is trained from scratch.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e08",
+        "e11",
+        "e14",
+        "e16",
+        "e19"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Verify the derivative before testing one-step FID",
+      "text": "Reader-proposed, not executed: on a fixed minibatch and network, compare the JVP along (v,0,1) with a central finite difference that perturbs z along v, advances t and holds r fixed. Reduce the finite-difference step until numerical precision limits agreement. Then train paired B/4 runs using the correct tangent and the destructive (v,0,0) control, keeping data order, initialization, 25% unequal-time pairs, 80 epochs, loss weighting and no-CFG evaluation fixed. Evaluate FID-50K over multiple seeds. Derivative disagreement would reveal an implementation error; agreement without a consistent FID advantage would weaken the reported mechanism result in the replicated setting.",
+      "evidenceIds": [
+        "e04",
+        "e08",
+        "e09",
+        "e14",
+        "e21"
+      ]
+    },
+    {
+      "title": "Separate guidance mixing from guidance strength",
+      "text": "Reader-proposed, not executed: repeat Table 5 with effective guidance omega'=2 fixed, comparing kappa=0 and kappa=0.9 while setting omega=(1-kappa)omega'. Match the B/4 architecture, training duration, class-drop probability, guidance interval, optimizer and evaluation inputs across runs. Use one generator evaluation for every sampled image and report seed-wise FID-50K rather than only a best score. The source reports 20.15 versus 18.63; a persistent improvement would support target mixing beyond merely increasing guidance strength. If the advantage disappears under repeats, the original single-run difference would not establish robustness. Log target components to verify that changing kappa has not accidentally changed the effective scale.",
+      "evidenceIds": [
+        "e06",
+        "e08",
+        "e10",
+        "e14",
+        "e16",
+        "e21"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      14,
+      16,
+      19,
+      21,
+      22,
+      23
+    ],
+    "notes": "Inspected the title and author block; Figures 1–5; Algorithms 1–2; Tables 1–5; method equations and training/evaluation text; checklist limitations, statistical and release statements; and Appendix A/B configuration, guidance, loss, sufficiency and JVP timing details. All six final source crops were viewed, including the corrected ablation crop and final scaling crop. Figure 3 arrow directions agree with the forward displacement definition and backward sampling subtraction; Algorithm 1's tangent and stop-gradient agree with Eqs. (8)–(11). Table 2 was visually read although Figure 4 is the selected main-result crop. Table 1 provides the original quantitative ablation table; Table 4 provides the configuration table. Text-reading covers all seven chunks and all 23 PDF pages; reference pages and remaining checklist boilerplate were not part of the image pass. Separate supplements, external code and referenced assets were not inspected."
+  }
+}
