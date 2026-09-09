@@ -1,0 +1,298 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2503.20314",
+  "shortTitle": "Wan",
+  "thesis": "Wan makes video diffusion practical through causal latent compression, progressive image-video training and reusable conditioning, while its evaluation establishes media-generation quality rather than an executed-action model.",
+  "standfirst": "Wan is easiest to understand as a sequence of engineering choices around a video diffusion transformer. First compress pixels into a manageable latent sequence; then learn a text-conditioned velocity field; finally add the conditions and acceleration needed by particular applications. This reading follows the April 2025 v2 report from those choices to its actual evidence. The tables support strong aggregate video-generation performance, but dimension-level weaknesses, image-stage ablations and unresolved reporting inconsistencies qualify that conclusion. The six original excerpts below connect the method to its measurements and explain why image conditioning, camera control and streaming remain distinct from physical action execution.",
+  "evidenceIds": [
+    "e01",
+    "e04",
+    "e07",
+    "e08",
+    "e09",
+    "e14",
+    "e15",
+    "e16",
+    "e18",
+    "e23",
+    "e24",
+    "e25"
+  ],
+  "featuredResultTask": "Text-to-video generation on VBench",
+  "visuals": [
+    {
+      "id": "vae-compression",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 5",
+      "page": 10,
+      "asset": "report-assets/2503.20314/vae-compression.png",
+      "width": 1104,
+      "height": 271,
+      "sourceSha256": "ca859378a8296fe1a09fb5127680bcdc7e6499fb340e989a598c904720424e9c",
+      "sourceUrl": "https://arxiv.org/pdf/2503.20314#page=10",
+      "crop": [
+        0.175,
+        0.407,
+        0.825,
+        0.53
+      ],
+      "alt": "A left-to-right video autoencoder diagram with one spatial and two spatial-temporal downsampling blocks, a compact latent space, and mirrored decoding blocks.",
+      "caption": "Compression reduces the sequence that the generative model must learn.",
+      "readingGuide": "Follow the arrows from the RGB frame stack through the encoder to the central latent tensor, then back through the decoder. The blue-green block reduces spatial dimensions; the two orange blocks each reduce both space and time. Together they yield eightfold spatial and fourfold temporal compression. Read the tensor labels carefully: the input contains 1+T frames, whereas the latent contains 1+T/4 positions. The isolated first frame receives only spatial compression, allowing the same design to handle images. The text fixes the latent channel count C at 16 and explains that causal convolutions and RMSNorm enable processing successive chunks.",
+      "takeaway": "The diagram explains how Wan reduces visual sequence size before applying its transformer. The companion reconstruction experiment uses 200 videos of 25 frames at 720×720 and reports 2.5× reconstruction speed over HunyuanVideo. That is evidence about the VAE component, with a comparison protocol distinct from the text-to-video leaderboards.",
+      "caution": "Temporal causality here belongs to the VAE; the base DiT uses noncausal attention. Compression ratios alone do not guarantee faithful reconstruction, and the reported speed comparison does not isolate the contribution of feature caching.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e07"
+      ]
+    },
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 9",
+      "page": 13,
+      "asset": "report-assets/2503.20314/architecture.png",
+      "width": 1122,
+      "height": 339,
+      "sourceSha256": "ca859378a8296fe1a09fb5127680bcdc7e6499fb340e989a598c904720424e9c",
+      "sourceUrl": "https://arxiv.org/pdf/2503.20314#page=13",
+      "crop": [
+        0.17,
+        0.499,
+        0.83,
+        0.653
+      ],
+      "alt": "Wan encoder and decoder flank repeated DiT blocks. Noise and timestep enter the latent-processing path, and a caption passes through umT5 into cross-attention.",
+      "caption": "The model learns to transform noisy video latents under text conditioning.",
+      "readingGuide": "Read the horizontal path as the representation pipeline: a training video is encoded, its latent is combined with noise, the DiT processes it, and the decoder returns pixels. The lower path carries the caption through umT5 into cross-attention; the upper path supplies diffusion time. Figure 10 and Equations (1)–(3) specify what this overview abbreviates: video tokens interact through self-attention, text enters separately, and the model predicts velocity along a noise-to-data interpolation. For text-to-video inference, begin from noise and the prompt. The left-hand training video is not an additional input that a user must provide.",
+      "takeaway": "The backbone separates visual compression, language representation and learned latent dynamics. During foundation-model training, only the DiT is optimized; the text and VAE encoders stay frozen. This distinction helps identify where the generative capacity is being trained and why the diagram should not be read as a single end-to-end reconstruction objective.",
+      "caution": "The arrows are a pipeline overview, not a complete sampler specification. The output is generated imagery: neither an action head nor an inverse-dynamics module appears, and iterative denoising is not environment feedback.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "id": "image-conditioning",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 18",
+      "page": 27,
+      "asset": "report-assets/2503.20314/image-conditioning.png",
+      "width": 1122,
+      "height": 359,
+      "sourceSha256": "ca859378a8296fe1a09fb5127680bcdc7e6499fb340e989a598c904720424e9c",
+      "sourceUrl": "https://arxiv.org/pdf/2503.20314#page=27",
+      "crop": [
+        0.17,
+        0.1,
+        0.83,
+        0.263
+      ],
+      "alt": "A reference frame is padded and VAE-encoded, then concatenated with a noisy latent and mask. A separate CLIP branch and umT5 branch supply decoupled cross-attention to the DiT.",
+      "caption": "Image conditioning supplies both spatial anchors and global visual context.",
+      "readingGuide": "Start at the red first-frame bracket. The upper branch pads that image with zero frames and encodes the resulting sequence. Its latent joins the noisy input, drawn as X_t and called z_t in the text, and the rearranged binary mask before entering DiT. Section 5.1.1 defines this mask explicitly: 1 marks preserved frames and 0 marks frames to generate. The lower image branch uses CLIP and a projection MLP to supply global context, alongside umT5 text through decoupled cross-attention. The training description matters: the image-encoder branch is omitted during initial pre-training and introduced during supervised fine-tuning.",
+      "takeaway": "The same mask-guided formulation accommodates initial-frame animation, continuation, first-last-frame transformation and interpolation before task-specific refinement. Its two image pathways have different roles: latent conditioning anchors supplied visual content, while CLIP supplies global context. This is a reusable media-conditioning mechanism, not evidence that the model extracts or executes actions.",
+      "caution": "Do not transfer this mask convention to VACE: Section 5.2 defines 1 as an editing region there. The figure alone does not demonstrate exact pixel preservation or quantify the benefit of CLIP; the reported human-comparison terminology also remains ambiguous.",
+      "evidenceIds": [
+        "e18",
+        "e19",
+        "e20",
+        "e21"
+      ]
+    },
+    {
+      "id": "wan-bench",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 22,
+      "asset": "report-assets/2503.20314/wan-bench.png",
+      "width": 1104,
+      "height": 544,
+      "sourceSha256": "ca859378a8296fe1a09fb5127680bcdc7e6499fb340e989a598c904720424e9c",
+      "sourceUrl": "https://arxiv.org/pdf/2503.20314#page=22",
+      "crop": [
+        0.175,
+        0.102,
+        0.825,
+        0.349
+      ],
+      "alt": "Seven model columns report fourteen Wan-Bench dimensions and a weighted score. Wan14B leads the aggregate while different models lead many individual rows.",
+      "caption": "An aggregate lead coexists with clear dimension-level weaknesses.",
+      "readingGuide": "First locate the bottom weighted-score row, then return to individual rows rather than treating the aggregate as universal superiority. Wan14B scores 0.724, Sora 0.700 and Hunyuan 0.673 on 1,035 samples per candidate. The preceding benchmark section explains that the rows mix optical-flow measurements, detector outputs, feature similarities and Qwen2-VL judgments. Their contributions are weighted using correlations with human preferences, rather than simply averaged. Physical plausibility is therefore a model-judged visual property. Large motion, human artifacts, stability and stylization should each be checked separately when choosing a generator for a specific use case.",
+      "takeaway": "Wan14B has the highest weighted score in this comparison and physical-plausibility scores of 0.939 versus Sora's 0.933. Yet its large-motion score is 0.415 versus Sora's 0.482, and its stylization score is 0.328 versus CNTopB's 0.623. The evidence supports aggregate strength with an uneven capability profile.",
+      "caution": "Wan-Bench is constructed by the authors, includes learned evaluators and uses preference-derived weights. No uncertainty intervals accompany this table, and anonymized commercial columns limit exact replication. A high physical-plausibility score does not validate a physics simulator or control policy.",
+      "evidenceIds": [
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "id": "vbench",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 24,
+      "asset": "report-assets/2503.20314/vbench.png",
+      "width": 1104,
+      "height": 308,
+      "sourceSha256": "ca859378a8296fe1a09fb5127680bcdc7e6499fb340e989a598c904720424e9c",
+      "sourceUrl": "https://arxiv.org/pdf/2503.20314#page=24",
+      "crop": [
+        0.175,
+        0.38,
+        0.825,
+        0.52
+      ],
+      "alt": "A VBench table lists eight dated or versioned models, with separate quality, semantic and total scores. Wan14B has the highest values in all three columns.",
+      "caption": "The external benchmark snapshot complements the internal Wan-Bench comparison.",
+      "readingGuide": "Read each row's full model label before comparing its three scores. Wan14B is dated 2025-02-24; Gen-3 and Kling include older release settings, and CogVideoX is explicitly marked as a five-second, SAT, prompt-optimized configuration. The rightmost column reports total score; the two preceding columns separate quality from semantics. Wan14B reaches 86.22% total, with 86.67% quality and 84.44% semantic score. Wan1.3B reaches 83.96% total. This table is the paper's reported VBench snapshot, so its numerical claims belong to those listed entries and cannot automatically be applied to later versions of any system.",
+      "takeaway": "Wan14B's 86.22% total exceeds Sora's 84.28% and open-source Hunyuan's 83.24% in the reported table. Wan1.3B is also competitive, though below Sora. This gives a second benchmark supporting the family's generation quality, while keeping the compact and large model results separate.",
+      "caution": "These percentages are benchmark scores, not fractions of successfully executed tasks. The table provides no uncertainty estimates or full common generation recipe. It does not show a matched-data or matched-compute test of architecture alone.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "id": "adaln-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 16",
+      "page": 25,
+      "asset": "report-assets/2503.20314/adaln-ablation.png",
+      "width": 1174,
+      "height": 696,
+      "sourceSha256": "ca859378a8296fe1a09fb5127680bcdc7e6499fb340e989a598c904720424e9c",
+      "sourceUrl": "https://arxiv.org/pdf/2503.20314#page=25",
+      "crop": [
+        0.27,
+        0.102,
+        0.73,
+        0.313
+      ],
+      "alt": "Four training-loss curves compare full, half and no adaptive-normalization sharing over 200,000 steps. The deeper fully shared 1.5B curve finishes lowest.",
+      "caption": "Sharing timestep modulation frees parameters that can instead increase depth.",
+      "readingGuide": "Use the legend to distinguish the blue fully shared 1.3B model, orange fully shared 1.5B model, green half-shared 1.5B model and red non-shared 1.7B model. The horizontal axis is training step and the vertical axis is training loss. Section 4.7.2 supplies the essential control: the orange model has 35 layers, while the other configurations have 30. All are trained from scratch on text-to-image for 200,000 steps with global batch 1536. The closest parameter-matched comparison is orange versus green. Follow their late-training separation, rather than attributing every difference among all four curves solely to normalization sharing.",
+      "takeaway": "The fully shared, deeper 1.5B model ends with lower training loss than the half-shared 1.5B and non-shared 1.7B alternatives. The authors use this result to motivate shared modulation. It supports a parameter-allocation choice during image pre-training, with a measurable proxy objective rather than a final video-quality measurement.",
+      "caution": "Depth and sharing change together in the parameter-matched comparison, and FLOPs are not held equal. The source prose says the deeper model is consistently lowest, but early curves cross or overlap; the clear claim is the lower endpoint. No seed variability or endpoint values are tabulated.",
+      "evidenceIds": [
+        "e16"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Separate compression from generation",
+      "kind": "source",
+      "text": "The VAE and DiT solve different learning problems. Wan first trains a video representation that can reconstruct pixels with spatial and temporal compression. Its first-frame exception makes image and video inputs compatible, while causal feature caches keep successive encoding or decoding chunks connected. The DiT then learns a distribution over these representations. Equations (1)–(3) construct an intermediate latent between Gaussian noise and a clean training latent and ask the network to predict their difference as a velocity. At inference, repeated model evaluations move a noise sample toward a generated latent before decoding. This distinction explains two otherwise confusing features of Figure 9: a training video is shown even though text-to-video inference needs no reference video, and the VAE's temporal causality does not imply causal attention inside the video DiT.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e07",
+        "e08",
+        "e11"
+      ]
+    },
+    {
+      "heading": "Read the training curriculum alongside the ablation",
+      "kind": "analysis",
+      "text": "The training curriculum tackles the cost of learning semantics and temporal detail at once. Wan14B starts with low-resolution images, then introduces short videos and progressively increases resolution. The caption pipeline gives those examples detailed language supervision, while inference-time prompt rewriting tries to reduce the mismatch with brief user requests. Within the DiT, sharing the timestep-modulation MLP saves parameters that can support more layers. Figure 16 tests this allocation during the image stage: its strongest parameter-matched comparison trades half sharing at 30 layers for full sharing at 35 layers. Reader interpretation: that is evidence for a useful early optimization choice, not a demonstration that sharing itself improves motion. A full causal test would continue comparable checkpoints through video training and measure the same quality dimensions used for final evaluation.",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e07",
+        "e09",
+        "e12",
+        "e16"
+      ]
+    },
+    {
+      "heading": "Understand what the control signals actually control",
+      "kind": "analysis",
+      "text": "Image conditioning changes the information available to video synthesis. An I2V mask distinguishes supplied frames from unknown frames, and the later CLIP branch adds image-level context. VACE generalizes editing through context frames and masks, but reverses the meaning of mask value 1; an implementation must preserve that task-specific convention. Personalization supplies reference faces in latent space, and the camera extension injects features derived from a specified camera trajectory. Streamer changes temporal computation again, using a sliding queue and cached completed tokens rather than unlimited attention over the past. Reader interpretation: these are several ways to steer or extend generated media. None supplies the action-output mechanism or executed feedback experiment required to turn this paper into a world-action policy result. This supports retaining the catalog's foundational-video-backbone classification.",
+      "evidenceIds": [
+        "e18",
+        "e19",
+        "e21",
+        "e22",
+        "e23",
+        "e24"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does the depth allocation survive fair budgets and video training?",
+      "text": "Reader-proposed experiment, not performed here: reproduce the fully shared 35-layer 1.5B and half-shared 30-layer 1.5B image-stage configurations with the same data order, text encoder, VAE and multiple initialization seeds. First match training tokens and global batch as in the paper; then run a separate comparison matched by measured training FLOPs. Continue both through identical video-training stages. Record training/held-out flow loss and blinded video quality, motion and prompt adherence. A lower image loss without a reliable video-quality advantage would falsify the proposed transfer of the ablation's benefit to final generation; an advantage only under token matching would identify a compute tradeoff.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09",
+        "e16"
+      ]
+    },
+    {
+      "title": "Does diffusion caching preserve difficult video details?",
+      "text": "Reader-proposed experiment, not performed here: compare uncached and cached inference from the same checkpoint on identical original and rewritten prompts, initial latent seeds, resolution, frame count, solver schedule and guidance setting. Select cache steps on a disjoint validation set and freeze them before testing. Keep precision and hardware fixed so quantization does not confound the comparison. Include large-motion and visible-text cases, measure end-to-end latency including decoding, and obtain blinded ratings for fine-detail retention, artifacts, temporal stability and prompt adherence with uncertainty across seeds. A repeatable quality deficit would contradict lossless caching for that test distribution even if average latency improves.",
+      "evidenceIds": [
+        "e04",
+        "e11",
+        "e12",
+        "e27"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      24,
+      25,
+      26,
+      27,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      47,
+      48,
+      49
+    ],
+    "notes": "The title/version/byline on p. 1 and full contributor roster on p. 49 were visually checked. Original architecture, data, evaluation, ablation and extension pages listed here were rendered and viewed, including low-text image pages 36 and 39. All six final original crops were individually viewed; labels, legends, arrows, table rows and axes are retained. Figure 5 was checked against Sections 4.1.1–4.1.3; Figure 9 against Figure 10 and Equations (1)–(3); Figure 18 against Sections 5.1.1–5.1.3, including the mask convention and staged CLIP branch. Figure 16's endpoint is supported, while its early crossings qualify the prose's 'consistently' claim. Uncropped pages supply the remaining retained training, evaluation, hardware, limitation and reproduction details. Figures 2, 15, 19, 20 and 33 were not visually inspected; their text was read. No video playback, audio listening, external artifact inspection or experimental reproduction is claimed. There is no separate appendix in the supplied PDF."
+  }
+}

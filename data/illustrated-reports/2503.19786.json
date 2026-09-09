@@ -1,0 +1,287 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2503.19786",
+  "shortTitle": "Gemma 3",
+  "thesis": "Gemma 3 expands visual and language capabilities by compressing image representations and restricting most attention to local windows, while long-context task reliability and full training reproducibility remain limited.",
+  "standfirst": "A compact multimodal model has two distinct memory problems: representing images economically and retaining an expanding conversation. Gemma 3 addresses the first with a frozen SigLIP encoder and pooled image tokens, and the second with five local attention layers for each global layer. Distillation and instruction tuning then build the model's answering capabilities. Read the six source excerpts as a sequence of separate tests: memory scaling, attention quality, quantization, final-model accuracy, image-detail recovery and long-context reliability. The strongest results do not settle every question. In particular, a supported context length is different from consistently using its contents, and one vision ablation has conflicting checkpoint labels.",
+  "evidenceIds": [
+    "architecture",
+    "vision",
+    "pretraining",
+    "posttraining",
+    "cache",
+    "it-benchmarks",
+    "pan-and-scan",
+    "long-results"
+  ],
+  "visuals": [
+    {
+      "id": "kv-cache-scaling",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 6",
+      "page": 7,
+      "asset": "report-assets/2503.19786/kv-cache-scaling.png",
+      "width": 1048,
+      "height": 561,
+      "sourceSha256": "b2793d288d6672f8d6a03f65370bb4a48d607f54937a22fc7d9f727435795305",
+      "sourceUrl": "https://arxiv.org/pdf/2503.19786#page=7",
+      "crop": [
+        0.548,
+        0.096,
+        0.865,
+        0.216
+      ],
+      "alt": "A red curve for a 2B model with L:G=5:1 and sw=1024 lies increasingly below a yellow global-only curve as context grows from 1K to 128K; the vertical axis is KV-cache memory in MB.",
+      "caption": "Restricting most layers to local history slows growth of the KV cache.",
+      "readingGuide": "Start with the legend: L:G names the local-to-global layer ratio, and sw is the local sliding-window size in tokens. Both curves describe 2B configurations. The red curve uses five local layers for each global layer and sw=1024; the yellow comparator uses global attention throughout. Read the vertical axis as KV-cache memory alone, in MB, and follow the context labels across the horizontal axis. Section 2 supplies the architectural explanation: local layers need only their bounded window, while global layers retain access to long context. Section 5.2 describes this plot as a computed memory comparison, so it should be read separately from accuracy and runtime measurements.",
+      "takeaway": "The widening gap supports the intended cache-saving effect of the attention pattern. It gives a concrete reason for retaining relatively few global layers when extending context. This diagnostic complements Figure 3's perplexity comparison; it does not by itself establish that long-range information is used successfully.",
+      "caution": "This is a 2B architecture diagnostic, not a released 2B Gemma 3 checkpoint. The y-axis excludes model weights. Its explicit 5:1 legend is consistent with Section 2; adjacent Figures 4–5 use inconsistent 3:1/1:3 notation.",
+      "evidenceIds": [
+        "architecture",
+        "cache",
+        "attention-ratio",
+        "window-labels"
+      ]
+    },
+    {
+      "id": "attention-ratio",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 3",
+      "page": 6,
+      "asset": "report-assets/2503.19786/attention-ratio.png",
+      "width": 1009,
+      "height": 538,
+      "sourceSha256": "b2793d288d6672f8d6a03f65370bb4a48d607f54937a22fc7d9f727435795305",
+      "sourceUrl": "https://arxiv.org/pdf/2503.19786#page=6",
+      "crop": [
+        0.55,
+        0.573,
+        0.855,
+        0.688
+      ],
+      "alt": "Red 2B and yellow 9B lines show small changes in validation perplexity at local:global ratios 1:1, 3:1, 5:1 and 7:1, around a dashed zero reference.",
+      "caption": "The local/global ratio changes little in these text-only perplexity probes.",
+      "readingGuide": "Read the x-axis literally as Local:Global. The four settings progressively reduce the fraction of layers that see the full context, while the red and yellow curves track the 2B and 9B text-only experiments. The vertical axis is a change in perplexity, not an absolute perplexity score or downstream task accuracy; the dashed line marks zero change. The values remain close to that reference across the tested ratios. Section 5.2 identifies 1:1 with Gemma 2 and 5:1 with Gemma 3. This is the quality-side check to pair with the memory-side evidence in Figure 6, rather than an independent evaluation of all final models.",
+      "takeaway": "The plotted comparison supports the authors' claim that increasing the local/global ratio has little effect on this validation objective. In particular, the selected 5:1 setting does not show a large perplexity penalty in either probe. This makes the memory-saving choice plausible within the tested text-only setting.",
+      "caution": "No error bars, seed variation, absolute perplexities or detailed validation-set description accompany this plot. Small average perplexity changes cannot establish equivalent visual reasoning, retrieval across 128K tokens or robustness to specific long-range dependencies.",
+      "evidenceIds": [
+        "attention-ratio",
+        "cache",
+        "long-results"
+      ]
+    },
+    {
+      "id": "quantized-memory",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 3,
+      "asset": "report-assets/2503.19786/quantized-memory.png",
+      "width": 1096,
+      "height": 843,
+      "sourceSha256": "b2793d288d6672f8d6a03f65370bb4a48d607f54937a22fc7d9f727435795305",
+      "sourceUrl": "https://arxiv.org/pdf/2503.19786#page=3",
+      "crop": [
+        0.514,
+        0.098,
+        0.893,
+        0.304
+      ],
+      "alt": "Memory table for 1B, 4B, 12B and 27B models, each with a weights row and a +KV row, across bf16, Int4, block-32 Int4 and SFP8 formats.",
+      "caption": "Quantizing weights leaves the context cache as a substantial memory cost.",
+      "readingGuide": "Choose a model size before comparing columns. Its first row gives the weight footprint; the following +KV row gives the total including the cache. The caption fixes the cache at 32768 context tokens and 8-bit quantization, so these are not 128K totals. The columns distinguish bf16, per-channel Int4, block-32 Int4 and switched fp8. For the 4B example, follow bf16 from 8.0 GB to 12.7 GB with the cache, then Int4 from 2.6 GB to 7.3 GB. Section 2.3 explains that the quantized checkpoints are produced by QAT against probabilities from their non-quantized counterparts.",
+      "takeaway": "The 4B Int4 weights occupy 2.6 GB, but the corresponding +KV total is 7.3 GB. This shows why a weights-only deployment estimate can be misleading even after quantization. The local-attention design and weight quantization address different contributors to the reported memory footprint.",
+      "caution": "The table supplies component memory totals, not peak runtime allocation, speed, or task-quality changes after quantization. Its fixed 8-bit cache setting must be preserved in comparisons; the listed formats do not prove compatibility or capacity on a particular device.",
+      "evidenceIds": [
+        "quantization",
+        "architecture",
+        "cache"
+      ]
+    },
+    {
+      "id": "it-benchmarks",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 6",
+      "page": 6,
+      "asset": "report-assets/2503.19786/it-benchmarks.png",
+      "width": 1224,
+      "height": 519,
+      "sourceSha256": "b2793d288d6672f8d6a03f65370bb4a48d607f54937a22fc7d9f727435795305",
+      "sourceUrl": "https://arxiv.org/pdf/2503.19786#page=6",
+      "crop": [
+        0.13,
+        0.098,
+        0.87,
+        0.32
+      ],
+      "alt": "Zero-shot instruction-tuned benchmark table comparing Gemini 1.5/2.0, Gemma 2 and four Gemma 3 sizes across language, coding, math and MMMU tasks.",
+      "caption": "Strong math gains coexist with task-specific gaps to comparison models.",
+      "readingGuide": "Read the grouped column headings before following a row: these are final instruction-tuned models, unlike the pre-training radar plot elsewhere on the same page. The MATH row gives Gemma 3 27B 89.0, Gemma 2 27B 55.6 and Gemini 1.5 Pro 86.5; Gemma 3 4B reaches 75.6. Now move to GPQA Diamond, where Gemma 3 27B has 42.4 versus Gemini 1.5 Pro's 59.1. The caption identifies zero-shot evaluation, and Table 21 identifies MATH accuracy with sampled answers. Treat each row as a distinct benchmark and protocol, without averaging unrelated scales into an invented overall score.",
+      "takeaway": "The MATH result demonstrates a large improvement over the same-size Gemma 2 model, and even the smaller 4B model exceeds that baseline in this row. The GPQA comparison limits the broader claim of parity with Gemini 1.5 Pro: competitiveness depends on the ability being measured.",
+      "caution": "Table 6 and appendix Table 18 disagree on 27B IT LiveCodeBench (29.7 versus 39.0) and HiddenMath (60.3 versus 56.0), without explanation. Those values are not merged. This table reports no uncertainty or controlled attribution of gains to individual training changes.",
+      "evidenceIds": [
+        "it-benchmarks",
+        "it-protocol",
+        "table-discrepancies",
+        "posttraining"
+      ]
+    },
+    {
+      "id": "pan-and-scan",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 8",
+      "page": 8,
+      "asset": "report-assets/2503.19786/pan-and-scan.png",
+      "width": 1191,
+      "height": 651,
+      "sourceSha256": "b2793d288d6672f8d6a03f65370bb4a48d607f54937a22fc7d9f727435795305",
+      "sourceUrl": "https://arxiv.org/pdf/2503.19786#page=8",
+      "crop": [
+        0.525,
+        0.16,
+        0.885,
+        0.299
+      ],
+      "alt": "Paired 4B and 27B rows compare DocVQA, InfoVQA and TextVQA with and without Pan & Scan, with blue rows showing the score gains.",
+      "caption": "Extra image crops improve the reported document and infographic scores.",
+      "readingGuide": "Read each model's two rows as a paired comparison, then use its blue delta row to see the gain. P&S means Pan & Scan: Section 2.1 describes an inference-only operation that covers an image with equal-sized non-overlapping crops before resizing them for the encoder. The table caption specifies four-shot validation. Table 20 names ANLS for DocVQA and InfographicVQA and accuracy for TextVQA, so their deltas are not interchangeable measures. Checkpoint identity needs special care: this caption calls the checkpoint pre-trained, while the adjacent paragraph calls the 27B model IT. The baseline values also match the pre-trained, no-P&S Table 11.",
+      "takeaway": "For 27B, InfoVQA rises from 59.4 to 76.4, a gain of 17.0 score points; DocVQA gains 4.8 and TextVQA gains 1.6. The direction supports using additional image detail for these tasks, with especially large gains on the infographic benchmark in this reported comparison.",
+      "caution": "The PT/IT disagreement is unresolved in the supplied version. Preserve the table's numbers with that qualification, and do not compare them directly with final IT test-set scores. No crop-count, latency or compute-matched control is reported here.",
+      "evidenceIds": [
+        "pan-and-scan",
+        "vision",
+        "vision-protocol",
+        "pt-vision",
+        "it-vision"
+      ]
+    },
+    {
+      "id": "long-context",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 15",
+      "page": 22,
+      "asset": "report-assets/2503.19786/long-context.png",
+      "width": 1172,
+      "height": 528,
+      "sourceSha256": "b2793d288d6672f8d6a03f65370bb4a48d607f54937a22fc7d9f727435795305",
+      "sourceUrl": "https://arxiv.org/pdf/2503.19786#page=22",
+      "crop": [
+        0.1,
+        0.098,
+        0.505,
+        0.227
+      ],
+      "alt": "RULER and MRCR scores at 32K and 128K context, separately for pre-trained and instruction-tuned Gemma 3 4B, 12B and 27B models.",
+      "caption": "Longer supported context still reduces performance on the reported long-context tasks.",
+      "readingGuide": "First separate the PT columns, meaning pre-trained, from the IT columns, meaning instruction-tuned. Within a model column, compare the 32K and 128K rows for the same benchmark. RULER uses zero-shot sampled accuracy according to Table 19; MRCR uses its own score and few-shot sampling. For 27B IT, RULER falls from 91.1 to 66.0, whereas MRCR moves from 63.2 to 59.3. Compare PT and IT only after fixing context length: at 128K the 27B PT RULER value is 72.9, above the IT value. Neither a larger model nor instruction tuning produces a uniform ranking throughout this table.",
+      "takeaway": "The 25.1-percentage-point RULER drop for 27B IT shows a substantial difference between accepting 128K tokens and exploiting them reliably. The smaller MRCR change also shows that context sensitivity depends on the task. Cache efficiency and long-context answer quality therefore need separate evaluation.",
+      "caution": "No uncertainty, detailed sample counts or exact MRCR shot count are supplied. These rows compare context conditions, not a controlled ablation of local attention alone; they cannot identify which architectural or training component caused the loss.",
+      "evidenceIds": [
+        "long-results",
+        "long-protocol",
+        "long-training"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Turn image detail into language-model inputs",
+      "kind": "source",
+      "text": "Begin with the encoder's fixed input size. Gemma 3 resizes an image to 896×896, extracts SigLIP representations and applies average pooling so the decoder receives 256 soft image tokens. The encoder is shared across the 4B, 12B and 27B models and stays frozen while the language model trains; precomputing its outputs avoids running it in each language-model training step. This compression is economical, but Section 2.1 explains that resizing can erase small objects or make text unreadable. Pan & Scan changes the inference input by dividing the image into equal-sized, non-overlapping crops covering the whole image, each resized for encoding. It can be disabled for speed. Table 8 evaluates its benefit, but its conflicting PT/IT descriptions leave the exact checkpoint unresolved. The numerical activation thresholds and maximum crop count are not specified.",
+      "evidenceIds": [
+        "vision",
+        "compute",
+        "pan-and-scan"
+      ]
+    },
+    {
+      "heading": "Separate stored context from usable context",
+      "kind": "analysis",
+      "text": "The attention design allocates long-range access selectively. Five local layers use a short window for every global layer that can attend across the context. Figure 6 illustrates the corresponding reduction in stored keys and values, and Figure 3 asks whether making global layers rarer damages text validation perplexity. Extending the positional range is another operation: the larger models start at 32K and move to 128K near the end of pre-training with RoPE rescaling. Reader interpretation: these are three different tests—memory cost, language-model fit and task-level use of distant information. Passing the first two does not imply passing the third. Table 15 makes that distinction concrete through the 27B IT RULER drop from 91.1 to 66.0. An application relying on distant details must therefore test its task, beyond checking the advertised context limit.",
+      "evidenceIds": [
+        "architecture",
+        "cache",
+        "attention-ratio",
+        "long-training",
+        "long-results"
+      ]
+    },
+    {
+      "heading": "Trace the supervision before attributing the gains",
+      "kind": "analysis",
+      "text": "During pre-training, the student learns from a teacher distribution restricted to 256 sampled logits per token, with unsampled targets zeroed and the remaining probabilities renormalized for cross-entropy. Post-training then introduces a large IT teacher and RL feedback from several sources, including human preferences, executable code and math answers. These are training signals; the report's inference examples and benchmarks generate text. Reader interpretation: the final MATH improvement is strong evidence about the complete IT system, but cannot identify how much each ingredient contributed. Figure 8 reinforces the need to specify training budget: its preference for smaller or larger teachers reverses with horizon. The undisclosed teacher identities and detailed schedules prevent exact replication from the report alone. Keep PT probes, final IT evaluation and supervised transfer results in separate comparisons.",
+      "evidenceIds": [
+        "pretraining",
+        "posttraining",
+        "it-benchmarks",
+        "teacher",
+        "appendix-comparisons"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does the perplexity result predict long-context reliability?",
+      "text": "Reader-proposed experiment, not run: train matched text-only 2B students with L:G=1:1 versus 5:1, both using a 1024-token local window. Hold data order, teacher targets, token budget, RoPE settings and optimizer schedule fixed, and use multiple seeds. Compare validation perplexity, directly allocated KV memory, and RULER accuracy at 32K and 128K with identical prompts and examples. Pre-register an acceptable accuracy difference. If perplexity remains similar and memory falls but long-context accuracy breaches that tolerance, the Figure 3 proxy would not establish task equivalence. Changing attention masks only at inference would be a different experiment and should not stand in for this training comparison.",
+      "evidenceIds": [
+        "attention-ratio",
+        "architecture",
+        "cache",
+        "long-training",
+        "long-results",
+        "long-protocol"
+      ]
+    },
+    {
+      "title": "Is Pan & Scan buying detail or simply more compute?",
+      "text": "Reader-proposed experiment, not run: choose one verified 4B checkpoint and explicitly record PT or IT status before comparing with Table 8. On fixed DocVQA and InfographicVQA validation examples, hold the four-shot prompts and decoding constant and compare P&S off, P&S on, and a control that repeats the globally resized image to match the visual-token count. Record crop count, ANLS, peak memory and latency, stratified by aspect ratio and text size. Gains concentrated on small-text or non-square images and exceeding the repeated-image control would support the detail-recovery explanation. Similar gains from repetition, or no advantage under a fixed latency budget, would weaken that interpretation.",
+      "evidenceIds": [
+        "vision",
+        "pan-and-scan",
+        "vision-protocol",
+        "pt-vision"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25
+    ],
+    "notes": "Visually inspected the title/byline/version, contributor credits, all original Figures 1–9 and Tables 1–21, and the surrounding method, training, evaluation and appendix protocol pages. All six final original crops were separately viewed with readable axes, legends and complete table bodies. Figure 6's L:G=5:1 and sw=1024 match the architecture text; Figure 4's ratio-label conflict, Table 8's PT/IT conflict, vocabulary notation and cross-table result discrepancies remain disclosed. Reference-only pages 12–16 were read in the complete text but were not part of the image pass. Separate supplements, code and checkpoints were not inspected."
+  },
+  "featuredResultTask": "Zero-shot MATH with instruction-tuned models",
+  "visualLimitations": {
+    "kind": "analysis",
+    "text": "The supplied report has no architecture block diagram or encoder-to-decoder schematic. Its method is described in Sections 2–3 and diagnosed through experiments. The mechanism visual therefore uses the original Figure 6 memory comparison, complemented by Figure 3's attention ablation. All six excerpts are source figures or quantitative tables; none reconstructs an absent diagram.",
+    "evidenceIds": [
+      "visual-scope",
+      "architecture",
+      "cache",
+      "attention-ratio"
+    ]
+  }
+}
