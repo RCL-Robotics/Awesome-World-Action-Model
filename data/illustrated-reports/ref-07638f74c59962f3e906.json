@@ -1,0 +1,253 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-07638f74c59962f3e906",
+  "shortTitle": "Latent Diffusion Models",
+  "thesis": "Moving iterative diffusion into a mildly compressed image space reduces computation, while reconstruction quality and sampling guidance determine what fidelity and coverage can be retained.",
+  "standfirst": "A diffusion model can spend substantial effort modeling pixel detail before it learns the broader composition of an image. Rombach and colleagues separate those jobs: train an autoencoder to preserve perceptually useful content, then learn a diffusion prior over its spatial latents. This reading follows the resulting information flow and tests the tradeoff against the paper’s own reconstruction table, compression sweep and conditional generation results. The supplied source is arXiv v2, whose changelog updates the text and ImageNet models. Its evidence supports a versatile image generator, while leaving important limits on exact reconstruction, benchmark comparability and reproduction of some printed configurations.",
+  "evidenceIds": [
+    "e-identity",
+    "e-revision",
+    "e-motivation",
+    "e-autoencoder",
+    "e-compression",
+    "e-imagenet",
+    "e-limitations"
+  ],
+  "featuredResultTask": "Class-conditional ImageNet synthesis",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "width": 1339,
+      "height": 664,
+      "crop": [
+        0.502,
+        0.089,
+        0.896,
+        0.24
+      ],
+      "alt": "An image encoder and decoder connect pixel space to latent space. A forward diffusion arrow leads to noise; a UNet reverses the process. A condition encoder feeds cross-attention or concatenation.",
+      "caption": "Compression, iterative denoising and conditional information occupy separate parts of the generator.",
+      "readingGuide": "Start at the left: the encoder E maps image x to latent z. The upper arrow runs toward the noisy endpoint z_T. Generation follows the lower path in the opposite direction, repeatedly applying the denoising UNet before D converts the final latent into an image. The loop explicitly marks repeated denoising; D is used once in ordinary sampling. Follow the condition encoder tau_theta along the bottom: its features supply K and V to the yellow attention blocks, while Q comes from UNet features. The switch also depicts the alternative concatenation route. Gray dashed arrows are UNet skip connections, not additional diffusion trajectories.",
+      "takeaway": "The computational saving comes from moving repeated denoising into a smaller spatial representation. Cross-attention lets the denoiser use a different kind of input, such as text, without making that input an image grid. The diagram describes a family of task-specific generators, rather than evidence that every condition is handled by one jointly trained universal model.",
+      "caution": "The arrows agree with the Q/K/V assignments in Section 3.3. However, the printed Q and V projection-matrix dimensions across pp. 4–5 conflict with those assignments. This faithful crop does not resolve that notation error.",
+      "evidenceIds": [
+        "e-autoencoder",
+        "e-latent",
+        "e-conditioning",
+        "e-conditioner-config"
+      ],
+      "asset": "report-assets/ref-07638f74c59962f3e906/architecture.png",
+      "sourceSha256": "46ede043a8dc07ca1f0f445620523fe1ad8b2436bd83856a3835612a47e9f79e",
+      "sourceUrl": "https://arxiv.org/pdf/2112.10752#page=4"
+    },
+    {
+      "id": "autoencoder-reconstruction",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 8",
+      "page": 21,
+      "width": 1383,
+      "height": 651,
+      "crop": [
+        0.078,
+        0.088,
+        0.892,
+        0.384
+      ],
+      "alt": "Autoencoder reconstruction metrics grouped into earlier models, VQ-regularized models and KL-regularized models, with downsampling, codebook size, channel count and quality measures.",
+      "caption": "The first stage sets a measurable reconstruction constraint before diffusion begins.",
+      "readingGuide": "Read the first three columns before comparing scores. The downsampling factor f sets spatial compression; the codebook column identifies VQ settings or the KL alternative; c gives latent channels. R-FID evaluates reconstructed images, whereas the generation tables evaluate newly sampled images. Focus on the VQ rows for f=4 with codebook size 8192: the dagger marks the autoencoder without attention, so it should not be mistaken for a different diffusion sampler. The bottom block changes regularization to KL. The caption fixes provenance for this comparison: training uses OpenImages and reconstruction evaluation uses ImageNet validation. Arrows in each metric header show the preferred direction.",
+      "takeaway": "The VQ f=4, c=3, codebook-8192 model achieves reconstruction FID 0.58, while the VQ f=32, c=16, codebook-16384 row has 31.83. The KL f=4, c=3 row reaches 0.27. These results make the compression bottleneck concrete, but reconstruction quality alone does not determine the quality of the subsequently learned prior.",
+      "caution": "Rows change channel counts, codebooks and sometimes attention or regularization. This table is not a controlled ablation of f alone. R-FID is also not interchangeable with generated-image FID or a guarantee of exact pixel recovery.",
+      "evidenceIds": [
+        "e-reconstruction",
+        "e-autoencoder",
+        "e-compression",
+        "e-limitations"
+      ],
+      "asset": "report-assets/ref-07638f74c59962f3e906/autoencoder-reconstruction.png",
+      "sourceSha256": "46ede043a8dc07ca1f0f445620523fe1ad8b2436bd83856a3835612a47e9f79e",
+      "sourceUrl": "https://arxiv.org/pdf/2112.10752#page=21"
+    },
+    {
+      "id": "compression-speed",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 7",
+      "page": 6,
+      "width": 1340,
+      "height": 427,
+      "crop": [
+        0.08,
+        0.602,
+        0.474,
+        0.699
+      ],
+      "alt": "Two plots show log FID against image samples per second for six compression factors. Colors identify LDM-1 through LDM-32, and markers indicate different denoising step counts.",
+      "caption": "Compression changes both the cost per sample and the fidelity attainable at a given sampling budget.",
+      "readingGuide": "The left panel evaluates CelebA-HQ and the right panel ImageNet. Lower vertical positions mean better log FID; movement to the right means higher throughput in samples per second. The shared legend identifies the compression factor by color. Along each curve, the markers correspond to 10, 20, 50, 100 and 200 DDIM steps from right to left: adding denoising steps usually trades speed for quality. The dashed path connects the 200-step operating points across compression factors. These are 5,000-sample diagnostic estimates, after 500K CelebA training iterations or 2M ImageNet iterations, rather than the 50K-sample final generation benchmarks.",
+      "takeaway": "Moderate compression offers useful operating points between the slow pixel-space model and the heavily compressed models. ImageNet particularly exposes the quality cost of f=32. The defensible conclusion is a quality–throughput tradeoff favoring f=4 or f=8 in the studied setting, not one universally optimal compression factor for every dataset and latency budget.",
+      "caution": "The vertical axis is log FID, so its tick values are not raw FID scores. Tables 13–14 also vary batches, learning rates and model details; equal training iterations on an A100 do not imply identical exposure or compute.",
+      "evidenceIds": [
+        "e-compression",
+        "e-sweep-protocol",
+        "e-evaluation"
+      ],
+      "asset": "report-assets/ref-07638f74c59962f3e906/compression-speed.png",
+      "sourceSha256": "46ede043a8dc07ca1f0f445620523fe1ad8b2436bd83856a3835612a47e9f79e",
+      "sourceUrl": "https://arxiv.org/pdf/2112.10752#page=6"
+    },
+    {
+      "id": "imagenet-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 7,
+      "width": 1336,
+      "height": 282,
+      "crop": [
+        0.502,
+        0.088,
+        0.895,
+        0.152
+      ],
+      "alt": "Class-conditional ImageNet results compare BigGAN, ADM, guided ADM and unguided and guided LDM-4 using FID, Inception Score, precision, recall, parameter count and sampling settings.",
+      "caption": "Guidance improves ImageNet FID while changing the model’s coverage of the data distribution.",
+      "readingGuide": "Begin with the two LDM rows, which make the role of guidance easier to see than a comparison across architectures. Both use 250 sampling steps. The G row applies classifier-free guidance, abbreviated c.f.g., with scale s=1.5. FID is better when lower; Inception Score, precision and recall are better when higher, but the columns need not move together. Then compare with ADM-G and note its larger reported parameter count. Appendix E specifies 50K generated samples and training-set reference statistics for these generation metrics. Appendix D identifies the updated LDM training run as 178K iterations with batch size 1,200.",
+      "takeaway": "LDM-4 moves from FID 10.56 without guidance to 3.60 with guidance, while precision rises from 0.71 to 0.87 and recall falls from 0.62 to 0.48. Its guided FID is below ADM-G’s 4.59, but ADM-G retains higher recall, 0.52. A single best FID therefore hides a meaningful coverage tradeoff.",
+      "caution": "Training, guidance and architecture differ across methods, and the table does not provide FID confidence intervals. Its LDM parameter count is 400M; Table 15 instead lists 395M, an unresolved configuration discrepancy.",
+      "evidenceIds": [
+        "e-imagenet",
+        "e-evaluation",
+        "e-hyperparameters"
+      ],
+      "asset": "report-assets/ref-07638f74c59962f3e906/imagenet-results.png",
+      "sourceSha256": "46ede043a8dc07ca1f0f445620523fe1ad8b2436bd83856a3835612a47e9f79e",
+      "sourceUrl": "https://arxiv.org/pdf/2112.10752#page=7"
+    },
+    {
+      "id": "inpainting-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 7",
+      "page": 9,
+      "width": 1336,
+      "height": 1042,
+      "crop": [
+        0.502,
+        0.084,
+        0.895,
+        0.321
+      ],
+      "alt": "Places inpainting results report FID and LPIPS for a hard subset with 40–50 percent masking and for all samples. Rows compare LDM variants and inpainting baselines, with a note identifying recomputed LaMa results.",
+      "caption": "Resolution fine-tuning improves inpainting FID, while the reconstruction metric favors a different method.",
+      "readingGuide": "Keep the two column groups separate: the left group contains difficult examples with 40–50% of the image masked, and the right group aggregates all test examples. Both FID and LPIPS are lower-is-better measures. Compare the first two rows to examine the large LDM before and after fine-tuning, denoted ft. The smaller-model attention labels concern the first-stage autoencoder; the large diffusion UNet itself uses attention. For the direct LaMa comparison, use the daggered row, recomputed on the authors’ test set. The retained note explains why: the original LaMa test set was unavailable. Evaluation uses 30K Places crops at 512×512.",
+      "takeaway": "Fine-tuning the large LDM for half an epoch at 512 resolution lowers overall FID from 2.40 to 1.50, and hard-subset FID from 12.89 to 9.39. Recomputed LaMa has overall FID 2.23, but its LPIPS of 0.134 is slightly lower than LDM’s 0.137. Distributional realism and similarity to the particular target image remain different criteria.",
+      "caution": "The fine-tuned model also receives extra training at the evaluation resolution. Other LDM rows change capacity or first-stage attention, so the table cannot attribute every improvement to latent diffusion alone. The reported ± values are not identified as run-to-run confidence intervals.",
+      "evidenceIds": [
+        "e-inpainting",
+        "e-inpainting-finetune",
+        "e-inpainting-efficiency"
+      ],
+      "asset": "report-assets/ref-07638f74c59962f3e906/inpainting-results.png",
+      "sourceSha256": "46ede043a8dc07ca1f0f445620523fe1ad8b2436bd83856a3835612a47e9f79e",
+      "sourceUrl": "https://arxiv.org/pdf/2112.10752#page=9"
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Choose the latent space before learning its distribution",
+      "kind": "source",
+      "text": "The two training stages solve different problems. First, the autoencoder must reconstruct an observed image well enough that useful visual information survives compression. Its perceptual and adversarial losses encourage realistic reconstructions, while weak regularization keeps the representation usable. Only afterward does diffusion learn the distribution of those representations, with the autoencoder fixed. For VQ regularization, the diffusion model still sees continuous latents before quantization; the decoder performs quantization when returning to pixels. This matters because the method is not predicting a sequence of discrete codebook indices. Table 8 assesses the first stage, and Figure 7 assesses the combined generator. Reading them together explains why aggressive compression may speed individual steps yet leave the generative model with an inadequate representation.",
+      "evidenceIds": [
+        "e-autoencoder",
+        "e-latent",
+        "e-motivation",
+        "e-reconstruction",
+        "e-compression"
+      ]
+    },
+    {
+      "heading": "Condition each denoising step without confusing training and sampling",
+      "kind": "source",
+      "text": "For text conditioning, the tokenizer and transformer turn a prompt into features that the UNet can consult through cross-attention. At an intermediate UNet layer, visual features produce queries and the condition features produce keys and values. The denoising objective trains the condition encoder together with the noise predictor, while the image autoencoder remains fixed. Spatial inputs such as low-resolution images can instead be concatenated because they already align with the output grid. During ordinary generation, repeated UNet evaluations refine a noisy latent before one final decoding pass. Appendix C describes a different, optional mechanism: post-hoc image guidance differentiates an image comparison through the decoder during sampling. That inference-time computation should not be confused with the perceptual loss used to train the autoencoder.",
+      "evidenceIds": [
+        "e-conditioning",
+        "e-conditioner-config",
+        "e-motivation",
+        "e-spatial",
+        "e-latent",
+        "e-image-guidance"
+      ]
+    },
+    {
+      "heading": "Read the operating point, not just the headline score",
+      "kind": "analysis",
+      "text": "Reader analysis: the strongest interpretation separates representation, sampling and evaluation choices. Figure 7 varies compression and denoising steps, so a point combines architectural and runtime decisions. Table 3 then shows that guidance can improve FID without changing the reported LDM parameter count, while recall declines. Table 7 adds another variable: extra training at the final inpainting resolution substantially improves FID. None of these observations means that every perceptual metric or task benefits equally. Super-resolution illustrates the boundary directly: LDM’s reported FID is favorable while SR3 has higher PSNR. A reproduction should therefore select a checkpoint, guidance scale, sample count, reference split and resolution protocol before comparing scores. Otherwise a change in operating point can be mistaken for evidence about the latent representation itself.",
+      "evidenceIds": [
+        "e-compression",
+        "e-sweep-protocol",
+        "e-imagenet",
+        "e-inpainting",
+        "e-inpainting-finetune",
+        "e-superresolution",
+        "e-evaluation"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate compression from training exposure and compute",
+      "text": "Reader-proposed experiment: repeat a small ImageNet comparison of f=1, 4, 8 and 32 with comparable denoiser capacity and one fixed evaluation pipeline. Run one comparison at matched numbers of training examples, and another at matched accelerator time; report autoencoder pretraining separately. Hold DDIM settings and evaluation labels fixed, measure reconstruction R-FID, generated FID and throughput, and repeat seeds. The paper motivates a middle-ground advantage. If that advantage disappears after exposure or compute is controlled, the original sweep would not by itself isolate compression as the cause.",
+      "evidenceIds": [
+        "e-compression",
+        "e-sweep-protocol",
+        "e-reconstruction",
+        "e-compute-sweep",
+        "e-compute",
+        "e-evaluation"
+      ]
+    },
+    {
+      "title": "Test the ImageNet guidance–coverage tradeoff on one checkpoint",
+      "text": "Reader-proposed experiment: use one verified updated LDM-4 checkpoint and compare unguided sampling with classifier-free guidance scales 1.25 and 1.5. Keep 250 DDIM steps, class frequencies, latent seeds, preprocessing and the 50K-sample evaluation protocol fixed. Record FID, precision, recall and throughput across repeated sample sets. Table 10 predicts lower FID but lower recall at scale 1.5. Failure to observe that joint pattern would challenge the reported operating-point interpretation; lower FID alone would not establish improved coverage. No training or sampling has been run for this proposal.",
+      "evidenceIds": [
+        "e-imagenet",
+        "e-evaluation",
+        "e-compute",
+        "e-revision"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      16,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29
+    ],
+    "notes": "The title/author/version block, main method and result pages, revision changelog, image-guidance formulation, latent-scale diagnostic, reconstruction and generation tables, configuration tables, evaluation protocols and compute/autoencoder details were rendered and visually inspected. This includes Figures 1–11 and 14–18 and Tables 1–18. All five final crops were individually viewed; the inpainting crop retains the caption because it contains the necessary test-split and recomputed-baseline note. Figure 3 arrows and routing were checked against Section 3.3; the printed projection-shape inconsistency is disclosed. Appendix C has a separate Figure 14 caption/column-reference mismatch, recorded in the base evidence. All nine text chunks were read, including remaining appendix captions; the galleries on pp. 14–15 and 30–45 were not visually inspected. No external supplements or code were inspected."
+  }
+}

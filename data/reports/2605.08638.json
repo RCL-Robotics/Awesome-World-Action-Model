@@ -1,0 +1,461 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2605.08638",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T17:11:49.829Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2605.08638",
+      "title": "Geometry Guided Self-Consistency for Physical AI",
+      "kind": "pdf",
+      "sha256": "c4c1e06721d1339778a681fa70e9497bae5559e8dc10ce4174fad496e2fe2c28",
+      "wordCount": 6965,
+      "accessedAt": "2026-09-07T14:01:58.374762+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Background and Related Work",
+      "3 KeyStone",
+      "3.1 Method Overview",
+      "3.2 Latency-Preserving Parallel Sampling",
+      "3.3 Candidate Selection",
+      "3.4 Deployment Loop",
+      "4 Evaluation",
+      "4.1 Experimental Setup",
+      "4.2 Latency and Overhead",
+      "4.3 Task Success Rates",
+      "4.4 Ablations",
+      "5 Limitations",
+      "6 Conclusion",
+      "References",
+      "A Technical Appendices and Supplementary Material",
+      "A.1 Implementation: KeyStone as an Inference-Time Wrapper, including Listings 1–2"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Identity: the title and all four authors match the catalog. The inspected title page identifies arXiv:2605.08638v1 [cs.RO], 9 May 2026; the catalog records submittedDate 2026-05-08. These dates are preserved as distinct metadata observations; no different revision or edition was supplied or compared.",
+      "Acquisition omission preserved: text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This reading additionally inspected all 13 PDF pages, both figures and all five tables.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The linked repository and external baseline resources were not inspected. Appendix listings were read as source text only; no code was executed and no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, PDF p. 2: repeated sampling and geometric consensus",
+      "Figure 2, PDF p. 6: latency and peak GPU memory"
+    ],
+    "tablesReviewed": [
+      "Table 1, PDF p. 7: aggregate success",
+      "Table 2, PDF p. 8: LIBERO suite breakdown",
+      "Table 3, PDF p. 8: X-VLA task breakdown",
+      "Table 4, PDF p. 8: TACO comparison",
+      "Table 5, PDF p. 9: selector ablations"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "KeyStone improves stochastic robot policies by sampling several action chunks from one shared context and executing a geometrically representative candidate. It adds no learned selector or policy training. Its strongest reported simulation gain is 13.3 percentage points, while its latency advantage depends on spare GPU capacity. Consensus can also reinforce an incorrect dominant mode. The supporting mechanism, results and boundaries are traced in e02–e13.",
+  "readingTimeMinutes": 8,
+  "problem": {
+    "text": "A diffusion or flow-matching policy commits to one randomly generated action chunk, executes it open-loop, then observes again. A poor draw can derail an otherwise successful episode; repeated decisions create repeated opportunities for failure. The authors ask whether multiple candidates can improve reliability without training a judge or materially delaying each control round.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03",
+      "e08"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A training-free wrapper combines shared-context parallel generation with guarded clustering and medoid selection over complete action chunks.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "text": "The authors propose action-space geometry as a proxy for behavioral agreement: successful samples concentrate while failures scatter. Figure 1 illustrates this on GR00T/SIMPLER; it does not establish a universal relationship between density and success.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e02",
+        "e13"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Task instruction, camera observations and robot state encoded as context",
+      "Independent Gaussian noise tensors for the existing diffusion or flow sampler"
+    ],
+    "outputs": [
+      "One actually sampled action chunk in the original controller format"
+    ],
+    "steps": [
+      {
+        "name": "Encode once, sample in parallel",
+        "detail": "Reuse VLM features or transformer KV caches across candidates. For Fast-WAM, the video backbone produces one shared world embedding and the action decoder samples multiple chunks. Logical expansion with torch.expand shares context storage; each denoising or flow update processes the candidate batch together.",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e06"
+        ]
+      },
+      {
+        "name": "Measure complete-chunk agreement",
+        "detail": "Flatten each ordered action chunk and compute the pairwise L2 distance matrix. The global medoid minimizes total distance to the candidates. No future-image scoring or learned success judge is introduced.",
+        "evidenceIds": [
+          "e03",
+          "e05"
+        ]
+      },
+      {
+        "name": "Guard against an artificial split",
+        "detail": "Compare the distance between the sample mean and global medoid with the median pairwise distance. If the normalized score is below 0.3, return the global medoid. Otherwise run k-means with two clusters, random candidate initialization and at most ten iterations, stopping when assignments stabilize.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Select and execute",
+        "detail": "Choose the largest cluster and return its within-cluster medoid. Because selection returns an existing sample, it avoids averaging distinct modes; it does not certify that sample as feasible or successful. The original controller executes the chunk and supplies subsequent observations.",
+        "evidenceIds": [
+          "e02",
+          "e05",
+          "e06",
+          "e13"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "KeyStone modifies no model weights, retrains no component and adds no optimization objective or training data. It presupposes a useful pretrained or fine-tuned base policy; the paper evaluates a wrapper rather than proposing a new learned world model.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e13"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Profile the deployment hardware before choosing K. On NVIDIA A6000-48GB GPUs, the paper uses K=4 for GR00T N1.6 and X-VLA, and K=16 for the other models. The baseline path is unchanged when disabled or K=1. Latency includes generation and selection; the reported regime assumes one robot with a dedicated GPU.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e08",
+          "e13"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "a_i=G_\\theta(c_t,\\epsilon_i),\\quad \\epsilon_i\\sim\\mathcal{N}(0,I),\\quad i=1,\\ldots,K;\\qquad \\Delta_{ij}=\\lVert x_i-x_j\\rVert_2",
+        "explanation": "The existing sampler Gθ maps round-t context c_t and noise ε_i to chunk a_i. K is the candidate count, x_i is the flattened chunk, and Δ_ij measures complete-chunk distance. All candidates share c_t.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "m=\\operatorname*{arg\\,min}_i\\sum_j\\Delta_{ij},\\qquad s=\\frac{\\lVert\\bar{x}-x_m\\rVert_2}{\\operatorname{median}_{i<j}\\Delta_{ij}+\\epsilon}",
+        "explanation": "m indexes the global medoid and x̄ is the sample mean. If s<τ, return a_m; τ defaults to 0.3. Here ε is the denominator stabilizer, distinct in role from sampling noise; Listing 2 sets it to 10⁻⁸.",
+        "evidenceIds": [
+          "e05",
+          "e14"
+        ]
+      },
+      {
+        "expression": "\\mathcal{C}_c=\\{i:z_i=c\\},\\quad c^\\star=\\operatorname*{arg\\,max}_{c\\in\\{1,\\ldots,C\\}}|\\mathcal{C}_c|,\\quad i^\\star=\\operatorname*{arg\\,min}_{i\\in\\mathcal{C}_{c^\\star}}\\sum_{j\\in\\mathcal{C}_{c^\\star}}\\Delta_{ij},\\quad a^\\star=a_{i^\\star}",
+        "explanation": "When the guard does not return, z_i is the k-means assignment, C the cluster count and C_c its membership set. The rule first selects by cluster size, then by centrality within that cluster.",
+        "evidenceIds": [
+          "e05"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "GR00T N1.6 manipulation on SimplerEnv–WidowX",
+      "setting": "Simulation; K=4 versus K=1; task macro-average, five evaluation repeats",
+      "metric": "Task success rate, mean ± one across-repeat standard deviation",
+      "value": "63.3 ± 2.9%",
+      "comparison": "50.0 ± 4.3%; +13.3 percentage points",
+      "interpretation": "Largest aggregate gain; an absolute improvement, despite the abstract's percent shorthand.",
+      "evidenceIds": [
+        "e07",
+        "e09"
+      ]
+    },
+    {
+      "task": "GR00T N1.6 manipulation on SimplerEnv–Google Robot",
+      "setting": "Simulation; K=4 versus K=1; task macro-average, five repeats",
+      "metric": "Task success rate, mean ± one standard deviation",
+      "value": "86.7 ± 1.5%",
+      "comparison": "79.4 ± 3.5%; +7.3 percentage points",
+      "interpretation": "Improvement extends to this second simulated embodiment.",
+      "evidenceIds": [
+        "e07",
+        "e09"
+      ]
+    },
+    {
+      "task": "SmolVLA manipulation on LIBERO",
+      "setting": "Simulation; K=16 versus K=1; task macro-average, five repeats",
+      "metric": "Task success rate, mean ± one standard deviation",
+      "value": "57.2 ± 1.3%",
+      "comparison": "50.4 ± 2.1%; +6.8 percentage points",
+      "interpretation": "Substantial remaining failure rate despite improvement.",
+      "evidenceIds": [
+        "e07",
+        "e09"
+      ]
+    },
+    {
+      "task": "StarVLA manipulation on SimplerEnv–WidowX",
+      "setting": "Simulation; K=16 versus K=1; task macro-average, five repeats",
+      "metric": "Task success rate, mean ± one standard deviation",
+      "value": "59.7 ± 1.3%",
+      "comparison": "52.8 ± 1.6%; +6.9 percentage points",
+      "interpretation": "Supports applicability to another action-generation backbone.",
+      "evidenceIds": [
+        "e07",
+        "e09"
+      ]
+    },
+    {
+      "task": "X-VLA manipulation on SimplerEnv–WidowX",
+      "setting": "Simulation; K=4 versus K=1; four-task macro-average, five repeats",
+      "metric": "Task success rate, mean ± one standard deviation",
+      "value": "95.8 ± 1.0%",
+      "comparison": "92.7 ± 1.0%; +3.1 percentage points",
+      "interpretation": "Table 3 localizes most benefit to less-saturated tasks; Put Carrot on Plate remains 100%.",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "π0.5 manipulation on LIBERO",
+      "setting": "Simulation; K=16 versus K=1; four suites of ten tasks, five repeats",
+      "metric": "Task success rate, mean ± one standard deviation",
+      "value": "97.8 ± 1.1%",
+      "comparison": "96.8 ± 0.7%; +1.0 percentage point",
+      "interpretation": "The value and comparison above preserve the author-reported Overall row. Table 2 gives four ten-task KeyStone suite means of 98.0%, 99.5%, 97.5% and 95.0%, whose equal-weight mean is 97.5%; the displayed baseline suite means average to 96.75%, giving a 0.75-percentage-point mean gain. These arithmetic checks do not reproduce the printed 97.8% Overall or +1.0-point gain under the stated task-macro aggregation. The discrepancy is unresolved; the derived values are not corrected raw experimental results. Goal declines from 98.0 ± 1.4% to 97.5 ± 0.7%, and the printed Overall standard deviation increases from 0.7 to 1.1, so neither taskwise improvement nor reduced aggregate variance is universal.",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "Fast-WAM manipulation on RoboTwin 2.0",
+      "setting": "Simulation; K=16 versus K=1; task macro-average, five repeats",
+      "metric": "Task success rate, mean ± one standard deviation",
+      "value": "93.0 ± 1.0%",
+      "comparison": "90.0 ± 1.5%; +3.0 percentage points",
+      "interpretation": "Evidence for the tested WAM integration, not a survey of all WAM architectures or physical deployment.",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e09"
+      ]
+    },
+    {
+      "task": "π0.5 comparison with TACO on RoboTwin 2.0",
+      "setting": "Five tasks with available trained TACO selectors; 50 evaluations per task; both selectors K=16",
+      "metric": "Macro-averaged task success rate",
+      "value": "64.4%",
+      "comparison": "TACO 66.0%; K=1 baseline 58.0%",
+      "interpretation": "Close point estimates without auxiliary training, but KeyStone trails TACO by 1.6 points. No uncertainty or equivalence test is supplied for Table 4.",
+      "evidenceIds": [
+        "e11"
+      ]
+    },
+    {
+      "task": "Selector ablation on GR00T N1.6/SimplerEnv–WidowX",
+      "setting": "Simulation; vary one selector component; default L2, K=4, C=2",
+      "metric": "Absolute success-rate gain over K=1",
+      "value": "Default +13.3 percentage points",
+      "comparison": "Cosine +0.5; doubled K +14.2; C=4 +8.3",
+      "interpretation": "Distance choice is consequential. Extra candidates give only a small gain here; Table 5 gives no uncertainty and does not ablate the guard.",
+      "evidenceIds": [
+        "e12"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "A confident incorrect majority can dominate selection and amplify failure; no selector can recover a successful chunk absent from its candidates. Batch-one latency results may not transfer to GPUs already serving multiple robots.",
+      "kind": "source",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "text": "All reported benchmarks are simulated. Figure 1's per-round PCA illustrates correlation between geometry and outcome, rather than proving that Euclidean proximity guarantees equivalent contact behavior. Selection remains sensitive to the base policy's output representation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e07",
+        "e12"
+      ]
+    },
+    {
+      "text": "Source inconsistencies require numerical reading: Section 3.3 says evaluated sample counts are below 16, whereas subsequent experiments use 16; Table 5's caption says bold marks column maxima, but the visible emphasis follows rowwise maxima. Table 2's four ten-task suite means average to 97.5% for KeyStone and 96.75% for the baseline, a 0.75-percentage-point mean gain, whereas its Overall row prints 97.8 ± 1.1% versus 96.8 ± 0.7% and +1.0 point. The stated task-macro averaging does not explain this discrepancy. The author-reported values are retained, and the arithmetic checks are not substituted for raw results; the inconsistency remains unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e08",
+        "e12",
+        "e07",
+        "e10"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the original checkpoints, testbed configurations and unchanged action post-processing. The source names A6000-48GB hardware, benchmark Docker images and PyTorch operations, but does not enumerate exact checkpoint revisions, container digests, software versions, per-model chunk lengths, denoising schedules, step budgets or every task's episode count. Typical counts are 24–100 per task; five repeats resample policy noise.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07",
+        "e14"
+      ]
+    },
+    {
+      "text": "The appendix is an integration sketch: kmeans and expand_to_K remain helper calls. Action-coordinate normalization or weighting, k-means empty-cluster handling and random seeds are not specified. Proposed checks should freeze candidate batches to isolate selection, then separately profile shared-context sampling under increasing accelerator load.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e08",
+        "e13",
+        "e14"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The foundational action-policy/planning placement is consistent with an inference wrapper applicable to existing VLAs and a WAM. KeyStone introduces neither a joint future/action predictor nor inverse dynamics, and no new integrated learned architecture. Architecture, prediction paradigm and quadrant are therefore appropriately not applicable to the wrapper itself; its host model's world embedding does not establish a One Model classification for KeyStone.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e06"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Action policy foundations",
+        "Theory & planning"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "24a31ed532878d3e217c258cdb0f5d96965b90ab59e08e610de0d67b8533350b"
+    }
+  },
+  "discussionQuestions": [
+    "When does the mean–medoid guard confuse a symmetric multimodal distribution with one compact mode?",
+    "How much of the latency advantage survives multiple concurrent robot streams?",
+    "Which action-coordinate scalings preserve the observed advantage of L2 over cosine?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and arXiv margin",
+      "detail": "Observed title is Geometry Guided Self-Consistency for Physical AI. Authors are Yinwei Dai, Zhuofu Chen, Lijie Yang and Ravi Netravali; affiliation is Princeton University. The margin reads arXiv:2605.08638v1 [cs.RO], 9 May 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Section 1; PDF p. 2, Figure 1 panels (a)–(b), inset and caption",
+      "detail": "Episodes alternate sampling and open-loop chunk execution. Figure 1 labels GR00T N1.6/SIMPLER candidates by eventual episode outcome and projects chunks with per-round PCA. Green stars represent selected medoids; the inset shows example end-effector trajectories."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Sections 3–3.3, Eqs. (1)–(3)",
+      "detail": "The wrapper samples K independent noises under shared encoded context, produces real candidate action chunks and flattens complete chunks for pairwise L2 distances. It selects an existing sample rather than a synthesized mean."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2; PDF p. 12, Appendix A.1, shared context expansion and Fast-WAM paragraphs",
+      "detail": "Candidates reuse VLM features, KV caches or world embeddings with torch.expand. Fast-WAM's video backbone runs once per round, followed by batched action-decoder denoising. Compact action sampling is argued to exploit memory-bandwidth-limited compute headroom."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3, Eqs. (4)–(6) and surrounding paragraphs",
+      "detail": "The mean–global-medoid score uses median pairwise distance in its denominator. Below τ=0.3 the global medoid is returned; otherwise k-means defaults to C=2, random candidate centroids, ten iterations maximum and assignment-stability stopping. The largest cluster supplies its medoid. The final paragraph says sample counts are below 16."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.4; PDF pp. 12–13, Appendix A.1 and Listing 1",
+      "detail": "KeyStone intercepts action generation, leaves weights and downstream control unchanged, and requires no retraining. LeRobot, vla-eval and Fast-WAM integrations return the original action-chunk format after shared-context sampling and selection."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1 Testbed; PDF p. 6, Models, Workloads and Metrics",
+      "detail": "Evaluation uses NVIDIA A6000-48GB GPUs and simulated LIBERO, SimplerEnv and RoboTwin 2.0. Baseline configurations and processing are preserved. Typical per-task episode counts are 24–100; workload rates average per-task rates. Five full repeats resample sampling noise unless otherwise noted; reported deviations are across repeats."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 2, caption and Section 4.2; PDF p. 7, opening continuation",
+      "detail": "Plots show end-to-end generation-plus-selection latency and peak memory at K=1,4,8,16. Latency inflates beyond K=4 for GR00T and X-VLA; these use K=4 subsequently, while other models use K=16. The text qualifies the measurements by dedicated-GPU deployment and re-profiling for shared accelerators."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, all seven model–workload rows and caption; Section 4.3",
+      "detail": "Author-reported baseline→KeyStone success means are π0.5/LIBERO 96.8→97.8, SmolVLA/LIBERO 50.4→57.2, GR00T/WidowX 50.0→63.3, X-VLA/WidowX 92.7→95.8, StarVLA/WidowX 52.8→59.7, GR00T/Google 79.4→86.7 and Fast-WAM/RoboTwin 90.0→93.0 percent. Table cells give across-five-run standard deviations and absolute percentage-point deltas. The π0.5/LIBERO aggregate is reproduced as printed, but its 97.8% KeyStone mean and +1.0-point gain are not recovered by averaging Table 2's four equal-size suite means; see e10."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, Metrics; p. 8, Tables 2–3, all suite/task rows, captions and Table 2 discussion",
+      "detail": "Table 2 gives π0.5 LIBERO baseline→KeyStone means of Spatial 96.0±1.4→98.0±1.4, Object 99.0±1.4→99.5±0.7, Goal 98.0±1.4→97.5±0.7 and Long 94.0±1.4→95.0±1.4 percent; each suite contains ten tasks. Their displayed deltas are +2.0, +0.5, −0.5 and +1.0 percentage points. Reader arithmetic gives equal-weight means of 96.75% and 97.5%, and a mean gain of 0.75 point. The Overall row instead prints 96.8±0.7→97.8±1.1 and +1.0 point; the caption and discussion also claim the suite changes average to +1.0. Section 4.1 defines workload success as the mean of per-task rates and reports five evaluation-repeat means. The printed suite means therefore do not reproduce the aggregate under the stated aggregation. The cause is unresolved; 97.5% and 0.75 point are checks of displayed means, not corrected raw measurements, and no replacement Overall standard deviation is inferred. Table 3's separate X-VLA task deltas are Carrot 0.0, Eggplant +6.9, Spoon +1.4 and Cube +4.2; Carrot remains 100.0±0.0."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4, caption and Comparison with TACO paragraph",
+      "detail": "On five RoboTwin 2.0 tasks with released TACO selectors, π0.5 is evaluated 50 times per task. Baseline/TACO/KeyStone macro rates are 58.0/66.0/64.4 percent, both selectors at K=16. Task rows favor KeyStone on Beat Block Hammer and Handover Block, TACO on the other three. No uncertainty accompanies Table 4."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.4 opening; PDF p. 9, Table 5, caption and ablation discussion",
+      "detail": "Ablations vary distance, sample count or cluster count on five pairs. GR00T/WidowX gains are default +13.3, cosine +0.5, doubled K +14.2 and C=4 +8.3 points. Cosine lowers gains on every pair; doubled K is mixed. No uncertainty or guard ablation is shown. The caption says columnwise bold maxima, although visible bold cells instead match row maxima."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5 Limitations",
+      "detail": "The method assumes useful candidate trajectories. It cannot recover success if all sampled candidates fail and can amplify a confidently incorrect majority. Latency measurements use batch size one; shared multi-robot accelerators may lose spare sampling headroom."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, Appendix A.1, Selector implementation and Listings 1–2",
+      "detail": "The sketch uses PyTorch pairwise distances, median over off-diagonal pairs, s<tau, eps=1e-8, and medoid selection. expand_to_K and kmeans are helper calls rather than complete implementations. The appendix describes integration but does not enumerate software versions, model schedules or action-coordinate weighting."
+    }
+  ]
+}
