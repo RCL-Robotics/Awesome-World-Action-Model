@@ -1,0 +1,440 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-92e1d4830223bf075ed8",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T04:11:33.676Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2411.09153",
+      "title": "VidMan: Exploiting Implicit Dynamics from Video Diffusion Model for Effective Robot Manipulation",
+      "kind": "pdf",
+      "sha256": "5bcbd6c282c62dd6823e1e674a2942319651ba9aa37f9d3922a1aaa91a9b0373",
+      "wordCount": 10222,
+      "accessedAt": "2026-09-07T14:29:23.313951+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "identityVerified": true,
+    "sectionsRead": [
+      "Abstract and title block (p. 1)",
+      "1 Introduction (pp. 1–2)",
+      "2 Related Work and 3 Preliminaries (p. 3)",
+      "4 Method, 4.1 Dynamics-aware Visionary Stage, 4.2 Dynamics-modulated Action Stage (pp. 3–5)",
+      "5 Experiment, 5.1 Settings, 5.2 Comparisons, 5.3 Ablations (pp. 5–9)",
+      "6 Conclusion (p. 9)",
+      "Acknowledgements and References (pp. 10–13)",
+      "A.1 Negative Impacts and Limitations, A.2 Network and Training Details (pp. 14–15)",
+      "A.3 OXE data details and A.4 Additional Experimental Results (pp. 15–17)",
+      "A.5 Visualization (pp. 17–19)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "All six supplied text chunks were read individually. PDF images were inspected on pages 1–9 and 14–19; reference pages 10–13 were read as text.",
+      "Identity notes: the inspected title and all seven authors match the catalog. The PDF explicitly identifies arXiv:2411.09153v1 [cs.CV], 14 November 2024, and NeurIPS 2024. This report concerns that supplied v1 artifact; equivalence to the separately listed proceedings edition or any later revision was not established.",
+      "No code, model checkpoints, external project resources or separate supplements were inspected; no experiments were reproduced. The abstract promises future code/model release, which does not establish present availability."
+    ],
+    "figuresReviewed": [
+      "Figure 1 (p. 2): two-stage concept",
+      "Figure 2 (p. 4): architecture",
+      "Figure 3 (p. 8): offline results",
+      "Figure 4 (p. 9): training-loss curves",
+      "Figure 5 (p. 15): adapter",
+      "Figure 6 (p. 18): video predictions",
+      "Figure 7 (p. 19): offline action traces"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 7): CALVIN",
+      "Table 2 (p. 8): key ablations",
+      "Table 3 (p. 9): frame interval",
+      "Table 4 (p. 14): training hyperparameters",
+      "Table 5 (p. 16): noise inputs",
+      "Table 6 (p. 16): history/future lengths",
+      "Table 7 (p. 16): OXE metrics",
+      "Table 8 (p. 17): RLBench"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "VidMan adapts a video diffusion transformer into a language-conditioned robot policy. Video prediction on OXE supplies pretrained dynamics features; gated adapters and a diffusion action head turn those features into action sequences without generating future images during control. Evidence supports improved simulated manipulation and offline prediction, while the latent inverse-dynamics interpretation remains an architectural inductive bias.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Robot demonstrations are scarce and heterogeneous. The authors seek to transfer temporal knowledge from robot videos into precise actions while avoiding the latency and pixel-prediction errors of explicitly generating a future video before applying a separate inverse-dynamics model.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-rationale",
+      "e-action"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The two stages separate video denoising pretraining from action-only adaptation. A layer-wise gated adapter reuses the video backbone, incorporating learnable action queries and optional proprioceptive state tokens.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-video",
+        "e-action",
+        "e-adapter"
+      ]
+    },
+    {
+      "text": "The authors attribute improved data use to implicit inverse dynamics. The ablations support specific training and architectural choices, but do not identify physical state variables or prove an inverse-dynamics factorization.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-idm",
+        "e-ablations"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Historical RGB images and a language instruction; future RGB images supply stage-one training targets",
+      "Third-person and wrist-camera observations in stage two; CALVIN also uses proprioception"
+    ],
+    "outputs": [
+      "Stage one: predicted video diffusion noise, supporting future-frame generation",
+      "Stage two: action embeddings decoded into end-effector and gripper action sequences"
+    ],
+    "steps": [
+      {
+        "name": "Encode and condition trajectories",
+        "detail": "Tokenize history and future images into V_h and V_f. Noise the full trajectory embeddings, then channel-concatenate them with clean history padded by zero future embeddings. Language and the diffusion timestep also condition Open-Sora. Figure 2 marks the video and text tokenizers with snowflakes.",
+        "evidenceIds": [
+          "e-video"
+        ]
+      },
+      {
+        "name": "Adapt intermediate dynamics features",
+        "detail": "After each video-transformer layer, concatenate learnable action tokens with its features. Self-attention and a feed-forward network, each with tanh gating and residual addition, produce action embeddings. Proprioception can supply additional keys and values. Figure 5 depicts a combined token stream without an explicit attention mask.",
+        "evidenceIds": [
+          "e-action",
+          "e-adapter"
+        ]
+      },
+      {
+        "name": "Decode actions",
+        "detail": "A small diffusion head converts embeddings to low-level controls. The source describes executable end-effector/gripper signals, but Eq. (6) noises action embeddings rather than explicitly showing a demonstrated-action target and its conditioning; the exact training tensor interface remains ambiguous.",
+        "evidenceIds": [
+          "e-action"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Initialize from Open-Sora’s 16×256×256 checkpoint and extend its input embedder with zero weights for conditioning channels. Stage one uses 25 selected OXE datasets, sampling two history and two future frames at interval 3, with third-person images at 256×256 and maximum diffusion step K=1000.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-settings"
+        ]
+      },
+      {
+        "text": "Stage two uses 224×224 third-person and wrist images, predicting 12 actions on OXE or 10 on CALVIN. Its action diffusion maximum is L=100. The best configuration updates backbone and adapters using action supervision alone; freezing the backbone is an ablated alternative.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-settings",
+          "e-ablations"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Set the video timestep to K and supply Gaussian noise alongside the clean historical condition. One backbone pass produces action embeddings without iterative video denoising. The separate diffusion head still decodes actions; its sampling schedule and the number of actions executed before feedback are unspecified.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-action",
+          "e-settings"
+        ]
+      },
+      {
+        "text": "Simulation and recorded-action evaluation support distinct conclusions. Generated video and offline action traces do not establish physical deployment success.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-calvin",
+          "e-oxe-protocol",
+          "e-rlbench",
+          "e-qual"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}_v(\\theta)=\\mathbb{E}_{(V_c^k,y,k)}\\!\\left[\\left\\|\\epsilon-\\epsilon_\\theta(V_c^k,y,k)\\right\\|_2^2\\right]",
+        "explanation": "Eq. (4): theta parameterizes the video denoiser; epsilon is added Gaussian noise; V_c^k combines noisy trajectory tokens with padded clean history; y is the instruction and k the diffusion step. This optimizes noise prediction, not action execution.",
+        "evidenceIds": [
+          "e-video"
+        ]
+      },
+      {
+        "expression": "V_{\\mathrm{action}}=\\epsilon_{(\\theta,\\phi_{\\mathrm{ada}})}(V_c^K,y,K,Q_{\\mathrm{action}})",
+        "explanation": "Eq. (5): phi_ada denotes adapter parameters; Q_action contains h learnable action tokens; V_action is the resulting h embeddings. At maximum video diffusion step K, pure noise replaces generated futures in the noisy input branch.",
+        "evidenceIds": [
+          "e-action"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "CALVIN zero-shot five-instruction chains",
+      "setting": "OXE pretraining; language-labeled CALVIN A/B/C adaptation; test on D with static/wrist cameras and proprioception.",
+      "metric": "Average completed chain length; five-task success rate",
+      "value": "3.42 tasks; 46.7%",
+      "comparison": "GR-1: 3.06 and 40.1%; 3D Diffuser Actor: 3.35 and 41.2%.",
+      "interpretation": "The authors report 11.7% relative average-length improvement over GR-1. Different pretraining, modalities and All/Lang data access prevent isolating the adapter’s contribution. No uncertainty is given here.",
+      "evidenceIds": [
+        "e-calvin"
+      ]
+    },
+    {
+      "task": "OXE in-distribution offline action prediction",
+      "setting": "OXE stage-two training; offline Bridge, Taco Play, Cable Routing and Autolab UR5 evaluation.",
+      "metric": "Average xyz/angle accuracy (%), higher better; action MSE, lower better",
+      "value": "Bridge 55.4 / 0.8; Taco Play 66.4 / 1.0; Cable Routing 24.8 / 3.3; Autolab UR5 33.2 / 3.4",
+      "comparison": "Octo-base respectively: 49.8 / 2.2; 63.8 / 1.9; 14.9 / 7.5; 24.3 / 8.6.",
+      "interpretation": "Rounded accuracy differences are 5.6, 2.6, 9.9 and 8.9 percentage points, calculated from Table 7. The caption calls the last gain 9.0%. These are offline accuracy differences, not relative percentages or task-success gains.",
+      "evidenceIds": [
+        "e-oxe-protocol",
+        "e-oxe"
+      ]
+    },
+    {
+      "task": "CALVIN training and adapter ablations",
+      "setting": "Table 2 CALVIN finetuning experiments.",
+      "metric": "Average completed chain length",
+      "value": "Action-only 3.42; OXE pretraining 3.42; unfrozen backbone with adapter 3.42",
+      "comparison": "Co-training video/action losses 2.70; no video pretraining 2.89; Ego4d 3.29; no adapter 1.54; frozen backbone 2.98.",
+      "interpretation": "Variants support sequential specialization, robotics pretraining and layer-wise adaptation. VidMan-GPT also changes prediction horizon and objective, so it is not a single-factor diffusion test.",
+      "evidenceIds": [
+        "e-ablations",
+        "e-calvin"
+      ]
+    },
+    {
+      "task": "Frame interval and control utility",
+      "setting": "Two historical plus two future frames; intervals 1–4; Bridge prediction and CALVIN control.",
+      "metric": "Bridge FID/FVD/MSE; CALVIN average chain length",
+      "value": "Interval 3: FID 38.4, FVD 376, MSE 0.89, CALVIN 3.42",
+      "comparison": "Interval 1: 29.5, 327, 2.80, 2.24; interval 4: 51.9, 422, 1.20, 3.03.",
+      "interpretation": "Better video distribution scores do not track better action performance here. Interval changes both historical coverage and future distance, so the experiment does not isolate their contributions.",
+      "evidenceIds": [
+        "e-spacing"
+      ]
+    },
+    {
+      "task": "RLBench-100 multi-task manipulation",
+      "setting": "18 tasks; agents trained with 100 demonstrations; 25 evaluation episodes per task, with five-seed reporting described in the appendix.",
+      "metric": "Average success rate (%)",
+      "value": "67.4",
+      "comparison": "Act3D 65.1; RVT 62.9; PerAct 42.7.",
+      "interpretation": "Simulation evidence extends beyond CALVIN. Per-task ± quantities are called variance in the prose; aggregate uncertainty is absent. Inference-speed units and hardware are unspecified, preventing a control-frequency claim.",
+      "evidenceIds": [
+        "e-rlbench"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Authors identify absent 3D perception, limited complex-instruction understanding and coarse whole-image perception. Qualitative video examples lose details such as occluded objects.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-limits",
+        "e-qual"
+      ]
+    },
+    {
+      "text": "Source inconsistencies remain: A.1 contrasts the model with CLIP although A.2 specifies CLIP. Table 6 uses m for history and n for future, while adjacent prose reverses them. The Ego4d discussion’s 0.13 decrease is relative to OXE, not no-pretraining. Figure 4 plots iterations, not elapsed time, and does not substantiate the prose’s faster frozen-backbone convergence claim.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-limits",
+        "e-config",
+        "e-history",
+        "e-video",
+        "e-ablations"
+      ]
+    },
+    {
+      "text": "OXE lacks exact held-out trajectory splits and uncertainty. Its xyz-accuracy description combines 0.5 radians with 50% of motion norm, insufficient to reconstruct a precise implementation. Evidence does not establish real-robot robustness.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-oxe-protocol",
+        "e-oxe",
+        "e-qual"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Appendix A.2 specifies VideoAutoencoderKL, CLIP and reduced STDiT-XL/2: 12 layers, 16 heads, width 1152. Table 4 gives batch sizes 384/1440/400, learning rates 2e-5/1e-4/1e-4 and durations 100k steps/300k steps/20 epochs for stage one/OXE stage two/CALVIN stage two. All configurations use AdamW, dropout 0.1 and weight decay 0.1; Table 4 lists no stage-one LR schedule and inverse-square-root decay for stage two.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-config"
+      ]
+    },
+    {
+      "text": "Hardware is 16 V100 32GB GPUs for each OXE stage and 8 for CALVIN. The source states 42 hours for stage one and 32 for OXE stage two, which accumulates five batches of 18 per GPU. Preparation excludes missing-image/non-delta-control datasets, reweights diversity, zero-pads missing cameras and maps gripper open/closed to +1/0.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-config",
+        "e-data"
+      ]
+    },
+    {
+      "text": "Mixture membership/weights, exact checkpoints, software versions, action normalization, decoder architecture and sampling/feedback settings need clarification. A proposed small check is the frozen-backbone Bridge noise-input ablation: batch 192, 100k iterations, identical data. Pure noise/zeros/unnoised images yield reported MSE 4.8/12.1/11.2. Keep these reduced-training results separate from Table 7.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-action",
+        "e-config",
+        "e-data",
+        "e-noise"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "conflicts",
+    "reasoning": {
+      "text": "WAM relevance and the authors’ implicit-IDM designation are supported. The recorded Dual-system architecture overstates separation: Figures 2 and 5 and Eq. (5) show a shared video backbone transformed into an action policy with adapters and a decoder. Two training stages and the System 1/System 2 analogy do not establish separately operating models. Inference is integrated, without an explicit future-video-to-IDM pipeline or joint future/action output. The catalog snapshot remains unchanged.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-rationale",
+        "e-video",
+        "e-action",
+        "e-adapter"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Visual planning & IDM",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "Dual-system",
+      "predictionParadigm": "IDM",
+      "quadrant": "Q4 · Dual-system × IDM",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "b928d0cdb64b289eb7f5348f28088310d686039ff4737657608203fe6367b1b3"
+    }
+  },
+  "discussionQuestions": [
+    "Would action-only adaptation still win with matched auxiliary-loss scales and training compute? (e-ablations)",
+    "Does temporal coverage help through history, future targets, or both when varied independently? (e-spacing, e-history)"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, arXiv margin and conference footer",
+      "detail": "The exact catalog title and seven authors appear with Shenzhen Campus of Sun Yat-Sen University, Pengcheng Laboratory and Huawei Noah’s Ark Lab affiliations. The artifact states v1, 14 November 2024, NeurIPS 2024; the abstract promises code and models."
+    },
+    {
+      "id": "e-rationale",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 1 and Introduction, two-stage description",
+      "detail": "Video prediction pretraining transfers dynamics through shared architecture and parameters into action prediction without explicitly generated future trajectories."
+    },
+    {
+      "id": "e-idm",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3, Eqs. (1)–(3)",
+      "detail": "Inverse dynamics is P(a | s_t, s_{t+1}); states are conceptual latent quantities inferred from observations. These preliminaries motivate the method, rather than specify an independently trained state estimator."
+    },
+    {
+      "id": "e-video",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and Section 4.1, Eq. (4)",
+      "detail": "History m and future n frames are encoded. Clean history padded with zero futures conditions noisy trajectory latents through channel concatenation. Text and timestep condition denoising; tokenizer snowflakes appear in the diagram."
+    },
+    {
+      "id": "e-action",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.2, Eqs. (5)–(6)",
+      "detail": "Adapters combine learned action queries with each VDT layer; proprioception supplies extra keys/values. At k=K the noisy branch is Gaussian and iterative video denoising is disabled. The head decodes controls, but Eq. (6) explicitly noises V_action and omits a distinct demonstrated-action target."
+    },
+    {
+      "id": "e-settings",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 5.1.1, both training-stage paragraphs",
+      "detail": "Open-Sora initialization, 25 OXE datasets, two history/two future frames at interval 3, resolutions 256 and 224, K=1000, L=100 and 12/10 action horizons are specified."
+    },
+    {
+      "id": "e-calvin",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Sections 5.1.2 and 5.2, Table 1, VidMan/GR-1/3D Diffuser Actor rows; p. 7 VidMan-GPT paragraph",
+      "detail": "CALVIN trains on A/B/C and tests D with five-instruction chains. Table 1 gives 3.42/3.06/3.35 average lengths and 46.7/40.1/41.2 five-task success. VidMan uses language-labeled CALVIN, both cameras and proprioception. The GPT baseline changes horizon and reconstruction objective."
+    },
+    {
+      "id": "e-oxe-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 5.1.2 Offline Evaluation; p. 7, Section 5.2 Offline Performance",
+      "detail": "Offline OXE evaluation is in-distribution on four datasets. Average xyz/angle accuracy and action MSE are reported; xyz tolerance is worded as 0.5 radians and 50% of motion norm; rotation tolerance is 0.5 radians. Exact validation split identifiers are absent."
+    },
+    {
+      "id": "e-ablations",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2(a–c) and Section 5.3; p. 9, pretraining/adapter paragraphs and Figure 4",
+      "detail": "Co-train/action-only scores are 2.70/3.42; no-pretrain/Ego4d/OXE 2.89/3.29/3.42; no-adapter/frozen/unfrozen 1.54/2.98/3.42. Co-train adds video loss in stage two. Figure 4 labels frozen orange and unfrozen blue and plots training iterations; blue is generally lower despite the frozen-convergence assertion."
+    },
+    {
+      "id": "e-spacing",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 3, interval 1–4 rows and frame-sampling discussion",
+      "detail": "Interval 1 gives FID/FVD/MSE 29.5/327/2.80 and CALVIN 2.24; interval 3 gives 38.4/376/0.89 and 3.42; interval 4 gives 51.9/422/1.20 and 3.03. Historical coverage and future distance both change."
+    },
+    {
+      "id": "e-limits",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A.1",
+      "detail": "Authors describe 2D-only perception, limited instruction understanding and missing fine-grained object inputs. A.1’s CLIP comparison conflicts with A.2’s explicit CLIP text encoder."
+    },
+    {
+      "id": "e-config",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A.2, Model details, Training details and Table 4",
+      "detail": "VideoAutoencoderKL, CLIP, STDiT-XL/2, 12 layers, 16 heads and width 1152 are specified. Table 4 supplies optimization settings; prose gives V100 counts, memory, accumulation and OXE durations. Stage-one schedule is None in the table despite the prose’s general decay description."
+    },
+    {
+      "id": "e-adapter",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Figure 5 and Appendix A.2 Layer-wise adapter",
+      "detail": "Open-Sora outputs, state tokens and action queries join the input. Q/K/V arrows arise from the combined stream. Attention and feed-forward blocks use tanh gating and residual addition; action tokens appear at the top. No mask or gate-initialization value is shown."
+    },
+    {
+      "id": "e-data",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A.3",
+      "detail": "Selection filters image streams and delta end-effector control, describes qualitative diversity reweighting without complete mixture membership/weights, zero-pads missing camera channels and standardizes gripper +1=open, 0=closed."
+    },
+    {
+      "id": "e-noise",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A.4 Why use pure noise; p. 16, Table 5",
+      "detail": "Bridge-only frozen-VDT ablation uses 100k iterations and batch 192. No-noise/pure-noise/pure-zero MSE is 11.2/4.8/12.1; pure-noise xyz/angle accuracy is 32.7/37.6."
+    },
+    {
+      "id": "e-history",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Table 6 and historical/future-frame discussion; p. 4, Section 4.1",
+      "detail": "Table 6 labels m as history and n as future, consistent with Section 4.1 but reversed in adjacent prose. Rows (1,1), (2,1), (2,2) give CALVIN 2.09/2.80/3.42 and Bridge MSE 4.20/1.80/0.89."
+    },
+    {
+      "id": "e-oxe",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Table 7, VidMan/Octo-base rows across four dataset blocks; p. 8, Figure 3 and caption",
+      "detail": "VidMan average accuracy is 55.4/66.4/24.8/33.2 and MSE 0.8/1.0/3.3/3.4. Octo-base accuracy is 49.8/63.8/14.9/24.3 and MSE 2.2/1.9/7.5/8.6. Captions call gains 5.6%, 2.6%, 9.9%, 9.0%; displayed UR5 averages differ by 8.9 points."
+    },
+    {
+      "id": "e-rlbench",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix A.4 Results on RLBench; p. 17, Table 8 and following paragraph",
+      "detail": "18 tasks, 25 episodes per task and agents trained with 100 demonstrations are specified. Five seeds and variance are mentioned. Aggregate successes are 67.4/65.1/62.9/42.7 for VidMan/Act3D/RVT/PerAct; inference-speed units, hardware and aggregate uncertainty are absent."
+    },
+    {
+      "id": "e-qual",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Appendix A.5; p. 18, Figure 6; p. 19, Figure 7",
+      "detail": "Yellow video borders mark ground truth and blue borders predictions; occluded details can be missing. Offline action plots compare x/y/z/yaw/pitch/roll/grasp. Figure 7’s caption omits z from its list although plots include it. These are not physical execution trials."
+    }
+  ]
+}
