@@ -1,0 +1,440 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2506.21539",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T23:17:15.512Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2506.21539",
+      "title": "WorldVLA: Towards Autoregressive Action World Model",
+      "kind": "pdf",
+      "sha256": "947432b8e3ce0f9068eb965f6ea4b86a6d9435ade5e38ac20e3822acf78c81f7",
+      "wordCount": 6715,
+      "accessedAt": "2026-09-07T14:11:26.672159+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, author block and abstract (p. 1)",
+      "1 Introduction (pp. 1–2)",
+      "2 Related Works (p. 3)",
+      "3 Methods; 3.1 Problem Formulation; 3.2 Architecture; 3.3 Training Strategy (pp. 4–6)",
+      "4 Experiments; 4.1 Evaluation Benchmark; 4.2 Evaluation Results and Discussion (pp. 6–11)",
+      "5 Conclusion and Future Work (p. 11)",
+      "References (pp. 11–14)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity notes: the title and all 12 authors match the catalog. The inspected artifact is arXiv:2506.21539v1, stamped 26 June 2025; its title block separately says June 27, 2025. No later revision was supplied or compared.",
+      "The title page links the WorldVLA repository, whereas the catalog lists RynnVLA-002. Neither repository was inspected; their relationship and any later edition differences remain unverified.",
+      "The supplied extraction does not reconstruct figure images. This limitation was addressed by inspecting PDF pages 1–11 and all six final crops; references on pages 12–14 were read as text.",
+      "Separate supplemental material availability has not been fully verified. No appendix appears in the supplied 14-page PDF.",
+      "Code was not inspected and experiments were not reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2): model capability comparison",
+      "Figure 2 (p. 4): unified architecture",
+      "Figure 3 (p. 5): attention masks",
+      "Figure 4 (p. 8): action rollouts",
+      "Figure 5 (p. 9): generated visual sequences",
+      "Figure 6 (p. 10): chunk-length sweep",
+      "Figure 7 (p. 10): world versus video prediction"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 3): model taxonomy",
+      "Table 2 (p. 6): LIBERO benchmark",
+      "Table 3 (p. 7): action-model ablation",
+      "Table 4 (p. 9): world-model ablation",
+      "Table 5 (p. 11): observation history",
+      "Table 6 (p. 11): world-model pretraining"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "WorldVLA adapts Chameleon into one token-generating model with two tasks: produce robot actions from images and instructions, or predict images from observations and actions. Joint training improves LIBERO policy success and longer-horizon video prediction in the reported ablations. Its distinctive attention mask removes dependencies between successive actions in a chunk. The evidence supports shared-model learning benefits, but does not establish an inference-time planner that ranks imagined futures.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "The paper targets a gap between policies that output actions without learning to interpret them, and world models that consume actions but do not directly generate them. The authors propose shared representations for both tasks and identify error propagation through earlier predicted actions as a weakness of naive autoregressive action chunking.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "E02",
+      "E06"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A shared discrete autoregressive backbone supports both observation-conditioned action generation and action-conditioned future-image prediction, using modality-specific tokenizers and one vocabulary.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05"
+      ]
+    },
+    {
+      "text": "An action attention mask blocks earlier actions within a chunk while retaining text/image context. Ablations separate its large contribution from the smaller incremental benefit of joint world-model training.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E06",
+        "E10"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Policy: language instruction and historical image observations.",
+      "World prediction: image observations, corresponding actions and a fixed prediction prompt; no task instruction."
+    ],
+    "outputs": [
+      "Policy: discretized seven-component robot actions, grouped into chunks.",
+      "World prediction: discrete future-image tokens decoded into visual observations."
+    ],
+    "steps": [
+      {
+        "name": "Tokenize all modalities",
+        "detail": "Initialize from Chameleon. The VQ-GAN image tokenizer has compression ratio 16 and an 8,192-entry codebook, producing 256 tokens at 256×256 or 1,024 at 512×512. Each action dimension uses 256 bins determined from training-data ranges. Seven tokens encode three relative positions, three relative angles and one absolute gripper state. The shared vocabulary contains 65,536 entries.",
+        "evidenceIds": [
+          "E03",
+          "E04"
+        ]
+      },
+      {
+        "name": "Select the prediction task",
+        "detail": "Policy examples concatenate a task question and M images before K target actions. World examples combine a fixed next-frame prompt, an image and an action before a target image, repeating for N transitions. Only target action tokens or generated image tokens contribute the respective losses. This is joint capability through mixed task examples, rather than a requirement to emit both outputs on every call.",
+        "evidenceIds": [
+          "E05",
+          "E07"
+        ]
+      },
+      {
+        "name": "Remove cross-action dependence",
+        "detail": "Figure 3(b) removes attention from Action₁ to Action₀ while preserving text/image access and causal triangles inside each action block. Thus action groups can be decoded independently of earlier groups; the diagram does not imply independence of every component token. World prediction retains ordinary causal attention. Figure 2 labels the gripper as a delta, conflicting with the absolute state specified in Section 3.2.",
+        "evidenceIds": [
+          "E03",
+          "E04",
+          "E06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Mix policy and world-model examples under the weighted cross-entropy objective. Defaults are M=2 images, K=5 actions for Spatial/Object/Goal and K=10 for Long, N=1 world transition, and α=0.04. The weight compensates for the greater number of image tokens.",
+        "kind": "source",
+        "evidenceIds": [
+          "E07",
+          "E08"
+        ]
+      },
+      {
+        "text": "Remove unsuccessful trajectories and no-operation actions. The default split is 90% training trajectories and 10% validation; Table 2 instead uses all available training data. World-model pretraining followed by policy learning is investigated separately from the main mixed-training method.",
+        "kind": "source",
+        "evidenceIds": [
+          "E08",
+          "E17"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "For control, provide the instruction and observed image history, decode an action chunk and detokenize its components. For visual forecasting, condition image generation on observations and supplied actions. Longer chunks delay policy adaptation. The paper motivates prospective simulation but supplies no candidate-search, scoring or imagined-rollout selection algorithm for the evaluated policy.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "E03",
+          "E05",
+          "E06",
+          "E14"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "M_{\\psi}:\\begin{cases}a_t=M_{\\psi}^{\\mathrm{policy}}(a_t\\mid o_{t-h:t},l),\\\\o_t=M_{\\psi}^{\\mathrm{world}}(o_t\\mid o_{t-h:t-1},a_{t-h:t-1}).\\end{cases}",
+        "explanation": "Equation (3), preserving the paper's conditional-output notation: a_t is an action, o_t an image observation, l the instruction, h the history span, and ψ the unified model's parameters. The two superscripts distinguish policy and world-prediction functions of that model.",
+        "evidenceIds": [
+          "E03"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}=\\mathcal{L}_{\\mathrm{action}}+\\alpha\\mathcal{L}_{\\mathrm{world}}",
+        "explanation": "Equation (4): the two terms are cross-entropy losses on target actions and generated images. α balances their contributions and is set to 0.04 in the experiments.",
+        "evidenceIds": [
+          "E07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO four-suite policy benchmark",
+      "setting": "Table 2; all available data used for training; 50 evaluation rollouts per task with different initial states.",
+      "metric": "Average task success rate (%)",
+      "value": "81.8 at 512×512; 79.1 at 256×256.",
+      "comparison": "OpenVLA: 76.5; OpenVLA-OFT: 95.4.",
+      "interpretation": "The higher-resolution model exceeds discrete OpenVLA by 5.3 percentage points, but not the strongest listed continuous baseline. WorldVLA lacks large-scale robot-data pretraining in this table, while still using pretrained Chameleon.",
+      "evidenceIds": [
+        "E03",
+        "E08",
+        "E09"
+      ]
+    },
+    {
+      "task": "Joint training and action-mask ablation",
+      "setting": "Table 3; default 90% training split; four LIBERO suites, 50 rollouts per task.",
+      "metric": "Average task success rate (%)",
+      "value": "62.8 action-only; 67.2 with world training; 54.0 naive chunking; 76.6 masked chunking; 78.1 masked chunking plus world training.",
+      "comparison": "Joint training adds 4.4 points without chunks and 1.5 with masked chunks. Masking adds 22.6 points over naive chunking.",
+      "interpretation": "Masking explains the largest isolated improvement. Comparing 62.8 directly with 78.1 would combine multiple interventions.",
+      "evidenceIds": [
+        "E08",
+        "E10"
+      ]
+    },
+    {
+      "task": "Action-conditioned visual prediction",
+      "setting": "Table 4; paired held-out validation trajectories; 10- and 50-frame sequences.",
+      "metric": "FVD (lower is better)",
+      "value": "Action World Model: 255.1 at 10 frames; 674.1 at 50 frames.",
+      "comparison": "World Model: 250.0 and 718.6, respectively.",
+      "interpretation": "The 50-frame FVD reduction is about 6.2%, calculated from the table, not the introduction's 10% claim. At 10 frames FVD and SSIM worsen, while PSNR and LPIPS improve; benefits are not uniform.",
+      "evidenceIds": [
+        "E08",
+        "E12",
+        "E20"
+      ]
+    },
+    {
+      "task": "World prediction versus instruction-conditioned video prediction",
+      "setting": "Figure 7; default evaluation protocol; compare action-only, action-video and action-world variants.",
+      "metric": "Average task success rate (%)",
+      "value": "Action World Model: 67.2.",
+      "comparison": "Action model: 62.8; Action Video Prediction Model: 63.0.",
+      "interpretation": "Action-conditioned supervision helps more here. The comparison also changes conditioning and sequence construction, so it does not uniquely isolate physical understanding.",
+      "evidenceIds": [
+        "E08",
+        "E15"
+      ]
+    },
+    {
+      "task": "World-model initialization for the policy",
+      "setting": "Table 6; separate pretraining ablation under the default data/evaluation protocol.",
+      "metric": "Average task success rate (%)",
+      "value": "66.8 with world-model pretraining.",
+      "comparison": "62.8 without world-model pretraining.",
+      "interpretation": "A 4.0-point gain supports transferring world-model weights; it is distinct from the joint-training result.",
+      "evidenceIds": [
+        "E08",
+        "E17"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Evidence is confined to LIBERO simulation. Qualitative grasp retries and coherent generated frames illustrate selected cases, not physical deployment, calibrated dynamics or a measured planning mechanism. No seed-level uncertainty accompanies the main tables.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E08",
+        "E09",
+        "E10",
+        "E11",
+        "E12",
+        "E13"
+      ]
+    },
+    {
+      "text": "The authors identify limited perceptual expressiveness of discrete image tokenization and reduced adaptation with excessive chunk length. Several Figure 6 curves are nonmonotonic, while LIBERO-Object's naive-mask curve decreases at every tested step. Degradation is therefore not universal at every length increment.",
+      "kind": "source",
+      "evidenceIds": [
+        "E14",
+        "E18"
+      ]
+    },
+    {
+      "text": "Table 5 reports an observation-history speed/success tradeoff but does not explicitly identify its task or timing hardware. Its FPS values cannot support a hardware-independent latency claim.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E16",
+        "E19"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required ingredients include the Chameleon initialization, image/action tokenizers, filtered LIBERO trajectories and two task templates. Preserve the Table 2 full-data exception. Exact no-operation thresholds, split seeds, optimizer, learning rate, batch size, training duration, compute, frozen modules and task-mixture ratio are not specified in the supplied paper.",
+      "kind": "source",
+      "evidenceIds": [
+        "E03",
+        "E04",
+        "E05",
+        "E08",
+        "E19"
+      ]
+    },
+    {
+      "text": "Proposed checks: compare causal and blocked cross-action masks at matched chunk lengths and observation-update rates; separately compare aligned versus shuffled action conditioning with matched training budgets. Report repeated-seed policy success and held-out video quality to test error propagation and action-conditioned learning, rather than assuming either mechanism from aggregate gains.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E06",
+        "E10",
+        "E12",
+        "E14",
+        "E15"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The shared Chameleon-derived autoregressive backbone and common vocabulary support One Model. Its policy and action-conditioned world functions support the recorded broad Joint prediction category. This means one model learns both outputs through distinct task sequences; it is not inverse dynamics from imagined goal frames, nor proof of simultaneous action/video emission or planning during control.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "E02",
+        "E03",
+        "E04",
+        "E05"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Joint video-action modeling"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q1 · One Model × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "d596d26f66b17f6019cce8095d0a7c2f524be57cf38fb1a8b8cf20bc8c55ffb7"
+    }
+  },
+  "discussionQuestions": [
+    "Does aligned action conditioning improve control beyond an equally expensive auxiliary image-generation objective?",
+    "How much of the chunk-mask benefit survives when observation refresh frequency is held fixed?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "E01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block, arXiv margin and date/code lines",
+      "detail": "Title and 12 authors match the catalog. The margin identifies arXiv:2506.21539v1, 26 June 2025; the title block says June 27, 2025 and links WorldVLA. Affiliations are DAMO Academy, Alibaba Group; Hupan Lab; Zhejiang University."
+    },
+    {
+      "id": "E02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Introduction, Figure 1 and Table 1",
+      "detail": "The authors contrast action-output policies and action-conditioned world models, proposing a unified action world model with both output modalities."
+    },
+    {
+      "id": "E03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2; Sections 3.1–3.2; Eqs. (1)–(3)",
+      "detail": "One model has policy and world functions and is initialized from Chameleon. The diagram routes text/images to actions and text/images/actions to future images. Its action labels include ΔGrip."
+    },
+    {
+      "id": "E04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, tokenizer paragraph",
+      "detail": "VQ-GAN compression ratio 16 and codebook 8192; 256 or 1024 image tokens; 256 action bins; seven action components including an absolute gripper state; shared vocabulary size 65,536."
+    },
+    {
+      "id": "E05",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.3, Action Model Data and World Model Data token sequences",
+      "detail": "Policy examples contain M images and K target actions. World examples use a fixed prompt and image/action inputs to predict images over N rounds. Losses apply to generated modality tokens; world inputs do not require task instructions."
+    },
+    {
+      "id": "E06",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 3(a–c); p. 6, Attention Mask paragraph",
+      "detail": "Panel (b) blocks Action₁ rows from Action₀ columns, preserves text/image context and intra-action causal triangles. World prediction remains causally masked. Prose describes parallel generation of actions without prior-action conditioning."
+    },
+    {
+      "id": "E07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Training Objective and Eq. (4); p. 7, Training Setting",
+      "detail": "The objective sums action cross-entropy and α-weighted world cross-entropy; α=0.04. Defaults are M=2, K=10 for Long and 5 otherwise, N=1."
+    },
+    {
+      "id": "E08",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.1, Benchmark, Datasets, Training Setting and Metrics",
+      "detail": "LIBERO suites are evaluated after unsuccessful/no-op filtering. Default trajectory split is 90/10; Table 2 uses all available data. Policies receive 50 rollouts per task with varied initial states; video metrics use held-out paired trajectories."
+    },
+    {
+      "id": "E09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2, WorldVLA/OpenVLA/OpenVLA-OFT rows and Average column; p. 7, Benchmark Results",
+      "detail": "Average SR is 79.1 for 256×256 WorldVLA, 81.8 for 512×512, 76.5 for OpenVLA and 95.4 for OpenVLA-OFT. Table pretraining denotes large-scale robot manipulation data."
+    },
+    {
+      "id": "E10",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3, rows 1–5 and Average SR column",
+      "detail": "Rows 1–5 report 62.8, 67.2, 54.0, 76.6 and 78.1 average SR. Rows 1/2 and 4/5 isolate world training; rows 3/4 isolate the proposed mask. No world-plus-naive-chunk row is supplied."
+    },
+    {
+      "id": "E11",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 4(a–b) and World Model Helps Action Model discussion",
+      "detail": "Selected cream-cheese and wine-bottle rollouts contrast missed grasps with joint-model grasp retries. The authors attribute improved behavior to physical understanding and prospective simulation."
+    },
+    {
+      "id": "E12",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 4, both model rows and 10/50-frame columns; p. 8, Action Model Helps World Model",
+      "detail": "At 10 frames world/joint values are FVD 250.0/255.1, PSNR 29.62/29.77, SSIM 90.73/90.40, LPIPS 11.97/11.94. At 50 frames they are 718.6/674.1, 23.98/24.30, 83.41/83.55 and 15.60/15.44. Table scaling for SSIM/LPIPS is not explained."
+    },
+    {
+      "id": "E13",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 5(a–c); p. 8, Action Model Helps World Model",
+      "detail": "Selected predicted sequences concern drawer opening, plate pushing and bowl placement; the discussion describes failed opening, disappearing objects and failed lifting in the standalone world model."
+    },
+    {
+      "id": "E14",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Figure 6 and action-chunk discussion continuing from p. 8",
+      "detail": "Four suite plots compare proposed and naive masks at chunk lengths 5, 10, 15 and 20 with no-chunk baselines. Proposed-mask curves exceed naive curves at every plotted length. Several curves are nonmonotonic, while LIBERO-Object's naive-mask curve strictly decreases across the four lengths. The discussion links excessive chunk length to reduced timely adaptation."
+    },
+    {
+      "id": "E15",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Figure 7 and World Model versus Video Prediction Model subsection",
+      "detail": "Average SR is 62.8 action-only, 63.0 action-video and 67.2 action-world. Video prediction uses task text and image history without actions and predicts K frames; world prediction is action-conditioned."
+    },
+    {
+      "id": "E16",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 5 and Historical Image Input paragraph",
+      "detail": "With action chunking, one/two/four images yield SR 74.0/84.4/84.7 and FPS 3.67/3.13/2.78. The source selects two images as a tradeoff but does not explicitly label the evaluated task or timing hardware."
+    },
+    {
+      "id": "E17",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table 6 and Pretrain Action Model using World Model",
+      "detail": "World-model initialization increases average SR from 62.8 to 66.8, improving all four reported suites; it is studied separately from mixing policy/world training data."
+    },
+    {
+      "id": "E18",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Section 5, Conclusion and Future Work",
+      "detail": "The authors propose scaling, improved unified tokenization and an auxiliary action head as future directions, identifying limited perceptual expressiveness of the current discrete tokenizer."
+    },
+    {
+      "id": "E19",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–7, Sections 3–4.1; p. 11, historical-input and pretraining descriptions",
+      "detail": "The supplied method/experiment descriptions give tokenization, losses and M/K/N/α defaults, but omit exact filtering thresholds, optimizer, batch size, learning rate, duration, compute, frozen-module policy, mixture ratio and split seeds."
+    },
+    {
+      "id": "E20",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Introduction FVD claim; p. 9, Table 4 FVD columns",
+      "detail": "The introduction states a 10% FVD reduction. Table 4 instead gives 718.6 to 674.1 at 50 frames (about 6.2% calculated reduction) and 250.0 to 255.1 at 10 frames."
+    }
+  ]
+}
