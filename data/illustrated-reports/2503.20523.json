@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2503.20523",
+  "shortTitle": "GAIA-2",
+  "thesis": "GAIA-2 combines compact video latents with structured conditioning to generate controllable surround-view driving scenes, while its evidence leaves physical validity and downstream driving benefit unresolved.",
+  "standfirst": "A driving simulator must let a researcher change an agent, a trajectory or the weather while keeping the surrounding camera views coherent. GAIA-2 approaches that problem by encoding each view into a compact continuous representation, then generating all views through a conditional flow-matching transformer. Its interface accepts speed, curvature, boxes, camera geometry and semantic information. The figures below explain how those controls enter the model, how the tokenizer makes the computation feasible, and what the reported validation curves actually establish. Read the examples as demonstrations of controllable image synthesis; the paper supplies no executed-policy evaluation that would turn visual plausibility into evidence of safer driving.",
+  "evidenceIds": [
+    "overview",
+    "tokenizer",
+    "transformer",
+    "conditioning",
+    "flow",
+    "metrics",
+    "curves"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2503.20523/architecture.png",
+      "width": 1667,
+      "height": 921,
+      "sourceSha256": "f09e203c36ea055b90ff1d7cf65df7807ccb0aba48f418966adc7477af3dceb1",
+      "sourceUrl": "https://arxiv.org/pdf/2503.20523#page=3",
+      "crop": [
+        0.174,
+        0.085,
+        0.828,
+        0.364
+      ],
+      "alt": "World-model diagram linking five encoded camera views, spatial and temporal attention, cross-attention and adaptive layer normalization to decoded video, with training-task and rollout insets.",
+      "caption": "Different conditioning signals enter different parts of a shared latent video generator.",
+      "readingGuide": "Follow the top row from camera frames through the encoder, transformer and decoder. Spatial attention mixes locations and camera views; temporal attention mixes times. The red arrow routes cuboids, embeddings and metadata into cross-attention. The blue arrow routes actions plus the denoising timestep into adaptive layer normalization. Camera geometry and positional information enter as added encodings, specified in Section 2.2.1. Below, gray blocks mark unknown or noised content: every block for from-scratch generation, only the future for context prediction, and selected regions for inpainting. The bottom-right window then shifts so generated latents can provide context for another prediction.",
+      "takeaway": "The architecture provides several interfaces to the same video predictor. It can complete missing temporal or spatial information while retaining supplied context, and its spatial attention explicitly spans camera views. The diagram shows action conditioning; it does not show an action-output head or an executed control loop.",
+      "caution": "The inset labels forward noising and reverse inference on a 0–1000 timestep axis. Increasing τ in Equation (1) instead moves from noise to data. No axis conversion is specified; use the equation's endpoints and do not silently equate these conventions.",
+      "evidenceIds": [
+        "overview",
+        "transformer",
+        "flow",
+        "inference"
+      ]
+    },
+    {
+      "id": "tokenizer",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/2503.20523/tokenizer.png",
+      "width": 1667,
+      "height": 1122,
+      "sourceSha256": "f09e203c36ea055b90ff1d7cf65df7807ccb0aba48f418966adc7477af3dceb1",
+      "sourceUrl": "https://arxiv.org/pdf/2503.20523#page=4",
+      "crop": [
+        0.174,
+        0.085,
+        0.828,
+        0.425
+      ],
+      "alt": "Asymmetric video tokenizer with DINO distillation, a decoder GAN fine-tuning label, rolling decoding windows, and input, reconstructed and PCA-colored latent examples.",
+      "caption": "Short latent sequences reduce world-model input size, while the decoder supplies temporal context.",
+      "readingGuide": "Start with the compression labels: 32× spatial downsampling, 8× temporal downsampling and 64 latent channels. The encoder's spatial-attention stack maps local temporal groups into latents; the decoder includes spatial and temporal attention to reconstruct coherent video. DINO distillation supervises the latent representation, while GAN fine-tuning applies to the decoder. In the lower-left panels, compare the independently grouped inputs with the overlapping decoding windows. The lower-right colored maps are the first three principal components of latent features, rather than semantic segmentation labels. Compare their appearance across input frames and samples without treating the colors as a physical state representation.",
+      "takeaway": "GAIA-2 moves much of the video reconstruction burden into its tokenizer: compressed tokens enter the world model, and temporal decoding turns predicted latents back into frames. The visible reconstruction and latent examples illustrate the representation; they do not quantify its advantage over a less compressed tokenizer.",
+      "caution": "The cartoon labels 12 input and decoded frames with three latents; Sections 2.1.1–2.1.2 specify 24 frames, three latents and initial 2× striding. The figure does not fully explain this bookkeeping difference. Preserve the written 8× compression while flagging the index ambiguity.",
+      "evidenceIds": [
+        "tokenizer",
+        "tokenizer-training"
+      ]
+    },
+    {
+      "id": "action-generation",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 8",
+      "page": 14,
+      "asset": "report-assets/2503.20523/action-generation.png",
+      "width": 1667,
+      "height": 1294,
+      "sourceSha256": "f09e203c36ea055b90ff1d7cf65df7807ccb0aba48f418966adc7477af3dceb1",
+      "sourceUrl": "https://arxiv.org/pdf/2503.20523#page=14",
+      "crop": [
+        0.174,
+        0.085,
+        0.828,
+        0.477
+      ],
+      "alt": "Three groups of generated five-view driving frames, with speed and curvature sketches for starting, stopping and making a U-turn.",
+      "caption": "Supplied motion profiles can elicit visually compatible traffic scenes without input video.",
+      "readingGuide": "Read each scenario from its small motion sketch on the left to the five camera views on the right, then down through the displayed times. The first group raises speed with a flat curvature profile and depicts starting at a UK traffic light. The second lowers speed toward a stop; the third uses a curved maneuver for a US U-turn. Section 6.1 says the video input is dropped, so these are synthesized contexts for supplied actions. The traffic lights, road geometry and other vehicles are generated observations. The speed and curvature sketches lack numerical axis scales, so they support qualitative intent rather than calibrated action-error measurements.",
+      "takeaway": "The examples illustrate a useful conditional-generation capability: the same kind of model can invent a scene consistent with accelerating, stopping or turning. This can diversify motion-conditioned synthetic data. It does not establish that a policy selected an appropriate action after observing the scene.",
+      "caution": "These are selected stills from generated sequences, without action-tracking errors or a success denominator. A plausible traffic-light transition does not establish a causal traffic model, and the image grid cannot verify consistency throughout the intervening video frames.",
+      "evidenceIds": [
+        "action-examples",
+        "conditioning",
+        "inference"
+      ]
+    },
+    {
+      "id": "agent-inpainting",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 12",
+      "page": 16,
+      "asset": "report-assets/2503.20523/agent-inpainting.png",
+      "width": 1667,
+      "height": 475,
+      "sourceSha256": "f09e203c36ea055b90ff1d7cf65df7807ccb0aba48f418966adc7477af3dceb1",
+      "sourceUrl": "https://arxiv.org/pdf/2503.20523#page=16",
+      "crop": [
+        0.174,
+        0.541,
+        0.828,
+        0.685
+      ],
+      "alt": "One original street image above four edited versions containing a cyclist, car, truck or bus, with each agent class labeled.",
+      "caption": "Local agent insertion reuses a street context across four conditioning choices.",
+      "readingGuide": "Compare the original scene at the top with each labeled output below. The street, buildings and parked vehicles provide recognizable reference points, while the central moving-agent category changes from cyclist to car, truck and bus. The caption attributes these insertions to masked video regeneration guided by 3D boxes. Section 5 explains the operation in latent space: a spatiotemporal mask selects content for denoising, with optional agent guidance. The displayed red rectangle groups the outputs; it is not the actual inpainting mask. Because neither that mask nor the conditioning boxes are overlaid, inspect contextual similarity without inferring exact edited boundaries.",
+      "takeaway": "The panel supports the qualitative claim that GAIA-2 can insert different agent categories into a shared visual context. This is a concrete mechanism for constructing scenario variants while retaining much of an existing scene. It supplies examples of the capability, rather than a measured background-preservation guarantee.",
+      "caution": "One displayed frame per variant cannot establish temporal continuity, cross-camera identity or collision realism. The source provides no numerical inpainting-specific preservation score here, and the red outline should not be mistaken for the region held fixed during denoising.",
+      "evidenceIds": [
+        "agent-editing",
+        "inference"
+      ]
+    },
+    {
+      "id": "training-diagnostics",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 13",
+      "page": 17,
+      "asset": "report-assets/2503.20523/training-diagnostics.png",
+      "width": 1667,
+      "height": 947,
+      "sourceSha256": "f09e203c36ea055b90ff1d7cf65df7807ccb0aba48f418966adc7477af3dceb1",
+      "sourceUrl": "https://arxiv.org/pdf/2503.20523#page=17",
+      "crop": [
+        0.174,
+        0.089,
+        0.828,
+        0.376
+      ],
+      "alt": "Four checkpoint curves: validation loss and FDD on top, FVMD and dynamic-agent conditioning IoU below, all plotted against training steps.",
+      "caption": "Training diagnostics improve overall, with fluctuations and no controlled ablation.",
+      "readingGuide": "Read all four panels against their shared notion of training progress. Lower validation loss, FDD and FVMD are favorable; higher dynamic-agent conditioning IoU is favorable. Section 6.2 specifies from-scratch generation with 1,024 samples, DINO feature distributions for FDD, keypoint-motion distributions for FVMD, and projected-box versus OneFormer-mask overlap for agent adherence. The smoother loss curve contrasts with visibly fluctuating sample metrics. Compare checkpoints within each panel, not numerical magnitudes across different metrics. FID appears in the metric discussion but is not plotted here. This is a training diagnostic, not an ablation: no architectural component is removed and no competing method is shown.",
+      "takeaway": "From the first to last displayed points, loss decreases approximately 0.229 to 0.182 and agent IoU increases approximately 0.27 to 0.34. FDD and FVMD also improve overall, though both worsen slightly after roughly 400k steps. These approximate plot readings establish progress during training, not superiority over another simulator.",
+      "caution": "Values are graph estimates, without error bars or tabulated endpoints. The last point is around 450k steps, not the stated 460k-step budget. The claimed correlation with human preference has no reported coefficient or study protocol.",
+      "evidenceIds": [
+        "metrics",
+        "curves",
+        "world-training",
+        "data"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Make five-camera modeling tractable through the tokenizer",
+      "text": "Start with the tensor size rather than the transformer brand. The world model receives 48 frames from each of five cameras, but the tokenizer reduces them to six temporal positions and 14 × 30 spatial positions per camera. That is 12,600 tokens, each carrying a 64-channel representation. Each view is encoded independently; cross-camera interaction enters the world model's spatial attention. The asymmetric tokenizer matters because its encoder handles temporal groups independently while its decoder reconstructs with temporal context. Reconstruction, DINO alignment and KL regularization train this representation before decoder GAN fine-tuning. The inference decoder then slides over neighboring latents. This explains the computation pathway; the paper does not supply a controlled compression-ratio experiment showing which information the aggressive bottleneck loses.",
+      "kind": "source",
+      "evidenceIds": [
+        "tokenizer",
+        "tokenizer-training",
+        "world-training",
+        "transformer",
+        "curves"
+      ]
+    },
+    {
+      "heading": "Separate what is supplied from what is generated",
+      "text": "In context prediction, the past latents are observed and remain unchanged; only the future latents are mixed with noise. Equation (1) makes τ=0 pure noise and τ=1 clean data. The network learns the velocity needed to connect those endpoints while attending to supplied conditions. Speed and curvature enter adaptive layer normalization, while agent and semantic information enter cross-attention. Setting the context length to zero yields generation from scratch; masking only selected content produces inpainting. For longer rollouts, predicted latents become the next window's context. None of these operations selects a driving action. In Figure 8, the action profile is already given and the traffic scene is generated around it, which is essential when interpreting the apparent relationship between traffic lights and acceleration.",
+      "kind": "source",
+      "evidenceIds": [
+        "flow",
+        "transformer",
+        "conditioning",
+        "inference",
+        "action-examples"
+      ]
+    },
+    {
+      "heading": "Ask which uncertainty each result actually reduces",
+      "text": "The validation curves answer whether the trained generator improves on its internal held-out protocol. They show overall improvements in latent prediction, visual feature distributions, motion features and agent-condition overlap. They do not isolate the effects of DINO alignment, adaptive normalization or the bimodal flow-time distribution. The qualitative panels answer a different question: whether the model can produce selected examples under particular controls. Reader analysis: these two evidence types motivate using GAIA-2 as a scenario-generation tool, but leave uncertainty about how often a requested rare interaction is physically credible. Geographic exclusion strengthens the validation split without resolving that issue. A meaningful next evaluation would separate condition adherence, temporal and cross-view consistency, and actual downstream policy outcomes instead of treating one attractive rollout as evidence for all three.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "metrics",
+        "curves",
+        "data",
+        "hazards",
+        "agent-editing",
+        "limitations"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Isolate the action-injection mechanism",
+      "text": "Reader-proposed experiment: train matched, smaller models that differ only in whether speed and curvature enter adaptive layer normalization or cross-attention. Hold tokenizer, training samples, task mixture, condition dropout, latent normalization and training budget fixed. Generate identical held-out contexts with paired noise seeds and a sweep of speed/curvature profiles. Use an independent motion estimator to compare requested and video-implied ego motion, and monitor visual fidelity so lower action error cannot be explained by collapsed outputs. The authors' routing claim would gain support if adaptive normalization consistently lowers motion error at comparable fidelity; equivalent or worse performance would challenge it. This check has not been run.",
+      "evidenceIds": [
+        "transformer",
+        "conditioning",
+        "world-training",
+        "action-examples"
+      ]
+    },
+    {
+      "title": "Test whether selective guidance preserves context",
+      "text": "Reader-proposed experiment: hold the original video, inpainting mask, agent boxes, random seed and 50-step schedule fixed. Compare no classifier-free guidance, global guidance and spatially selective guidance at the same scales within the reported 2–20 range. Measure the paper's class-based box/segmentation IoU, changes outside the intended edit region and cross-view agent identity consistency. Selective guidance should match or improve agent adherence while reducing background changes relative to global guidance. If it merely improves IoU while disturbing other cameras or the surrounding street, the claimed locality remains unsupported. Repeat across agent categories and several seeds; these would be new measurements, not a reported ablation.",
+      "evidenceIds": [
+        "inference",
+        "agent-editing",
+        "metrics"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18
+    ],
+    "notes": "Visually inspected the title/authors/version and all body pages, including Figures 1–13, tokenizer and flow equations, conditioning, dataset and training settings, evaluation definitions and future-work limitations. All five final original crops were separately viewed. Figure 2's flow-time convention and Figure 3's frame-count discrepancy are disclosed in the guides. No quantitative table or controlled ablation is present; Figure 13 serves as a diagnostic. References on pp. 18–21 were read in full text; reference-only pp. 19–21 were not rendered. External videos, code and separate supplements were not inspected."
+  },
+  "featuredResultTask": "Dynamic-agent conditioning adherence",
+  "visualLimitations": {
+    "kind": "analysis",
+    "text": "The supplied v1 paper contains no quantitative results table or controlled component ablation. Its quantitative evidence is the four training curves in Figure 13, evaluated on 1,024 from-scratch samples, so this edition uses that original diagnostic figure in place of a table/ablation. Qualitative still panels do not supply temporal or physical validation of the linked videos, which were outside the supplied material.",
+    "evidenceIds": [
+      "metrics",
+      "curves",
+      "action-examples",
+      "agent-editing"
+    ]
+  }
+}
