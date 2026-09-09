@@ -1,0 +1,511 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2503.14492",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T23:44:28.049Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2503.14492",
+      "title": "Cosmos-Transfer1: Conditional World Generation with Adaptive Multimodal Control",
+      "kind": "pdf",
+      "sha256": "c9d0256d1a066ed7a165cb1f62b1fee097f15e776a7f792d1998379c6fb0a6d9",
+      "wordCount": 11970,
+      "accessedAt": "2026-09-07T14:12:32.036621+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1. Introduction",
+      "2. Preliminary",
+      "3. Method",
+      "4. Modality and Training",
+      "5. Evaluations",
+      "5.1. Unimodal versus Multimodal",
+      "5.2. Case Study for Spatiotemporal Control Maps",
+      "5.3. Case Study for Robotics Sim2Real Data Generation",
+      "5.4. Case Study for Autonomous Driving Data Enrichment",
+      "6. Real-time Inference",
+      "7. Related Work",
+      "8. Conclusion",
+      "A. Prompt Upsampler",
+      "B. Contributors and Acknowledgements",
+      "B.1. Core Contributors",
+      "B.2. Contributors",
+      "B.3. Acknowledgments",
+      "References"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This extraction limitation was addressed by visually inspecting all twelve numbered figures and all five tables.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The supplied artifact is arXiv:2503.14492v2, marked 1 Apr 2025 in the margin and 2025-4-3 in its title-page header. The catalog gives an initial submission date of 2025-03-18. Only this v2 artifact was supplied; changes from v1 and the reason for the two PDF date markings are unverified.",
+      "The exact title matches. The title-page byline is NVIDIA; Appendix B.1–B.2 lists the same 39 individual contributors represented in the catalog. Its isolated ':' entry is not a credited author. Metadata preserves the collective byline. Individual affiliations are not supplied.",
+      "The full supplied text, including references, was read. PDF pages 1–23 were visually inspected; reference-only pages 24–28 were read as text. Linked code, external cited works and playable videos were not inspected, and no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 3)",
+      "Figure 3 (p. 5)",
+      "Figure 4 (p. 6)",
+      "Figure 5 (p. 7)",
+      "Figure 6 (p. 10)",
+      "Figure 7 (p. 11)",
+      "Figure 8 (p. 13)",
+      "Figure 9 (p. 14)",
+      "Figure 10 (p. 15)",
+      "Figure 11 (p. 16)",
+      "Figure 12 (p. 17)",
+      "Appendix A prompt examples (pp. 21–22)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 10)",
+      "Table 2 (p. 11)",
+      "Table 3 (p. 12)",
+      "Table 4 (p. 18)",
+      "Table 5 (p. 19)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Cosmos-Transfer1 turns structured condition videos into visually varied RGB videos using separately trained control branches around a frozen diffusion transformer. Spatial and temporal weights decide which constraints dominate each region. Its experiments establish a controllability–diversity tradeoff and video-generation throughput; practical policy-transfer benefits remain untested.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Simulator renderings provide reliable scene layouts but differ visually from real imagery. Transfer1 aims to change appearance while retaining selected structure, using blur, edges, depth or segmentation as controls. Driving-specific HD maps and LiDAR extend this idea to enriching rare scenarios.",
+    "kind": "source",
+    "evidenceIds": [
+      "identity",
+      "modalities",
+      "av-preprocessing"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A modality-specific ControlNet design permits independent branch training and inference-time composition, including different weights across image locations and time.",
+      "kind": "source",
+      "evidenceIds": [
+        "controlnet",
+        "fusion"
+      ]
+    },
+    {
+      "text": "TransferBench and regional-control experiments quantify how appearance preservation competes with diversity; robotics and driving studies test structural preservation in generated videos.",
+      "kind": "source",
+      "evidenceIds": [
+        "benchmark",
+        "regional-results",
+        "robot-results",
+        "driving-results"
+      ]
+    },
+    {
+      "text": "Head-parallel inference reaches faster-than-playback generation of a five-second clip on 64 B200 GPUs.",
+      "kind": "source",
+      "evidenceIds": [
+        "runtime"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Text prompt and noisy video tokens",
+      "Condition videos: blurred RGB, Canny edges, estimated depth or object masks; HDMap and LiDAR for Sample-AV",
+      "A spatial and temporal weight map for each active modality"
+    ],
+    "outputs": [
+      "Generated RGB video, typically five seconds at 1280×704 and 24 fps",
+      "Optional 4K video through a separately trained upscaler"
+    ],
+    "steps": [
+      {
+        "name": "Build complementary condition streams",
+        "detail": "Vis preserves coarse colors through bilateral blur; Edge retains boundaries; DepthAnything2 supplies depth normalized to [0,1]. GroundingDINO detects captioned objects in the first frame and SAM2 propagates masks; randomized mask colors denote instances rather than fixed semantic classes.",
+        "evidenceIds": [
+          "modalities"
+        ]
+      },
+      {
+        "name": "Inject learned residual controls",
+        "detail": "Each modality receives three transformer blocks initialized from corresponding base-model blocks. Their output linear layers start at zero and add control activations into the frozen generator. The denoiser predicts noise; no robot-action head or inverse-dynamics stage is described.",
+        "evidenceIds": [
+          "controlnet",
+          "fusion"
+        ]
+      },
+      {
+        "name": "Route control by location and time",
+        "detail": "A modality's map multiplies its branch activations before addition. Maps may be manual or heuristic; a learned map predictor is suggested as an alternative. Normalize across modalities only at sites whose total weight exceeds one. SalientObject classifies segment phrases using a VLM, reference frames and the generation caption.",
+        "evidenceIds": [
+          "fusion",
+          "salient-map"
+        ]
+      },
+      {
+        "name": "Adapt the driving representation",
+        "detail": "Sample-AV uses a dashcam-adapted base. HDMap includes road geometry and tracked boxes. LiDAR conditioning combines the nearest scan with four neighbors, compensates dynamic points through interpolated boxes, and fills projection holes before generation.",
+        "evidenceIds": [
+          "av-training",
+          "av-preprocessing"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Control branches are trained separately while the base stays frozen, allowing unpaired modality datasets. The general model uses the referenced Cosmos-Predict1 finetuning data; each branch reportedly requires 1024 H100 GPUs for 2–4 weeks. The PDF does not give a complete optimization recipe.",
+        "kind": "source",
+        "evidenceIds": [
+          "fusion",
+          "general-training"
+        ]
+      },
+      {
+        "text": "Sample-AV uses RDS-HQ: 65K twenty-second surrounding-view clips, approximately 360 hours, with LiDAR, maps, boxes and dense captions. General-control augmentation randomizes blur parameters, edge thresholds and segmentation colors.",
+        "kind": "source",
+        "evidenceIds": [
+          "av-training",
+          "modalities"
+        ]
+      },
+      {
+        "text": "Appendix A trains Pixtral-12B to expand short prompts using condition videos. Gemma-2-9B-it supplies shortened descriptions; one million paired videos per modality are jointly trained for one epoch with FSDP2. The 4K branch separately learns recovery of corrupted high-resolution patches.",
+        "kind": "source",
+        "evidenceIds": [
+          "prompt-upsampler",
+          "upscaler"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Choose branches and maps, then fuse their residuals during denoising. The inherited causal tokenizer and patchification yield 56,320 tokens for the stated output. Optional 4K generation uses a 3×3 overlapping grid and averages overlaps at each denoising step.",
+        "kind": "source",
+        "evidenceIds": [
+          "fusion",
+          "general-training",
+          "upscaler"
+        ]
+      },
+      {
+        "text": "The accelerated implementation distributes tokens outside attention and uses all-to-all communication to distribute attention heads. Positive and negative prompt denoising run in separate GPU groups. These are generation operations; robot motions in the application dataset come from an external task-and-motion planner.",
+        "kind": "source",
+        "evidenceIds": [
+          "runtime",
+          "robot-protocol"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathbf n = D(\\mathbf x_{\\sigma},\\sigma,\\mathbf c)",
+        "explanation": "Equation (2): D is the conditional denoiser, x with subscript sigma contains noisy video tokens, sigma is the noise deviation, c contains condition tokens, and n is predicted noise. This is the prediction interface, not a fully specified training loss.",
+        "evidenceIds": [
+          "controlnet"
+        ]
+      },
+      {
+        "expression": "\\mathbf w\\in\\mathbb R^{N\\times X\\times Y\\times T},\\qquad \\mathbf w_i\\cdot\\mathbf h_i^{j}",
+        "explanation": "Section 3 defines N modalities, video width X, height Y and frame count T. The ith weight-map slice multiplies activations from block j of branch i elementwise before they enter the generator. The paper's notation abstracts away feature channels.",
+        "evidenceIds": [
+          "fusion"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Multimodal video transfer on TransferBench",
+      "setting": "600 examples: 200 each from AgiBot World, OpenDV and Ego-Exo-4D. Four modalities have spatially uniform weights of 0.25.",
+      "metric": "Blur SSIM ↑; Edge F1 ↑; depth si-RMSE ↓; mask mIoU ↑; Diversity-LPIPS ↑; DOVER-technical Quality Score ↑",
+      "value": "0.87; 0.20; 0.47; 0.72; 0.22; 8.54, respectively.",
+      "comparison": "Vis-only: SSIM 0.96 and quality 5.94. Edge-only: F1 0.28. Seg-only: diversity 0.42. No-Seg: depth error 0.43.",
+      "interpretation": "Fusion has the highest quality score among these configurations, but specialized controls retain advantages. Table 1 contradicts the prose claim that full fusion has the best depth reconstruction.",
+      "evidenceIds": [
+        "benchmark",
+        "metrics",
+        "uniform-results",
+        "depth-discrepancy"
+      ]
+    },
+    {
+      "task": "Foreground–background control allocation",
+      "setting": "TransferBench with SalientObject masks; Vis/Edge each weighted 0.5 on foreground, Depth/Seg each 0.5 on background; compare swapping the pairs.",
+      "metric": "Foreground/background Blur SSIM and Diversity-LPIPS; overall Quality Score",
+      "value": "SSIM 0.81/0.71; diversity 0.01/0.33; quality 8.29.",
+      "comparison": "Swapped map: SSIM 0.68/0.93; diversity 0.12/0.03; quality 8.08.",
+      "interpretation": "Appearance constraints localize preservation while sparse controls permit variation. The comparison changes both regions simultaneously and does not isolate every modality's contribution.",
+      "evidenceIds": [
+        "benchmark",
+        "metrics",
+        "salient-map",
+        "regional-results"
+      ]
+    },
+    {
+      "task": "Robotics Sim2Real video generation",
+      "setting": "Twenty simulated kitchen scenarios, six prompts each, 120 videos. Setting 2 applies Edge to foreground robots and Seg to background.",
+      "metric": "Foreground mask mIoU ↑; Diversity-LPIPS ↑; Quality Score ↑",
+      "value": "0.63; 0.58; 10.42, respectively.",
+      "comparison": "Seg-only: 0.54; 0.60; 9.29. Setting 1, adding foreground Vis: 0.61; 0.57; 9.57.",
+      "interpretation": "Setting 2 improves robot-mask alignment and visual quality relative to Seg-only while slightly lowering diversity. This measures generated imagery, not physical task success.",
+      "evidenceIds": [
+        "robot-protocol",
+        "robot-results",
+        "metrics",
+        "scope-boundary"
+      ]
+    },
+    {
+      "task": "Autonomous-driving video structural consistency",
+      "setting": "Sample-AV: HDMap-only, LiDAR-only and fused control. Box mAP uses IoU 0.2; lane masks and LiDAR-based photometric reprojection assess other structure. Evaluation-set size and split are unspecified.",
+      "metric": "3D-box mAP ↑; lane mIoU ↑; reprojection error ↓, in the table's reported units",
+      "value": "Fusion: 44.66; 51.55; 8.67.",
+      "comparison": "HDMap: 41.89; 50.37; 9.46. LiDAR: 46.50; 48.19; 8.60.",
+      "interpretation": "Fusion improves lane alignment but gives up box accuracy and a little reprojection consistency versus LiDAR-only. The table does not establish an across-metric winner.",
+      "evidenceIds": [
+        "driving-protocol",
+        "driving-results"
+      ]
+    },
+    {
+      "task": "Five-second video generation throughput",
+      "setting": "Cosmos-Transfer1-7B on B200 GPUs in the GB200 NVL72 setting; reported five-second 720p output.",
+      "metric": "End-to-end generation time ↓; diffusion-only time ↓",
+      "value": "64 GPUs: 4.2 s end-to-end; 3.5 s diffusion-only.",
+      "comparison": "One GPU: 141.7 s end-to-end; 141.0 s diffusion-only.",
+      "interpretation": "Clip-generation throughput exceeds playback speed at rack-scale compute. Feedback latency, preprocessing inclusion and continuously interactive simulation are not demonstrated.",
+      "evidenceIds": [
+        "runtime"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The study contains no downstream robot-policy or closed-loop driving evaluation. Appearance realism and mask consistency do not establish correct contact dynamics, retained action labels or improved deployment success.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "robot-protocol",
+        "robot-results",
+        "driving-protocol",
+        "scope-boundary"
+      ]
+    },
+    {
+      "text": "Main quantitative comparisons are internal control variants, with no reported confidence intervals. Sparse conditions can admit artifacts; stronger controls reduce diversity. DOVER-technical is a video-quality proxy, and the mask metric discards correspondences below IoU 0.1.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "metrics",
+        "uniform-results",
+        "regional-results",
+        "robot-results",
+        "driving-results"
+      ]
+    },
+    {
+      "text": "Section 5.1 calls full fusion best for depth, while Table 1 gives 0.43 to no-Seg versus 0.47 to full fusion. This report preserves the table values and flags the disagreement.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "depth-discrepancy"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A faithful implementation needs the base checkpoint/tokenizer, branch training data, preprocessing models and weight maps. The paper leaves optimizer settings, learning rates, full denoising configuration and augmentation distributions unspecified; referring to earlier work does not supply those details here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "controlnet",
+        "fusion",
+        "general-training",
+        "modalities"
+      ]
+    },
+    {
+      "text": "Recover exact benchmark samples, prompts, random seeds and the TransferBench diversity prompt count K before comparing scores. AV evaluation requires calibrated LiDAR, poses, boxes and the detector/segmentation pipelines; its test-set size and split are not stated.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "benchmark",
+        "metrics",
+        "driving-protocol",
+        "driving-results"
+      ]
+    },
+    {
+      "text": "Reader-proposed checks should compare correct versus swapped or shuffled regional maps under fixed prompts and seeds, then test whether matched-budget translated simulation data improves a held-out robot policy. Neither check was performed in this reading.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "regional-results",
+        "robot-protocol",
+        "robot-results"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Video generation backbones",
+        "Neural world simulators"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "52b714b06041a451b96186efe9a4336c5225b89d855587f862ec05fec21d94ae"
+    },
+    "reasoning": {
+      "text": "The foundational-work classification fits a controllable video-generation backbone and neural simulator. Its control branches condition pixels; they do not jointly predict actions or infer actions through inverse dynamics. Robot motion is supplied externally, so the recorded architecture, prediction-paradigm and quadrant axes appropriately remain Not applicable for a world-action policy taxonomy.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "controlnet",
+        "fusion",
+        "robot-protocol",
+        "scope-boundary"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Can region-specific control preserve action-relevant geometry well enough to improve real robot performance?",
+    "How sensitive are the reported gains to foreground-mask errors and discarded segmentation matches?",
+    "What feedback latency remains when condition extraction and prompt expansion are included?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author credit, header and arXiv margin; p. 23, Appendix B.1–B.2",
+      "detail": "The exact observed title matches the catalog. The byline is NVIDIA. The margin identifies arXiv:2503.14492v2, 1 Apr 2025; the header reads 2025-4-3. Appendix B distinguishes core contributors from other contributors."
+    },
+    {
+      "id": "controlnet",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, Section 2, Figure 1 and Eqs. (1)–(2)",
+      "detail": "The conditional denoiser predicts noise from noisy video tokens, noise deviation and condition tokens. Three copied transformer blocks and zero-initialized output linear layers form a trainable branch; the base model stays frozen."
+    },
+    {
+      "id": "fusion",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3 and Figure 2",
+      "detail": "Each modality has a separately trained control branch. Spatial and temporal weights multiply branch activations before addition into the generator. Weights are normalized to sum to one only where their sum exceeds one; branches are combined at inference."
+    },
+    {
+      "id": "general-training",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 4 and footnote 2",
+      "detail": "The general model is post-trained from Cosmos-Predict1-7B-Video2World using its referenced high-quality finetuning data. Each control branch uses 1024 H100 GPUs for 2–4 weeks. A call produces a 5-second 1280×704 video at 24 fps; footnote 2 computes 56,320 tokens using 121 frames and the causal tokenizer."
+    },
+    {
+      "id": "modalities",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 4 modality bullets and Figure 3",
+      "detail": "Vis uses bilateral blur; Edge uses framewise Canny edges; Depth uses DepthAnything2 normalized to [0,1]; Seg uses first-frame GroundingDINO detection and SAM2 video masks with randomized instance colors. Blur parameters and edge thresholds are randomized during training."
+    },
+    {
+      "id": "av-training",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–6, Section 4, Sample-AV initialization and RDS-HQ description",
+      "detail": "Sample-AV starts from the dashcam-finetuned base model. RDS-HQ contains 65K 20-second surrounding-view clips, approximately 360 hours, with 10 Hz LiDAR, dense captions, HD maps and 3D box annotations."
+    },
+    {
+      "id": "av-preprocessing",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4, HDMap and LiDAR bullets; Figure 4",
+      "detail": "HDMap control includes road annotations and tracked 3D boxes. LiDAR is aligned to 30 fps imagery using the nearest scan and four adjacent scans, box-based interpolation for dynamic points, and a size-4 interpolation kernel."
+    },
+    {
+      "id": "upscaler",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4, 4KUpscaler description and Figure 5",
+      "detail": "The upscaler learns to recover high-quality patches from corrupted high-resolution video crops. At inference, a 3×3 overlapping grid produces 4K output, averaging overlaps at each denoising step."
+    },
+    {
+      "id": "benchmark",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5, TransferBench paragraph",
+      "detail": "TransferBench contains 600 examples: 200 each from AgiBot World, OpenDV and Ego-Exo-4D, covering robot manipulation, driving and egocentric daily activity."
+    },
+    {
+      "id": "metrics",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 5 metric definitions and footnote 3",
+      "detail": "Alignment uses blurred-video SSIM, Canny pixel F1, estimated-depth scale-invariant RMSE and matched-mask mIoU. Matches below IoU 0.1 are discarded. Diversity averages pairwise LPIPS across differently prompted outputs; quality uses DOVER-technical. Edge F1 requires strict pixel alignment."
+    },
+    {
+      "id": "uniform-results",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Table 1, all rows and metric columns",
+      "detail": "Uniform four-way weights give SSIM 0.87, Edge F1 0.20, depth error 0.47, mask mIoU 0.72, diversity 0.22 and quality 8.54. Vis-only has SSIM 0.96 and quality 5.94; Edge-only F1 is 0.28; Seg-only diversity is 0.42. No-Seg has the lowest depth error, 0.43."
+    },
+    {
+      "id": "depth-discrepancy",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5.1, final results paragraph; p. 10, Table 1, depth column",
+      "detail": "The prose says uniform four-modality fusion has the best depth reconstruction. The table instead marks no-Seg at 0.43 as best and the full model at 0.47 as second-best."
+    },
+    {
+      "id": "salient-map",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 5.2 and Figure 6 with caption",
+      "detail": "SalientObject uses reference frames, a generation caption and segment phrases to classify masks as foreground or background with a VLM. In Figure 6, white means weight 0.5 and black 0: Vis/Edge constrain foreground, Depth/Seg background."
+    },
+    {
+      "id": "regional-results",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Figure 7, Table 2 and Section 5.2",
+      "detail": "Table 2's first map yields FG/BG SSIM 0.81/0.71 and diversity 0.01/0.33, with quality 8.29. Swapping modality pairs gives SSIM 0.68/0.93, diversity 0.12/0.03 and quality 8.08. Figure 7 tests weights 0, 0.333 and 0.5; reported Vis and depth correlations are 0.93 and −0.92."
+    },
+    {
+      "id": "robot-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, Section 5.3, dataset, settings and metric description",
+      "detail": "Twenty kitchen manipulation scenarios from Omniverse/Isaac Lab each use six prompts, giving 120 generated videos per evaluated setting. Task-and-motion planning supplies robot motion. Setting 1 assigns raw unit Vis and Edge weights to foreground and Seg to background; Setting 2 uses only Edge on foreground and Seg on background."
+    },
+    {
+      "id": "robot-results",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Table 3, Seg, Setting1 and Setting2 rows; pp. 13–14, Figure 8 and interpretation",
+      "detail": "Setting 2 has foreground mask mIoU 0.63, diversity 0.58 and quality 10.42; Seg-only gives 0.54, 0.60 and 9.29. Setting 1 gives 0.61, 0.57 and 9.57. Setting 2 depth error is 1.41 versus 0.82 for Vis-only. Figure 8 illustrates foreground artifacts under single control."
+    },
+    {
+      "id": "driving-qualitative",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–18, Section 5.4 and Figures 9–12",
+      "detail": "Depth/Seg examples use equal weights; HDMap/LiDAR examples use 0.3/0.7. Figures illustrate lane-layout and object-orientation differences, prompt-driven appearance changes, and generation conditioned on synthetic LiDAR. These examples are qualitative."
+    },
+    {
+      "id": "driving-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 16–17, Section 5.4, quantitative metric definitions",
+      "detail": "3D-box mAP is measured at IoU 0.2 using a detector built upon StreamPetr and Hydra-MDP. Grounded SAM2 produces lane masks. Reprojection uses generated frames synchronized to 10 fps LiDAR, known camera poses and boxes, then L1 photometric discrepancy."
+    },
+    {
+      "id": "driving-results",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Table 4, all rows and columns",
+      "detail": "HDMap-only yields box mAP 41.89, lane mIoU 50.37 and reprojection error 9.46; LiDAR-only yields 46.50, 48.19 and 8.60; fusion yields 44.66, 51.55 and 8.67. Table 4 does not label percentage units."
+    },
+    {
+      "id": "runtime",
+      "sourceId": "primary",
+      "location": "PDF pp. 18–19, Section 6 and Table 5",
+      "detail": "The implementation shards tokens outside attention and uses all-to-all communication for head-parallel attention. Positive and negative prompt denoising are split across GPU groups. Table 5 reports 141.7 seconds end-to-end on one B200 and 4.2 seconds on 64 for a 5-second video; diffusion-only times are 141.0 and 3.5 seconds."
+    },
+    {
+      "id": "prompt-upsampler",
+      "sourceId": "primary",
+      "location": "PDF pp. 21–22, Appendix A, training description and examples",
+      "detail": "Pixtral-12B is finetuned to expand a short prompt using its condition video. Gemma-2-9B-it creates short prompts from existing descriptions; the paired dataset has 1M videos per modality, jointly trained for one epoch with FSDP2. Fidelity, completeness and distribution consistency are objectives."
+    },
+    {
+      "id": "scope-boundary",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–18, Sections 5.3–5.4; p. 20, Section 8",
+      "detail": "The application studies report video-generation metrics and visual examples. The conclusion claims benefits for bridging the simulation-to-real gap, but no trained-policy deployment, executed-action success rate or closed-loop driving evaluation is reported."
+    }
+  ]
+}

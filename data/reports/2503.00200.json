@@ -1,0 +1,497 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2503.00200",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-08T23:55:45.782Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2503.00200",
+      "title": "Unified Video Action Model",
+      "kind": "pdf",
+      "sha256": "8f0e312622e926623a90e8f8dbe7d17fca3c007b3b8a9b936cd695c204860118",
+      "wordCount": 11400,
+      "accessedAt": "2026-09-07T14:12:42.345899+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; I. Introduction; II. Related Work",
+      "III-A. Encode History; III-B. Masked Autoencoder for Observation Prediction; III-C. Decoupled Video and Action Diffusions; III-D. Masked Training with Flexible Objectives",
+      "IV. Evaluation; V-A–D. UVA as Policy",
+      "VI. UVA as a Video Generator; VII. UVA as a Forward Dynamics Model; VIII. UVA as an Inverse Dynamic Model; IX. Discussion",
+      "Acknowledgment and References",
+      "X-A–F. Supplementary Materials: autoregressive generation, simulation, real-world benchmarks, inference timing, action-free video, and masking strategies"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Version scope: the inspected title page identifies arXiv:2503.00200v3, 24 April 2025. Title and all four authors match the catalog; the catalog submission date is 28 February 2025. Earlier versions were not supplied, so revision changes were not compared.",
+      "Text extraction does not reconstruct figure images; this limitation was addressed by inspecting the retained PDF figures, tables, and method pages.",
+      "Separate supplemental material availability has not been fully verified. The supplementary Section X embedded in this PDF was read in full.",
+      "Code, linked websites, datasets, and external supplements were not inspected; no experiments were reproduced. Reference-list text was read, but cited works were not independently reviewed."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 3)",
+      "Figure 3 (p. 5)",
+      "Figure 4 (p. 6)",
+      "Figure 5 (p. 7)",
+      "Figure 6 (p. 8)",
+      "Figure 7 (p. 9)",
+      "Figure 8 (p. 10)",
+      "Figure 9 (p. 14)"
+    ],
+    "tablesReviewed": [
+      "Table I (p. 5)",
+      "Table II (p. 6)",
+      "Table III (p. 7)",
+      "Table IV (p. 8)",
+      "Tables V–VI (p. 10)",
+      "Tables VII–VIII (p. 15)",
+      "Table IX (p. 16)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "UVA learns shared video–action latents, then decodes future images and action chunks through separate diffusion heads. Policy deployment skips video decoding while retaining joint-training supervision. Multitask gains coexist with single-task losses and deployment latency tradeoffs.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "High-resolution video prediction supplies scene supervision but can slow robot control and propagate image-generation errors into actions. UVA asks whether a shared representation can retain that supervision while decoding dense actions independently.",
+    "kind": "source",
+    "evidenceIds": [
+      "motivation"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A shared Transformer feeds two lightweight diffusion heads, supporting joint future prediction and action-only deployment.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture",
+        "decoders-loss"
+      ]
+    },
+    {
+      "text": "Masked input/output configurations let the architecture serve as a policy, video generator, forward model, inverse model, or combined policy and planner.",
+      "kind": "source",
+      "evidenceIds": [
+        "task-masks"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Historical images and aligned, more densely sampled action chunks; optional language goal",
+      "During training, partially visible future-image tokens; task-specific masks determine available modalities"
+    ],
+    "outputs": [
+      "Future action chunks",
+      "Future visual tokens decoded into images when requested"
+    ],
+    "steps": [
+      {
+        "name": "Align history",
+        "detail": "A pretrained kl-f16 VAE encodes each image; projection produces N visual tokens. Repeated historical action chunks are projected to matching token counts. Each chunk contains L actions of dimension m; history and future horizons are equal in the experiments.",
+        "evidenceIds": [
+          "architecture"
+        ]
+      },
+      {
+        "name": "Fuse modalities",
+        "detail": "Concatenate history-image, action, and masked future-image features channel-wise, then concatenate across time. A Transformer produces joint latents Z. Matching spatial positions are masked across frames to limit leakage. Language tasks add repeated CLIP text tokens; the text also describes cross-attention.",
+        "evidenceIds": [
+          "architecture",
+          "masked-latents"
+        ]
+      },
+      {
+        "name": "Decode separately",
+        "detail": "Each visual latent conditions a patch diffusion decoder, followed by VAE image reconstruction. Convolution and an MLP aggregate all tokens for action diffusion. Diffusion iterations run in these heads; the shared Transformer is not the iterative denoiser.",
+        "evidenceIds": [
+          "decoders-loss"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Training predicts added noise in action chunks and visual tokens. Applicable losses depend on the sampled application; unused components receive learned mask tokens. The model builds on pretrained MAR-B with substantial modifications.",
+        "kind": "source",
+        "evidenceIds": [
+          "decoders-loss",
+          "task-masks",
+          "autoregression"
+        ]
+      },
+      {
+        "text": "Real-world multitask training uses 500 public UMI episodes per task, 1,500 total. A separate appendix experiment pretrains on 3,175 human videos, then fine-tunes jointly with LIBERO-10. The source does not fully specify optimizer, training duration, default horizons, or which pretrained modules are frozen.",
+        "kind": "source",
+        "evidenceIds": [
+          "real-protocol",
+          "human-video",
+          "architecture",
+          "autoregression"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Policy mode masks unavailable futures and decodes actions without generating video. Table I predicts 16 actions and executes eight, except OpenVLA, which is run eight times. Video mode bypasses action decoding and progressively fills token positions across all frames; autoregressive passes and diffusion denoising iterations are different loops.",
+        "kind": "source",
+        "evidenceIds": [
+          "decoders-loss",
+          "sim-protocol",
+          "autoregression"
+        ]
+      },
+      {
+        "text": "For block-pushing planning, DP-C supplies 100 candidate 16-action trajectories. UVA predicts images for distance-based target scoring; six selected actions execute before replanning. Inverse mode instead conditions on observations to infer actions, evaluated as camera poses.",
+        "kind": "source",
+        "evidenceIds": [
+          "planning",
+          "inverse"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{action}}(Z,A)=\\mathbb{E}_{\\epsilon,k}\\!\\left[\\left\\|\\epsilon-\\epsilon_\\theta(A^{(k)}\\mid k,Z)\\right\\|^2\\right]",
+        "explanation": "A^(k) is the noisy action chunk, k the diffusion timestep, epsilon the added noise, Z the shared latent, and epsilon_theta the predicted noise.",
+        "evidenceIds": [
+          "decoders-loss"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{video}}(Z,O)=\\mathbb{E}_{\\epsilon,k}\\!\\left[\\frac{1}{N}\\sum_{i=1}^{N}\\left\\|\\epsilon_i-\\epsilon_\\phi(O^{i,(k)}\\mid k,z_i)\\right\\|^2\\right],\\qquad \\mathcal{L}=\\mathcal{L}_{\\mathrm{action}}+\\mathcal{L}_{\\mathrm{video}}",
+        "explanation": "O^(i,(k)) is noisy visual token i of frame O, and epsilon_i is its added noise; z_i conditions its noise predictor epsilon_phi. N counts frame tokens. The per-step loss adds both terms, then sums over the horizon; task masks select applicable terms.",
+        "evidenceIds": [
+          "decoders-loss",
+          "task-masks"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "PushT-M multitask policy and joint-training ablation",
+      "setting": "Varying target positions; best checkpoint; 50 simulated rollouts.",
+      "metric": "Average reward in V-A; caption calls it success rate; higher is better.",
+      "value": "UVA 0.88.",
+      "comparison": "DP-C 0.68; UVA-action 0.46.",
+      "interpretation": "The baseline gap is 0.20 score units. Removing video generation changes both architecture and supervision, so the ablation does not isolate a loss-only effect.",
+      "evidenceIds": [
+        "sim-results",
+        "sim-protocol",
+        "baseline-settings"
+      ]
+    },
+    {
+      "task": "Libero10 multitask policy",
+      "setting": "Ten language-conditioned tasks; main text specifies 50 environments per task.",
+      "metric": "Reported task score; V-A calls it average reward.",
+      "value": "UVA 0.90.",
+      "comparison": "π0 0.85; π0-FAST 0.60; UVA-action 0.86.",
+      "interpretation": "The 0.05 gap to π0 is not a matched pretraining/input comparison: π0 uses all Libero, wrist images, and proprioception. Appendix episode-count wording is inconsistent.",
+      "evidenceIds": [
+        "sim-results",
+        "sim-protocol",
+        "baseline-settings"
+      ]
+    },
+    {
+      "task": "Single-task simulation policies",
+      "setting": "Separate policies; best checkpoints; 50 rollouts per task.",
+      "metric": "Success rate.",
+      "value": "PushT 0.98; Toolhang 0.88.",
+      "comparison": "DP-C 0.91 and 0.95, respectively.",
+      "interpretation": "The advantage is task-dependent; UVA loses on Toolhang.",
+      "evidenceIds": [
+        "sim-results",
+        "sim-protocol"
+      ]
+    },
+    {
+      "task": "Real-world UMI manipulation",
+      "setting": "ARX X5; 20 rollouts per task; multitask evaluation totals 60 OOD rollouts.",
+      "metric": "Success rate.",
+      "value": "Multitask Cup/Towel/Mouse: 0.65/0.70/0.80; single-task Cup: 0.85.",
+      "comparison": "DP-UMI: 0.50/0.70/0.40; single-task Cup: 0.95.",
+      "interpretation": "Cup and Mouse improve by 15 and 40 percentage points; Towel ties. Single-task Cup declines by 10 points. Small test counts limit certainty.",
+      "evidenceIds": [
+        "real-results",
+        "real-protocol"
+      ]
+    },
+    {
+      "task": "Video generation",
+      "setting": "Libero10 and Cup Arrangement; 500 generated videos per method.",
+      "metric": "FVD; lower is better.",
+      "value": "Eight autoregressive passes: 51.10/29.72; one pass: 89.36/51.34.",
+      "comparison": "UniPi: 56.55/71.37.",
+      "interpretation": "Eight passes improve both datasets; one pass loses to UniPi on Libero10. FVD measures video-distribution similarity, not executed manipulation success.",
+      "evidenceIds": [
+        "video-results"
+      ]
+    },
+    {
+      "task": "Block-pushing trajectory selection",
+      "setting": "Four specified color assignments, ten trials each; DP-C candidates ranked by predicted outcomes.",
+      "metric": "Average success rate.",
+      "value": "UVA-guided 0.60.",
+      "comparison": "DP-C alone 0.38; simulator-guided 0.75.",
+      "interpretation": "Learned forward prediction improves execution but remains below simulator-guided selection. The simulator figure is an empirical reference limited by proposals and detection.",
+      "evidenceIds": [
+        "planning"
+      ]
+    },
+    {
+      "task": "Inverse dynamics on UMI Cup Arrangement",
+      "setting": "Unseen camera-pose sequences compared with motion capture.",
+      "metric": "Position/rotation L2 errors, as reported; lower is better.",
+      "value": "0.75 cm / 1.11°.",
+      "comparison": "UniPi 1.92 cm / 2.21°; visual-inertial SLAM 0.41 cm / 0.30°.",
+      "interpretation": "UVA improves learned pose inference but does not match mapped SLAM; this test does not measure robot task completion.",
+      "evidenceIds": [
+        "inverse"
+      ]
+    },
+    {
+      "task": "Policy inference latency",
+      "setting": "RTX 3080; 16-action trajectory; 16 denoising iterations.",
+      "metric": "Inference time; lower is better.",
+      "value": "UVA 95 ms.",
+      "comparison": "DP-UMI 70 ms; UVA Policy+Planner 195 ms.",
+      "interpretation": "Skipping video avoids substantial decoding cost, yet UVA is slower than DP-UMI. Separate L40 simulation timings must not be mixed with this deployment comparison.",
+      "evidenceIds": [
+        "runtime",
+        "real-results"
+      ]
+    },
+    {
+      "task": "Additional action-free human video",
+      "setting": "Libero10; human-video pretraining followed by mixed-data fine-tuning; 500 tests.",
+      "metric": "Reported policy score; higher is better.",
+      "value": "UVA + Human Data 0.91.",
+      "comparison": "UVA 0.90; 30-test setting separately reports 0.97 versus 0.93.",
+      "interpretation": "The larger evaluation shows a small gain without uncertainty estimates; it does not establish web-scale transfer.",
+      "evidenceIds": [
+        "human-video"
+      ]
+    },
+    {
+      "task": "Masking-strategy diagnostic on PushT-M",
+      "setting": "Application-dependent versus independent input masks at varied ratios.",
+      "metric": "Policy success; video and forward FVD; inverse L2 error.",
+      "value": "Independent 50%: 0.87 success, 200.08/203.59 FVD, 13.55 L2.",
+      "comparison": "Dependent 25%: 0.84 success, 127.09/129.77 FVD, 17.54 L2.",
+      "interpretation": "The preferred mask differs by objective. Inverse-error units and uncertainty are unspecified.",
+      "evidenceIds": [
+        "masking"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Reported gains are not universal: visual disturbances still cause failures, including matching object/background colors. Goal-color robustness improves, but UniPi scores higher with background objects. Figure 6 suggests history robustness without reporting error bars.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "limitations",
+        "robustness"
+      ]
+    },
+    {
+      "text": "Protocol ambiguities remain: multitask rewards are also called success rates; X-B says ten Libero10 runs per task yet 500 total. Main-text and Table VIII support 50 per task. Tables omit uncertainty, and best-checkpoint reporting requires care about selection bias.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "sim-protocol",
+        "sim-results",
+        "human-video"
+      ]
+    },
+    {
+      "text": "Section IX leaves large-scale actionless-video training to future work; X-E nevertheless includes a small human-video experiment. Sound/force extensions are proposals. Neither establishes broad generalization beyond the tested settings.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "limitations",
+        "human-video"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A faithful implementation needs kl-f16, modified MAR-B, action/video heads, CLIP conditioning, mask scheduling, and dataset-specific action/image alignment. The PDF does not provide a complete training configuration, frozen-module policy, software versions, or training-compute budget.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "masked-latents",
+        "decoders-loss",
+        "autoregression"
+      ]
+    },
+    {
+      "text": "Preserve seeds, checkpoint selection, UMI sampling, and evaluation success definitions. Match L40 simulation versus RTX 3080 deployment hardware and 100 versus 16 denoising iterations. Proposed checks should separate video-supervision benefits from decoder-capacity changes and time video-on/off inference under identical settings.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "sim-protocol",
+        "real-protocol",
+        "baseline-settings",
+        "runtime"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The shared Transformer produces latents consumed by both video and action heads, supporting One Model × Joint prediction architecturally. Separate output heads do not form a video-to-action pipeline. Inverse dynamics is an additional mask configuration; ordinary policy inference skips video, while planning explicitly uses predicted outcomes.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "decoders-loss",
+        "task-masks",
+        "planning"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Joint video-action modeling",
+        "Efficient inference & real-time control"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q1 · One Model × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "607066e575e222cca902f9d755e206e876ed084dbcb4f92e74c6dd75b7e02d4c"
+    }
+  },
+  "discussionQuestions": [
+    "Would a capacity-matched action-only control retain the joint model's advantage?",
+    "When does improved video FVD improve candidate ranking and executed success?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and arXiv margin",
+      "detail": "The title is Unified Video Action Model; authors are Shuang Li, Yihuai Gao, Dorsa Sadigh, and Shuran Song, Stanford University. The margin identifies arXiv:2503.00200v3 [cs.RO], 24 Apr 2025."
+    },
+    {
+      "id": "motivation",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section I",
+      "detail": "The paper proposes joint video–action latent modeling with separately decoded outputs to combine visual supervision with fast action inference."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2, Section III problem statement and Section III-A; p. 4, Section III-B",
+      "detail": "Image observations are encoded with a pretrained kl-f16 VAE and projected into N tokens. Repeated action chunks and masked future observation tokens are concatenated channel-wise; temporal concatenation and a Transformer produce shared video–action latents."
+    },
+    {
+      "id": "masked-latents",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section III-B",
+      "detail": "Future visual tokens are randomly masked at matching spatial positions across frames. CLIP language tokens are repeated and appended when language is used; the text also describes cross-attention. Inference starts without known future tokens."
+    },
+    {
+      "id": "decoders-loss",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section III-C and three unnumbered loss expressions",
+      "detail": "Video diffusion conditions each patch on its latent token. Action diffusion uses all tokens aggregated by a convolution and MLP. Both predict added noise; their losses are added per time step and summed across the horizon. Either decoder can be bypassed."
+    },
+    {
+      "id": "task-masks",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Figure 1; pp. 4–5, Section III-D",
+      "detail": "Five application-specific input/output patterns support policy, video generation, forward dynamics, inverse dynamics, and policy-plus-planner operation. Unused components receive learned mask tokens and only applicable losses are used."
+    },
+    {
+      "id": "sim-results",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table I, all method rows and four task columns",
+      "detail": "UVA scores 0.98, 0.88, 0.88, and 0.90 on PushT, Toolhang, PushT-M, and Libero10. UVA-action scores 0.45, 0.62, 0.46, and 0.86. DP-C scores 0.91, 0.95, 0.68, and 0.53; π0 scores 0.85 on Libero10."
+    },
+    {
+      "id": "sim-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section V-A and Table I caption; p. 14, Section X-B; p. 15, Table VIII caption",
+      "detail": "PushT and Toolhang report best-checkpoint success over 50 rollouts. PushT-M reports best-checkpoint average reward over 50 rollouts. Main-text Libero10 uses 50 environments per task across 10 tasks; X-B instead says 10 runs per task while still claiming 500 episodes. Table VIII explicitly defines its 500-test setting as 50 per task. Simulation table captions call the task scores success rates, whereas V-A calls multitask scores average rewards."
+    },
+    {
+      "id": "baseline-settings",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section V-C; p. 7, Section V-D, simulation comparison and inference speed",
+      "detail": "UVA-action removes video generation and trains only as a policy. UniPi uses an alternative pixel-video implementation. π0 variants use released checkpoints fine-tuned on all Libero, with third-person images, wrist images, and proprioception; UVA trains on Libero10 with third-person images. UVA, DP-C, and DP-T use 100 action denoising steps in simulation."
+    },
+    {
+      "id": "real-results",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table II and caption; p. 7, Section V-D",
+      "detail": "Single-task cup success is UVA 0.85 versus DP-UMI 0.95. Multitask Cup/Towel/Mouse success is 0.65/0.70/0.80 versus 0.50/0.70/0.40. Sixteen-action inference with 16 denoising steps takes 95 ms versus 70 ms."
+    },
+    {
+      "id": "real-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section V-B and Figure 4; pp. 14–15, Section X-C",
+      "detail": "Public UMI demonstrations train policies deployed on an ARX X5 arm. Multitask training samples 500 episodes per task, totaling 1,500; evaluation has 20 rollouts per task, 60 total, with changed scenes, objects, and grippers. Single-task cup uses the same dataset for both methods and 20 rollouts. Cup success requires saucer placement and handle alignment within ±15 degrees."
+    },
+    {
+      "id": "robustness",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 5 and Table III; p. 8, Figure 6 and Section V-D",
+      "detail": "Goal-color-shift success is UVA 0.64, UniPi 0.40, and OpenVLA 0.32. With background objects UVA scores 0.31 versus UniPi 0.36. Figure 6 shows UVA staying relatively stable as history length increases while DP-C declines; it reports no error bars."
+    },
+    {
+      "id": "video-results",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section VI and Table IV; p. 9, Figure 7",
+      "detail": "FVD is evaluated using 500 generated videos per method. On Libero10/Cup Arrangement, UVA with one autoregressive step scores 89.36/51.34, with eight steps 51.10/29.72, and UniPi 56.55/71.37. Figure 7 shows validation examples."
+    },
+    {
+      "id": "planning",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–10, Section VII; p. 10, Figure 8 and Table V",
+      "detail": "Block-pushing tests four specified color assignments, ten trials each. DP-C proposes 100 trajectories of 16 actions; UVA predicts outcomes for image-based distance scoring. Six actions of the selected trajectory execute before replanning. Average success is DP-C 0.38, UVA-guided 0.60, and simulator-guided 0.75. Candidate quality and detection errors limit even simulator-guided selection."
+    },
+    {
+      "id": "inverse",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section VIII and Table VI",
+      "detail": "On unseen UMI Cup Arrangement data, predicted camera-pose actions are compared to motion capture. Position/rotation errors are UVA 0.75 cm/1.11 degrees, UniPi inverse dynamics 1.92 cm/2.21 degrees, and visual-inertial SLAM 0.41 cm/0.30 degrees. UVA predicts 16 actions together; SLAM needs additional mapping."
+    },
+    {
+      "id": "limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section V-D, real-world discussion; p. 10, Section IX",
+      "detail": "The authors report failures when background and object colors match. They leave web-scale actionless-video pretraining and additional modalities such as sound and force to future work."
+    },
+    {
+      "id": "autoregression",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Section X-A and Figure 9; p. 4, Section III-B",
+      "detail": "UVA builds on pretrained MAR-B with substantial modifications. Continuous visual tokens are progressively filled across all future frames, starting with no known tokens; one autoregressive step fills the video in one pass."
+    },
+    {
+      "id": "runtime",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Section X-D and Table VII; p. 5, Table I speed column; p. 6, Table II caption",
+      "detail": "Simulation timings use NVIDIA L40 GPUs; real-world timings use an RTX 3080. VAE encoding, Transformer attention, and 16-step action diffusion take 40, 40, and 15 ms. UVA totals 95 ms; with video decoding the 16-step Policy+Planner row is 195 ms. At 100 denoising steps UVA is 173 ms and Policy+Planner 798 ms. Flash-Attention rows report 85/163 ms totals. Table VII's generic caption mentions 100 diffusion steps although rows explicitly include both 16 and 100."
+    },
+    {
+      "id": "human-video",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Section X-E and Table VIII",
+      "detail": "An additional experiment pretrains video generation on 3,175 human-only videos, then fine-tunes on combined human videos and LIBERO-10 using masked training. Baseline/human-data scores are 0.93/0.97 over 30 tests and 0.90/0.91 over 500 tests."
+    },
+    {
+      "id": "masking",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Section X-F; p. 16, Table IX and continuation of Section X-F",
+      "detail": "PushT-M compares application-dependent and application-independent input masking at 25%, 50%, and 75%. Independent 50% masking gives policy success 0.87 and inverse L2 error 13.55. Dependent 25% masking gives video/forward FVD 127.09/129.77; independent 50% gives 200.08/203.59. No inverse-error units or uncertainty are specified here."
+    }
+  ]
+}
