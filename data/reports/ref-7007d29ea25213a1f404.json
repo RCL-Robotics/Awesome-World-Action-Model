@@ -1,0 +1,437 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-7007d29ea25213a1f404",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T03:22:31.029Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2311.16038",
+      "title": "OccWorld: Learning a 3D Occupancy World Model for Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "d6201710786323f341479decceddff379df6aebbfd0c9b76c16be468ef51b61c",
+      "wordCount": 8168,
+      "accessedAt": "2026-09-07T14:20:53.918993+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1. Introduction",
+      "2. Related Work",
+      "3. Proposed Approach",
+      "3.1. World Model for Autonomous Driving",
+      "3.2. 3D Occupancy Scene Tokenizer",
+      "3.3. Spatial-Temporal Generative Transformer",
+      "3.4. OccWorld: a 3D Occupancy World Model",
+      "4. Experiments",
+      "4.1. Task Descriptions",
+      "4.2. Implementation Details",
+      "4.3. Results and Analysis",
+      "5. Conclusion",
+      "References (PDF pp. 9–11)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity: the observed title and all six authors match the catalog. The inspected artifact is arXiv:2311.16038v1 [cs.CV], dated 27 November 2023 (p. 1). The catalog identifies ECCV 2024; its proceedings edition was not supplied or compared, and equivalence between editions is not established.",
+      "All seven supplied text chunks were read individually, including all eleven PDF pages. Original PDF pages 1–8 and Figures 1–5/Tables 1–4 were visually inspected; reference pages 9–11 were read as text.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This acquisition limitation was addressed for the supplied PDF through visual inspection.",
+      "Separate supplemental material availability has not been fully verified. No supplement was supplied; Section 4.1 delegates dataset and evaluation-metric details to it. No appendix appears in this eleven-page artifact.",
+      "Code and linked resources were not inspected. Experiments were not reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 3)",
+      "Figure 3 (p. 4)",
+      "Figure 4 (p. 5)",
+      "Figure 5 (p. 6)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 6)",
+      "Table 2 (p. 7)",
+      "Table 3 (p. 8)",
+      "Table 4 (p. 8)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "OccWorld compresses semantic 3D occupancy into discrete scene tokens and jointly forecasts those tokens and an ego-motion token. Its shared spatial-temporal transformer supports both scene forecasting and trajectory planning. Oracle occupancy gives substantially stronger results than camera-derived occupancy, while long-horizon error and collision rates limit the driving conclusions.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "Object-box prediction describes traffic participants but omits fine scene geometry and static structure. OccWorld asks whether a dense semantic occupancy world model can forecast the surrounding scene and ego trajectory together, reducing reliance on separate box/map supervision. Its planning formulation assumes a satisfactory downstream controller; predicting waypoints does not establish executed driving.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03",
+      "e07"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A reconstruction-trained occupancy tokenizer converts dense voxel labels into a compact vocabulary for temporal prediction.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e06"
+      ]
+    },
+    {
+      "text": "A multiscale transformer mixes scene and ego information spatially, applies causal temporal attention, and decodes both future occupancy and ego displacement.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "text": "The authors introduce 4D occupancy forecasting and test several occupancy-supervision regimes alongside motion planning.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07",
+        "e09"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Historical semantic 3D occupancy and ego positions; the experiments use 2 seconds of history.",
+      "Occupancy is supplied by an oracle or camera perception under dense-occupancy, sparse-semantic-LiDAR, or self-supervised training."
+    ],
+    "outputs": [
+      "Future semantic 3D occupancy over a 3-second horizon.",
+      "Ego displacements decoded into BEV-plane trajectory waypoints."
+    ],
+    "steps": [
+      {
+        "name": "Encode and quantize occupancy",
+        "detail": "Embed voxel categories, concatenate the height dimension into BEV channels, and downsample with 2D convolutions. Assign spatial features to nearest codebook entries; a deconvolution decoder reconstructs voxel semantics. The default tokenizer downsamples by four and uses 512 codes with 128-dimensional features.",
+        "evidenceIds": [
+          "e04",
+          "e08"
+        ]
+      },
+      {
+        "name": "Couple scene and ego tokens",
+        "detail": "Add an ego-position token to the scene representation. Spatial aggregation exchanges information; merging 2×2 scene-token windows builds coarser scales. Position-wise causal temporal attention predicts the next token set, and U-net aggregation combines scales. The implementation uses three scales, six scene temporal-attention layers per scale, and two layers of spatial and temporal cross-attention for ego planning tokens.",
+        "evidenceIds": [
+          "e05",
+          "e08"
+        ]
+      },
+      {
+        "name": "Decode and extend the future",
+        "detail": "Reuse the scene decoder for occupancy and learn an ego decoder for displacement relative to the current frame. Append predicted world tokens to the history for later predictions. The shared prediction pathway provides architectural evidence for coupling, beyond simply training two independent heads on related data.",
+        "evidenceIds": [
+          "e03",
+          "e06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage one trains occupancy reconstruction using softmax and Lovász-softmax losses. Stage two uses tokenizer-produced scene tokens as targets, supervises next-code classification, and adds an L2 ego-displacement objective weighted by λ2. The latter still requires ego-trajectory supervision; “None” in auxiliary-supervision columns excludes that supervision.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e10",
+          "e11"
+        ]
+      },
+      {
+        "text": "Temporal masks prevent future information from entering earlier predictions during teacher-forced training. AdamW uses initial learning rate 10⁻³, weight decay 0.01, cosine annealing, and one sample per GPU on eight NVIDIA GeForce RTX 4090 GPUs. The paper reuses the learned tokenizer but does not explicitly enumerate stage-two freezing flags.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Start from observed history, then autoregressively feed predicted tokens into later steps. This is joint scene/ego prediction, without a specified search over candidate controls or an inverse-dynamics action extractor. The evaluated outputs are occupancy and trajectory estimates, not throttle, steering, or braking executions.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e03",
+          "e06",
+          "e07"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "w(\\{y^T,\\ldots,y^{T-t}\\},\\{p^T,\\ldots,p^{T-t}\\})=(y^{T+1},p^{T+1})",
+        "explanation": "Equation (3): w predicts the next scene representation y and ego position p from their history; T is the current time and t indexes available history. Section 3.1 defines positions in 3D, while Section 4.1 evaluates 2D ground-plane waypoints.",
+        "evidenceIds": [
+          "e03",
+          "e07"
+        ]
+      },
+      {
+        "expression": "\\hat z_{j,i}^{T+1}=\\operatorname{TA}(z_{j,i}^{T},\\ldots,z_{j,i}^{T-t})",
+        "explanation": "Equation (6): TA is masked temporal attention; j identifies a spatial token and i its scale. The hat denotes the predicted token. Spatial aggregation supplies scene context before temporal prediction at each position.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "J_{e,d}=L_{soft}(d(e(y)),y)+\\lambda_1 L_{lovasz}(d(e(y)),y)",
+        "explanation": "Equation (7): encoder e and decoder d reconstruct occupancy y; the softmax and Lovász-softmax losses are balanced by λ1. This reconstruction objective precedes the world-token and trajectory objectives.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Oracle 4D occupancy forecasting",
+      "setting": "Occ3D; OccWorld-O receives ground-truth occupancy, with 2-second history and 3-second prediction. The supplied body does not identify the evaluation split; Avg. covers 1, 2, and 3 seconds.",
+      "metric": "mIoU (%) and IoU (%), higher is better",
+      "value": "Reported averages: 17.14 mIoU and 26.63 IoU. mIoU at 1/2/3 seconds: 25.78/15.14/10.51.",
+      "comparison": "Copy&Paste: 11.33 average mIoU and 20.52 IoU.",
+      "interpretation": "Exceeds static persistence with the same occupancy-input setting, but semantic agreement declines sharply with horizon. The 0-second columns measure reconstruction, not forecasting.",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "Camera-based 4D occupancy forecasting",
+      "setting": "Same reported forecasting task; dense-supervised (D), sparse-semantic-LiDAR-supervised (T), and self-supervised (S) camera perception. Evaluation split unspecified in the supplied body.",
+      "metric": "Average mIoU (%) / IoU (%) at 1, 2, and 3 seconds",
+      "value": "D: 8.62/16.53; T: 3.56/8.34; S: 0.26/5.00.",
+      "comparison": "Oracle O: 17.14/26.63.",
+      "interpretation": "Perception and supervision substantially affect the system. These rows change the inputs and their training, so they do not isolate the generative transformer's causal contribution.",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "Motion planning under the non-dagger metric convention",
+      "setting": "nuScenes; 2-second context, 1/2/3-second trajectory evaluation; non-dagger Table 2 rows. Split and detailed metric computation are deferred to the unavailable supplement.",
+      "metric": "L2 error (m) and collision rate (%), lower is better",
+      "value": "OccWorld-O: average 1.17 m / 0.60%; 1-second L2 0.43 m and 3-second L2 1.99 m.",
+      "comparison": "UniAD: 1.03 m / 0.31% averages, 1.65 m at 3 seconds. Occupancy-input OccNet: 2.25 m / 0.69%.",
+      "interpretation": "OccWorld improves on the listed occupancy-input OccNet configuration but does not beat UniAD overall. Input modalities and auxiliary annotations differ. These are trajectory metrics, without closed-loop deployment evidence.",
+      "evidenceIds": [
+        "e03",
+        "e07",
+        "e11",
+        "e15"
+      ]
+    },
+    {
+      "task": "Motion planning under the VAD metric convention",
+      "setting": "nuScenes; dagger-marked rows in Table 2 use VAD metric computation, separately from the non-dagger rows. Exact computation and split remain unspecified here.",
+      "metric": "Average L2 (m) / collision rate (%)",
+      "value": "OccWorld-O†: 0.64/0.24; OccWorld-D†: 0.77/0.32.",
+      "comparison": "VAD-Base†: 0.72/0.22.",
+      "interpretation": "Oracle OccWorld has lower L2 but slightly higher collision rate than VAD-Base under this convention. The 0.64 m value is not interchangeable with the non-dagger 1.17 m result.",
+      "evidenceIds": [
+        "e07",
+        "e12"
+      ]
+    },
+    {
+      "task": "Spatial-temporal and ego-token ablations",
+      "setting": "OccWorld-O ablations; averages over 1, 2, and 3 seconds.",
+      "metric": "Forecast mIoU (%) and planning L2 (m)",
+      "value": "Full model: 17.14/1.17; no spatial attention: 10.07/1.42; no temporal attention: 8.98/2.06. Removing ego prediction yields 15.13 mIoU; replacing ego temporal attention yields 12.07 mIoU and 5.89 m.",
+      "comparison": "Temporal-attention removal substitutes a convolution using the current tokens; ego temporal removal substitutes an MLP.",
+      "interpretation": "Results support spatial context, history, and ego/scene coupling in this implementation. Replacement modules also change capacity and accessible history, limiting mechanistic isolation.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Tokenizer reconstruction versus forecastability",
+      "setting": "Table 3 changes latent resolution while keeping 128 channels and 512 codes.",
+      "metric": "Reconstruction mIoU (%), average forecast mIoU (%), planning L2 (m), FPS",
+      "value": "50² tokens: 66.38, 17.14, 1.17, 18.0. 100² tokens: 78.12, 12.38, 1.36, 6.7.",
+      "comparison": "The finer representation improves reconstruction but worsens forecasting, planning, and reported speed.",
+      "interpretation": "Reconstruction alone is an inadequate tokenizer-selection criterion. The authors' high-level-concept explanation is plausible but not directly measured by this table.",
+      "evidenceIds": [
+        "e13"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors acknowledge failures to predict newly entering vehicles, weaker collision performance, and rapid long-horizon deterioration. Their attribution to missing safety supervision or diverse futures is explanatory conjecture, not a controlled diagnosis.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e16",
+        "e15"
+      ]
+    },
+    {
+      "text": "The introduction reports 17.13 average mIoU and 1.16 m L2; Tables 1–3 instead report 17.14 and 1.17. This report uses the table values and preserves the discrepancy. The tables provide no error bars or repeated-seed uncertainty.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e10",
+        "e11",
+        "e13"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction needs Occ3D occupancy, nuScenes trajectories, the appropriate perception variant, and the stated tokenizer/transformer configuration. Recover the omitted dataset split, metric definitions, voxel preprocessing, training duration, loss weights, and software versions before claiming an exact replication.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e07",
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "text": "The tokenizer description leaves implementation ambiguities: Equation (4) prints a minimum distance where its prose describes selecting the nearest code; its codebook and latent-shape dimensions are inconsistent. The supplied objectives do not specify commitment/codebook-update details or exact freezing behavior. These require clarification, not silent correction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e06"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The shared world-token transformer jointly evolves occupancy and ego tokens, supporting One Model × Joint prediction at the predictive-core level. Separate perception, tokenizer, and decoding modules remain. The modeled visual state is semantic 3D occupancy rather than RGB video; ego outputs are trajectory waypoints rather than low-level executed actions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06",
+        "e07"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "WAM",
+      "subcategories": [
+        "Joint video-action modeling",
+        "3D multiview modeling",
+        "Autonomous driving"
+      ],
+      "architecture": "One Model",
+      "predictionParadigm": "Joint prediction",
+      "quadrant": "Q1 · One Model × Joint prediction",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "aef5358b9fa188a3719c83d8320262330a0b63fe0763962f552b0986492a4ede"
+    }
+  },
+  "discussionQuestions": [
+    "Does ego/scene coupling still improve forecasting when model capacity and available history are matched?",
+    "Would choosing the tokenizer by future prediction quality remain preferable after equalizing optimization budget across latent resolutions?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, equal-contribution footnote, and arXiv margin",
+      "detail": "Title and six authors match the catalog. The PDF identifies arXiv:2311.16038v1, 27 November 2023, and the Automation and Electronic Engineering departments at Tsinghua University, China."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1, final introductory result paragraph",
+      "detail": "Motivates semantic occupancy and joint scene/ego forecasting. The introduction prints 17.13 average mIoU, 26.63 IoU, and 1.16 planning L2."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2/caption and Section 3.1, Equations (1)–(3)",
+      "detail": "Shared scene/ego prediction is autoregressive. The caption distinguishes ground-truth tokens during training from predicted tokens at inference. A downstream controller is assumed; the formal outputs are future positions."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 3/caption and Section 3.2, Equation (4)",
+      "detail": "Class embeddings and height concatenation create BEV features; 2D convolution, nearest-code quantization, and deconvolution reconstruct occupancy. Equation (4) prints min distance despite nearest-code prose, and adjacent codebook/latent dimensions are inconsistent."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.3, Equations (5)–(6), Figure 4/caption",
+      "detail": "An ego token joins scene tokens. Spatial aggregation and 2×2 merging create multiple scales; position-wise masked temporal attention predicts future tokens, followed by U-net aggregation."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.4, Equations (7)–(8) and training/inference paragraphs",
+      "detail": "Stage one uses softmax plus Lovász-softmax reconstruction. Stage two supervises scene-code classification and ego displacement with L2 loss. Learned tokenizer/decoder are reused; predicted past tokens drive inference. Numerical loss weights, commitment/update rules, and freezing flags are not specified."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Sections 4.1 and 4.2 opening",
+      "detail": "Occupancy forecasting uses Occ3D and mIoU/IoU; planning uses nuScenes, 2D BEV waypoints, L2 and collision rate. Two seconds of history predict three seconds ahead. Dataset and metric details are deferred to supplementary material."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.2",
+      "detail": "Tokenizer: downsampling four, 512 codes, 128 features. Transformer: three scales, six scene temporal-attention layers per scale, two spatial/temporal cross-attention layers for ego tokens. AdamW, cosine annealing, learning rate 10⁻³, decay 0.01, batch one per GPU, eight RTX 4090 GPUs."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.3, '4D occupancy forecasting' and footnotes",
+      "detail": "O uses ground-truth occupancy. D/T use TPVFormer trained with dense occupancy/sparse semantic LiDAR; S uses self-supervised perception associated with SelfOcc. Copy&Paste persists current occupancy, and 0-second metrics are reconstruction."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, all rows, horizon and Avg. columns",
+      "detail": "Oracle averages are 17.14 mIoU and 26.63 IoU versus 11.33/20.52 for Copy&Paste. D/T/S average pairs are 8.62/16.53, 3.56/8.34, and 0.26/5.00. Avg. covers 1/2/3 seconds; auxiliary supervision excludes ego trajectories."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2, non-dagger OccWorld, UniAD, and occupancy-input OccNet rows",
+      "detail": "O averages 1.17 m and 0.60% collision; UniAD 1.03 m and 0.31%; occupancy-input OccNet 2.25 m and 0.69%. O L2 is 0.43/1.08/1.99 m at 1/2/3 seconds. Inputs and auxiliary supervision vary."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2, dagger definition and dagger-marked rows",
+      "detail": "Dagger marks VAD metric computation. Average L2/collision: O† 0.64 m/0.24%, D† 0.77 m/0.32%, VAD-Base† 0.72 m/0.22%; these belong to a distinct metric convention."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3 and 'Analysis of the scene tokenizer'",
+      "detail": "Settings encode latent resolution, channels, and codebook size. Changing 50² to 100² at 128 channels/512 codes changes reconstruction mIoU 66.38→78.12, average forecast mIoU 17.14→12.38, planning L2 1.17→1.36, FPS 18.0→6.7. The 25² row also changes channels to 256."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4 and 'Analysis of the spatial-temporal generative transformer'",
+      "detail": "Full/no-spatial/no-temporal mIoU and L2 pairs are 17.14/1.17, 10.07/1.42, 8.98/2.06. No ego gives 15.13 mIoU. Ego temporal attention replaced by an MLP gives 12.07 mIoU, 5.89 m L2, 6.23% collision. No temporal attention uses a current-token convolution."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4.3 'Motion planning' and continuation before tokenizer analysis",
+      "detail": "Authors acknowledge UniAD's overall advantage, collision shortcomings, and declining longer-horizon planning. They suggest supervision and future diversity as possible explanations."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Figure 1/caption; PDF pp. 6–7, Figure 5/caption and 'Visualizations'",
+      "detail": "Examples show predicted scene and ego evolution. Figure 1 acknowledges failures for vehicles newly entering view; its claim of more reasonable drivable areas is qualitative. Figure 5 compares O/D/T outputs."
+    }
+  ]
+}

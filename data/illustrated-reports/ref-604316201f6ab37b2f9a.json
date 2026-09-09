@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-604316201f6ab37b2f9a",
+  "shortTitle": "DriveDreamer",
+  "thesis": "DriveDreamer forecasts structural scene features from actions, renders them with a shared diffusion backbone, and decodes future actions, trading strong conditional generation for dependence on structured inputs and incompletely specified evaluation details.",
+  "standfirst": "A driving world model must do more than produce convincing road images: it must connect what the vehicle does to what the scene becomes. DriveDreamer splits that problem into learning how traffic structure maps to appearance and learning how actions change the structural representation. Its diffusion backbone also supplies features to an action decoder. Read the architecture and recurrent update first, then distinguish three experimental questions: whether samples match the video distribution, whether synthetic images improve perception training, and whether predicted trajectories match recorded driving. These questions have separate metrics, and the paper's open-loop planning results leave actual driving performance untested.",
+  "evidenceIds": [
+    "e03",
+    "e06",
+    "e07",
+    "e10",
+    "e12",
+    "e14",
+    "e16"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "width": 1461,
+      "height": 664,
+      "crop": [
+        0.217,
+        0.145,
+        0.79,
+        0.346
+      ],
+      "alt": "DriveDreamer diagram showing text, reference image, initial HDMap, boxes, and actions feeding ActionFormer and Auto-DM, with separate video and action outputs.",
+      "caption": "One shared visual representation supports video rendering and a separate action decoder.",
+      "readingGuide": "Read the inputs on the left before following the two output branches. Text takes the green CLIP route, and the reference image supplies a style embedding. Initial maps and boxes enter ActionFormer, whose predicted structural features condition Auto-DM. The lower action route splits: it conditions structural prediction and also reaches the action decoder. At the right, video decoding and action decoding are separate operations; the latter receives Auto-DM features as well as action history. The fire and snowflake markings agree with the training description: attention additions are trained while the original Stable Diffusion parameters remain frozen. The denoising arrow runs from noisy latent ZT toward Z₀.",
+      "takeaway": "The diagram supports a shared-model interpretation because the action head uses the same Auto-DM representation that supports video generation. It also identifies an important distinction: actions are decoded from internal features and history. The architecture does not depict an inverse-dynamics model that converts completed generated frames into controls.",
+      "caution": "The steering and pedal icons are schematic; Section 4.1 specifies yaw angle and velocity as inputs. Figure 2's horizon labels differ from Section 3.2's conventions, so they should not be treated as an exact temporal implementation contract.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06",
+        "e07",
+        "e08",
+        "e09"
+      ],
+      "asset": "report-assets/ref-604316201f6ab37b2f9a/architecture.png",
+      "sourceSha256": "a731c6a6805c90fa64970a550fadd44fe3dd79baaf5330082df3e82a6ea5b21a",
+      "sourceUrl": "https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/06416.pdf#page=5"
+    },
+    {
+      "id": "actionformer",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 6",
+      "page": 9,
+      "width": 1458,
+      "height": 713,
+      "crop": [
+        0.218,
+        0.144,
+        0.79,
+        0.36
+      ],
+      "alt": "ActionFormer unrolled across observation and two prediction steps, with hidden states h0, h1, h2, stochastic latents s0 and s1, action cross-attention, GRUs, and structural feature decoders.",
+      "caption": "ActionFormer supplies future structural features when future annotated layouts are unavailable.",
+      "readingGuide": "Begin in the blue Observing region: H₀ and B₀ become tokens, then self-attention and an MLP produce h₀. The reference image and text have separate upward paths to Auto-DM. Move right along the purple hidden-state arrows. At each step, encoded action Aₜ enters cross-attention; Eq. (5) specifies a Gaussian latent sₜ from this interaction. The upward sₜ arrow and horizontal hₜ arrow meet at the GRU, consistent with hₜ₊₁ = FGRU(hₜ, sₜ). Each new hidden state is concatenated with action features and decoded into the colored structural tokens that travel upward to Auto-DM. The repeated blocks show recurrent forecasting, not repeated access to future ground truth.",
+      "takeaway": "The forecast lives at the structural-feature level. Auto-DM can therefore reuse its learned relationship between structure and appearance while ActionFormer handles action-conditioned evolution. This is the mechanism linking the first-stage conditional generator to second-stage prediction, rather than simply asking an image generator to extrapolate from pixels alone.",
+      "caution": "The arrows agree with Eqs. (5)–(6), but the diagram does not establish calibrated uncertainty or long-horizon accuracy. The objective explicitly omits posterior–prior matching, and the supplied PDF does not quantify uncertainty calibration.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07"
+      ],
+      "asset": "report-assets/ref-604316201f6ab37b2f9a/actionformer.png",
+      "sourceSha256": "a731c6a6805c90fa64970a550fadd44fe3dd79baaf5330082df3e82a6ea5b21a",
+      "sourceUrl": "https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/06416.pdf#page=9"
+    },
+    {
+      "id": "detection",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 12,
+      "width": 1295,
+      "height": 211,
+      "crop": [
+        0.249,
+        0.172,
+        0.757,
+        0.236
+      ],
+      "alt": "Two-row table comparing FCOS3D and BEVFusion mAP and NDS without synthetic data and with 4K synthetic images.",
+      "caption": "Generated training images improve both reported 3D detection baselines.",
+      "readingGuide": "Read each detector as a separate pair of columns, with higher values preferred. The upper row is real-data training without synthetic additions; the lower row adds 4K images generated from nuScenes training conditions. For FCOS3D, mAP moves from 30.2 to 30.9 and NDS from 38.1 to 38.3. For BEVFusion, the corresponding changes are 32.8 to 35.8 and 37.6 to 39.5. Parentheses are absolute metric-point gains, not relative percentages. The accompanying text specifies 12 training epochs for the detection baselines. Table 2 on the same inspected page separately tests BDD100K lane detection; its data and metrics should not be pooled into this comparison.",
+      "takeaway": "The clearest improvement here is BEVFusion's 3.0-point mAP gain, accompanied by a 1.9-point NDS gain. This provides downstream evidence that generated images contain useful training information beyond looking plausible. It tests augmentation with synthetic images, not the quality of action execution or a learned closed-loop policy.",
+      "caution": "The table and surrounding paragraph do not explicitly name the detector evaluation split or report uncertainty. Supplementary training details were not supplied, and the experiment does not isolate whether extra training exposure alone explains part of the gain.",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e16"
+      ],
+      "asset": "report-assets/ref-604316201f6ab37b2f9a/detection.png",
+      "sourceSha256": "a731c6a6805c90fa64970a550fadd44fe3dd79baaf5330082df3e82a6ea5b21a",
+      "sourceUrl": "https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/06416.pdf#page=12"
+    },
+    {
+      "id": "generation",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 13,
+      "width": 1222,
+      "height": 389,
+      "crop": [
+        0.264,
+        0.172,
+        0.743,
+        0.29
+      ],
+      "alt": "Generation comparison with capability checkmarks and FID/FVD, including front-view DriveDreamer 14.71/110.23 and multi-view DriveDreamer 15.22/129.89.",
+      "caption": "Generation metrics improve, with different conditioning and view coverage across methods.",
+      "readingGuide": "Start with the capability columns: they determine what each row generates and what conditions it receives. The first three methods produce structured multi-view images; their FVD cells are dashes. DriveGAN has video and action checkmarks. Both DriveDreamer rows also have structure conditioning, while only the last has multi-view checked. The surrounding text identifies the preceding DriveDreamer row as front-view. Now read FID and FVD, both lower-is-better: the front-view model records 14.71 and 110.23; the multi-view model records 15.22 and 129.89. Evaluation uses nuScenes validation and images resized to 448 × 256. The adjacent ablation table has a different printed final FVD.",
+      "takeaway": "Both DriveDreamer configurations report substantially lower FVD than DriveGAN's 390.82, and their FID values are below the image baselines listed here. This supports improved distributional generation quality under the paper's comparison. It does not by itself quantify traffic-law compliance, response accuracy under interventions, or driving-policy performance.",
+      "caution": "Capability differences prevent an identical-input comparison. Preserve the original discrepancy: Table 3 gives front-view FVD 110.23, while Table 4 gives 110.32 for its final configuration. Neither value has a reported error bar.",
+      "evidenceIds": [
+        "e08",
+        "e12",
+        "e13",
+        "e16"
+      ],
+      "asset": "report-assets/ref-604316201f6ab37b2f9a/generation.png",
+      "sourceSha256": "a731c6a6805c90fa64970a550fadd44fe3dd79baaf5330082df3e82a6ea5b21a",
+      "sourceUrl": "https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/06416.pdf#page=13"
+    },
+    {
+      "id": "ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 13,
+      "width": 1222,
+      "height": 324,
+      "crop": [
+        0.264,
+        0.337,
+        0.743,
+        0.435
+      ],
+      "alt": "Three-row ablation table showing no marked stages, first-stage only, and both stages, with progressively lower FID and FVD.",
+      "caption": "Staged training and ActionFormer coincide with incremental generation gains.",
+      "readingGuide": "The checkmarks identify the experimental configurations; an empty cell should not be read as an entirely untrained network. From top to bottom, neither named component is marked, only first-stage Auto-DM training is marked, and both first-stage training and second-stage ActionFormer are marked. Follow the metrics across these rows: FID decreases from 15.77 to 15.10 to 14.71, while FVD decreases from 142.07 to 120.92 to 110.32. The nearby paragraph interprets the last step as replacing a concatenation baseline with iterative structural prediction. Figure 3, inspected on page 6, explains why first-stage training itself contains an image step and a video step.",
+      "takeaway": "The ordering is consistent with the proposed mechanism: learning structural conditioning first helps, and adding action-conditioned recurrent prediction helps further. The table supports the complete training design. It provides less specific evidence about which part of ActionFormer, such as stochastic sampling or the GRU, causes the incremental improvement.",
+      "caution": "Compute, parameter count, and optimization exposure are not shown as matched controls, and no repeated-run uncertainty is given. The final FVD is faithfully retained as 110.32 despite Table 3's 110.23.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e12",
+        "e13"
+      ],
+      "asset": "report-assets/ref-604316201f6ab37b2f9a/ablation.png",
+      "sourceSha256": "a731c6a6805c90fa64970a550fadd44fe3dd79baaf5330082df3e82a6ea5b21a",
+      "sourceUrl": "https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/06416.pdf#page=13"
+    },
+    {
+      "id": "planning",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 5",
+      "page": 14,
+      "width": 1150,
+      "height": 330,
+      "crop": [
+        0.277,
+        0.186,
+        0.728,
+        0.286
+      ],
+      "alt": "Open-loop planning table listing visual and action inputs and average trajectory error and collision, with DriveDreamer at 0.29 m and 0.15 percent.",
+      "caption": "DriveDreamer matches the action-only baseline's trajectory error while reducing its reported collision rate.",
+      "readingGuide": "Read the input columns before comparing scores. ST-P3 and UniAD use visual information, AD-MLP uses action information, and VAD and DriveDreamer use both. The last columns measure average trajectory L2 error in meters and average collision rate in percent, under the stated ST-P3 protocol on nuScenes validation over three future seconds. DriveDreamer's 0.29 m equals AD-MLP's value; its 0.15% collision rate is below AD-MLP's 0.19%. Relative to VAD, the tradeoff reverses between metrics: DriveDreamer has lower error than 0.37 m but higher collision rate than 0.14%. The bold values therefore do not identify one method as best on every metric.",
+      "takeaway": "The authors' approximately 21% relative collision reduction is against AD-MLP: the absolute decrease is 0.04 percentage points. The result is compatible with visual features helping an action-history predictor avoid some logged collisions, while the unchanged L2 score shows that average trajectory error alone misses this difference.",
+      "caution": "This is open-loop prediction against recorded data. It neither demonstrates physical collision reduction nor isolates visual-feature causality through a matched ablation of the same model. VAD has the lowest collision rate among these reported rows.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e14"
+      ],
+      "asset": "report-assets/ref-604316201f6ab37b2f9a/planning.png",
+      "sourceSha256": "a731c6a6805c90fa64970a550fadd44fe3dd79baaf5330082df3e82a6ea5b21a",
+      "sourceUrl": "https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/06416.pdf#page=14"
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Learn the structural renderer before asking it to forecast",
+      "kind": "source",
+      "text": "Start with the distinction between a road layout and its visual appearance. Auto-DM receives projected maps, projected boxes with category information, and scene text, but those conditions enter different parts of the model. Maps align spatially with image latents, whereas boxes become position tokens used by gated self-attention. Text influences appearance through cross-attention. The first training step uses a single image and omits temporal attention, concentrating supervision on the structural relationship. The next step adds temporal attention and sequential conditions so the same generator learns coherent video. Eq. (4) remains a Gaussian-noise prediction objective. Original Stable Diffusion v1.4 weights are frozen while the paper's named attention parameters are trained. This first stage teaches conditional rendering; it still receives the structural sequence rather than predicting all of it.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e09"
+      ]
+    },
+    {
+      "heading": "Replace unavailable future conditions with recurrent predictions",
+      "kind": "source",
+      "text": "Video forecasting changes the information available at test time. An initial map and set of boxes can be supplied, but future layouts are the unknown quantities. ActionFormer compresses the initial structure into h₀ and then repeatedly combines a hidden state with the supplied action. Eq. (5) describes the resulting stochastic latent; Eq. (6) advances the hidden state through a GRU. The decoder converts each action-conditioned state into structural features for Auto-DM. Figure 6's arrows therefore implement an explicit bridge from actions to future rendering conditions. Second-stage training also predicts future actions through pooled Auto-DM features and action history. The paper models video and action likelihoods separately given shared conditions, and uses MSE and L1 objectives while omitting posterior–prior matching. Joint prediction here does not mean that actions and pixels share one diffusion variable.",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e07"
+      ]
+    },
+    {
+      "heading": "Separate generation evidence from evidence about decisions",
+      "kind": "analysis",
+      "text": "Reader interpretation: assess the result tables as different tests of the representation. Table 3 measures image and video distribution quality; its capability columns prevent treating every row as an identical-input baseline. Table 1 asks whether generated images improve a detector trained on real data, offering a downstream test of visual usefulness. Table 4 associates staged learning and recurrent structural prediction with better generation metrics, but does not match compute or isolate each recurrent component. Finally, Table 5 tests three-second trajectories against logged nuScenes data. DriveDreamer matches the action-only baseline's L2 error and reduces its collision metric, while VAD still has the lower collision rate. These findings motivate testing the shared features more carefully; they do not show that generated futures were searched to select actions or that a vehicle executed the predictions safely.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e10",
+        "e12",
+        "e13",
+        "e14"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does recurrence learn action-dependent structural evolution?",
+      "text": "Reader-proposed check, not an executed experiment: initialize both variants from the same first-stage Auto-DM checkpoint and compare ActionFormer with the paper's concatenation baseline using identical nuScenes splits, training updates, resolution, and forecast horizon. Match parameter count where feasible and report any remaining compute difference. Fix the sampling settings and seeds, then evaluate FID/FVD and a predeclared distance between predicted structural features and features encoded from withheld future annotations. As a diagnostic, permute action sequences across otherwise matched clips and measure the change. A recurrent advantage on appearance metrics without better structural prediction, or insensitivity to action permutation, would weaken the proposed action-to-structure explanation. Repeat seeds and resolve which printed FVD value is reproducible.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e08",
+        "e09",
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "title": "Do shared visual features add information beyond action history?",
+      "text": "Reader-proposed check, not an executed experiment: train matched action decoders with the same histories, targets, split, optimizer budget, and three-second evaluation code. Compare history alone, history plus pooled Auto-DM features, and history plus visual features shuffled across scenes. Hold decoder capacity fixed with equal-sized input slots, and use matched random seeds. Report average L2 and collision rate with scene-level uncertainty intervals. If correctly aligned visual features consistently reduce collisions beyond both controls while shuffled features lose the benefit, the result would support a contribution from scene information. If the history-only or shuffled control matches the full model, the causal interpretation of Table 5's cross-model comparison would be weakened. All variants remain open-loop tests.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09",
+        "e14"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "notes": "Visually inspected the title/author page, all body pages, Figures 1–6, Tables 1–5, and equation/training/evaluation pages. Cross-checked Figure 2's conditioning/output arrows and frozen/trainable markings against Sections 3.1 and 4.1, and Figure 6's action, latent, and GRU arrows against Eqs. (5)–(6). Inspected all six final 300-DPI crops, retaining complete legends and table headers while excluding captions and body prose. All supporting body pages for tutorial, numerical, training, and proposed-check claims are included. References on pages 15–18 were read as text. No appendix appears in the supplied PDF; separate supplementary figures, videos, and implementation details were not supplied. The FVD and temporal-index discrepancies remain explicit."
+  },
+  "featuredResultTask": "Open-loop driving trajectory prediction"
+}
