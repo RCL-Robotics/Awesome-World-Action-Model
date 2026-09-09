@@ -1,0 +1,422 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-e6aba3e8a3ffe044339d",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T07:34:38.471Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://proceedings.neurips.cc/paper/2019/file/5faf461eff3099671ad63c6f3f094f7f-Paper.pdf",
+      "title": "When to Trust Your Model: Model-Based Policy Optimization",
+      "kind": "pdf",
+      "sha256": "675f5b1fda804f3bcdd846eec04b7aeef08767888ea18778b0e722a37697b9f7",
+      "wordCount": 6463,
+      "accessedAt": "2026-09-07T14:32:59.520679+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related work",
+      "3 Background",
+      "4 Monotonic improvement with model bias",
+      "4.1 Monotonic model-based improvement",
+      "4.2 Interpolating model-based and model-free updates",
+      "4.3 Model generalization in practice",
+      "5 Model-based policy optimization with deep reinforcement learning",
+      "6 Experiments",
+      "6.1 Comparative evaluation",
+      "6.2 Design evaluation",
+      "7 Discussion",
+      "Acknowledgements",
+      "References"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The complete supplied 12-page NeurIPS 2019 proceedings artifact was read. Its title and four authors match the catalog; the title page identifies University of California, Berkeley. No separate revision number or revision date is printed, and no comparison with other editions was supplied.",
+      "Appendices A and C are referenced for proofs and hyperparameters but are absent from this PDF, which ends with references. Separate supplemental material availability has not been fully verified; no supplement was supplied or read.",
+      "Text extraction does not reconstruct figure images and corrupts some mathematical symbols. All 12 PDF pages were visually inspected to check layout, equations and figures; five original crops were inspected separately.",
+      "Code was not supplied or inspected, and no experiments were reproduced. External references and other paper versions were not opened."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, PDF p. 5: model error and local sensitivity to policy shift",
+      "Figure 2, PDF p. 7: six continuous-control benchmark learning curves",
+      "Figure 3, PDF p. 8: gradient-update, rollout-length and value-expansion ablations",
+      "Figure 4, PDF p. 9: Hopper trajectory uncertainty and model/environment returns",
+      "Algorithms 1 and 2, PDF pp. 3 and 6: theoretical and practical optimization procedures"
+    ],
+    "tablesReviewed": [],
+    "appendix": "not-present"
+  },
+  "synopsis": "Model-based policy optimization (MBPO) uses a learned dynamics-and-reward ensemble to generate extra training transitions for soft actor-critic. Each short rollout begins at a real replay-buffer state, limiting accumulated prediction error while permitting many policy updates per environment interaction. The central question is how much model usage improves learning before model bias dominates. The paper combines conditional return bounds, empirical model-generalization diagnostics and MuJoCo experiments. Its strongest explicit comparison matches SAC's Ant performance using 300,000 rather than 3 million environment steps; it does not establish an equivalent reduction in computation time.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Environment interactions can be expensive, whereas learned models can generate additional samples. However, a policy optimized against inaccurate predictions may exploit model errors and perform poorly under actual dynamics. MBPO asks whether limited, carefully placed model rollouts can preserve model-based sample efficiency while approaching strong model-free final performance.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The analysis separates model error from policy distribution shift. Its initial branched-rollout bound actually favors zero model steps; incorporating error under the updated policy permits nonzero rollout lengths when that error is sufficiently small.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-bounds",
+        "e-generalization"
+      ]
+    },
+    {
+      "text": "The practical contribution is many short rollouts from replay states, followed by off-policy actor-critic learning. This decouples model rollout length from episode length. Experiments compare six tasks and diagnose whether gains merely reflect more gradient updates or longer predictions.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-algorithm",
+        "e-protocol",
+        "e-no-model",
+        "e-horizon"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current environment state/observation s and policy action a",
+      "Real interaction tuples containing state, action, next state and reward, stored in the environment replay dataset"
+    ],
+    "outputs": [
+      "Probabilistic predictions of next state and reward for synthetic training transitions",
+      "A learned policy mapping current observations to actions, supported by learned Q-functions"
+    ],
+    "steps": [
+      {
+        "name": "Collect grounding data",
+        "detail": "Execute the current policy in the environment and add observed transitions to the environment dataset. Both transition dynamics and the reward function are treated as unknown. New interaction data supports subsequent model retraining, providing feedback when the policy visits new states.",
+        "evidenceIds": [
+          "e-background",
+          "e-algorithm"
+        ]
+      },
+      {
+        "name": "Fit a probabilistic ensemble",
+        "detail": "Bootstrap an ensemble of neural predictors. Each produces a Gaussian distribution over next state and reward with diagonal covariance. The paper associates each member's probabilistic output with aleatoric uncertainty and differences induced by bootstrapping with epistemic uncertainty.",
+        "evidenceIds": [
+          "e-model"
+        ]
+      },
+      {
+        "name": "Branch briefly from replay",
+        "detail": "Sample a starting state uniformly from real replay, sample actions from the current policy, and unroll the learned dynamics for k steps. Select an ensemble member uniformly for each predicted transition, allowing member changes within one rollout. Store generated transitions in the model dataset.",
+        "evidenceIds": [
+          "e-model",
+          "e-algorithm"
+        ]
+      },
+      {
+        "name": "Improve the actor and critic",
+        "detail": "Use SAC's Bellman-based policy evaluation and actor improvement on generated data. Repeat generation and gradient updates between real interactions. Algorithm 2 replaces Algorithm 1's intractable policy argmax with a fixed update count; its footnote explicitly says required Q-function updates are omitted from the pseudocode for clarity.",
+        "evidenceIds": [
+          "e-sac",
+          "e-algorithm"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Train the ensemble by maximum likelihood on real environment data. Model-generated data supports policy learning, rather than replacing the environment dataset used to fit dynamics. The practical procedure alternates model fitting, interaction, synthetic rollout generation and SAC updates; it does not specify pretrained or permanently frozen modules.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-algorithm",
+          "e-model"
+        ]
+      },
+      {
+        "text": "The paper reports 20–40 policy gradient steps per environment sample. Rollout length controls individual prediction chains independently of the number of generated rollouts. Complete environment-specific settings are deferred to unavailable Appendix C, so the stated range is not a recovered configuration for every task.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-sac",
+          "e-supplement-gap"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "For action execution, the current policy receives the current observation and chooses an action. Model sampling supplies training data; MBPO does not use an online receding-horizon planner to select the executed action. The reported environment is a MuJoCo simulator. The paper's use of 'real environment' contrasts simulator dynamics with learned dynamics, not simulated control with physical deployment.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-related-mechanism",
+          "e-algorithm",
+          "e-protocol",
+          "e-diagnostic"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "p_{\\theta}^{i}(s_{t+1},r\\mid s_t,a_t)=\\mathcal{N}\\!\\left(\\mu_{\\theta}^{i}(s_t,a_t),\\Sigma_{\\theta}^{i}(s_t,a_t)\\right)",
+        "explanation": "Ensemble member i, with learned parameters theta, predicts next state s at time t+1 and reward r from current state s_t and action a_t. Mu and Sigma are its Gaussian mean and diagonal covariance. The ensemble is used to sample transitions, not actions directly.",
+        "evidenceIds": [
+          "e-model"
+        ]
+      },
+      {
+        "expression": "\\eta[\\pi]\\geq\\hat{\\eta}[\\pi]-C(\\epsilon_m,\\epsilon_\\pi)",
+        "explanation": "Eta is discounted return under true dynamics, hat-eta is return under the model, and pi is the policy. C penalizes model error epsilon_m and policy shift epsilon_pi. This is a conditional lower-bound framework; the implemented finite SAC updates do not explicitly enforce its improvement condition.",
+        "evidenceIds": [
+          "e-bounds",
+          "e-algorithm"
+        ]
+      },
+      {
+        "expression": "\\hat{\\epsilon}_{m'}(\\epsilon_\\pi)\\approx\\epsilon_m+\\epsilon_\\pi\\frac{d\\epsilon_{m'}}{d\\epsilon_\\pi}",
+        "explanation": "The paper approximates updated-policy model error epsilon_m' using old-distribution error epsilon_m and an empirically measured local slope. Figure 1 uses policy KL divergence as a proxy, whereas the theoretical policy-shift bound uses total variation. The approximation motivates short rollouts rather than certifying their accuracy.",
+        "evidenceIds": [
+          "e-bounds",
+          "e-generalization"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Ant sample efficiency",
+      "setting": "Online MuJoCo continuous control; standard 1000-step episodes. Figure 2 reports mean and standard deviation across five trials; no fixed dataset train/test split is specified.",
+      "metric": "Environment interactions needed for comparable average return",
+      "value": "MBPO at 300,000 steps is reported to match SAC at 3,000,000 steps.",
+      "comparison": "SAC is also MBPO's underlying policy learner. Other plotted baselines are PPO, PETS, STEVE and SLBO.",
+      "interpretation": "This is an author-reported tenfold interaction-count comparison at comparable performance, not an exact tabulated return threshold or measured wall-clock speedup.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-ant"
+      ]
+    },
+    {
+      "task": "Hopper model-data ablation",
+      "setting": "Figure 3 left: SAC without model data, varying gradient updates per environment step.",
+      "metric": "Average return versus environment steps",
+      "value": "SAC settings G = 10, 20 and 30 remain below MBPO's learning curve; the text reports that extra updates alone do not match MBPO sample efficiency.",
+      "comparison": "Standard SAC and MBPO are the common reference curves.",
+      "interpretation": "Supports a contribution from model-generated data beyond increasing update frequency. Exact endpoint returns and significance tests are not tabulated.",
+      "evidenceIds": [
+        "e-no-model"
+      ]
+    },
+    {
+      "task": "Hopper rollout-length ablation",
+      "setting": "Figure 3 center and Section 6.2; fixed model horizons compared with scheduled MBPO.",
+      "metric": "Average return versus environment steps",
+      "value": "Fixed k = 1 retains much of the benefit. The authors report the best schedule increasing from 1 to 15; 200-step rollouts perform worse than shorter ones, and 500-step rollouts are too inaccurate for effective learning.",
+      "comparison": "Fixed k = 1, 200 and 500, with MBPO and SAC references.",
+      "interpretation": "Longer prediction is not automatically more useful. Schedule endpoints are stated, but scheduling epochs are absent with Appendix C.",
+      "evidenceIds": [
+        "e-horizon",
+        "e-supplement-gap"
+      ]
+    },
+    {
+      "task": "Hopper value-expansion comparison",
+      "setting": "Figure 3 right and Section 6.2; model value expansion implemented on SAC to reduce policy-learner confounding.",
+      "metric": "Average return versus environment steps",
+      "value": "H = 1 is competitive among the H = 1, 5 and 10 value-expansion settings, while MBPO learns faster in the displayed range.",
+      "comparison": "Model predictions improve targets for real transitions, versus MBPO training with generated transitions.",
+      "interpretation": "The authors report no improvement from preliminary attempts to combine both approaches. This is not an exhaustive test of their compatibility.",
+      "evidenceIds": [
+        "e-value-expansion"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The practical algorithm is motivated by conditional theory rather than a per-update certificate. Theorem 4.3 describes updated-policy error, but its printed expectation still uses the data-policy state-distribution notation. That inconsistency remains unresolved without the referenced proof; the report preserves it rather than silently correcting the formula.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-bounds",
+        "e-generalization",
+        "e-theory-notation",
+        "e-algorithm"
+      ]
+    },
+    {
+      "text": "Figure 4 shows growing uncertainty over a 450-step Hopper sequence despite broadly tracking cumulative returns. The authors interpret model underestimation as evidence against exploitation in these runs. One task's diagnostic is not a general guarantee against exploitation, nor proof of accurate long-horizon state prediction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-diagnostic"
+      ]
+    },
+    {
+      "text": "Evaluation concerns six simulated continuous-control tasks. It does not establish visual world modeling, physical robot success or out-of-distribution task transfer. Learning curves support interaction efficiency, while missing full configurations and hardware details prevent a compute-matched interpretation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-protocol",
+        "e-sac",
+        "e-supplement-gap"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A faithful implementation needs a probabilistic bootstrap ensemble, SAC actor and critics, separate real/model datasets, replay-state branching and per-transition ensemble sampling. The supplied body leaves ensemble size, network widths, optimizer settings, model-data retention, exact batch composition and environment-specific rollout schedules unresolved; it directs readers to Appendix C. Hardware counts and software versions are not specified here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-model",
+        "e-algorithm",
+        "e-sac",
+        "e-supplement-gap"
+      ]
+    },
+    {
+      "text": "Proposed minimal check: compare Hopper SAC with matched gradient-update counts against one-step MBPO, keeping environment budget and evaluation protocol fixed. Separately vary rollout length while holding the number of generated transitions constant. Report return, model prediction error and computation cost; these controls distinguish useful local predictions from extra optimization and unequal synthetic-data volume.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-algorithm",
+        "e-no-model",
+        "e-horizon",
+        "e-diagnostic"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded foundational model-based RL and training-optimization categories are supported: the dynamics ensemble augments training for a separate actor-critic. The paper does not describe a unified model jointly predicting future observations and actions, or inverse dynamics extracting actions from desired futures. Keeping the WAM architecture, prediction-paradigm and quadrant fields not applicable is therefore appropriate; this is an architectural assessment, not evidence of a single jointly predictive model.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-related-mechanism",
+        "e-model",
+        "e-algorithm",
+        "e-sac"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Classical world models & model-based RL",
+        "Training optimization & distillation"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Explicit in survey",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "5d91801bd62d1b3dc207342b5f53a3b88b6cedead19836aa58ffca92f84c72f0"
+    }
+  },
+  "discussionQuestions": [
+    "Does one-step MBPO retain its advantage when synthetic-transition count and gradient-update count are both controlled?",
+    "Can a measured local model-error slope select useful rollout lengths reliably as the policy changes?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and conference footer",
+      "detail": "The observed title matches the catalog. Authors are Michael Janner, Justin Fu, Marvin Zhang and Sergey Levine, affiliated with University of California, Berkeley; the footer identifies NeurIPS 2019."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "The paper frames model usage as a tradeoff between efficient synthetic-data generation and model bias, and proposes short rollouts to decouple model and task horizons."
+    },
+    {
+      "id": "e-background",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3 and Algorithm 1, lines 1–4",
+      "detail": "States, actions, discounted return and unknown dynamics are defined; reward is also learned. Real state/action/next-state/reward tuples train the predictive model by maximum likelihood."
+    },
+    {
+      "id": "e-related-mechanism",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 2, first paragraph and discussion of Dyna-style model use",
+      "detail": "The probabilistic ensemble is used to learn a policy rather than for receding-horizon planning; model rollouts can supply extra training examples."
+    },
+    {
+      "id": "e-bounds",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 4.1; p. 4, Theorems 4.1–4.2, Eqs. (1)–(2), and Section 4.3 first paragraph",
+      "detail": "True return is lower-bounded by model return minus an error penalty. Model error and policy shift are controlled using total variation; policy KL is used empirically. The initial branched-rollout bound is maximized at k = 0."
+    },
+    {
+      "id": "e-generalization",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 4.3; p. 5, Figure 1(a–b), caption, local-error approximation and Theorem 4.3, Eq. (3)",
+      "detail": "Frozen models trained on different amounts of policy data are evaluated under shifted policies. Larger datasets reduce local error sensitivity in Hopper and Walker2d. An updated-policy error approximation allows positive rollout lengths when error is sufficiently small."
+    },
+    {
+      "id": "e-theory-notation",
+      "sourceId": "primary",
+      "location": "PDF p. 5, paragraph preceding Theorem 4.3 and the theorem's printed definition of epsilon_m'",
+      "detail": "The prose identifies error under the current or updated policy, while the theorem's displayed expectation retains s sampled from pi_D,t. The proof is referred to Appendix A, Theorem A.2."
+    },
+    {
+      "id": "e-model",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 5, Predictive model paragraph and Gaussian equation",
+      "detail": "Bootstrap ensemble members output diagonal-covariance Gaussians over next state and reward; a member is selected uniformly for each transition. The text distinguishes aleatoric output uncertainty and epistemic parameter uncertainty."
+    },
+    {
+      "id": "e-algorithm",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Algorithm 2, lines 1–10; Section 5, Model usage; footnote 1",
+      "detail": "The model fits real data; real actions add environment data; uniformly sampled replay states start k-step policy-driven model rollouts; model data supports gradient updates. Fixed updates replace an argmax. Q-function updates are necessary but omitted from the pseudocode."
+    },
+    {
+      "id": "e-sac",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 5, Policy optimization and final Model usage paragraph",
+      "detail": "SAC alternates Bellman-based Q evaluation with actor improvement. Many short model rollouts enable 20–40 policy gradient steps per environment sample; complete hyperparameters are deferred to Appendix C."
+    },
+    {
+      "id": "e-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 2, all six panels and caption; Section 6.1",
+      "detail": "MuJoCo tasks are InvertedPendulum, Hopper, Walker2d, Ant, HalfCheetah and Humanoid. MBPO is compared with SAC, PPO, PETS, STEVE and SLBO using standard 1000-step episodes. Curves show five-trial means with standard-deviation shading; dashed lines indicate convergence performance."
+    },
+    {
+      "id": "e-ant",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 2 Ant panel and caption; p. 8, Section 6.1 continuation immediately below Figure 3",
+      "detail": "The authors explicitly state that Ant performance at 300,000 MBPO environment steps matches SAC performance at 3 million steps. The plot displays the shorter training window and an asymptotic SAC reference."
+    },
+    {
+      "id": "e-no-model",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 3 left panel and caption; Section 6.2, No model",
+      "detail": "Hopper SAC variants use G = 10, 20 and 30 updates per environment step without model data. Increasing updates speeds learning somewhat but does not match MBPO sample efficiency."
+    },
+    {
+      "id": "e-horizon",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 3 center panel and caption; Section 6.2, Rollout horizon",
+      "detail": "Fixed k = 1, 200 and 500 are compared. Single-step rollouts retain much of MBPO's benefit; the best reported Hopper schedule grows linearly from 1 to 15. The text describes 200 steps as usable but worse than shorter horizons and 500 as too inaccurate."
+    },
+    {
+      "id": "e-value-expansion",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 3 right panel and Section 6.2, Value expansion; p. 9, continuation above Model exploitation",
+      "detail": "SAC is augmented with H-step model value expansion for H = 1, 5 and 10. One-step expansion is competitive, and preliminary combination with MBPO did not improve performance. The paper acknowledges confounds in comparisons using different policy learners."
+    },
+    {
+      "id": "e-diagnostic",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 4(a–c), caption, and Section 6.2, Model exploitation",
+      "detail": "A 450-step Hopper sequence is replayed under the learned model 1000 times. Prediction bands denote one standard deviation. Thin blue curves show individual modeled cumulative returns, thick blue their mean, and black environment returns. The authors observe accumulating state uncertainty and generally underestimated model returns."
+    },
+    {
+      "id": "e-supplement-gap",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, proof references; p. 6, final Section 5 paragraph; p. 8, Section 6.2; pp. 10–12, ending reference section",
+      "detail": "Proofs point to Appendix A and full hyperparameters and schedules point to Appendix C. The supplied artifact contains neither appendix and ends with references on p. 12. Those referred details cannot be recovered from this artifact."
+    },
+    {
+      "id": "e-visual-scope",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–12; Algorithms 1–2 on pp. 3 and 6; Figures 1–4 on pp. 5, 7, 8 and 9",
+      "detail": "The supplied paper presents its mechanism as equations and pseudocode, empirical comparisons as plots, and no quantitative results table or architecture block diagram. Its four numbered figures cover generalization, benchmarks, ablations and rollout diagnostics."
+    }
+  ]
+}

@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-fccce46467ad720043ea",
+  "shortTitle": "3D Gaussian Splatting",
+  "thesis": "A scene-specific set of anisotropic Gaussians makes high-quality radiance fields fast to render, at the cost of substantial memory and approximate visibility.",
+  "standfirst": "Imagine fitting a captured scene with translucent, oriented blobs whose shapes and colors can change. Project those blobs into a camera, blend their contributions and compare the image with a real photograph. That is the core loop of 3D Gaussian Splatting. Its distinctive move is to optimize both the blobs and their population while using a renderer designed for GPU efficiency. This reading follows the supplied 2023 arXiv v1: how the representation learns, why splitting and gradients matter, and what the reported speed actually buys. The result is a static-scene rendering method; its image-quality evidence does not establish dynamic prediction or robot control.",
+  "evidenceIds": [
+    "e01",
+    "e02",
+    "e07",
+    "e09",
+    "e13"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/ref-fccce46467ad720043ea/architecture.png",
+      "width": 1421,
+      "height": 264,
+      "sourceSha256": "f4c0c9f27e2d02b0265017f66049d471eb66cb50203bc918f51ba07d20cbbe11",
+      "sourceUrl": "https://arxiv.org/pdf/2308.04079#page=5",
+      "crop": [
+        0.083,
+        0.099,
+        0.919,
+        0.219
+      ],
+      "alt": "Pipeline from sparse SfM points through initialization to 3D Gaussians, camera projection, differentiable tile rasterization and an image, with returning gradient arrows and adaptive density control.",
+      "caption": "The same explicit scene representation participates in image formation and image-based optimization.",
+      "readingGuide": "Follow the black arrows from left to right: SfM points initialize the Gaussian set, and a camera supplies the projection used by the tile rasterizer. The image at the right closes the training loop through the blue gradient arrows. The lower branch uses optimization signals to adapt the Gaussian population, then returns the revised set to rendering. Cross-checking Figure 2 with Sections 3–5 and Algorithm 1 shows that density control includes discrete cloning, splitting and removal. The blue arrow into that branch denotes gradient-informed decisions; it does not establish differentiability through the creation or deletion of a primitive.",
+      "takeaway": "The method's efficiency depends on a representation that can both be optimized from photographs and directly rasterized. Geometry, opacity and directional color live in the Gaussians themselves. Once a scene is fitted, novel-view rendering follows the forward projection/rasterization path without running the training loop.",
+      "caution": "The diagram summarizes scene fitting, not a neural-network architecture or action policy. Image supervision can admit incorrect geometry, and the figure alone says nothing about unseen-region accuracy.",
+      "evidenceIds": [
+        "e02",
+        "e04",
+        "e05",
+        "e06",
+        "e07"
+      ]
+    },
+    {
+      "id": "densification",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 6,
+      "asset": "report-assets/ref-fccce46467ad720043ea/densification.png",
+      "width": 1012,
+      "height": 601,
+      "sourceSha256": "f4c0c9f27e2d02b0265017f66049d471eb66cb50203bc918f51ba07d20cbbe11",
+      "sourceUrl": "https://arxiv.org/pdf/2308.04079#page=6",
+      "crop": [
+        0.085,
+        0.098,
+        0.482,
+        0.28
+      ],
+      "alt": "Two rows show green Gaussian footprints against a black target outline: a small footprint is cloned to cover missing geometry, while an oversized footprint is split before optimization continues.",
+      "caption": "Clone to expand coverage; split to refine an oversized primitive.",
+      "readingGuide": "Read each row left to right. The black outline is the schematic geometry, and the green regions represent Gaussian coverage. In the upper row, a small Gaussian covers too little of the shape, so cloning supplies another primitive that optimization can move. In the lower row, one broad Gaussian spans detail that it cannot express well; splitting creates smaller components. The arrows and row labels agree with Section 5.2 and Algorithm 1: first require a sufficiently large position-gradient signal, then split the large-scale case and clone the smaller-scale case. The figure illustrates the intended behavior rather than showing a measured reconstruction trajectory.",
+      "takeaway": "Density control changes the model's capacity locally. A parameter update can move or reshape an existing blob, but cannot alone add independent components. Cloning and splitting let the optimization allocate those components where image gradients indicate remaining reconstruction error.",
+      "caution": "The diagram omits numerical thresholds and pruning. It does not prove either operation is optimal, and a larger population can itself improve quality; the ablation must be read with that capacity change in mind.",
+      "evidenceIds": [
+        "e06",
+        "e11"
+      ]
+    },
+    {
+      "id": "benchmark-table",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 8,
+      "asset": "report-assets/ref-fccce46467ad720043ea/benchmark-table.png",
+      "width": 1768,
+      "height": 336,
+      "sourceSha256": "f4c0c9f27e2d02b0265017f66049d471eb66cb50203bc918f51ba07d20cbbe11",
+      "sourceUrl": "https://arxiv.org/pdf/2308.04079#page=8",
+      "crop": [
+        0.084,
+        0.099,
+        0.916,
+        0.221
+      ],
+      "alt": "Table comparing six method configurations across Mip-NeRF360, Tanks&Temples and Deep Blending, with SSIM, PSNR, LPIPS, training time, FPS and parameter memory.",
+      "caption": "Fast display comes with metric-dependent quality and a larger stored scene.",
+      "readingGuide": "Read within one dataset block before moving across datasets. SSIM and PSNR increase with quality, whereas LPIPS decreases. Compare Ours-7K with Ours-30K to see the effect of continued optimization; compare Ours-30K with M-NeRF360 for the quality benchmark and with INGP-Big for a fast baseline. The retained dagger note identifies inherited Mip-NeRF360 quality scores. FPS is measured rendering performance, while Mem stores optimized parameters rather than peak training memory. Sections 7.1–7.2 specify the viewer, every-eighth-image test split and differing native resolutions. Consequently the three blocks should not be treated as one fixed-resolution throughput benchmark.",
+      "takeaway": "On Mip-NeRF360, Ours-30K reports 134 FPS with SSIM 0.815 and LPIPS 0.214, compared with 0.06 FPS, 0.792 and 0.237 for M-NeRF360. Its PSNR is lower, 27.21 versus 27.69 dB, and its parameter storage is larger, 734 versus 8.6 MB. The practical gain is fast display with competitive, not uniformly superior, quality.",
+      "caution": "Page 9 footnote 2 converts 12 hours on four A100s into the baseline's 48-hour figure; Ours uses an A6000. The timing comparison is not a controlled same-hardware wall-clock experiment. Appendix D separately reports rerun baseline quality.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "id": "ablation-table",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 9,
+      "asset": "report-assets/ref-fccce46467ad720043ea/ablation-table.png",
+      "width": 1634,
+      "height": 311,
+      "sourceSha256": "f4c0c9f27e2d02b0265017f66049d471eb66cb50203bc918f51ba07d20cbbe11",
+      "sourceUrl": "https://arxiv.org/pdf/2308.04079#page=9",
+      "crop": [
+        0.115,
+        0.139,
+        0.884,
+        0.252
+      ],
+      "alt": "PSNR ablation table for Truck, Garden and Bicycle at 5K and 30K iterations, with rows removing gradient depth, SfM initialization, splitting, spherical harmonics, cloning or anisotropy.",
+      "caption": "The strongest losses come from restricting gradients and weakening scene refinement.",
+      "readingGuide": "Start with the Full row and compare one removed choice at a time, keeping the scene and iteration column fixed. Average-30K provides a compact summary, but the individual columns reveal exceptions: No-Clone scores 24.82 on Truck against Full's 24.81. Limited-BW caps gradients at the ten front-most points, Random Init removes the SfM scaffold, and Isotropic replaces the full covariance shape with one radius. The caption on the inspected page states that inputs were manually downsampled from higher-resolution originals to reduce artifacts. Those preparation differences mean this table is a controlled ablation setting, not a replacement for the main benchmark scores.",
+      "takeaway": "At 30K, mean PSNR falls from 26.05 to 19.19 with Limited-BW and to 23.90 without splitting. Isotropic Gaussians reach 25.23 and removing SH reaches 25.35. The results support retaining gradients through depth and enough geometric flexibility, while the small No-Clone gap requires a more measured interpretation.",
+      "caution": "Only three scenes are included, with no repeated-run uncertainty. Disabling population changes also alters representation size and optimization trajectory, so this table does not isolate a count-matched benefit of splitting or cloning.",
+      "evidenceIds": [
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "id": "anisotropy",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 10",
+      "page": 11,
+      "asset": "report-assets/ref-fccce46467ad720043ea/anisotropy.png",
+      "width": 1410,
+      "height": 279,
+      "sourceSha256": "f4c0c9f27e2d02b0265017f66049d471eb66cb50203bc918f51ba07d20cbbe11",
+      "sourceUrl": "https://arxiv.org/pdf/2308.04079#page=11",
+      "crop": [
+        0.085,
+        0.099,
+        0.914,
+        0.226
+      ],
+      "alt": "Three groups of ground-truth, full-model and isotropic renderings show Ficus leaves, a car behind a fence and a close-up of a wheel.",
+      "caption": "Independent scales and rotation help splats align with fine image structure.",
+      "readingGuide": "Each group repeats the same order: Ground Truth, Full, Isotropic. Compare the separated leaves in Ficus, the narrow structures around the distant car and the wheel boundary. The isotropic option can optimize one radius but cannot independently stretch and orient its Gaussian footprint as the full covariance model does. Read this alongside Equation (6), where rotation and axis scales determine covariance, and the scalar-radius ablation described on page 10. Figure 10's caption adds an essential control: the Ficus example restricts both configurations to at most 5K Gaussians for illustration. That special budget is part of this visual comparison.",
+      "takeaway": "The examples show how anisotropic primitives preserve thin structures that become diffuse under the illustrated isotropic configuration. Table 3 provides a complementary quantitative result: mean 30K PSNR is 26.05 for the full model and 25.23 for Isotropic across its three real-scene ablations.",
+      "caution": "The Ficus image uses a special count cap, not the standard synthetic benchmark configuration. These selected views demonstrate appearance differences; they do not directly measure surface accuracy or establish superiority at every memory budget.",
+      "evidenceIds": [
+        "e04",
+        "e11",
+        "e12"
+      ]
+    },
+    {
+      "id": "unseen-view",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 12",
+      "page": 11,
+      "asset": "report-assets/ref-fccce46467ad720043ea/unseen-view.png",
+      "width": 1010,
+      "height": 343,
+      "sourceSha256": "f4c0c9f27e2d02b0265017f66049d471eb66cb50203bc918f51ba07d20cbbe11",
+      "sourceUrl": "https://arxiv.org/pdf/2308.04079#page=11",
+      "crop": [
+        0.085,
+        0.696,
+        0.481,
+        0.8
+      ],
+      "alt": "Two DrJohnson room renderings compare Mip-NeRF360 on the left with 3D Gaussian Splatting on the right; the foreground wall and furniture contain visible artifacts.",
+      "caption": "A fast renderer still inherits the ambiguity of poorly observed regions.",
+      "readingGuide": "The caption identifies the left panel as Mip-NeRF360 and the right as the proposed method. This is a DrJohnson view with little overlap with the training views. Inspect the near wall and dark foreground furniture, where the two representations produce different kinds of error. There is no ground-truth panel in this figure, so it should be read as an illustrated failure case rather than a scored comparison. Section 7.4 links weak observation coverage with artifacts and separately discusses elongated Gaussians, culling and depth-order changes. A single still image cannot distinguish all of those mechanisms.",
+      "takeaway": "Good aggregate held-out-view scores do not guarantee reliable images from poorly constrained viewpoints. The figure supports the authors' stated coverage limitation: explicit anisotropic primitives can fit observed appearances well yet yield visible defects where the photographs leave scene structure ambiguous.",
+      "caution": "Neither method has ground truth shown here, and a still crop cannot demonstrate temporal popping. Proposed regularization, antialiasing and improved culling remain future remedies in this source, not validated fixes for this image.",
+      "evidenceIds": [
+        "e13"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "From a world-space ellipsoid to a supervised pixel",
+      "text": "A Gaussian begins as an explicit object in the reconstructed scene, carrying position, opacity, shape and directional color. Its covariance is constructed from independent scales and rotation, which avoids unconstrained updates to an invalid covariance matrix. For a training camera, the viewing transform and projection Jacobian map this covariance into a two-dimensional footprint. Evaluating that footprint at a pixel gives a contribution weighted by the learned opacity; ordered compositing then attenuates colors behind earlier splats. The resulting image is compared with the captured photograph through L1 and D-SSIM losses. Gradients therefore adjust the scene attributes that produced the image. Changing the camera after fitting changes the projection and SH appearance evaluation, while the optimized scene parameters remain fixed for rendering.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04",
+        "e05",
+        "e07"
+      ]
+    },
+    {
+      "heading": "Why fitting also changes the number of Gaussians",
+      "text": "Ordinary gradient updates can reshape a primitive, but they cannot give one Gaussian independently controllable pieces. The paper alternates those updates with population edits driven by large view-space position gradients. A small Gaussian can be cloned to cover missing structure; a large one can be split so smaller components refine the approximation. Pruning and opacity resets oppose uncontrolled growth and remove primitives that no longer help. Algorithm 1 makes the branch direction explicit: the large-scale case splits, and the other case clones. Reader interpretation: this is adaptive allocation of representational capacity as well as geometric fitting. Table 3's splitting ablation supports its practical importance, but because removing splitting also changes the population trajectory, a count-matched comparison would better isolate the placement rule itself.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e11"
+      ]
+    },
+    {
+      "heading": "Why the renderer is fast, and where the approximation enters",
+      "text": "The renderer groups work before shading individual pixels. Gaussians are duplicated across the tiles they overlap and sorted using tile ID together with depth. Each tile can then load shared batches and blend front-to-back, rather than sorting a separate list for every pixel. The backward pass reuses the sorted lists in reverse and avoids a fixed cap on contributing primitives; this matters because truncating gradients at ten points damages the reported ablation results. Alpha thresholds still skip negligible contributions and terminate saturated pixels. The speed therefore comes from organized GPU work and an explicit representation, with a visibility approximation from shared ordering. When a large Gaussian changes order abruptly, the limitations section identifies popping as a possible consequence. The system renders images; it does not decide camera motions or execute actions.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e07",
+        "e11",
+        "e13",
+        "e16"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Separate useful splitting from simply adding more primitives",
+      "text": "Reader-proposed experiment, not performed: reproduce the Full, No-Split and No-Clone comparisons on Truck, Garden and Bicycle at 5K and 30K using the ablation's manually downsampled inputs. Fix cameras, held-out images, loss, SH schedule and random seeds. Record PSNR, LPIPS, Gaussian count, peak memory and wall time. Add a count-matched control that supplies the same number of new primitives as Full through a predeclared alternative placement rule. Repeat with three seeds. A consistent Full advantage at matched count would support its placement/refinement logic; disappearance of the advantage would suggest that extra capacity explains much of the original difference.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e08",
+        "e11",
+        "e15"
+      ]
+    },
+    {
+      "title": "Check gradients before attributing errors to visibility sorting",
+      "text": "Reader-proposed experiment, not performed: use a small synthetic collection of overlapping anisotropic Gaussians and a fixed camera, comparing the full reverse pass against automatic differentiation or finite differences of the same forward compositing expression. Hold sorting and active threshold decisions fixed during the local check; test opacity, scale, rotation and position derivatives. Then compare full gradients with a ten-contributor cap at shallow and deep overlap, keeping the forward image identical. Record relative gradient error, optimization loss and runtime. Agreement for the full pass but increasing error under the cap would support the claimed depth-complexity mechanism. Test order swaps and alpha-threshold crossings separately, because those discontinuities should not be confused with an incorrect derivative inside a fixed branch.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e07",
+        "e11",
+        "e16"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "notes": "All 14 supplied PDF pages were rendered and actually viewed, including the title/version/affiliations, Equations (1)–(11), Figures 1–12, Tables 1–9 and Algorithms 1–2. All six final crops were individually viewed for readability and complete labels. Figure 2's operation/gradient arrows and Figure 4's clone/split rows were checked against Sections 3–6 and Algorithm 1; no claim-relevant branch conflict was observed. Page 9's timing footnote and ablation preprocessing, page 10's gradient-cap definition, and page 14's numerical thresholds and per-scene results were visually checked. The short Table 1 caption is retained because it contains the required dagger provenance note. Supplemental videos, code and external project material were outside the supplied reading."
+  },
+  "featuredResultTask": "Novel-view synthesis on Mip-NeRF360"
+}

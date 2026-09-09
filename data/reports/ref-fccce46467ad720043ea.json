@@ -1,0 +1,418 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-fccce46467ad720043ea",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T04:36:13.208Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2308.04079",
+      "title": "3D Gaussian Splatting for Real-Time Radiance Field Rendering",
+      "kind": "pdf",
+      "sha256": "f4c0c9f27e2d02b0265017f66049d471eb66cb50203bc918f51ba07d20cbbe11",
+      "wordCount": 12257,
+      "accessedAt": "2026-09-07T14:30:01.824488+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; 1 Introduction",
+      "2 Related Work, including 2.1–2.3",
+      "3 Overview",
+      "4 Differentiable 3D Gaussian Splatting",
+      "5 Optimization with Adaptive Density Control, including 5.1–5.2",
+      "6 Fast Differentiable Rasterizer for Gaussians",
+      "7 Implementation, Results and Evaluation, including 7.1–7.4",
+      "8 Discussion and Conclusions; Acknowledgments; References",
+      "Appendix A: Details of Gradient Computation",
+      "Appendix B: Optimization and Densification Algorithm",
+      "Appendix C: Details of the Rasterizer",
+      "Appendix D: Per-Scene Error Metrics"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The supplied extraction limitation was addressed by inspecting all 14 original PDF pages and six final figure/table crops. All seven supplied text chunks were read individually.",
+      "Identity/version note: the title, all four authors and DOI match the catalog. The inspected artifact explicitly identifies arXiv:2308.04079v1, 8 August 2023. Its ACM reference block and running pagination use Article 1, whereas the catalog BibTeX records 139:1–139:14. No publisher edition or later revision was supplied for comparison; equivalence beyond the verified identity is not asserted.",
+      "The separately referenced supplemental videos, project website, source code and datasets were not inspected. No experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figures 2–3 (p. 5)",
+      "Figure 4 (p. 6)",
+      "Figure 5 (p. 7)",
+      "Figure 6 (p. 8)",
+      "Figures 7–9 (p. 10)",
+      "Figures 10–12 (p. 11)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (p. 8)",
+      "Table 3 (p. 9)",
+      "Tables 4–9 (p. 14)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "3D Gaussian Splatting fits an explicit radiance field to calibrated photographs of a static scene. Anisotropic Gaussians, adaptive splitting/cloning and a differentiable tile rasterizer jointly enable fast novel-view synthesis. Its main tradeoff is high rendering speed with competitive image quality at substantial scene-memory cost; it learns neither actions nor temporal dynamics (e02, e09, e13).",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "The problem is reconstructing and interactively viewing complete captured scenes without the rendering cost of volumetric ray marching. Sparse structure-from-motion (SfM) points provide an initial scaffold, but the representation must acquire missing detail, remove misplaced geometry and represent directional appearance. Success is measured against held-out photographs, not physical scene interaction.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e08"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The authors combine an unstructured anisotropic Gaussian representation, interleaved parameter optimization and density control, and a GPU rasterizer that supports visibility-ordered blending and gradients through contributing splats.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e06",
+        "e07"
+      ]
+    },
+    {
+      "text": "The central contribution is a coupled representation–optimization–renderer design: explicit primitives support efficient rendering while their differentiable footprints support fitting from images. The experiments test this coupling through component removals.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e11"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Static-scene photographs, corresponding SfM-calibrated cameras and sparse SfM points (e02)."
+    ],
+    "outputs": [
+      "An optimized scene-specific set of Gaussian positions, covariances, opacities and spherical-harmonic appearance coefficients; rendered images at requested camera views (e02)."
+    ],
+    "steps": [
+      {
+        "name": "Represent geometry and appearance",
+        "detail": "Initialize Gaussians at SfM points. Store a position, opacity, three scales, a rotation quaternion and spherical-harmonic (SH) color coefficients. Scale and normalized rotation parameterize valid covariance; no surface normals or learned rendering network are required.",
+        "evidenceIds": [
+          "e02",
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "name": "Project and composite",
+        "detail": "Transform each Gaussian covariance into image space using the affine approximation of perspective projection. Its projected Gaussian footprint, multiplied by learned opacity, supplies the pixel-dependent blending weight. Depth-ordered alpha compositing accumulates color.",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      },
+      {
+        "name": "Adapt representational capacity",
+        "detail": "After warm-up, densify every 100 iterations when average view-space position-gradient magnitude exceeds 0.0002. Clone small Gaussians; split large ones into two, sampling positions from the parent and dividing scale by 1.6. Prune nearly transparent or excessively large Gaussians; reset opacity near zero every 3,000 iterations.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "name": "Render with tiles",
+        "detail": "Cull, project and duplicate splats into overlapping 16×16-pixel tiles. A single radix sort uses tile ID and depth; each tile traverses its list front-to-back. This avoids per-pixel sorting but makes visibility approximate. Backpropagation traverses the reused lists in reverse without a fixed contributor-count cap.",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "This is per-scene optimization, with Adam named in Algorithm 1. Each iteration samples a training view, renders it, compares against its photograph and updates Gaussian attributes. Opacity uses a sigmoid, scales an exponential, and initial isotropic axes use mean distance to the three nearest points; position learning rates decay exponentially.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "text": "Optimization begins at four-times-smaller image resolution and upsamples at iterations 250 and 500. Only the zero-order SH component is optimized initially; one band is added every 1,000 iterations until four bands are present. The paper motivates this schedule by missing angular coverage.",
+        "kind": "source",
+        "evidenceIds": [
+          "e15"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "A requested camera determines projection, ordering and SH-based directional color for the fitted scene. Rendering needs no training photograph, loss evaluation or density refinement. The output is an image, with camera navigation supplied externally; no action extraction, feedback controller or future-state rollout is defined.",
+        "kind": "source",
+        "evidenceIds": [
+          "e02",
+          "e07"
+        ]
+      },
+      {
+        "text": "Appendix C skips blending updates below alpha 1/255, clamps alpha above at 0.99, and stops before accumulated opacity would exceed 0.9999. Thus an unlimited gradient depth means no fixed count cap, not that every scene Gaussian receives a gradient.",
+        "kind": "source",
+        "evidenceIds": [
+          "e16",
+          "e07"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "C=\\sum_{i\\in\\mathcal{N}}c_i\\alpha_i\\prod_{j=1}^{i-1}(1-\\alpha_j)",
+        "explanation": "Equation (3): C is pixel color; the ordered set of overlapping points is N, c_i is point color, and alpha_i is projected Gaussian weight times learned opacity. The product accounts for attenuation by preceding points.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "\\Sigma=RSS^{T}R^{T},\\qquad \\Sigma'=JW\\Sigma W^{T}J^{T}",
+        "explanation": "Equations (6) and (5): R and S are rotation and scaling matrices, Sigma is world covariance, W is the viewing transformation and J is the Jacobian of the affine projective approximation. The upper-left 2×2 part of Sigma' supplies the screen footprint.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}=(1-\\lambda)\\mathcal{L}_{1}+\\lambda\\mathcal{L}_{\\mathrm{D\\text{-}SSIM}},\\qquad\\lambda=0.2",
+        "explanation": "Equation (7) combines the image L1 loss with the paper's D-SSIM term. Lambda sets their balance. The paper does not give a separate formula for D-SSIM.",
+        "evidenceIds": [
+          "e05"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Novel-view synthesis on Mip-NeRF360",
+      "setting": "Nine real scenes; every eighth photograph held out; native input resolutions. Ours uses an A6000 and 30K optimization iterations.",
+      "metric": "PSNR (dB) ↑; SSIM ↑; LPIPS ↓; training time; rendering FPS; stored parameters",
+      "value": "Ours-30K: 27.21; 0.815; 0.214; 41m33s; 134 FPS; 734 MB.",
+      "comparison": "Mip-NeRF360: 27.69; 0.792; 0.237; 48h; 0.06 FPS; 8.6 MB. Its three quality metrics are copied from the original publication. INGP-Big: 25.59; 0.699; 0.331; 7m30s; 9.43 FPS; 48 MB.",
+      "interpretation": "Quality is metric-dependent: Ours improves SSIM and LPIPS but has lower PSNR than Mip-NeRF360. The 48h figure converts 12h on four A100s into single-GPU-equivalent time; it is not matched-A6000 wall time.",
+      "evidenceIds": [
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "task": "Novel-view synthesis on Tanks&Temples",
+      "setting": "Truck and Train; every eighth photograph held out, native resolutions; A6000, 30K iterations.",
+      "metric": "PSNR (dB) ↑; SSIM ↑; LPIPS ↓; rendering FPS",
+      "value": "Ours-30K: 23.14; 0.841; 0.183; 154 FPS.",
+      "comparison": "Mip-NeRF360: 22.22; 0.759; 0.257; 0.14 FPS.",
+      "interpretation": "All three aggregate image metrics favor Ours on these two scenes. This is a limited scene subset, not a claim about every scene in the dataset.",
+      "evidenceIds": [
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "task": "Novel-view synthesis on Deep Blending",
+      "setting": "DrJohnson and Playroom; every eighth photograph held out, native resolutions; A6000, 30K iterations.",
+      "metric": "PSNR (dB) ↑; SSIM ↑; LPIPS ↓; rendering FPS",
+      "value": "Ours-30K: 29.41; 0.903; 0.243; 137 FPS.",
+      "comparison": "Mip-NeRF360: 29.40; 0.901; 0.245; 0.09 FPS.",
+      "interpretation": "Aggregate quality differences are small. Table 8 separately shows DrJohnson PSNR favoring Mip-NeRF360, so aggregate parity does not imply a uniform per-scene win.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e14"
+      ]
+    },
+    {
+      "task": "Novel-view synthesis on Synthetic NeRF",
+      "setting": "Eight bounded Blender scenes, exact cameras, white background; 100K random initial Gaussians; 30K iterations. Competing scores are taken from their respective papers.",
+      "metric": "Mean PSNR (dB) ↑",
+      "value": "Ours-30K: 33.32.",
+      "comparison": "Point-NeRF: 33.30; INGP-Base: 33.18; Mip-NeRF: 33.09; Plenoxels: 31.76.",
+      "interpretation": "Random initialization can work in this well-constrained bounded setting. The tiny mean advantage over Point-NeRF lacks reported uncertainty and does not establish a statistically reliable improvement.",
+      "evidenceIds": [
+        "e10"
+      ]
+    },
+    {
+      "task": "Component ablation on Truck, Garden and Bicycle",
+      "setting": "5K and 30K iterations; high-resolution inputs manually downsampled for this experiment.",
+      "metric": "Mean PSNR (dB) ↑ at 30K",
+      "value": "Full: 26.05; Limited-BW: 19.19; Random Init: 20.42; No-Split: 23.90; No-SH: 25.35; No-Clone: 25.91; Isotropic: 25.23.",
+      "comparison": "Limited-BW permits gradients only for the ten front-most points. Other rows remove the named choice; the full model is the reference.",
+      "interpretation": "Gradient truncation and removing splitting cause large losses in this setup. The different preprocessing prevents direct substitution of these values for the main benchmark; no repeated-run uncertainty is reported.",
+      "evidenceIds": [
+        "e11"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Poorly observed regions can produce elongated or splotchy Gaussians. Large splats can pop because of guard-band rejection and abrupt depth-order changes. Regularization and antialiasing are proposed remedies, not evaluated solutions.",
+      "kind": "source",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "text": "Peak training memory can exceed 20 GB. Rendering needs the full scene model plus another 30–500 MB for rasterization, depending on scene and resolution. Very large scenes may require a reduced position learning rate.",
+      "kind": "source",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "text": "Novel-view image fidelity does not verify metric geometry, dynamic prediction or executable control. Comparisons also mix inherited and rerun baselines; Appendix D reports rerun Mip-NeRF360 averages separately.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e08",
+        "e14"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction needs calibrated images/SfM points, the stated test split and image preparation, PyTorch, custom CUDA rasterization, CUB sorting and the SIBR viewer for the reported FPS protocol. The source advertises code/data, but availability alone is not evidence of a working reproduction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e15"
+      ]
+    },
+    {
+      "text": "The PDF supplies loss weights, several refinement and stability constants, algorithms and covariance derivatives, but does not enumerate a complete executable configuration: exact learning-rate values, all pruning/size thresholds, software versions and random seeds remain unspecified. These must be resolved before calling a run faithful.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e15",
+        "e16"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "3D representations & state estimation"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "f31b5398cc3402fc7407fc8c9a92a695549276cad4567d75d12d6c95aa89e7c8"
+    },
+    "reasoning": {
+      "text": "The foundational 3D-representation category is supported by the explicit static-scene radiance field. Architecture, prediction paradigm and quadrant are correctly not applicable to the world-action taxonomy: there is no action variable, temporal dynamics model, inverse dynamics or joint future/action predictor. This is a positive scope determination rather than an unverified classification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e07"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "How much of splitting's gain survives a matched Gaussian-count budget?",
+    "Can a stricter visibility calculation reduce popping without losing the reported rendering advantage?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author block, arXiv margin and ACM Reference Format",
+      "detail": "The observed title matches the catalog; authors are Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler and George Drettakis. Kerbl and Kopanas contributed equally. The artifact says arXiv:2308.04079v1, 8 August 2023, and DOI 10.1145/3592433; its ACM reference uses Article 1."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2 and 4, introduction contributions and Section 3; p. 5, Figure 2 and caption",
+      "detail": "Static photographs, calibrated cameras and sparse SfM points are converted into a scene-specific set of 3D Gaussians with optimized position, covariance, opacity and SH appearance. Figure 2 distinguishes operation flow from returning gradients."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 2.3, Equations (1)–(3), especially Eq. (3) and following definitions",
+      "detail": "Ordered point alpha blending uses projected Gaussian weights multiplied by learned opacity and attenuates later colors by preceding transparency; the paper compares this image-formation model to volumetric compositing."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 4, Equations (5)–(6); p. 13, Appendix A, Equations (8)–(11)",
+      "detail": "Covariance is parameterized by scale and normalized quaternion rotation, projected using a viewing transform and projective Jacobian. Appendix A derives scale and rotation gradients; normals are not required."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 5.1 and Eq. (7); p. 13, Appendix B, Algorithm 1",
+      "detail": "Image loss combines L1 and D-SSIM with lambda 0.2. Sigmoid opacity, exponential scales, three-neighbor initialization and position-only exponential learning-rate decay are stated. Algorithm 1 samples a view, renders, evaluates loss and applies Adam."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 5.2 and Figure 4; p. 13, Algorithm 1 refinement branches",
+      "detail": "Densification occurs every 100 iterations after warm-up for average view-space position-gradient magnitude above 0.0002. Small Gaussians are cloned and large ones split into two at scale divisor 1.6. Opacity resets every 3,000 iterations; low-opacity and oversized Gaussians are pruned. Algorithm 1's greater-than size branch selects splitting."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 6; pp. 13–14, Appendix C and Algorithm 2",
+      "detail": "Rasterization culls and projects Gaussians, duplicates them across 16×16 tiles and sorts by tile/depth keys before front-to-back compositing. There is no further per-pixel sorting. The reverse pass reuses lists without a hard contributor-count limit."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 7.2 Real-World Scenes; p. 9, continuation and footnote 2",
+      "detail": "Evaluation covers 13 real scenes with every eighth photo held out and native input resolutions. An A6000 is used except for Mip-NeRF360; its runs used four A100 GPUs for 12 hours, reported as 48 single-GPU-equivalent hours. Image-quality sources and timing hardware are therefore not uniform."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 1, all dataset groups and Ours-7K/Ours-30K, M-NeRF360 and INGP-Big rows",
+      "detail": "Table 1 reports quality, training time, FPS and stored-parameter memory. At 30K, Ours reaches Mip-NeRF360 27.21/0.815/0.214 at 134 FPS, Tanks&Temples 23.14/0.841/0.183 at 154 FPS and Deep Blending 29.41/0.903/0.243 at 137 FPS (PSNR/SSIM/LPIPS). Daggers identify inherited Mip-NeRF360 quality metrics."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2 including caption; p. 9, Section 7.2 Synthetic Bounded Scenes",
+      "detail": "Synthetic NeRF uses 100K random initial Gaussians, exact cameras, white background and 30K iterations. Mean PSNR is 33.32 versus Point-NeRF 33.30 and INGP-Base 33.18; competing scores are inherited from their papers."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 3 and caption, Section 7.3; p. 10, gradient-depth ablation and Figures 7–9",
+      "detail": "Ablations use separately downsampled inputs. Average-30K PSNR is Full 26.05, Limited-BW 19.19, Random Init 20.42, No-Split 23.90, No-SH 25.35, No-Clone 25.91 and Isotropic 25.23. Limited-BW caps gradient recipients at ten; Table 3 contains no uncertainty intervals."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 7.3 Anisotropic Covariance; p. 11, Figure 10 and caption",
+      "detail": "The isotropic ablation optimizes one radius for all axes. Figure 10 contrasts ground truth, full and isotropic representations; the Ficus illustration restricts both configurations to at most 5K Gaussians."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 7.4; p. 11, Figures 11–12 and captions",
+      "detail": "The authors identify unobserved-region artifacts, elongated Gaussians and popping from culling/order changes. They report peak training memory above 20 GB and extra rasterizer memory of 30–500 MB. Figure 12 compares Mip-NeRF360 left and Ours right on a DrJohnson view with little training overlap."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix D and Tables 4–9, especially Table 8 Dr Johnson column",
+      "detail": "The paper's own Mip-NeRF360 reruns average 27.58 PSNR, 0.790 SSIM and 0.240 LPIPS on that dataset, distinct from copied values. DrJohnson PSNR is 29.140 for Mip-NeRF360 and 28.766 for Ours-30K."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 7.1 Implementation and Optimization Details",
+      "detail": "The system uses Python/PyTorch, custom CUDA, CUB sorting and SIBR for measured frame rates. Resolution increases at 250 and 500 iterations; SH bands are introduced every 1,000 iterations up to four. A code/data URL is advertised, without version-pinned environment specifications in this section."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix C Numerical stability",
+      "detail": "The text specifies skipping blending updates below alpha 1/255, clamping alpha to at most 0.99, and stopping before accumulated opacity exceeds 0.9999."
+    }
+  ]
+}
