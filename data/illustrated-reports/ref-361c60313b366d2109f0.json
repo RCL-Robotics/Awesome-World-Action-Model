@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-361c60313b366d2109f0",
+  "shortTitle": "Pseudo-Simulation / NAVSIM v2",
+  "thesis": "Pre-rendered future observations and endpoint-weighted scoring make driving evaluation sensitive to local deviations while retaining parallel planner queries, at the cost of incomplete interaction and per-scene reconstruction.",
+  "standfirst": "A planner can look reliable when every test begins on the human driver's trajectory yet struggle after drifting away from it. Pseudo-simulation addresses this evaluation gap with two sets of inputs: a recorded observation and a precomputed bank of plausible future observations. It scores the planner independently at each input, then emphasizes synthetic starts close to the endpoint reached by its initial plan. The resulting NAVSIM v2 benchmark links open-loop efficiency with some recovery-sensitive testing. Read the evidence in three parts: how observations are connected, whether scores track a closed-loop simulator, and whether synthetic rendering itself explains the observed failures.",
+  "evidenceIds": [
+    "e-problem",
+    "e-flow",
+    "e-aggregation",
+    "e-correlation",
+    "e-domain",
+    "e-limitations"
+  ],
+  "visuals": [
+    {
+      "id": "pseudo-simulation",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 2,
+      "asset": "report-assets/ref-361c60313b366d2109f0/pseudo-simulation.png",
+      "width": 1385,
+      "height": 527,
+      "sourceSha256": "1f75677c61fff026b15f2910264b7c06ea57394964b96f5e38f8541168ba1e94",
+      "sourceUrl": "https://raw.githubusercontent.com/mlresearch/v305/main/assets/cao25a/cao25a.pdf#page=2",
+      "crop": [
+        0.174,
+        0.07,
+        0.826,
+        0.262
+      ],
+      "alt": "One real camera view and three synthetic views sit above a trajectory diagram and the weighted two-stage scoring formula.",
+      "caption": "Precomputed observations become planner-specific tests through endpoint weighting.",
+      "readingGuide": "Begin with the orange initial observation (a). The green trajectory ends near several purple synthetic starting states; each purple state has its own teal Stage 2 trajectory. The camera views above are already rendered before the tested planner runs. Follow the right-hand formula: first average the Stage 2 scores using normalized weights, then multiply by the Stage 1 score. The nearby purple states receive larger illustrative weights than the distant state. Equation (2) specifies distance to the endpoint reached in Stage 1 simulation, clarifying the caption's shorthand of a planned endpoint. Thus the diagram connects separate evaluations through scoring, rather than showing continuous sensor feedback.",
+      "takeaway": "The mechanism makes a fixed bank of future observations useful for different planners: each planner's first simulated endpoint determines which alternatives matter most. A failure near that endpoint depresses the combined score, while a distant synthetic failure contributes little. This tests local recovery sensitivity without generating new camera observations online.",
+      "caution": "The drawn weights are schematic, not measured success rates. Gaussian proximity is an empirical importance rule, not a demonstrated probability model for actual future states; no physical driving or continuous closed-loop sensor rollout is shown.",
+      "evidenceIds": [
+        "e-flow",
+        "e-rollout",
+        "e-aggregation",
+        "e-limitations"
+      ]
+    },
+    {
+      "id": "score-components",
+      "kind": "table",
+      "section": "mechanism",
+      "sourceLabel": "Table 1",
+      "page": 4,
+      "asset": "report-assets/ref-361c60313b366d2109f0/score-components.png",
+      "width": 1178,
+      "height": 747,
+      "sourceSha256": "1f75677c61fff026b15f2910264b7c06ea57394964b96f5e38f8541168ba1e94",
+      "sourceUrl": "https://raw.githubusercontent.com/mlresearch/v305/main/assets/cao25a/cao25a.pdf#page=4",
+      "crop": [
+        0.503,
+        0.3,
+        0.811,
+        0.451
+      ],
+      "alt": "EPDMS components are split into four penalty rows and five weighted-average rows, with weights and score ranges.",
+      "caption": "EPDMS combines rule penalties with progress, risk and comfort subscores.",
+      "readingGuide": "Read the table in two blocks. The upper rows are multiplicative penalties: no at-fault collision (NC), drivable-area compliance (DAC), driving-direction compliance (DDC) and traffic-light compliance (TLC). The lower block enters a weighted average: ego progress (EP), time to collision (TTC), lane keeping (LK), history comfort (HC) and extended comfort (EC). The middle column assigns weights of 5 to EP/TTC and 2 to the other averaged terms. The range column distinguishes continuous progress from discrete penalties, including half-credit values for NC and DDC. Equation (1) also applies human-violation filtering before combining the components.",
+      "takeaway": "A zero-valued retained penalty can nullify the overall score, even when progress and comfort are high. Consequently, the final metric encodes explicit priorities rather than treating all driving attributes as interchangeable. Keeping the individual subscores visible is essential for interpreting why a planner receives its aggregate score.",
+      "caution": "The correlation experiment omits TLC, LK and EC because nuPlan lacks those closed-loop metrics; the navhard leaderboard uses the fuller score. Human-expert exceptions can also suppress genuine safety failures, as the authors acknowledge.",
+      "evidenceIds": [
+        "e-metric",
+        "e-correlation",
+        "e-limitations"
+      ]
+    },
+    {
+      "id": "synthetic-scenes",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/ref-361c60313b366d2109f0/synthetic-scenes.png",
+      "width": 1385,
+      "height": 891,
+      "sourceSha256": "1f75677c61fff026b15f2910264b7c06ea57394964b96f5e38f8541168ba1e94",
+      "sourceUrl": "https://raw.githubusercontent.com/mlresearch/v305/main/assets/cao25a/cao25a.pdf#page=5",
+      "crop": [
+        0.174,
+        0.092,
+        0.826,
+        0.416
+      ],
+      "alt": "Four groups show orange real images, purple synthetic images, and matching colored vehicle poses on road diagrams, including an intersection, a truck and a bus.",
+      "caption": "Future viewpoint changes alter both road geometry in the image and proximity to traffic.",
+      "readingGuide": "Treat each quadrant as one scene. The orange border and orange pose mark the initial real observation; purple borders and pose arrows mark pre-generated alternatives. The connecting lines associate particular camera images with poses on the road diagram. Compare the road markings and nearby vehicles across views: the bus example makes the effect of longitudinal displacement especially visible. These are selected examples of the sampled observation bank, not a frame-by-frame rollout from a tested planner. Section 3.2 explains that sampling occurs around the expert's future endpoint and attaches a plausible human-derived motion history, although those histories are not plotted here.",
+      "takeaway": "The figure shows why testing new viewpoints is more than re-rendering the same image: the spatial relationship between ego, road and traffic changes. A planner that relies on expert-aligned appearance or history may therefore behave differently. The examples establish the kinds of perturbations supplied to evaluation, without quantifying recovery performance.",
+      "caution": "These selected images cannot establish fidelity across all scenes or sampled positions. Low-quality reconstructions are filtered, and the precise semi-automatic visual-quality procedure is deferred to unavailable supplementary material. Quantitative rendering evidence is limited to Table 3's separate tests.",
+      "evidenceIds": [
+        "e-scenes",
+        "e-sampling",
+        "e-rendering",
+        "e-domain",
+        "e-nvs"
+      ]
+    },
+    {
+      "id": "correlation-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 3(a–e)",
+      "page": 6,
+      "asset": "report-assets/ref-361c60313b366d2109f0/correlation-ablation.png",
+      "width": 1390,
+      "height": 629,
+      "sourceSha256": "1f75677c61fff026b15f2910264b7c06ea57394964b96f5e38f8541168ba1e94",
+      "sourceUrl": "https://raw.githubusercontent.com/mlresearch/v305/main/assets/cao25a/cao25a.pdf#page=6",
+      "crop": [
+        0.172,
+        0.089,
+        0.826,
+        0.318
+      ],
+      "alt": "A scatterplot compares EPDMS with CLS for rule-based and learned planners; four bar panels vary stage count, Gaussian variance, aggregation and synthetic-view density.",
+      "caption": "Two-stage evaluation improves correlation, and the diagnostic panels test its aggregation choices.",
+      "readingGuide": "In panel (a), each point represents a planner, with CLS on the horizontal axis and pseudo-simulation EPDMS on the vertical axis. Blue and orange distinguish rule-based and learning-based planners; the two axes use different ranges. Panels (b–e) separate Spearman rank correlation from Pearson linear correlation using two bar colors. Bold-underlined settings are the authors' defaults. Read panel (b) for two four-second stages versus single-stage alternatives, (c) for kernel variance, (d) for multiplication versus other stage combinations, and (e) for reducing the observation bank. The plotted variance is sigma squared, not a standard deviation or learned uncertainty estimate.",
+      "takeaway": "The text reports Pearson r = 0.89 for two stages against 0.83 for single-stage baselines. Multiplication has the strongest correlation among the displayed stage aggregators, and reducing the observation bank to 25% still leaves both correlations above 0.85. These findings support the chosen evaluation design on the tested simulator subset.",
+      "caution": "These are privileged-planner correlations with reduced EPDMS, without uncertainty intervals or real-world validation. The caption's 37 rule-based planners conflicts with the prose's listed counts; the later mean observation count also conflicts with the stated subset totals.",
+      "evidenceIds": [
+        "e-correlation",
+        "e-ablation",
+        "e-counts",
+        "e-limitations"
+      ]
+    },
+    {
+      "id": "navhard-leaderboard",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "asset": "report-assets/ref-361c60313b366d2109f0/navhard-leaderboard.png",
+      "width": 1133,
+      "height": 1247,
+      "sourceSha256": "1f75677c61fff026b15f2910264b7c06ea57394964b96f5e38f8541168ba1e94",
+      "sourceUrl": "https://raw.githubusercontent.com/mlresearch/v305/main/assets/cao25a/cao25a.pdf#page=7",
+      "crop": [
+        0.444,
+        0.436,
+        0.825,
+        0.76
+      ],
+      "alt": "Stage 1 and Stage 2 metric rows compare constant velocity, ego-history MLP, LTF and PDM-Closed, followed by combined EPDMS.",
+      "caption": "Stage-wise subscores reveal weaknesses hidden by the overall leaderboard order.",
+      "readingGuide": "Read horizontally to compare planners on the same metric and vertically within each paired row to compare original S1 with synthetic S2 observations. CV is constant velocity; MLP uses ego history; LTF is the image-only Latent TransFuser planner; PDM-C is privileged PDM-Closed. The rightmost column is visually separated and italicized. The bottom EPDMS row is the combined two-stage score, not an arithmetic average of the displayed row values. To understand the ranking, inspect both lane keeping (LK) and extended comfort (EC): a method can lead the combined score while still performing poorly on a particular driving attribute.",
+      "takeaway": "PDM-C leads combined EPDMS with 51.3, followed by LTF at 23.1, MLP at 12.7 and CV at 10.9. LTF's lane-keeping score falls from 94.2 to 45.4 across stages. PDM-C's extended-comfort scores are only 36.0 and 25.4, illustrating the comfort trade-off emphasized by the authors.",
+      "caution": "The planners have different input privileges, so the ranking is not a controlled architecture comparison. Scores are displayed on a 0–100 scale but are not physical-driving success percentages. This full-metric navhard test differs from the reduced-metric correlation experiment.",
+      "evidenceIds": [
+        "e-leaderboard",
+        "e-metric",
+        "e-correlation"
+      ]
+    },
+    {
+      "id": "rendering-diagnostics",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3(a–b)",
+      "page": 8,
+      "asset": "report-assets/ref-361c60313b366d2109f0/rendering-diagnostics.png",
+      "width": 1341,
+      "height": 258,
+      "sourceSha256": "1f75677c61fff026b15f2910264b7c06ea57394964b96f5e38f8541168ba1e94",
+      "sourceUrl": "https://raw.githubusercontent.com/mlresearch/v305/main/assets/cao25a/cao25a.pdf#page=8",
+      "crop": [
+        0.184,
+        0.089,
+        0.815,
+        0.183
+      ],
+      "alt": "Table 3(a) reports mIoU and EPDMS for real S1, synthetic S1 and synthetic S2; Table 3(b) reports LPIPS for three rendering configurations.",
+      "caption": "Matched-stage rendering and later state perturbation have different downstream effects.",
+      "readingGuide": "In panel (a), first compare Real S1 with Syn. S1: this changes rendering while retaining the first-stage setting. Next compare Syn. S1 with Syn. S2 to examine perturbed synthetic observations. The left metric is BEV segmentation mIoU averaged over drivable area, walkway and vehicle classes; the right is planning EPDMS for the same real-trained LTF model. Panel (b) is a separate eight-scene rendering test, using alternating expert-trajectory views for training and evaluation. Its downward arrow means lower LPIPS is better. The full method adds the pose-related processing described in the text; the abbreviated middle-row label does not isolate every change.",
+      "takeaway": "Real-to-synthetic S1 reduces mIoU from 46.0 to 37.6 while EPDMS changes only from 62.3 to 61.0. Synthetic S2 reaches 36.9 mIoU but 44.2 EPDMS, consistent with additional state-shift sensitivity. The full renderer has LPIPS 0.253 versus 0.322 for the ablated variant and 0.354 for Street Gaussians.",
+      "caution": "The Results prose mislabels the 46.0-to-37.6 comparison as S1 versus S2; the table clearly identifies real versus synthetic S1. One planner and eight rendering scenes do not establish universal fidelity, and the pose-processing comparison bundles changes.",
+      "evidenceIds": [
+        "e-domain",
+        "e-nvs",
+        "e-rendering"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Generate the test bank before asking the planner what it would do",
+      "text": "The ordering is central. Stage 2 states are sampled around the expert's endpoint after four seconds, before any particular planner is evaluated. The pipeline matches each accepted position to a plausible human-derived heading and motion history, removes invalid states, and reconstructs camera observations with a single-traversal MTGS variant. Delaying the synthetic observation allows traffic to react and supplies a plausible preceding history. At evaluation time, the planner's real-observation trajectory is executed in BEV to obtain its own endpoint. That endpoint selects no new rendering; it changes the weights assigned to existing tests. As a reader interpretation, this is a conditional reuse strategy: one expensive observation bank can support many planner evaluations, but its coverage remains tied to states sampled around the expert.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-sampling",
+        "e-rendering",
+        "e-rollout",
+        "e-aggregation"
+      ]
+    },
+    {
+      "heading": "Understand what the two products penalize",
+      "text": "There are two different multiplications in the protocol. Within each segment, EPDMS multiplies rule-compliance terms by a weighted average of progress, risk and comfort measures. Across segments, the final score multiplies the first-stage score by the Gaussian-weighted average of second-stage scores. A nearby synthetic failure can therefore reduce the score even if the original trajectory performs well; conversely, strong recovery scores do not erase a failed first segment. The Gaussian uses the distance between a synthetic start and the endpoint actually reached by the simulated first plan. This mechanism approximates a continuation test without sending intermediate sensor feedback to the planner. The authors support their multiplication choice through correlation ablations, while acknowledging that the weighting and aggregation remain empirical rather than a principled probabilistic formulation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-metric",
+        "e-aggregation",
+        "e-rollout",
+        "e-ablation",
+        "e-limitations"
+      ]
+    },
+    {
+      "heading": "Separate evidence about the evaluator from evidence about a planner",
+      "text": "The experiments answer different questions. The nuPlan study asks whether pseudo-simulation scores correlate with closed-loop scores across privileged planners; it omits three EPDMS components to match available closed-loop metrics. The navhard leaderboard instead uses the fuller score and includes planners with different sensor privileges, exposing stage-specific failure modes. The rendering diagnostic then holds a real-trained LTF model fixed and compares real S1, synthetic S1 and synthetic S2. Its pattern is consistent with viewpoint/state deviations contributing more to the planning drop than replacing real images with rendered images at S1. As a reader interpretation, this supports the evaluation mechanism but does not completely disentangle rendering artifacts from difficult states. Neither the correlation study nor these diagnostics demonstrates a quantitative relationship to real-world vehicle safety.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-correlation",
+        "e-leaderboard",
+        "e-domain",
+        "e-limitations"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test whether endpoint weighting generalizes beyond the configurations used to choose it",
+      "text": "Reader-proposed experiment, not performed: first reconcile the listed planner counts and observation totals, then freeze a documented scene subset, synthetic bank, planner outputs and reduced EPDMS definition. Compare the default Gaussian variance 0.1 and multiplicative stage aggregation against uniform weighting and mean/hybrid stage aggregation. Select settings on one scene partition and evaluate Pearson r and Spearman rho against eight-second CLS on a held-out partition, reporting scene-bootstrap intervals and planner-family results. If the default gains disappear or reverse outside the selection partition, its apparent advantage would reflect subset dependence rather than robust evaluation design.",
+      "evidenceIds": [
+        "e-correlation",
+        "e-aggregation",
+        "e-ablation",
+        "e-counts"
+      ]
+    },
+    {
+      "title": "Distinguish reconstruction error from sensitivity to perturbed states",
+      "text": "Reader-proposed experiment, not performed: extend Table 3's three-condition comparison to several fixed sensor-based planners, keeping their training and scene set unchanged. For each scene, evaluate real S1, re-rendered S1 and synthetic S2 under both the full and ablated reconstruction pipelines. Use paired scene-level changes in EPDMS and BEV mIoU, and report LPIPS only where held-out real reference views exist. Track rejected scenes rather than silently changing the subset. If improved rendering largely restores S2 planning scores, a rendering explanation gains support; persistent S2 degradation across renderers and planners would strengthen the state-shift interpretation.",
+      "evidenceIds": [
+        "e-domain",
+        "e-nvs",
+        "e-rendering",
+        "e-sampling"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "notes": "Rendered and visually inspected the title/author page and every method, metric, numerical-result, ablation and limitation page supporting this bundle. Inspected Figures 1–3, Tables 1–3, Eqs. (1–2) and the unnumbered comparison on p. 2; viewed every final crop. Figure 2 retains its short caption because it contains the original color/pose legend. Figure 1's weighting diagram was checked against its caption and Eq. (2); the explanation uses the simulated endpoint defined by the equation. Table 3(a)'s row labels resolve the identified prose mislabel, but planner and observation count discrepancies remain unresolved. References on pp. 10–14 were read as text; they support no additional retained method or numerical claims. No appendix or separate supplement was supplied, and code and external resources were not inspected."
+  },
+  "featuredResultTask": "Alignment with nuPlan closed-loop evaluation"
+}
