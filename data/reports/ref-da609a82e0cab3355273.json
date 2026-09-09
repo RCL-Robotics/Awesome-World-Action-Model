@@ -1,0 +1,480 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-da609a82e0cab3355273",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T04:14:30.733Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2312.08533",
+      "title": "World Models via Policy-Guided Trajectory Diffusion",
+      "kind": "pdf",
+      "sha256": "f756b4bef6e5c6360e1978b79b2c6e7e2e66dc5ef5844a8afaffd6131e4a53d7",
+      "wordCount": 12008,
+      "accessedAt": "2026-09-07T14:29:30.486818+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work",
+      "3 Preliminaries",
+      "4 World Models via Policy-Guided Trajectory Diffusion",
+      "4.1 Denoising Model Training (Algorithm 1)",
+      "4.2 Policy-Guided Trajectory Diffusion (Algorithm 2)",
+      "4.3 Imagined RL in PolyGRAD World Models (Algorithm 3)",
+      "5.1 Action distributions",
+      "5.2 Trajectory accuracy",
+      "5.3 Imagined RL performance",
+      "5.4 Ablations and modifications",
+      "6 Discussion",
+      "References",
+      "A Implementation Details",
+      "B.1 Prediction Error Plots with Transformer and MLP Denoising Networks",
+      "B.2 Confidence Intervals for Mean Performance",
+      "B.3 Extended Plots of PolyGRAD Action Distributions for All Environments",
+      "B.4 PolyGRAD Action Distributions with Action Clipping Ablated",
+      "C.1 Experimental Setup",
+      "C.2 Results Processing",
+      "C.3 Baselines",
+      "C.4 Ablations and Modifications",
+      "C.5 Computational Requirements"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity and edition scope: the inspected title page identifies arXiv:2312.08533v4, 27 March 2024, with a TMLR 02/2024 publication header. Title and all three authors match the catalog. Earlier revisions and a separate OpenReview PDF were not supplied, so differences between their contents and v4 cannot be established.",
+      "Text extraction does not reconstruct figure images; this limitation was addressed by inspecting the retained PDF's scientific pages and all final crops. References on PDF pp. 14–17 were read as text only.",
+      "Separate supplemental material availability has not been fully verified. All appendices included in the supplied 25-page PDF were read.",
+      "No code, linked repositories, or external sources were inspected, and no experiments were reproduced. The title page provides no affiliations; none are inferred."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figures 1–10",
+      "Figure 12",
+      "Figures 14–18"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "PolyGRAD generates approximately on-policy synthetic state, reward, and action trajectories by combining an action-conditioned denoiser with a separate policy's action score. It refines the whole trajectory through diffusion instead of rolling out one transition at a time. Short-horizon prediction is competitive, but imagined-policy learning remains weaker than Dreamer-v3, and low-entropy action calibration is fragile.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "On-policy world modeling normally alternates policy sampling and next-state prediction. Generating an entire trajectory simultaneously creates a circular dependency: future actions require future states, while those states depend on the actions. PolyGRAD addresses this dependency in fully observable continuous-control MDPs, aiming to supply synthetic data for policy optimization.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03",
+      "e05"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The authors propose non-autoregressive on-policy trajectory generation using learned dynamics denoising and direct policy-score guidance of actions.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "Langevin and classifier-guidance connections motivate the sampler, while an online scale adjustment approximately matches policy dispersion. These arguments do not establish convergence.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e07"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Replay-buffer trajectories of fully observed states, actions, rewards, and terminal indicators",
+      "A buffer-sampled initial state and the current Gaussian policy"
+    ],
+    "outputs": [
+      "Synthetic trajectories for imagined on-policy actor-critic training",
+      "A separate feedforward policy for environment interaction"
+    ],
+    "steps": [
+      {
+        "name": "Learn action-conditioned dynamics",
+        "detail": "Sample a trajectory and diffusion level from the buffer. Corrupt the state-reward sequence and predict the added Gaussian noise conditioned on clean actions. Terminal-state prediction is implemented but omitted from the main notation. Initial-state inpainting is used during both training and generation.",
+        "evidenceIds": [
+          "e04",
+          "e15"
+        ]
+      },
+      {
+        "name": "Initialize the whole rollout",
+        "detail": "Initialize action and state-reward sequences with Gaussian noise. At each reverse step, replace the initial state with a uniformly sampled buffer state, then predict noise conditioned on the current action sequence.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Couple denoising and policy guidance",
+        "detail": "Estimate fully denoised states before evaluating the policy. For diffusion steps above one, move actions along the gradient of log policy probability with respect to actions, with added noise. Update states and rewards through the denoiser. The last diffusion step leaves actions unchanged.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Train in imagination and recalibrate",
+        "detail": "Alternate real data collection, denoiser training, synthetic rollout generation, and A2C policy/value updates. Standardize generated actions using the policy mean and standard deviation, then adjust guidance strength toward unit standardized dispersion.",
+        "evidenceIds": [
+          "e07",
+          "e15"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The implemented Gaussian policy has state-dependent means and one state-independent standard-deviation parameter. A2C uses GAE, 1,024 imagined trajectories of length 10 per update, and one update per four environment steps. Policy standard deviation is floored at 0.1; a line search targets mean absolute log-likelihood change 0.01 within 20%.",
+        "kind": "source",
+        "evidenceIds": [
+          "e15"
+        ]
+      },
+      {
+        "text": "Both denoisers have six layers: the residual MLP uses width 1,024 for h=10, while the transformer uses embedding dimension 312 and four causal attention heads. Diffusion uses 128 steps and a cosine schedule. Clean-action conditioning during training differs from initially noisy actions during generation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08",
+          "e16"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "A single diffusion pass means a complete reverse process over the trajectory, not one network evaluation. These imagined actions train the separate feedforward policy; environment actions are selected by querying that policy directly.",
+        "kind": "source",
+        "evidenceIds": [
+          "e02",
+          "e05",
+          "e16"
+        ]
+      },
+      {
+        "text": "Appendix A, Eq. (11), clips the deterministic guided action to policy mean ±3 standard deviations before adding Gaussian noise. This is more precise than the main text's shorthand about clipping after action updates; it does not guarantee that the final noisy action stays within those bounds.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e08",
+          "e14"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\left\\|\\epsilon-\\epsilon_\\theta\\left(\\sqrt{\\alpha_i}\\tau^{sr}+\\sqrt{1-\\alpha_i}\\epsilon\\mid i,\\tau^a\\right)\\right\\|_2^2",
+        "explanation": "Algorithm 1's sampled denoising loss: τ^{sr} contains states and rewards, τ^a contains actions, ε is sampled Gaussian noise, and ε_θ predicts it. The diffusion level is i; α_i=∏_{j=1}^{i}(1−β_j), with β_j the noise schedule. The objective updates denoiser parameters θ.",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      },
+      {
+        "expression": "\\hat{\\tau}_{i-1}^{a}\\leftarrow\\hat{\\tau}_{i}^{a}+\\delta\\nabla_{\\hat{\\tau}_{i}^{a}}\\log\\pi_\\phi(\\hat{\\tau}_{i}^{a}\\mid\\hat{\\tau}_{0}^{s})+\\sqrt{\\beta_i}z,\\qquad i>1",
+        "explanation": "Algorithm 2's unclipped action update uses predicted clean states τ̂_0^s, current actions τ̂_i^a, action-update scale δ, policy parameters φ, and standard Gaussian z. The gradient changes actions, not policy parameters. Appendix A adds clipping before the noise term.",
+        "evidenceIds": [
+          "e05",
+          "e14"
+        ]
+      },
+      {
+        "expression": "\\bar a_i=\\frac{a_i-\\mu_\\phi(s_i)}{\\sigma_\\phi(s_i)},\\qquad\\delta\\leftarrow\\delta+\\eta(\\sigma_{\\bar a}-1)",
+        "explanation": "Equations (9)–(10) standardize sampled actions using policy mean μ_φ and standard deviation σ_φ. Here i indexes batch state-action pairs, σ_{ā} is their standardized-action standard deviation, and η is a learning rate. Excess dispersion increases guidance; insufficient dispersion decreases it.",
+        "evidenceIds": [
+          "e07"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "On-policy action-distribution calibration",
+      "setting": "Walker2d, h=50; policy standard deviation decayed from 1 to 0.02 during Algorithm 3.",
+      "metric": "Aggregate density of action minus policy mean versus the target Gaussian",
+      "value": "Close agreement reported for σ_φ≥0.1; deviations below 0.1, with additional modes near ±3 standard deviations at 0.02.",
+      "comparison": "Generated batch density versus the policy density; Figure 3 supplies no numerical distribution-distance score.",
+      "interpretation": "This supports approximate aggregate calibration, not exact conditional or joint trajectory-distribution matching.",
+      "evidenceIds": [
+        "e09"
+      ]
+    },
+    {
+      "task": "MuJoCo trajectory prediction",
+      "setting": "HalfCheetah-v3, Hopper-v3, Walker2d-v3; shared 1M-transition datasets and final collection policy; 500 buffer-sampled starting states; generated actions replayed in the simulator; five seeds.",
+      "metric": "State prediction MSE versus horizon; lower is better",
+      "value": "At h=10, PolyGRAD is reported best on Walker2d and second to autoregressive diffusion on HalfCheetah and Hopper. Longer-trained h=50/200 models lose relative accuracy; exact MSE values are plotted, not tabulated.",
+      "comparison": "Probabilistic MLP ensemble, autoregressive transformer, Dreamer-v3, and autoregressive diffusion.",
+      "interpretation": "These are in-distribution branched rollouts; models are selected by five-step error, with a 1M-update or 72-hour cap. Long-horizon superiority is unestablished.",
+      "evidenceIds": [
+        "e10",
+        "e19",
+        "e21"
+      ]
+    },
+    {
+      "task": "Imagined RL on three MuJoCo control tasks",
+      "setting": "Residual-MLP PolyGRAD with h=10; five seeds; plots end at 1.5M steps for HalfCheetah/Walker2d and 1M for Hopper.",
+      "metric": "Smoothed episode return and aggregate normalized interquartile mean with 95% bootstrap confidence intervals",
+      "value": "PolyGRAD exceeds PPO, TRPO, and A2C in aggregate final performance, but trails Dreamer-v3 in sample efficiency and final performance; exact scores and interval endpoints are not tabulated.",
+      "comparison": "Final rewards are normalized by each environment's best average final algorithm reward. Confidence intervals use 50,000 stratified bootstrap repeats.",
+      "interpretation": "Better state reconstruction does not imply better control. Comparisons with these on-policy model-free baselines do not establish superiority over off-policy model-free RL.",
+      "evidenceIds": [
+        "e11",
+        "e20"
+      ]
+    },
+    {
+      "task": "Policy-guidance ablations and training cost",
+      "setting": "Same three tasks, five seeds; variants alter action updates, clipping, state conditioning, or state guidance.",
+      "metric": "Return, normalized final-performance IQM, and reported wall-clock training time",
+      "value": "Random Actions and Policy Sampling perform poorly; No Clipping and Noisy State Conditioning degrade performance. Add State Update is comparable but costs about 80 hours versus 54 hours per 1M environment steps.",
+      "comparison": "The base run's 54-hour figure is specified for an RTX 3090 GPU; the 80-hour variant figure has no separate hardware statement in Section 5.4.",
+      "interpretation": "Guidance details matter. Comparable returns do not establish equivalence, and the reported costs have no uncertainty intervals.",
+      "evidenceIds": [
+        "e12",
+        "e22",
+        "e23"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Slow policy updates are needed for stability, and low-entropy policies can produce incorrect action distributions. Appendix B also reports HalfCheetah NaNs before the 0.02 target and heavy tails without clipping, despite matching standard deviation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e13",
+        "e18"
+      ]
+    },
+    {
+      "text": "The classifier-guidance derivation assumes clean trajectories and a uniform background action distribution; a correct noisy-trajectory gradient and formal sampler convergence remain open. Image-based, non-Markovian, and improved long-horizon settings are future work.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e13"
+      ]
+    },
+    {
+      "text": "Appendix C.1 does not specify an independent held-out rollout split for model selection. Aggregate action histograms also leave state-conditional errors unresolved. Neither protocol establishes out-of-distribution control reliability.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e19"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Match the trajectory-generating policy, dataset, rollout initialization, and five-step model-selection rule. Dreamer receives five real state-action pairs to initialize its latent state; the autoregressive transformer has maximum context 15. These baseline-specific contexts must be retained.",
+      "kind": "source",
+      "evidenceIds": [
+        "e19",
+        "e21"
+      ]
+    },
+    {
+      "text": "Match Appendix A's optimizer settings, clipping order, and policy line search. Hopper with the residual MLP uses cosine schedule parameter 0.1 instead of 1. The tables do not supply initial δ or numerical η, and the cited implementations lack pinned versions in the PDF.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e14",
+        "e15",
+        "e16",
+        "e21"
+      ]
+    },
+    {
+      "text": "Proposed checks: test conditional action calibration with and without clipping while holding the denoiser fixed, and compare gradual score guidance against direct policy resampling with matched initial noise. Measure both action mismatch and simulator replay MSE before attributing return changes to either mechanism.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e12",
+        "e18",
+        "e19",
+        "e22"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "Foundational world modeling/model-based RL and diffusion are supported. The source explicitly separates a denoising model from a policy; coupled trajectory generation does not establish a unified One Model architecture or an inverse-dynamics action decoder. Retaining the catalog's not-applicable architecture, prediction-paradigm, and quadrant fields is appropriate for its foundational placement.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e04",
+        "e05",
+        "e07"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Classical world models & model-based RL",
+        "Diffusion & flow-matching foundations"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "16980a7d7f30c968623b791a816a6cfb20774241ae5ca41f0e7cbf65a85ea864"
+    }
+  },
+  "discussionQuestions": [
+    "Can conditional calibration fail while aggregate standardized actions appear Gaussian? (e09, e18)",
+    "How much of Dreamer's control advantage comes from its policy optimizer rather than prediction quality? (e11, e21)"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, publication header, and arXiv margin stamp",
+      "detail": "Title and authors Marc Rigter, Jun Yamada, and Ingmar Posner match the catalog. The artifact identifies v4, 27 March 2024, and TMLR 02/2024; no affiliations appear in the title block."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Introduction, Figure 1 and caption, Related Work: Diffusion Models for Decision-making",
+      "detail": "Whole-trajectory generation must reconcile future states and policy actions. A separate feedforward policy serves environment rollouts; diffusion produces its synthetic training data."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3, Equations (1)–(4) and MDP definitions",
+      "detail": "Defines diffusion indices, noise schedule, noise-prediction objective, fully observable MDPs, and state-reward/action trajectory subsequences."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1 and Algorithm 1",
+      "detail": "The denoiser predicts corruption of states and rewards conditioned on clean actions and diffusion level. The implementation also predicts terminal states, omitted from the notation."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.2; p. 6, Algorithm 2 lines 2–14, Figure 2 and caption",
+      "detail": "Initial-state inpainting anchors random trajectories. Denoised states condition policy-score action updates for i>1; the denoiser updates states/rewards. Solid arrows depict action changes and hollow arrows depict state changes."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4.2, Equations (5)–(8)",
+      "detail": "Langevin sampling motivates policy-score updates without a convergence proof. Classifier guidance assumes a uniform background action distribution and clean trajectories; it would guide both states and actions, whereas base PolyGRAD guides actions only."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.3, Algorithm 3 and Equations (9)–(10)",
+      "detail": "The loop collects real data, trains the denoiser, generates imagined data, and trains the policy. Guidance scale is adjusted using the standard deviation of policy-standardized actions."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Implementation Details",
+      "detail": "Describes action clipping, unstable large policy updates, A2C/GAE, and an empirical preference for training on clean action conditioning despite noisy actions during generation."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5.1, Figure 3 panels (a)–(f) and caption",
+      "detail": "Walker2d h=50 action-minus-mean densities approximately match Gaussian targets for standard deviations at least 0.1; lower entropy produces mismatches and clipping-related modes at 0.02."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Section 5.2; p. 10, Figures 4–5 and captions",
+      "detail": "Shared-data state-MSE comparisons use five seeds and h=10/50/200 PolyGRAD. Short-horizon PolyGRAD ranks best on Walker2d and second on the other tasks; long-horizon relative performance deteriorates. Timing uses 1,000 Walker2d trajectories on a V100; autoregressive diffusion repeats diffusion per transition."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Section 5.3, Figures 6–7, axes, legends, and captions",
+      "detail": "Residual-MLP h=10 imagined RL beats on-policy model-free baselines in aggregated final return but trails Dreamer-v3. Curves show five-seed standard deviations; IQM intervals are 95%. Hopper ends at 1M steps and the other tasks at 1.5M."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Section 5.4; p. 12, Figures 8–9 and captions",
+      "detail": "Random actions and direct resampling perform poorly; removing clipping or using noisy state conditioning harms returns. State guidance is comparable to base PolyGRAD but raises reported cost from 54 to about 80 hours per 1M steps."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, Section 6, Limitations and Future Work",
+      "detail": "Slow policy updates and low-entropy action matching limit the method. Image-based and non-Markovian environments, convergence analysis, and improved long-horizon behavior are future directions."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix A, Action Clipping During Diffusion, Equation (11)",
+      "detail": "The implemented action update clips the deterministic policy-score step to mean ±3 policy standard deviations and adds Gaussian noise outside the clip operation."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix A, Policy Parameterisation, Initial State Conditioning, Imagined RL Training, Table 1",
+      "detail": "Specifies state-independent policy standard deviation, inpainting in training and inference, 1,024 h=10 imagined rollouts, GAE λ=0.9, critic LR 3e−4, Adam, γ=0.99, target log-probability change 0.01, entropy weight 1e−5, minimum std 0.1, and update ratio 0.25. Line search accepts changes within 20% of target."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF pp. 18–19, Appendix A, Denoising Model; p. 19, Tables 2–4 and Hyperparameter Tuning",
+      "detail": "Residual MLP: six layers, widths 1,024/2,048 for short/long horizons. Transformer: six layers, embedding 312, four causal attention heads. Both use batch 256; diffusion has 128 steps and cosine schedule, with Hopper/MLP schedule parameter 0.1 instead of 1."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF pp. 20–21, Appendices B.1–B.2, Figures 10, 12, and 14",
+      "detail": "MLP and transformer denoisers have similar h=10 prediction errors; transformer fares better for longer horizons. Mean-performance intervals support the same broad comparisons as IQM."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF pp. 21–23, Appendices B.3–B.4, Figures 15–18 and captions",
+      "detail": "h=10 action diagnostics span the three environments. Figure 17 reports HalfCheetah NaNs before std 0.02. Removing clipping yields non-Gaussian heavy tails even when overall standard deviation matches the policy."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Appendix C.1, Error Evaluation Experiments",
+      "detail": "Models share 1M Algorithm-3 transitions and its final policy; evaluation starts from 500 uniformly sampled dataset states. Training selects best five-step error within 1M gradient steps or 72 RTX 3090 hours. A separate held-out rollout-selection split is not specified."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Appendix C.2, Smoothing of Reward Curves and Confidence Intervals",
+      "detail": "Ten-episode evaluations occur every 10,000 environment steps and are smoothed over ten evaluations. Final scores are divided by each environment's best algorithm mean and aggregated using 50,000 stratified bootstrap repeats; IQM uses the middle 50%."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF pp. 23–24, Appendix C.3, Baselines",
+      "detail": "Details the MLP ensemble, maximum-15-context autoregressive transformer, action-conditioned one-step diffusion, Dreamer's five-real-step latent initialization, and model-free implementations. Dreamer policy training backpropagates through dynamics; cited code versions are not pinned."
+    },
+    {
+      "id": "e22",
+      "sourceId": "primary",
+      "location": "PDF pp. 24–25, Appendix C.4; p. 12, Noisy State Conditioning bullet; p. 6, Algorithm 2 line 10",
+      "detail": "Specifies each ablation and the additional state-score gradient. The noisy-state descriptions on pp. 12 and 25 print an action superscript while referring to states; Algorithm 2 explicitly conditions the policy on denoised states."
+    },
+    {
+      "id": "e23",
+      "sourceId": "primary",
+      "location": "PDF p. 25, Appendix C.5, Computational Requirements",
+      "detail": "One base PolyGRAD RL run to 1M environment steps requires 54 hours on an RTX 3090 GPU."
+    }
+  ]
+}

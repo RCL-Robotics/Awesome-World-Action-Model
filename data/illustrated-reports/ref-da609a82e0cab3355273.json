@@ -1,0 +1,287 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-da609a82e0cab3355273",
+  "shortTitle": "PolyGRAD",
+  "thesis": "PolyGRAD refines whole imagined trajectories using a denoiser and policy-score action updates, gaining a non-autoregressive sampler while making action calibration a central training constraint.",
+  "standfirst": "A world model must predict what happens under the policy being trained. Predicting all future states together makes that requirement awkward: the policy needs those states before it can choose their actions. PolyGRAD starts with noisy states and actions, then repeatedly brings them into agreement through an action-conditioned denoiser and the policy's action score. The resulting synthetic trajectories train a separate actor-critic policy. Read the evidence in three stages: how the coupled sampler works, whether its action distribution matches the policy, and whether its predictions support useful control. Strong short-horizon prediction is encouraging, but low-entropy failures and Dreamer-v3's stronger returns delimit the result.",
+  "evidenceIds": [
+    "e02",
+    "e04",
+    "e05",
+    "e09",
+    "e11",
+    "e15"
+  ],
+  "featuredResultTask": "Imagined RL on three MuJoCo control tasks",
+  "visuals": [
+    {
+      "id": "trajectory-mechanism",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 6,
+      "asset": "report-assets/ref-da609a82e0cab3355273/trajectory-mechanism.png",
+      "width": 1183,
+      "height": 541,
+      "sourceSha256": "f756b4bef6e5c6360e1978b79b2c6e7e2e66dc5ef5844a8afaffd6131e4a53d7",
+      "sourceUrl": "https://arxiv.org/pdf/2312.08533#page=6",
+      "crop": [
+        0.537,
+        0.608,
+        0.885,
+        0.731
+      ],
+      "alt": "Colored trajectory states and red action arrows evolve around a black disk; solid arrows connect action updates and hollow arrows connect state updates. The lower-left panel depicts the policy field.",
+      "caption": "State predictions and policy-guided actions are refined together across diffusion steps.",
+      "readingGuide": "Start at the upper-left random trajectory and follow the connecting arrows, which move right, down, right, up, right, and finally down. Colored dots represent states; red arrows represent actions. The lower-left panel separately illustrates the policy's action distribution throughout state space. Solid connecting arrows mark action-score updates, while hollow connecting arrows mark denoiser-driven state updates. The caption's phrase 'current state sequence' is shorthand: Algorithm 2 first estimates fully denoised states and conditions the policy on that estimate. Conversely, the denoiser conditions on the current actions. The dark-purple initial state comes from the dataset and is reset by inpainting at each diffusion step.",
+      "takeaway": "The mechanism resolves a circular dependency by repeatedly revising both sides: states must fit actions, and actions must fit the policy at those states. The whole trajectory is refined without autoregressive environment-time rollout. Nevertheless, generating it still requires the full iterative diffusion process, rather than a single network evaluation.",
+      "caution": "This is a conceptual illustration, not an evaluated navigation task. Its arrows agree with Algorithm 2, but they do not prove convergence or exact on-policy sampling. The policy-conditioned states change during diffusion, which limits the direct Langevin analogy.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e16"
+      ]
+    },
+    {
+      "id": "a2c-configuration",
+      "kind": "table",
+      "section": "mechanism",
+      "sourceLabel": "Table 1",
+      "page": 18,
+      "asset": "report-assets/ref-da609a82e0cab3355273/a2c-configuration.png",
+      "width": 1035,
+      "height": 700,
+      "sourceSha256": "f756b4bef6e5c6360e1978b79b2c6e7e2e66dc5ef5844a8afaffd6131e4a53d7",
+      "sourceUrl": "https://arxiv.org/pdf/2312.08533#page=18",
+      "crop": [
+        0.298,
+        0.601,
+        0.704,
+        0.813
+      ],
+      "alt": "A2C hyperparameter table listing 1,024 imagined trajectories of length 10, GAE 0.9, critic learning rate 3e−4, Adam, discount 0.99, target policy change 0.01, entropy weight 1e−5, minimum standard deviation 0.1, and update ratio 0.25.",
+      "caption": "The imagined-learning setup deliberately combines short rollouts with constrained policy changes.",
+      "readingGuide": "Read the first two rows together: each actor-critic update receives 1,024 imagined trajectories, each of length 10. The final row sets one such training update per four environment steps. GAE parameter λ and discount γ specify the return-estimation setup. Keep the critic learning rate separate from the target policy-update row: Appendix A uses a line search on the policy learning rate to keep average absolute log-likelihood change within 20% of 0.01. The minimum policy standard deviation, 0.1, is another training constraint. This table describes the policy learner; denoiser architecture and diffusion settings appear in Tables 2–4.",
+      "takeaway": "PolyGRAD's control results use a carefully restricted actor-critic setup. The standard-deviation floor avoids the most problematic low-entropy region in the main diagnostic, while the small target update addresses policy-change instability. These are parts of the reported recipe, not merely incidental optimizer defaults that can be dropped in a reproduction.",
+      "caution": "This is an original numerical configuration table, not a performance table or a controlled hyperparameter ablation. It does not isolate the causal benefit of each setting, and it does not supply numerical values for the initial guidance scale or its adaptation learning rate.",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e15",
+        "e16"
+      ]
+    },
+    {
+      "id": "action-distributions",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 3",
+      "page": 9,
+      "asset": "report-assets/ref-da609a82e0cab3355273/action-distributions.png",
+      "width": 1621,
+      "height": 322,
+      "sourceSha256": "f756b4bef6e5c6360e1978b79b2c6e7e2e66dc5ef5844a8afaffd6131e4a53d7",
+      "sourceUrl": "https://arxiv.org/pdf/2312.08533#page=9",
+      "crop": [
+        0.118,
+        0.725,
+        0.881,
+        0.842
+      ],
+      "alt": "Six Walker2d action-density panels compare blue generated distributions with dashed Gaussian policy targets as policy standard deviation decreases from 0.8 to 0.02. The final panel shows a narrow peak and extra boundary modes.",
+      "caption": "Approximate action matching deteriorates as the policy becomes nearly deterministic.",
+      "readingGuide": "Move left to right through decreasing policy standard deviations. Blue curves are generated-action densities; dashed black curves are the target policy distributions. Although the horizontal label says 'Action,' the caption defines the plotted quantity as action minus the policy mean at the corresponding state. Both horizontal and vertical scales change across panels, so compare shape agreement within each panel rather than raw peak heights across panels. These batches come from Walker2d with imagined horizon 50 while the policy standard deviation is decayed during training. The first four panels track the target closely; inspect the last panel for the sharper center and small additional outer modes.",
+      "takeaway": "The main experiment supports approximate aggregate action matching down to policy standard deviation 0.1. Below that level, the mismatch becomes visible; at 0.02, the extra modes are attributed to clipping near three standard deviations. The reported control configuration consequently keeps its policy standard deviation at or above 0.1.",
+      "caution": "These are pooled batch distributions, not state-conditional or temporal-independence tests. The threshold is an empirical observation for this setup. Appendix B's h=10 diagnostics vary by environment and include HalfCheetah numerical failure before reaching 0.02.",
+      "evidenceIds": [
+        "e09",
+        "e15",
+        "e18"
+      ]
+    },
+    {
+      "id": "prediction-error",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 5",
+      "page": 10,
+      "asset": "report-assets/ref-da609a82e0cab3355273/prediction-error.png",
+      "width": 1445,
+      "height": 421,
+      "sourceSha256": "f756b4bef6e5c6360e1978b79b2c6e7e2e66dc5ef5844a8afaffd6131e4a53d7",
+      "sourceUrl": "https://arxiv.org/pdf/2312.08533#page=10",
+      "crop": [
+        0.159,
+        0.102,
+        0.839,
+        0.255
+      ],
+      "alt": "Three logarithmic state-MSE plots for HalfCheetah, Hopper, and Walker2d compare PolyGRAD trained at horizons 10, 50, and 200 against four autoregressive world-model baselines, with five-seed standard-deviation bands.",
+      "caption": "Short-horizon accuracy is competitive; whole-trajectory diffusion does not secure a long-horizon advantage.",
+      "readingGuide": "Read each environment separately, with lower prediction MSE indicating better state reconstruction. The red curves use different markers for separately trained PolyGRAD horizon settings; they are not successive checkpoints of one model. The other colors identify the four autoregressive baselines, and the axes use logarithmic spacing. All models receive the same one-million-transition dataset for each environment. Evaluation starts from 500 dataset states, generates actions under the same policy, and replays those actions in the simulator to obtain ground truth. Shaded bands represent standard deviation across five seeds. Compare short-horizon red curves first, then examine how the longer-trained variants fare as the evaluation horizon grows.",
+      "takeaway": "The paper reports h=10 PolyGRAD as best on Walker2d and second to autoregressive diffusion on HalfCheetah and Hopper. Longer-horizon training weakens its relative position. This supports short-rollout utility, while the broader motivation of avoiding compounding error does not become an empirical claim that PolyGRAD wins at long horizons.",
+      "caution": "Exact MSE values are not tabulated. Starting states come from the training dataset, and model selection uses five-step error within a capped training budget; a separate held-out selection split is unspecified. These curves therefore do not establish novel-state generalization or equal-compute superiority.",
+      "evidenceIds": [
+        "e10",
+        "e19",
+        "e21"
+      ]
+    },
+    {
+      "id": "control-performance",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figures 6 and 7",
+      "page": 11,
+      "asset": "report-assets/ref-da609a82e0cab3355273/control-performance.png",
+      "width": 1549,
+      "height": 332,
+      "sourceSha256": "f756b4bef6e5c6360e1978b79b2c6e7e2e66dc5ef5844a8afaffd6131e4a53d7",
+      "sourceUrl": "https://arxiv.org/pdf/2312.08533#page=11",
+      "crop": [
+        0.117,
+        0.586,
+        0.846,
+        0.707
+      ],
+      "alt": "Three return-versus-environment-step plots and an aggregate normalized-IQM interval plot compare red PolyGRAD, green Dreamer-v3, blue PPO, orange A2C, and purple TRPO. Dreamer leads aggregate performance, followed by PolyGRAD.",
+      "caption": "Imagined on-policy learning beats the tested model-free baselines in aggregate, while Dreamer-v3 remains stronger.",
+      "readingGuide": "The left three panels show average episode return against actual environment interactions. Hopper is plotted to one million steps; HalfCheetah and Walker2d extend to one and a half million. The curves use five seeds and standard-deviation shading. Each evaluation averages ten episodes, and the displayed curves smooth ten consecutive evaluations. The right panel summarizes final performance using normalized interquartile mean, with 95% bootstrap intervals rather than standard-deviation bands. Normalization divides by the best algorithm's average final return within each environment; the vertical scale is not a success percentage. PolyGRAD here uses its residual-MLP denoiser and short h=10 imagined trajectories to train A2C.",
+      "takeaway": "The red aggregate interval lies above the tested on-policy model-free methods and below Dreamer-v3. PolyGRAD therefore demonstrates useful policy learning from imagined trajectories, but the stronger prediction accuracy seen in some state-space comparisons does not translate into the strongest control agent. The distinction between reconstructing states and optimizing behavior is essential to interpreting the paper.",
+      "caution": "The aggregate result does not imply a clear win over every baseline in every task. Smoothing obscures short-term instability, and the paper does not tabulate exact interval endpoints. This comparison also omits stronger off-policy model-free algorithms discussed by the authors.",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e15",
+        "e20"
+      ]
+    },
+    {
+      "id": "mechanism-ablations",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figures 8 and 9",
+      "page": 12,
+      "asset": "report-assets/ref-da609a82e0cab3355273/mechanism-ablations.png",
+      "width": 1623,
+      "height": 335,
+      "sourceSha256": "f756b4bef6e5c6360e1978b79b2c6e7e2e66dc5ef5844a8afaffd6131e4a53d7",
+      "sourceUrl": "https://arxiv.org/pdf/2312.08533#page=12",
+      "crop": [
+        0.117,
+        0.492,
+        0.881,
+        0.614
+      ],
+      "alt": "Return curves and normalized-IQM intervals compare base PolyGRAD with random actions, policy resampling, no clipping, additional state guidance, and noisy-state conditioning. Random actions and policy resampling score lowest; added state guidance is near the base method.",
+      "caption": "Gradual action guidance and clean-state conditioning matter more than adding a state-score update.",
+      "readingGuide": "Use the shared legend to compare each modification with red base PolyGRAD. Random Actions leaves the initial Gaussian action sequence unchanged. Policy Sampling replaces it with fresh policy samples at every diffusion step. No Clipping removes the action constraint, and Noisy State Conditioning evaluates the policy on noisy states instead of the denoised estimate. Add State Update also differentiates policy likelihood with respect to states and modifies the denoising prediction accordingly. The left panels display smoothed task returns and five-seed standard deviations; the right panel aggregates normalized final performance with 95% IQM intervals. Focus first on the low black and blue curves, then compare purple against red.",
+      "takeaway": "Direct resampling is not an adequate substitute for gradual guidance in these experiments. Removing clipping or clean-state conditioning also harms aggregate returns. Additional state guidance gives comparable performance, but the text reports about 80 training hours per million environment steps versus 54 for the base method. More policy gradients therefore bring extra cost without an established control gain here.",
+      "caution": "The noisy-state descriptions on pp. 12 and 25 mistakenly use an action superscript while naming states; Algorithm 2 resolves the intended conditioning. Overlapping intervals do not establish equivalence. Normalized values here should not be treated as raw returns or directly compared with Figure 7's scale.",
+      "evidenceIds": [
+        "e05",
+        "e12",
+        "e20",
+        "e22",
+        "e23"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Learn dynamics first, then ask which policy generated the actions",
+      "text": "The denoiser is trained on real buffer trajectories, with noise added to states and rewards and clean actions supplied as conditioning. Its job is to recover the noise, not to learn an action decoder. At generation time, PolyGRAD initializes an entire noisy trajectory and repeatedly predicts how the states should change given the current actions. A separate policy supplies the action-score direction. To query that policy sensibly, the sampler first estimates the fully denoised states: the policy was not trained to interpret diffusion-corrupted inputs. These two operations make a coupled sampler while keeping the learned components distinct. One reverse process spans the whole trajectory, but the implementation still performs 128 diffusion steps. Thus the architectural novelty concerns environment-time rollout, not elimination of iterative computation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e08",
+        "e16"
+      ]
+    },
+    {
+      "heading": "Treat on-policy generation as a calibration problem",
+      "text": "Moving actions toward a policy's high-density region is insufficient: excessive guidance collapses them toward its mean, whereas weak guidance leaves them too dispersed. PolyGRAD adjusts the action-update scale using the standard deviation of policy-standardized actions. The reader's inference is that this is a useful calibration signal but an incomplete distributional test. Appendix B makes the concern concrete: removing clipping can preserve standard deviation while producing a heavy-tailed, non-Gaussian distribution. Moreover, Appendix A clips the deterministic update before adding Gaussian noise, so the equation does not impose a strict final-action bound. Together with changing state estimates during diffusion, these details explain why the Langevin connection remains motivation rather than a convergence guarantee. The proposed conditional-calibration check below probes precisely what pooled moments can miss.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e14",
+        "e18"
+      ]
+    },
+    {
+      "heading": "Separate a useful simulator from a strong control learner",
+      "text": "Prediction evaluation and policy evaluation answer different questions. The former replays generated action sequences in the simulator and compares predicted states with ground truth. The latter trains a policy using imagined rewards and transitions, then measures environment returns. PolyGRAD's control recipe chooses short rollouts and a residual MLP, whose short-horizon errors are similar to the transformer while its computation is cheaper. The policy receives A2C updates, constrained to avoid large changes that destabilize the sampler. Dreamer-v3 instead optimizes behavior through its dynamics model and achieves stronger control despite weaker state reconstruction in some comparisons. As reader analysis, this shows that state MSE alone cannot identify the best training simulator: policy optimization and the usefulness of its representation also matter. Their separate contributions remain unisolated here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e15",
+        "e17",
+        "e21"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Can correct aggregate dispersion hide conditional action errors?",
+      "text": "Reader-proposed check, not performed: freeze a trained denoiser and policy mean network, then compare standard deviations 0.2, 0.1, 0.06, and 0.02 using the same initial states and random seeds. Run the stated guidance adaptation with and without clipping, preserving Eq. (11)'s noise-after-clipping order. Report pooled standardized-action mean, variance, tail mass, and quantiles, then repeat the diagnostics within state regions defined before sampling. Compare each with direct policy samples at the corresponding predicted states. The incomplete-calibration concern is supported if pooled variance is near one while conditional quantiles or tails remain wrong; agreement across both controls and state regions would weaken it.",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e14",
+        "e18"
+      ]
+    },
+    {
+      "title": "Does gradual guidance improve both action consistency and dynamics accuracy?",
+      "text": "Reader-proposed check, not performed: hold the h=10 denoiser, policy, 128-step diffusion schedule, clipping rule, and 500 buffer-sampled starting states fixed. Compare base score guidance, direct Policy Sampling, and unchanged Random Actions using matched initial noise. Record final conditional action-distribution error and state MSE after replaying each generated action sequence in MuJoCo, plus sampling time. Keep denoiser training data and checkpoint selection identical. The paper's explanation predicts that direct resampling disrupts consistency and worsens prediction; similar calibration and MSE under resampling would challenge that explanation. Only a subsequent matched A2C training comparison could establish whether these sampler differences cause the reported return gap.",
+      "evidenceIds": [
+        "e05",
+        "e12",
+        "e16",
+        "e19",
+        "e22"
+      ]
+    }
+  ],
+  "visualLimitations": {
+    "kind": "source",
+    "text": "The supplied paper reports predictive accuracy, returns, confidence intervals, and action-distribution diagnostics as plots. Its four tables contain hyperparameters rather than measured performance. This edition therefore pairs the original result plots with the original A2C configuration table; exact MSE, return, and confidence-interval endpoints are not invented from unlabelled curve positions.",
+    "evidenceIds": [
+      "e10",
+      "e11",
+      "e12",
+      "e15",
+      "e16",
+      "e17"
+    ]
+  },
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25
+    ],
+    "notes": "Visually inspected the title/version page; all main-body method, equation, result, ablation, and discussion pages; and all appendix pages containing implementation, additional diagnostics, baseline protocols, result processing, or compute claims. This includes Figures 1–10, 12, 14–18 and Tables 1–4. Cross-checked Figure 2's solid/hollow arrow meanings with Algorithm 2, clipping order with Eq. (11), and noisy-state notation with Algorithm 2 and Appendix C.4. All six final crops were opened and inspected; the control-performance crop was expanded and reinspected to preserve panel labels. Reference-only pages 14–17 were read in the complete text but were not visually inspected. Separate supplements and linked code remain unverified."
+  }
+}
