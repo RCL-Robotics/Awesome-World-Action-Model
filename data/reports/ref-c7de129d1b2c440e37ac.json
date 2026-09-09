@@ -1,0 +1,386 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-c7de129d1b2c440e37ac",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T07:34:32.775Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/1909.04102",
+      "title": "LIC-Fusion: LiDAR-Inertial-Camera Odometry",
+      "kind": "pdf",
+      "sha256": "a7e86a017c7a2b8f38c456aca36bf814350d48f647a6cf15101ddad708507e3e",
+      "wordCount": 4523,
+      "accessedAt": "2026-09-07T14:32:54.422453+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "PDF p. 1: title, authors, affiliations, version stamp and abstract",
+      "PDF pp. 1–2: I. Introduction and Related Work",
+      "PDF p. 2: II-A. State Vector and II-B. IMU Propagation",
+      "PDF p. 3: II-C. State Augmentation",
+      "PDF pp. 3–4: II-D. Measurement Models",
+      "PDF p. 4: II-E. Measurement Compression and III. Experimental Results setup",
+      "PDF p. 5: III-A. Outdoor Tests and III-B. Indoor Tests",
+      "PDF pp. 5–6: IV. Conclusions and Future Work",
+      "PDF p. 6: References"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The reviewed artifact is the six-page arXiv:1909.04102v2 dated 1 November 2019. Its exact title and all five authors match the catalog. The catalog separately identifies an IROS 2019 proceedings entry; that edition and earlier arXiv revisions were not supplied, so their differences or equivalence are not established.",
+      "Text extraction alone omitted figure images; this omission was resolved by visually inspecting all six PDF pages, Figures 1–6, Tables I–II and every final crop.",
+      "Separate supplemental material availability has not been fully verified; no separate supplement was supplied.",
+      "Code was not inspected and experiments were not reproduced. No appendix is present in this supplied PDF."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1: sparse visual and LiDAR features, p. 1",
+      "Figure 2: sensor rig, p. 5",
+      "Figure 3: outdoor trajectories, p. 5",
+      "Figure 4: outdoor error curves, p. 5",
+      "Figure 5: indoor trajectories A–D, p. 6",
+      "Figure 6: raw IMU measurements, p. 6"
+    ],
+    "tablesReviewed": [
+      "Table I: outdoor ATE, p. 5",
+      "Table II: indoor start-end errors, p. 6"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "LIC-Fusion estimates motion by combining inertial propagation, sparse camera tracks and LiDAR edge/plane constraints in one MSCKF estimator, while refining sensor transforms and clock offsets online. Its strongest outdoor evidence is a reported average ATE of 4.06 m, versus 10.75 m for MSCKF and 23.08 m for LOAM. Indoor results favor fusion on the harder sequences but favor LOAM on A and B; endpoint-only evaluation limits the conclusion.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Cameras lose useful information under poor lighting, LiDAR supplies lighting-independent ranges but sparse, slower observations, and unaided IMUs drift. The problem is robust six-degree-of-freedom motion estimation from these complementary, asynchronous sensors. The authors seek to retain measurement correlations through tight fusion while adapting spatial and temporal calibration.",
+    "kind": "source",
+    "evidenceIds": [
+      "motivation",
+      "state-calibration"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The authors propose a single-thread MSCKF extension that jointly estimates motion and calibration using sparse visual observations and two LiDAR feature types. They describe fusion as optimal up to linearization errors; the experiments do not independently establish this optimality claim.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "motivation",
+        "compression"
+      ]
+    },
+    {
+      "text": "LiDAR distance constraints include pose and extrinsic-calibration dependence, while timestamp dependence enters through cloned IMU states. This provides an explicit route for geometric measurements to refine calibration.",
+      "kind": "source",
+      "evidenceIds": [
+        "cloning",
+        "lidar-geometry",
+        "lidar-noise"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "IMU angular-rate and linear-acceleration measurements",
+      "Monocular images with FAST features tracked using KLT",
+      "LiDAR scans reduced to high-curvature edge and low-curvature planar surf features"
+    ],
+    "outputs": [
+      "Estimated IMU orientation, position, velocity and biases, with covariance",
+      "Camera–IMU and LiDAR–IMU rigid transforms and time offsets",
+      "Sliding windows of pose clones at image and LiDAR observation times"
+    ],
+    "steps": [
+      {
+        "name": "Propagate a shared physical state",
+        "detail": "The state contains current IMU quantities, both sensor calibration blocks, and separate camera-time and LiDAR-time pose windows. Continuous-time inertial kinematics propagate motion and covariance; gyroscope and accelerometer biases follow random walks. Orientation uses JPL quaternions and a local error-state update.",
+        "evidenceIds": [
+          "state-calibration",
+          "cloning"
+        ]
+      },
+      {
+        "name": "Clone at corrected observation times",
+        "detail": "For a new scan, propagate to its timestamp plus the estimated LiDAR offset, then clone orientation and position. Covariance augmentation includes sensitivity to the offset through angular and linear velocity. Camera arrivals use the analogous procedure.",
+        "evidenceIds": [
+          "cloning"
+        ]
+      },
+      {
+        "name": "Turn LiDAR matches into geometric residuals",
+        "detail": "Project current features into the previous scan and use KD-tree nearest-neighbor lookup. An edge uses two old points, with the second on an adjacent scan ring, to define a line; a surf feature uses three old points to define a plane. Their point-to-line or point-to-plane discrepancies supply linearized EKF constraints. Correspondences are assumed to share a physical edge or plane.",
+        "evidenceIds": [
+          "lidar-geometry",
+          "lidar-noise"
+        ]
+      },
+      {
+        "name": "Weight, reject and combine observations",
+        "detail": "Propagate raw point covariances into distance uncertainty and apply a Mahalanobis chi-squared gate. For visual tracks lost or spanning the window, triangulate and form reprojection constraints; MSCKF nullspace projection removes feature-position dependence. Stack residuals, assume independent measurement noise, compress with Givens-based thin QR, and update state and covariance.",
+        "evidenceIds": [
+          "lidar-noise",
+          "visual-update",
+          "compression"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "There is no learned model, training loss, pretrained component or training split in this formulation. Sensor extrinsics are calibrated offline and refined online; this is parameter estimation within a geometric filter.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "state-calibration",
+          "compression",
+          "experiment-setup"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Runtime processing alternates inertial propagation with image/scan measurement updates. The system estimates a sliding-window trajectory without a global map or loop closures. Its output is localization; the paper specifies no action decoder, planning rollout or executed control policy.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "cloning",
+          "compression",
+          "experiment-setup"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "t_I=t_C+t_{dC},\\qquad t_I=t_L+t_{dL}",
+        "explanation": "Equations (7)–(8): t_I is IMU-clock time; t_C and t_L are reported camera and LiDAR times; t_dC and t_dL are their estimated offsets. The IMU clock is the reference.",
+        "evidenceIds": [
+          "state-calibration"
+        ]
+      },
+      {
+        "expression": "r({}^{L_{l+1}}\\mathbf p_{f_i})=\\frac{\\left\\|({}^{L_l}\\mathbf p_{f_i}-{}^{L_l}\\mathbf p_{f_j})\\times({}^{L_l}\\mathbf p_{f_i}-{}^{L_l}\\mathbf p_{f_k})\\right\\|_2}{\\left\\|{}^{L_l}\\mathbf p_{f_j}-{}^{L_l}\\mathbf p_{f_k}\\right\\|_2}",
+        "explanation": "Equation (24): the current feature i is projected into the previous LiDAR frame L_l; old features j and k define its corresponding line. The Euclidean norm of the cross product divided by line-segment length gives the point-to-line distance.",
+        "evidenceIds": [
+          "lidar-geometry"
+        ]
+      },
+      {
+        "expression": "\\mathbf r_c=\\mathbf T_H\\delta\\mathbf x+\\mathbf n_c,\\qquad \\mathbf n_c=\\mathbf Q_{H1}^{\\top}\\mathbf n",
+        "explanation": "Equation (33): r_c is the compressed residual, T_H the retained factor from QR of the stacked measurement Jacobian, delta x the state error, and n_c the projected measurement noise. Q_H1 is the retained QR basis and n the stacked noise. This reduces update size without introducing a learned representation.",
+        "evidenceIds": [
+          "compression"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Outdoor trajectory estimation",
+      "setting": "One approximately 800 m, four-minute robot sequence; RTK GPS reference; six runs per algorithm; trajectories aligned by a best-fit transform minimizing overall error.",
+      "metric": "Reported average ATE and one-sigma variability, in meters; lower ATE is better.",
+      "value": "Measured LIC-Fusion average ATE: 4.06 m; one sigma: 3.42 m.",
+      "comparison": "MSCKF: 10.75 m, sigma 3.56 m; LOAM: 23.08 m, sigma 2.63 m.",
+      "interpretation": "Fusion has the smallest reported average ATE on this sequence. The sigma row is variability, not a confidence interval. LOAM uses its global-map output, unlike sliding-window LIC-Fusion.",
+      "evidenceIds": [
+        "outdoor-ate",
+        "experiment-setup"
+      ]
+    },
+    {
+      "task": "Indoor return-to-start localization",
+      "setting": "Handheld sequences A/B/C/D of 39/86/55/189 m; varied lighting and motion. No indoor trajectory ground truth; the rig returns to its initial location.",
+      "metric": "Average trajectory start-end error; lower is better. Table II omits an explicit unit for the error columns.",
+      "value": "Measured LIC-Fusion values A/B/C/D: 0.98 / 1.04 / 1.55 / 3.68.",
+      "comparison": "MSCKF: 0.99 / 1.55 / 49.94 / 46.03; LOAM: 0.66 / 0.46 / 2.44 / 5.99.",
+      "interpretation": "LOAM leads on A/B; fusion leads on C/D. Indoor-C includes deliberate vigorous shaking. Endpoint agreement does not measure whole-trajectory accuracy, and indoor repetition counts and uncertainty are not specified.",
+      "evidenceIds": [
+        "indoor-protocol",
+        "indoor-results",
+        "motion-diagnostic"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Figure 4 is called mean squared error in its caption and prose, but its axis reads Error (m). The prose claims reductions of 2.5 m and 5 m, which do not match subtraction of Table I ATEs. These definitions remain unresolved; retain Table I values without treating the plot as a verified MSE benchmark.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "outdoor-ambiguity"
+      ]
+    },
+    {
+      "text": "The evidence covers one outdoor route and four indoor sequences, with no controlled calibration, sensor-removal or compression ablation. It cannot isolate which component causes the improvement. Indoor endpoint evaluation and absent per-sequence lighting labels also constrain robustness claims.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "outdoor-ate",
+        "indoor-protocol",
+        "indoor-results",
+        "reporting-gaps"
+      ]
+    },
+    {
+      "text": "Nearest matches are assumed to represent the same physical geometry, and stacked measurement noises are treated as independent. The reported tests do not isolate failures of these assumptions. The authors leave adding camera/LiDAR loop closures to future work.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "lidar-geometry",
+        "lidar-noise",
+        "compression",
+        "future-work"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Match the documented rig: Xsens MTi-300 AHRS IMU, Velodyne VLP-16 LiDAR and monochrome global-shutter Blackfly BFLY-PGE-23S6M camera. Reproduce offline extrinsic initialization, online refinement, the stated baseline variants and the RTK alignment protocol.",
+      "kind": "source",
+      "evidenceIds": [
+        "experiment-setup",
+        "outdoor-ate"
+      ]
+    },
+    {
+      "text": "The PDF does not give numerical clone-window sizes, curvature thresholds, point/noise covariance settings, chi-squared gate level, full calibration initialization procedure, sensor rates, processing hardware, software versions or runtime measurements. No dataset-release instructions are supplied. These omissions prevent an exact configuration-level reproduction from the paper alone.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "reporting-gaps"
+      ]
+    },
+    {
+      "text": "Proposed checks: compare fixed versus online calibration under controlled timestamp/transform perturbations, and remove LiDAR edge or plane residuals under matched replay conditions. Measure calibrated parameter error and trajectory error, including full-path ground truth where possible; neither check was performed for this report.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "state-calibration",
+        "cloning",
+        "lidar-geometry",
+        "indoor-protocol"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded foundational-work/state-estimation category fits the explicit physical state, geometric residuals and Kalman updates. Architecture, prediction paradigm and quadrant are correctly not applicable to a world-action-model taxonomy: the method contains neither a learned future/action predictor nor inverse-dynamics action extraction. Combining three sensors in one estimator does not establish a One Model architecture.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "state-calibration",
+        "lidar-geometry",
+        "visual-update",
+        "compression"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "3D representations & state estimation"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "f31b5398cc3402fc7407fc8c9a92a695549276cad4567d75d12d6c95aa89e7c8"
+    }
+  },
+  "discussionQuestions": [
+    "How much of the gain survives when calibration refinement is disabled but all measurement residuals remain?",
+    "Would the indoor ranking persist under full-trajectory ground truth rather than endpoint error?",
+    "How sensitive is the filter to shared LiDAR correspondences that challenge independent-noise assumptions?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, author affiliation footnotes and left-margin arXiv stamp",
+      "detail": "Title is LIC-Fusion: LiDAR-Inertial-Camera Odometry; authors are Xingxing Zuo, Patrick Geneva, Woosik Lee, Yong Liu and Guoquan Huang. The stamp reads arXiv:1909.04102v2 [cs.RO], 1 Nov 2019. Affiliations identify Zhejiang University and two University of Delaware departments."
+    },
+    {
+      "id": "motivation",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract, I. Introduction and Related Work, contribution bullets; p. 1, Figure 1 and caption",
+      "detail": "The authors motivate complementary camera, LiDAR and inertial sensing, claim tight single-thread MSCKF fusion, and illustrate red LiDAR edge features, blue plane features, visual tracks and a green estimated trajectory. Optimality is qualified by linearization errors."
+    },
+    {
+      "id": "state-calibration",
+      "sourceId": "primary",
+      "location": "PDF p. 2, II-A, Eqs. (1)–(10) and symbol definitions",
+      "detail": "The state contains IMU pose, velocity and biases, camera/LiDAR rigid transforms and clock offsets, and separate pose-clone windows. Equations (7)–(8) define clock correction; JPL quaternion error updates are specified."
+    },
+    {
+      "id": "cloning",
+      "sourceId": "primary",
+      "location": "PDF p. 2, II-B, Eqs. (11)–(15); p. 3, II-C, Eqs. (16)–(19)",
+      "detail": "IMU kinematics and bias random walks propagate state and covariance. New sensor observations trigger pose cloning at estimated corrected time; the clone Jacobian includes time-offset sensitivity through angular and linear velocity."
+    },
+    {
+      "id": "lidar-geometry",
+      "sourceId": "primary",
+      "location": "PDF p. 3, II-D.1, Eqs. (20)–(26) and surrounding feature-association text",
+      "detail": "High/low curvature selects edge/plane features. Current points are projected to the preceding LiDAR frame and matched with KD-tree indexing. Two old edge points on neighboring rings define a point-to-line residual; pose and extrinsic derivatives enter its linearization."
+    },
+    {
+      "id": "lidar-noise",
+      "sourceId": "primary",
+      "location": "PDF p. 4, II-D.1, Eq. (27), Mahalanobis gate and surf-feature paragraph",
+      "detail": "Distance covariance is propagated from raw point covariances. A chi-squared Mahalanobis test rejects outliers. Three corresponding surf points define a plane; covariance propagation, linearization and gating follow the edge treatment."
+    },
+    {
+      "id": "visual-update",
+      "sourceId": "primary",
+      "location": "PDF p. 4, II-D.2, Eqs. (28)–(30)",
+      "detail": "FAST/KLT tracks are triangulated when lost or spanning the window. Reprojection constraints are projected into the feature Jacobian nullspace to remove landmark-position dependence. Camera extrinsic derivatives are nonzero."
+    },
+    {
+      "id": "compression",
+      "sourceId": "primary",
+      "location": "PDF p. 4, II-E, Eqs. (31)–(33)",
+      "detail": "LiDAR/visual residuals and Jacobians are stacked with an independent-noise assumption. Givens rotations implement thin QR; the compressed residual and projected noise drive a standard EKF update."
+    },
+    {
+      "id": "experiment-setup",
+      "sourceId": "primary",
+      "location": "PDF p. 4, III. Experimental Results, setup and baseline paragraphs; p. 5, Figure 2",
+      "detail": "The rig uses an Xsens MTi-300 AHRS, VLP-16 and BFLY-PGE-23S6M global-shutter camera. Extrinsics are initialized offline and refined online. Baselines are the authors’ MSCKF VIO implementation and open-source LOAM; the compared LOAM output matches to a global map, whereas LIC-Fusion has no global map or loop closures."
+    },
+    {
+      "id": "outdoor-ate",
+      "sourceId": "primary",
+      "location": "PDF p. 5, III-A, Figure 3 and Table I, both rows and all method columns",
+      "detail": "An approximately 800 m, four-minute robot route uses RTK GPS and six runs per algorithm to account for RANSAC randomness. Alignment minimizes overall trajectory error. Table I reports average ATEs MSCKF/LIC-Fusion/LOAM = 10.75/4.06/23.08 m and one-sigma variability 3.56/3.42/2.63 m."
+    },
+    {
+      "id": "outdoor-ambiguity",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 4 vertical axis and caption; III-A error-reduction paragraph; Table I",
+      "detail": "The graph axis says Error (m), but caption/text say MSE. The prose reports 2.5 m and 5 m improvements over MSCKF and LOAM, without resolving their relationship to Table I values. The blue trace grows less than the others late in the route; plotted rankings vary over time."
+    },
+    {
+      "id": "indoor-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 5, III-B. Indoor Tests, both columns",
+      "detail": "Indoor sequences are handheld at chest height under normal-to-low light and slow-to-aggressive motion. Ground truth is unavailable, so the rig returns to its initial location and start-end error is evaluated. Lighting levels are not assigned individually to the named sequences."
+    },
+    {
+      "id": "indoor-results",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table II, Indoor-A/B/C/D rows and all method columns; Figure 5",
+      "detail": "Sequence lengths are 39/86/55/189 m. MSCKF errors are 0.99/1.55/49.94/46.03; LIC-Fusion 0.98/1.04/1.55/3.68; LOAM 0.66/0.46/2.44/5.99. Error-column units, indoor repeat counts and uncertainty are not stated. Figure 5 plots estimated trajectories without an indoor ground-truth trace."
+    },
+    {
+      "id": "motion-diagnostic",
+      "sourceId": "primary",
+      "location": "PDF p. 5, III-B, Indoor-C description; p. 6, Figure 6, axes, legends and caption",
+      "detail": "Indoor-C was recorded while vigorously shaking the rig. Figure 6 shows raw angular velocity in rad/s and linear acceleration in m/s² versus time, with separate x/y/z traces. It is a motion-input diagnostic, not an estimation-error or ablation plot."
+    },
+    {
+      "id": "future-work",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, IV. Conclusions and Future Work",
+      "detail": "The authors summarize sparse multimodal odometry and online calibration, and identify efficient integration of LiDAR/camera loop-closure constraints as future work to bound navigation errors."
+    },
+    {
+      "id": "reporting-gaps",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–4, II-A–E; pp. 4–6, III-A–B, Tables I–II and Figures 2–6",
+      "detail": "The formulation specifies symbolic windows, covariance propagation and gating but no numerical configuration for the listed windows, thresholds or covariances. Experiments give sensor models and aggregate comparisons, without a calibration/sensor/compression ablation, runtime benchmark, processing hardware, software versions, sensor rates or dataset-release instructions."
+    }
+  ]
+}
