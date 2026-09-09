@@ -1,0 +1,486 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-797a519828bd34873731",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-09T00:37:47.242Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2411.04983",
+      "title": "DINO-WM: World Models on Pre-trained Visual Features  enable Zero-shot Planning",
+      "kind": "pdf",
+      "sha256": "7683c366109c091a47b7ae8a3d6520131edd3db1a5aa594d74c7636d2f9745d6",
+      "wordCount": 10507,
+      "accessedAt": "2026-09-07T14:14:17.393822+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; Sections 1–2: Introduction and Related Work",
+      "Sections 3, 3.1.1–3.1.3 and 3.2: formulation, observation model, transition model, decoder and visual planning",
+      "Sections 4.1–4.7: environments, baselines, planning, encoders, generalization, generative models and decoded predictions",
+      "Section 5: Conclusion, Limitations and Future Work; Impact Statement; Acknowledgements; References",
+      "Appendix A.1–A.3: datasets, generalization families and pretrained features",
+      "Appendix A.4.1–A.4.3: data scaling, causal attention and reconstruction loss",
+      "Appendix A.5.1–A.5.3: CEM, gradient descent and planning results",
+      "Appendix A.6–A.10: action-conditioned diffusion comparison, image metrics, timing, implementation and additional planning visualizations"
+    ],
+    "omissions": [
+      "Identity/version note: the title and four authors match the catalog. The inspected title page identifies arXiv:2411.04983v2 [cs.RO], 1 February 2025. The catalog labels ICML 2025, but that proceedings edition and earlier revisions were not supplied for comparison; no equivalence between editions is asserted.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "The extraction's visual limitation was addressed by inspecting original PDF pages 1–8 and 13–21, including every figure and table. Reference-only pages 9–12 were read as text.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Only the supplied 21-page primary PDF and its complete text were reviewed. Linked code, models, project videos and external references were not opened, and experiments were not reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 3)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 6)",
+      "Figures 4–5 (p. 7)",
+      "Figure 6 (p. 8)",
+      "Figure 7 (p. 16)",
+      "Figure 8 (p. 18)",
+      "Figure 9 (p. 19)",
+      "Figure 10 (p. 20)",
+      "Figure 11 (p. 21)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (p. 6)",
+      "Tables 3–4 (p. 8)",
+      "Tables 5–6 (p. 14)",
+      "Table 7 (p. 15)",
+      "Table 8 (p. 16)",
+      "Tables 9–10 (p. 17)",
+      "Tables 11–12 (p. 18)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "DINO-WM learns how actions change frozen DINOv2 patch features, then searches for actions that bring predicted features close to a goal image. Its strongest evidence concerns simulated manipulation under an offline, reward-free planning protocol. Spatial features and causal prediction matter, but data provenance, appendix discrepancies and planning latency constrain the zero-shot claim.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Can an offline visual dynamics model solve new image-specified goals without training a separate policy or reward model for each goal? The paper replaces task-specific representation learning with pretrained spatial features, while still requiring environment trajectories containing actions and adequate state-action coverage.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem",
+      "e-limitations"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A frozen perceptual encoder supplies spatial patch targets for an action-conditioned transformer, decoupling dynamics learning from pixel reconstruction.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-encoder",
+        "e-dynamics",
+        "e-loss"
+      ]
+    },
+    {
+      "text": "The same latent distance drives test-time trajectory optimization; an optional decoder makes predictions visible without participating in control.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-decoder",
+        "e-planning"
+      ]
+    },
+    {
+      "text": "Six control suites, three configuration-generalization suites and targeted ablations test where this representation supports planning.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-protocol",
+        "e-generalization",
+        "e-mask"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Offline RGB observation–action trajectories",
+      "Recent observations and actions; proprioception when available",
+      "Current RGB observation and RGB goal at planning time"
+    ],
+    "outputs": [
+      "Predicted future DINOv2 patch embeddings",
+      "Optimized action sequences whose prefixes are executed with environmental feedback",
+      "Optional decoded images for interpretation"
+    ],
+    "steps": [
+      {
+        "name": "Encode a spatial state",
+        "detail": "Keep DINOv2 frozen during training and inference. Each image becomes N patch vectors of dimension E, rather than one global CLS vector. Appendix A.9 specifies a 14 × 14 grid of 384-dimensional features from images resized to 196 × 196.",
+        "evidenceIds": [
+          "e-encoder",
+          "e-implementation"
+        ]
+      },
+      {
+        "name": "Predict action-conditioned changes",
+        "detail": "A ViT without its image-tokenization layer becomes a decoder-only transition transformer. An MLP embeds each action and concatenates it to every patch; available proprioception is concatenated similarly. Frame-level causal attention uses earlier frames to predict the next complete patch grid, without autoregressing over target-frame patches.",
+        "evidenceIds": [
+          "e-dynamics"
+        ]
+      },
+      {
+        "name": "Score candidate futures",
+        "detail": "Roll out the learned dynamics under candidate actions and compare the terminal predicted embedding with the encoded goal. The world model predicts consequences; CEM selects actions. There is no learned inverse-dynamics action extractor.",
+        "evidenceIds": [
+          "e-planning",
+          "e-dynamics"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Use teacher forcing on trajectory segments of length H + 1, supervising H predicted frames against frozen observation features. This trains the transition and action encoders with latent consistency, without rewards, termination labels or a required decoder.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-dynamics",
+          "e-loss"
+        ]
+      },
+      {
+        "text": "Reported settings are AdamW, 100 epochs, batch size 32, predictor learning rate 5 × 10⁻⁵, action-encoder rate 5 × 10⁻⁴ and action embedding dimension 10. The predictor has six layers, 16 heads, MLP dimension 2048 and approximately 19M parameters. History and frameskip vary by environment.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-implementation"
+        ]
+      },
+      {
+        "text": "Training is environment-specific. Appendix A.1 describes random data for several suites, but PushT uses 18,500 samples obtained by replaying released expert trajectories with noise. Thus the abstract's blanket demonstration-free wording does not fully describe data provenance.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-data",
+          "e-identity"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "CEM samples Gaussian action sequences, rolls them forward, retains low-cost elites and updates the distribution. MPC executes a prefix, observes the resulting environment state and replans. A separate optional decoder does not influence this loop.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-planning",
+          "e-decoder"
+        ]
+      },
+      {
+        "text": "Appendix Table 8 distinguishes open-loop CEM and gradient descent from MPC with CEM. On PushT their reported success rates are 0.86, 0.28 and 0.90, respectively; do not attribute the entire MPC advantage to optimizer choice.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-optimizer"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{pred}}=\\left\\|p_\\theta\\!\\left(\\operatorname{enc}_\\theta(o_{t-H:t}),\\phi(a_{t-H:t})\\right)-\\operatorname{enc}_\\theta(o_{t+1})\\right\\|^2",
+        "explanation": "Equation (1): o denotes observations, a actions, enc the frozen observation encoder, φ the action encoder, pθ the transition model and H the context parameter. The paper's inclusive indices vary across formulations; Appendix A.4.2 explicitly defines history by input and output sequences.",
+        "evidenceIds": [
+          "e-loss",
+          "e-mask"
+        ]
+      },
+      {
+        "expression": "C=\\|\\hat z_T-z_g\\|^2,\\qquad \\hat z_t=p(\\hat z_{t-1},a_{t-1}),\\quad \\hat z_0=\\operatorname{enc}(o_0),\\quad z_g=\\operatorname{enc}(o_g)",
+        "explanation": "Appendix Equations (3)–(5): C scores the predicted terminal latent at horizon T against the goal latent. Hats mark predictions. This compact recurrence suppresses the history used by the actual transition model. The source calls the squared feature discrepancy MSE.",
+        "evidenceIds": [
+          "e-planning",
+          "e-dynamics"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "PushT visual goal reaching",
+      "setting": "50 sampled initial/goal pairs; feasible target within 25 steps; both pusher and block must match the target; offline-trained models with MPC.",
+      "metric": "Success rate ↑",
+      "value": "DINO-WM 0.90",
+      "comparison": "IRIS 0.32; DreamerV3 0.30; TD-MPC2 0.00.",
+      "interpretation": "A 58-percentage-point advantage over the strongest Table 1 comparator. These baselines were retrained without rewards, so this is not their standard online-RL evaluation.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-planning-results",
+        "e-data"
+      ]
+    },
+    {
+      "task": "Navigation, reaching and deformable control",
+      "setting": "Table 1: 50 cases for Maze, Wall and Reach; 10 cases each for Rope and Granular.",
+      "metric": "Success rate ↑; Chamfer distance ↓",
+      "value": "Maze 0.98; Wall 0.96; Reach 0.92; Rope CD 0.41; Granular CD 0.26.",
+      "comparison": "DreamerV3 reaches 1.00, 1.00 and 0.64 on the first three; IRIS has CD 1.11 and 0.37.",
+      "interpretation": "Manipulation improves, but navigation does not exceed DreamerV3. Chamfer distance is not a success percentage; its units and uncertainty are not reported.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-planning-results"
+      ]
+    },
+    {
+      "task": "Generalization to unseen configurations",
+      "setting": "Wall/door positions excluded from training; two held-out object shapes after four training shapes; reduced particle count with the fixed-count Granular model.",
+      "metric": "Success rate ↑; Chamfer distance ↓",
+      "value": "WallRandom 0.82; PushObj 0.34; GranularRandom CD 0.63.",
+      "comparison": "Best listed alternatives: DreamerV3 0.76; DreamerV3/DINO CLS 0.18; IRIS CD 0.86.",
+      "interpretation": "Restricted within-family transfer is supported. The low absolute PushObj success leaves substantial difficulty; these are not unseen real-world environments.",
+      "evidenceIds": [
+        "e-generalization"
+      ]
+    },
+    {
+      "task": "Spatial representation and causal-attention ablations",
+      "setting": "Table 2 encoder substitution; separate Table 6 PushT history/mask experiment.",
+      "metric": "Success rate ↑",
+      "value": "PushT patch features 0.90 versus DINO CLS 0.44. At history h = 3, causal mask 0.92 versus no mask 0.08.",
+      "comparison": "At h = 1, masked and unmasked models both score 0.76.",
+      "interpretation": "Patch structure helps this planning setup, and causality prevents access to future inputs during teacher forcing. Table 6's 0.92 is retained separately from Table 1's 0.90.",
+      "evidenceIds": [
+        "e-encoder-results",
+        "e-mask",
+        "e-planning-results"
+      ]
+    },
+    {
+      "task": "Decoded future prediction quality",
+      "setting": "Predicted future states decoded to images; Tables 4 and 9.",
+      "metric": "LPIPS ↓; SSIM ↑",
+      "value": "PushT LPIPS 0.007 and SSIM 0.985; Granular LPIPS 0.035 and SSIM 0.940.",
+      "comparison": "DINO CLS: 0.039/0.973 on PushT and 0.086/0.912 on Granular.",
+      "interpretation": "These are perceptual reconstruction metrics, not action-execution success or a complete test of physical fidelity.",
+      "evidenceIds": [
+        "e-image-metrics"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors require sufficient offline state-action coverage and ground-truth action labels; actionless internet video does not directly satisfy these assumptions. Hierarchical planning is proposed future work.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-limitations"
+      ]
+    },
+    {
+      "text": "All evaluated environments are simulated. Tables lack confidence intervals and repeated-training-seed summaries. Reward removal particularly disadvantages TD-MPC2's representation objective, narrowing the comparison's interpretation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-data",
+        "e-protocol",
+        "e-planning-results"
+      ]
+    },
+    {
+      "text": "Several source discrepancies remain unresolved: PushT success is 0.90 in Table 1 but 0.92 in appendix ablations; Table 5 reports LPIPS 0.005 versus 0.007 in Table 4; Rope/Granular trajectory length is 20 in A.1 but 5 in Table 11. Figure 1 labels DreamerV3's Granular CD 1.04, versus 1.05 in Table 1.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-planning-results",
+        "e-scaling",
+        "e-mask",
+        "e-image-metrics",
+        "e-data",
+        "e-implementation",
+        "e-overview"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A PushT reproduction needs the noisy expert-replay data construction, H = 3 and frameskip 5, the frozen DINOv2 features, and the training settings above. Table 12 lists image size 224 while A.9 specifies resizing to 196 for encoding; the exact preprocessing stages require clarification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-data",
+        "e-implementation"
+      ]
+    },
+    {
+      "text": "Resolve success thresholds, dataset split construction, noise levels, planning horizon, elite count, executed-prefix length and random seeds before comparing scores. The supplied description does not fully specify these. Training hardware count/time and software versions are also absent from the implementation section.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-data",
+        "e-protocol",
+        "e-planning",
+        "e-implementation"
+      ]
+    },
+    {
+      "text": "Table 10 reports A6000 timing: 0.014 s for batch-32 inference, 3.0 s for batch-1 simulation, and 53.0 s for CEM planning with 100 samples over 10 iterations. Different batch sizes preclude a direct per-case speedup claim, and fast prediction alone does not establish real-time control.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-timing"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "supports",
+    "reasoning": {
+      "text": "The recorded foundational-world-model and visual-representation categories fit. A frozen encoder plus learned forward dynamics and an external action optimizer supports the catalog's Not applicable quadrant: this is neither joint future/action generation nor inverse dynamics. The architecture evidence does not justify a One Model world-action label.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-encoder",
+        "e-dynamics",
+        "e-planning"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Foundational work",
+      "subcategories": [
+        "Classical world models & model-based RL",
+        "Visual encoders & representations"
+      ],
+      "architecture": "Not applicable",
+      "predictionParadigm": "Not applicable",
+      "quadrant": "Not applicable",
+      "classificationStatus": "Verified from primary sources",
+      "catalogUpdatedAt": "2026-09-07T12:05:58.583Z",
+      "fingerprint": "da78afc8abfe44f7813c0cc48302d2f26bf5099b4652e0d624f52d983fdb490a"
+    }
+  },
+  "discussionQuestions": [
+    "How much of the PushT advantage survives matched state-action coverage from fully random trajectories, given its expert-replay training provenance?",
+    "Does lower terminal feature error rank action sequences reliably when object appearance changes but dynamics remain fixed?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author line, affiliation footnote and arXiv margin stamp; Abstract",
+      "detail": "Observed title matches DINO-WM. Authors are Gaoyue Zhou, Hengkai Pan, Yann LeCun and Lerrel Pinto. Affiliations are Courant Institute, New York University and Meta AI. Stamp identifies arXiv:2411.04983v2, 1 Feb 2025. The abstract claims operation without expert demonstrations."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Introduction and Section 3 problem formulation",
+      "detail": "Offline action-labeled trajectories support a task-agnostic dynamics model; evaluation asks for action sequences reaching an RGB goal from a current observation, rather than reward-maximizing task-specific policies."
+    },
+    {
+      "id": "e-encoder",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1.1 and Figure 2",
+      "detail": "DINOv2 is frozen during training and testing and returns an N × E matrix of spatial patch embeddings. Current/history images and a separate goal image enter the same observation representation."
+    },
+    {
+      "id": "e-dynamics",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.1.2",
+      "detail": "The transition ViT removes tokenization, predicts complete frames with causal attention, and concatenates MLP-encoded actions and available proprioception to patch vectors. Training does not require reward, discount or termination targets."
+    },
+    {
+      "id": "e-loss",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.1.2, Equation (1)",
+      "detail": "Teacher forcing uses segments of length H + 1 and latent consistency on H predicted frames. Equation (1) compares the action-conditioned next feature prediction to the encoded next observation."
+    },
+    {
+      "id": "e-decoder",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.1.3, Equation (2); pp. 14–15, A.4.3 and Table 7",
+      "detail": "An independently trained transposed-convolution decoder reconstructs pixels for interpretation and is unnecessary for planning. Feeding decoder loss into the predictor yields PushT SR 0.80 versus 0.92 without it."
+    },
+    {
+      "id": "e-planning",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2; p. 5, Section 3.2; p. 15, A.5.1–A.5.2, Equations (3)–(8)",
+      "detail": "CEM samples Gaussian action sequences, evaluates terminal latent squared distance, selects K elites and updates mean/covariance. MPC executes an action prefix and replans from feedback. Gradient descent is another optimizer. Numeric T, K and executed-prefix settings are not supplied here."
+    },
+    {
+      "id": "e-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Sections 4.1–4.3",
+      "detail": "Observations are 224 × 224 RGB. Baselines IRIS, DreamerV3 and TD-MPC2 are trained on the offline data without rewards/task information and evaluated with MPC. Maze/Reach/PushT/Wall use 50 initial/goal cases; Rope/Granular use Chamfer distance on 10 cases."
+    },
+    {
+      "id": "e-planning-results",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, all method rows and six environment columns",
+      "detail": "DINO-WM: SR 0.98/0.96/0.92/0.90 on Maze/Wall/Reach/PushT; CD 0.41/0.26 on Rope/Granular. DreamerV3: 1.00/1.00/0.64/0.30 and 2.49/1.05. IRIS: 0.74/0.04/0.18/0.32 and 1.11/0.37. TD-MPC2: four zero SRs and CD 2.52/1.21. No uncertainty intervals appear."
+    },
+    {
+      "id": "e-encoder-results",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.4 and Table 2; p. 7, continuation; p. 14, A.3",
+      "detail": "Encoder comparison includes R3M, ImageNet ResNet-18, DINOv2 CLS and DINO patch embeddings. PushT SR is 0.42/0.20/0.44/0.90, respectively. DINO CLS is a global image vector. The authors attribute patch-feature improvements to spatial information."
+    },
+    {
+      "id": "e-generalization",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Section 4.5, Figure 5 and Table 3; p. 13, A.2",
+      "detail": "WallRandom changes wall/door positions with nonoverlapping train/test positions. PushObj uses four training and two unseen shapes. GranularRandom reuses fixed-count models with fewer than half as many particles. Ours scores 0.82/0.34/0.63; best listed alternatives are 0.76/0.18/0.86. Section 4.5 mistakenly points to Table 5; these results are Table 3."
+    },
+    {
+      "id": "e-rollouts",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 4 and caption; p. 5, Section 3.1.3; p. 13, A.1(d)",
+      "detail": "Figure 4 compares action-conditioned open-loop decoded trajectories for PushT and Granular, with ground truth at the bottom of each group. The green T in PushT is a fixed visual anchor, not the goal marker in this setup. Reconstruction is for interpretation."
+    },
+    {
+      "id": "e-image-metrics",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.7 and Table 4; p. 17, A.7 and Table 9",
+      "detail": "Decoded predicted futures are evaluated by LPIPS (lower better) and SSIM (higher better). Ours has PushT 0.007/0.985 and Granular 0.035/0.940; DINO CLS has 0.039/0.973 and 0.086/0.912. Ours LPIPS is 0.0016 on Wall and 0.009 on Rope."
+    },
+    {
+      "id": "e-scaling",
+      "sourceId": "primary",
+      "location": "PDF p. 14, A.4.1 and Table 5",
+      "detail": "PushT dataset sizes 200/1000/5000/10000/18500 give SR 0.08/0.48/0.72/0.88/0.92, SSIM 0.949/0.973/0.981/0.984/0.987 and LPIPS 0.056/0.013/0.007/0.006/0.005. This appendix endpoint differs from main-table values."
+    },
+    {
+      "id": "e-mask",
+      "sourceId": "primary",
+      "location": "PDF p. 14, A.4.2 and Table 6; p. 4, Section 3.1.2",
+      "detail": "Input observations o_(t-h+1) through o_t predict o_(t-h+2) through o_(t+1). Unmasked training permits future-input leakage. For h = 1/2/3, unmasked SR is 0.76/0.36/0.08 and masked SR is 0.76/0.88/0.92."
+    },
+    {
+      "id": "e-optimizer",
+      "sourceId": "primary",
+      "location": "PDF p. 16, A.5.3 and Table 8",
+      "detail": "CEM and GD rows execute complete plans without replanning; MPC uses receding-horizon CEM. PushT is 0.86/0.28/0.90. PointMaze is 0.80/0.22/0.98. Several GD/CEM task entries are NA, and Reach is not included."
+    },
+    {
+      "id": "e-diffusion",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.6 and Figure 6; p. 16, A.6 and Figure 7",
+      "detail": "The paper distinguishes goal-conditioned AVDC plans from an action-conditioned AVDC variant that predicts the next image. Figure 7 shows two validation-trajectory examples with ground truth, DINO-WM and AVDC-AC rows. No quantitative AVDC-AC planning table appears in A.6."
+    },
+    {
+      "id": "e-data",
+      "sourceId": "primary",
+      "location": "PDF p. 13, A.1(a)–(f), especially Push-T and Rope/Granular descriptions; p. 18, Table 11",
+      "detail": "The six suites are simulated. PushT requires both agent and block target poses within a feasible 25-step task and uses noisy replay of expert trajectories. A.1 says Rope/Granular each have 1000 trajectories of 20 steps; Table 11 lists trajectory length 5. Exact replay noise levels and complete success thresholds are not provided."
+    },
+    {
+      "id": "e-implementation",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, A.9 and Tables 11–12",
+      "detail": "A.9 specifies resized 196 × 196 inputs, features (14 × 14,384), six predictor layers, 16 heads, MLP width 2048 and about 19M parameters. Table 12 gives image size 224, AdamW, decoder/predictor/action-encoder rates 3e-4/5e-5/5e-4, action dimension 10, 100 epochs and batch 32. Table 11 gives PushT H=3, frameskip=5 and environment-dependent settings; training GPU count/time and software versions are not listed."
+    },
+    {
+      "id": "e-limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5, Limitations and Future Work",
+      "detail": "The authors acknowledge dependence on adequate offline state-action coverage and ground-truth actions, and propose exploration/model updating and hierarchical action planning as future directions."
+    },
+    {
+      "id": "e-timing",
+      "sourceId": "primary",
+      "location": "PDF p. 17, A.8 and Table 10",
+      "detail": "On an NVIDIA A6000, Table 10 gives batch-32 inference 0.014 s, batch-1 simulation rollout 3.0 s, and CEM planning 53.0 s using 100 samples per iteration and 10 optimization steps. No matched-batch per-environment timing breakdown is given."
+    },
+    {
+      "id": "e-overview",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 1(c); p. 6, Table 1, Granular column",
+      "detail": "The overview chart labels DreamerV3 Granular Chamfer distance 1.04, whereas Table 1 gives 1.05; IRIS 0.37, TD-MPC2 1.21 and DINO-WM 0.26 agree."
+    },
+    {
+      "id": "e-additional-plans",
+      "sourceId": "primary",
+      "location": "PDF pp. 18–21, A.10 and Figures 8–11",
+      "detail": "Additional planning visualizations distinguish observed trajectories after executing actions from imagined trajectories. Figures 10–11 show the same starting configurations paired with different goals; they are qualitative examples rather than additional success-rate measurements."
+    }
+  ]
+}
