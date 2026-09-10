@@ -11,7 +11,11 @@ import { type ReadingReport, reportAnchor, assessmentLabel, appendixLabel } from
 import { type IllustratedReport as IllustratedEdition, illustratedReports, illustratedSections } from '../../lib/illustrated-reports';
 interface Props { paper: Paper; report: ReadingReport; edition: IllustratedEdition; }
 const { paper, report, edition } = Astro.props;
-const titleBlock = (paperMetadata as Record<string, { authors: string; affiliations?: string; sourceSha256: string; page?: number; location?: string }>)[paper.id];
+type TitleBlockMetadata = { sourceSha256: string } & (
+  { authors: string; affiliations?: string; page?: number; location?: string; sourceOrganization?: never } |
+  { sourceOrganization: string; location: string; authors?: never; affiliations?: never; page?: never }
+);
+const titleBlock = (paperMetadata as Record<string, TitleBlockMetadata>)[paper.id];
 if (!titleBlock || titleBlock.sourceSha256 !== report.sources[0].sha256) throw new Error(`Unverified title-block metadata for ${paper.id}`);
 const seriesIndex = illustratedReports.findIndex(item => item.paperId === paper.id);
 const hasGifStills=edition.visuals.some(item=>item.htmlSource?.kind==='html-gif-derived-still');
@@ -45,7 +49,7 @@ const coreContribution = report.contributions[0];
     <h1>{paper.title}</h1>
     <div class="ir-meta">
       <p><strong>English reading report:</strong> Method, equations, original figures, experiments and reproducibility.</p>
-      <p><strong>Authors:</strong> {titleBlock.authors}</p>
+      <p><strong>{titleBlock.sourceOrganization !== undefined ? 'Source organization:' : 'Authors:'}</strong> {titleBlock.sourceOrganization ?? titleBlock.authors}</p>
       {titleBlock.affiliations && <p><strong>Affiliations:</strong> {titleBlock.affiliations}</p>}
       <p><strong>Source:</strong> {paper.venue ? `${venueLabel(paper.venue)} · ` : ''}<a href={report.sources[0].url}>{paper.id} ↗</a>{paper.projectUrl && <> · <a href={paper.projectUrl}>Project page ↗</a></>} · <a href={paperPath(paper.id)}>Catalog record</a></p>
       <p><strong>Reading:</strong> {seriesIndex + 1} / {illustratedReports.length} · {edition.visuals.length} {hasAnimationStills ? 'source visuals, including animation-derived stills' : edition.visuals.length === 1 ? 'original visual' : 'original figures & tables'} · ~{readingMinutes} min · <button id="print-report" type="button">Print / save PDF</button></p>

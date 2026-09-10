@@ -9,7 +9,7 @@ import {runBounded} from './openscene-process.mjs';
 
 export const IDENTITY_CONTRACT='wam-supporting-identity-documents-v1';
 export const IDENTITY_PAPER='ref-47f59ffa32a9f466d486';
-export const IDENTITY_DESCRIPTOR_SHA='9a80d8cba62cb08b05c6dfa6fd001085eebf430dee13a76c2467be865cfce6c1';
+export const IDENTITY_DESCRIPTOR_SHA='2d7ce4b4e3665e64f2e9608c85a8dc7d82445b2aab88515e575eec2fc4d393e9';
 export const IDENTITY_APPROVAL={name:'probabilistic-robotics-root-supporting-identity-design-review-20260909T155815Z.json',sha256:'add4e934d2ac8d1cfd67cc9083bc3eaeb278229d6e24e85a65a3a7191ff52452'};
 export const IDENTITY_SOURCE_SHA='5fb94e7c6a1cba964992f36ca8db1a5289ac40bddf8e28ad72e6b9917e29cfd6';
 export const IDENTITY_TEXT_SHA='ad195f8892b5877a10ae87ec402b99003ee507f89762b4aa613b9de645ebc9d6';

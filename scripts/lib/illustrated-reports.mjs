@@ -78,7 +78,9 @@ export function validateIllustratedReport(edition, report) {
 }
 
 export function validateIllustratedMetadata(metadata, report) {
-  if (!metadata || !nonempty(metadata.authors) || metadata.sourceSha256 !== report?.sources?.[0]?.sha256) fail(`${report?.paperId}: verified title-block metadata must match the primary source`);
+  const hasSourceOrganization = metadata != null && Object.hasOwn(metadata, 'sourceOrganization');
+  if (hasSourceOrganization && (!nonempty(metadata.sourceOrganization) || Object.hasOwn(metadata, 'authors') || Object.hasOwn(metadata, 'affiliations') || Object.hasOwn(metadata, 'page') || report?.resourceType !== 'technical-resource' || report?.reportStatus !== 'resource-reviewed' || report?.sources?.[0]?.kind !== 'html' || !nonempty(metadata.location))) fail(`${report?.paperId}: source organization requires an HTML technical resource, a source location and no authors, affiliations or page`);
+  if (!metadata || (!hasSourceOrganization && !nonempty(metadata.authors)) || metadata.sourceSha256 !== report?.sources?.[0]?.sha256) fail(`${report?.paperId}: verified title-block metadata must match the primary source`);
   if (metadata.affiliations !== undefined && !nonempty(metadata.affiliations)) fail(`${report.paperId}: omit unverified affiliations`);
   if (metadata.page !== undefined && (!Number.isInteger(metadata.page) || metadata.page < 1)) fail(`${report.paperId}: invalid title-block page`);
   if (metadata.location !== undefined && !nonempty(metadata.location)) fail(`${report.paperId}: invalid title-block location`);
