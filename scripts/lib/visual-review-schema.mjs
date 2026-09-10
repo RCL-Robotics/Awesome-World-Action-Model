@@ -1,3 +1,5 @@
+import {validateSelectedReviewContext} from './selected-html-source.mjs';
+import {validateFullMp4Context} from './mp4-contract.mjs';
 import {validateIdentitySupportContext} from './identity-support.mjs';
 import {validateOpenSceneReviewContext} from './openscene-original-evidence.mjs';
 import { validateMediaReviewContext } from './html-original-media.mjs';
@@ -15,9 +17,11 @@ export function visualReviewSchemaForContext(context, template) {
   if (!context || !nonempty(context.paperId) || !hash(context.sourceSha256) || !Array.isArray(context.images) || !context.images.length) {
     throw new Error('A fixed context with paper identity, source SHA256 and images is required');
   }
+  const mp4Context=validateFullMp4Context(context);
   validateIdentitySupportContext(context);
   validateMediaReviewContext(context);
   const nativeContext=validateOpenSceneReviewContext(context);
+  const selectedContext=validateSelectedReviewContext(context);
   const ids = new Set();
   const hashes = new Set();
   for (const image of context.images) {
@@ -44,12 +48,13 @@ export function visualReviewSchemaForContext(context, template) {
     }
     field.enum = values;
   }
-  if (context.identitySupport || context.sourceDetails || nativeContext || context.policy?.version==='wam-original-html-media-evidence-v1') {
+  if (context.identitySupport || context.sourceDetails || nativeContext || selectedContext || mp4Context || context.policy?.version==='wam-original-html-media-evidence-v1') {
     const item = schema.properties.images.items;
     if (Object.hasOwn(item.properties, 'reviewRole') || !Array.isArray(item.required)) throw new Error('Unexpected role schema');
     item.properties.reviewRole = { type: 'string', enum: [...new Set(context.images.map(image => image.reviewRole))] };
     item.required.push('reviewRole');
   }
+  if(mp4Context){if(Object.hasOwn(schema.properties,'sampledScopeAcknowledged'))throw Error('Unexpected MP4 template extension');schema.properties.sampledScopeAcknowledged={type:'boolean'};schema.required.push('sampledScopeAcknowledged');}
   return schema;
 }
 

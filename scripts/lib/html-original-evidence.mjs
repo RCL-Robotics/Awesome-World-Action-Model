@@ -1,3 +1,4 @@
+import {selectedPolicyVersion,selectedPaperId,selectedCodeSha,selectedDisclosure,selectedLocator,selectedSourceCatalog,selectedAssetDelivery,loadSelectedEvidence,snapshotSelectedEvidence,verifySelectedInputPin,renderSelectedEvidence,preparedSelectedEvidence} from './selected-html-source.mjs';
 import {openScenePolicyVersion,openSceneCodeSha256,openSceneLocator,openSceneDisclosure,loadOpenSceneEvidence,snapshotOpenSceneEvidence,renderOpenSceneEvidence,verifyOpenSceneInputPin,preparedOpenSceneEvidence} from './openscene-original-evidence.mjs';
 import { readFile, writeFile, appendFile, mkdir, lstat, realpath, copyFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -5,7 +6,7 @@ import { resolve, join, relative, isAbsolute, sep, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { mediaPolicyVersion, mediaCodeSha256, mediaLocator, mediaDisclosure, loadMediaEvidence, renderMediaEvidence } from './html-original-media.mjs';
-export function htmlSourceDisclosure(f,d) { return d.policyVersion===openScenePolicyVersion ? openSceneDisclosure(f,d) : d.policyVersion===mediaPolicyVersion ? mediaDisclosure(f,d) : d.wrapperDisclosure; }
+export function htmlSourceDisclosure(f,d) { return d.policyVersion===selectedPolicyVersion ? selectedDisclosure : d.policyVersion===openScenePolicyVersion ? openSceneDisclosure(f,d) : d.policyVersion===mediaPolicyVersion ? mediaDisclosure(f,d) : d.wrapperDisclosure; }
 export const htmlPolicyVersion = 'wam-original-html-evidence-v1';
 export function originalHtmlLayoutCss(dependencies) {
   const names = ['AuthorSaans', 'AuthorSerrif', 'AuthorMono', 'AuthorMonoWoff'];
@@ -38,6 +39,7 @@ export async function pinnedBytes(root, item, limit) {
 }
 const text = x => typeof x === 'string' && x.trim().length > 0;
 export function htmlLocator(fragment, descriptorHash, descriptor) {
+  if(descriptor.policyVersion===selectedPolicyVersion)return selectedLocator(fragment,descriptorHash,descriptor,htmlRendererCodeSha256);
   if(descriptor.policyVersion===openScenePolicyVersion)return openSceneLocator(fragment,descriptorHash,descriptor,htmlRendererCodeSha256);
   if (descriptor.policyVersion===mediaPolicyVersion) return mediaLocator(fragment,descriptorHash,descriptor,htmlRendererCodeSha256);
   return { kind: 'html-original', rendererCodeSha256: htmlRendererCodeSha256, fragmentId: fragment.id, anchor: fragment.anchor, parts: fragment.parts, descriptorSha256: descriptorHash, wrapperSha256: descriptor.wrapper.sha256, rendererSha256: descriptor.runtime.chromeSha256 };
@@ -47,6 +49,8 @@ export async function loadHtmlEvidence(root, config) {
   if (pin?.rendererCodeSha256 && pin.rendererCodeSha256 !== htmlRendererCodeSha256) fail('trusted HTML renderer code changed');
   if (config.manifest.kind !== 'html' || !pin) fail('source-kind mismatch or no pinned HTML descriptor');
   const bytes = await pinnedBytes(root, pin, 5_000_000), d = JSON.parse(bytes);
+  if(config.manifest.paperId===selectedPaperId&&d.policyVersion!==selectedPolicyVersion)fail('Selected book source requires its dedicated source policy; no legacy fallback');
+  if(d.policyVersion===selectedPolicyVersion)return loadSelectedEvidence(root,config,htmlRendererCodeSha256);
   if(d.policyVersion===openScenePolicyVersion)return loadOpenSceneEvidence(root,config,htmlRendererCodeSha256);
   if (d.policyVersion===mediaPolicyVersion) return loadMediaEvidence(root,config,htmlRendererCodeSha256);
   if (d.schemaVersion !== 1 || d.policyVersion !== htmlPolicyVersion || d.paperId !== config.manifest.paperId || d.sourceSha256 !== config.manifest.sha256 || d.textSha256 !== config.manifest.textSha256 || d.canonicalUrl !== config.manifest.canonicalUrl) fail('descriptor identity mismatch');
@@ -101,6 +105,7 @@ export async function verifyHtmlInputPin({ attempt, config, bundlePath, expected
   const bytes = await readFile(await boundedFile(dirname(resolve(bundlePath)), bundlePath.split(/[\\/]/).at(-1), 5_000_000));
   if (digest(bytes) !== expectedSha256 || digest(bytes) !== config.htmlVisuals?.inputSha256) fail('HTML input descriptor changed');
   const input = JSON.parse(bytes);
+  if(input.policyVersion===selectedPolicyVersion)return verifySelectedInputPin({attempt,config,bundlePath,expectedSha256,rendererCodeSha256:htmlRendererCodeSha256});
   if(input.policyVersion===openScenePolicyVersion)return verifyOpenSceneInputPin({attempt,config,bundlePath,expectedSha256,rendererCodeSha256:htmlRendererCodeSha256});
   const rewrite = item => ({ ...item, path: `html-source/${item.sha256}.bin` });
   const expected = { ...input, wrapper: rewrite(input.wrapper), dependencies: input.dependencies.map(rewrite), ...(input.policyVersion===mediaPolicyVersion ? {media:{...input.media,decoder:rewrite(input.media.decoder),resources:input.media.resources.map(rewrite)}} : {}) };
@@ -112,6 +117,7 @@ export async function snapshotHtmlEvidence({ attempt, config, bundlePath, expect
   const base = dirname(resolve(bundlePath)), bytes = await readFile(await boundedFile(base, bundlePath.split(/[\\/]/).at(-1), 5_000_000));
   if (!hashOK(expectedSha256) || digest(bytes) !== expectedSha256) fail('Input HTML descriptor does not match explicit SHA256');
   const d = JSON.parse(bytes);
+  if(d.policyVersion===selectedPolicyVersion)return snapshotSelectedEvidence({attempt,config,bundlePath,expectedSha256,helperPath,shouldStop,rendererCodeSha256:htmlRendererCodeSha256});
   if(d.policyVersion===openScenePolicyVersion)return snapshotOpenSceneEvidence({attempt,config,bundlePath,expectedSha256,helperPath,shouldStop,rendererCodeSha256:htmlRendererCodeSha256});
   const directory = join(attempt, 'html-source'); await mkdir(directory);
   const rewrite = async item => {
@@ -125,7 +131,7 @@ export async function snapshotHtmlEvidence({ attempt, config, bundlePath, expect
   await writeFile(join(attempt, 'html-source/descriptor.json'), serialized, { flag: 'wx' });
   await copyFile(helperPath, join(attempt, 'source-html.mjs'));
   await copyFile(new URL('./html-original-media.mjs',import.meta.url),join(attempt,'html-original-media.mjs'));
-  for(const name of ['openscene-original-evidence.mjs','openscene-process.mjs','openscene-render.mjs'])await copyFile(new URL('./'+name,import.meta.url),join(attempt,name));
+  for(const name of ['openscene-original-evidence.mjs','openscene-process.mjs','openscene-render.mjs','selected-html-source.mjs','selected-html-render.mjs'])await copyFile(new URL('./'+name,import.meta.url),join(attempt,name));
   const next = { ...config, htmlVisuals: { ...(d.policyVersion===mediaPolicyVersion ? {mediaCodeSha256} : {}), rendererCodeSha256: htmlRendererCodeSha256, path: 'html-source/descriptor.json', sha256: digest(serialized), inputSha256: digest(bytes) } };
   const pack = await loadHtmlEvidence(attempt, next);
   // The coordinator renders before starting the sandboxed writer. The writer
@@ -144,6 +150,7 @@ export async function renderHtmlEvidence({ root, config, ids, outputDirectory, s
   const checkActive = () => { if (shouldStop() || Date.now() > deadline) fail('render interrupted or five-minute budget exceeded'); };
   checkActive();
   const pack = await loadHtmlEvidence(root, config), d = pack.descriptor;
+  if(d.policyVersion===selectedPolicyVersion)return renderSelectedEvidence({root,config,ids,outputDirectory,shouldStop,rendererCodeSha256:htmlRendererCodeSha256});
   if(d.policyVersion===openScenePolicyVersion)return renderOpenSceneEvidence({root,config,ids,outputDirectory,shouldStop,rendererCodeSha256:htmlRendererCodeSha256});
   if(d.policyVersion===mediaPolicyVersion) return renderMediaEvidence({root,config,ids,outputDirectory,shouldStop,rendererCodeSha256:htmlRendererCodeSha256});
   if (!Array.isArray(ids) || !ids.length || new Set(ids).size !== ids.length || ids.some(id => !pack.fragments.has(id))) fail('unknown or duplicate render fragment');
@@ -193,6 +200,7 @@ export async function renderHtmlEvidence({ root, config, ids, outputDirectory, s
 
 export async function preparedHtmlImages(root, config, requested) {
   const pack = await loadHtmlEvidence(root, config);
+  const selectedPreparation=pack.descriptor.policyVersion===selectedPolicyVersion?await preparedSelectedEvidence(root,config,pack):null;
   const nativeEvidence=pack.descriptor.policyVersion===openScenePolicyVersion?await preparedOpenSceneEvidence(root,config,pack):null;
   const mediaEvidence=pack.descriptor.policyVersion===mediaPolicyVersion ? JSON.parse(await pinnedBytes(root,config.htmlVisuals.preparedMedia,5000000)) : null;
   if(mediaEvidence && (mediaEvidence.codeSha256!==mediaCodeSha256 || mediaEvidence.manifestSha256!==digest(JSON.stringify(pack.descriptor.media)))) fail('prepared media execution provenance differs');
@@ -206,10 +214,13 @@ export async function preparedHtmlImages(root, config, requested) {
   }
   const ids = requested || records.map(r => r.id);
   if (!ids.length || new Set(ids).size !== ids.length || ids.some(id => !pack.fragments.has(id))) fail('unknown or duplicate prepared image request');
-  return { ...(nativeEvidence?{nativeEvidence}:{}), ...(mediaEvidence ? {mediaEvidence} : {}), records: ids.map(id => { const item = records.find(r => r.id === id); return { ...item, path: resolve(root, item.path) }; }), descriptor: pack.descriptor, descriptorSha256: pack.descriptorSha256 };
+  return { ...(selectedPreparation?{selectedPreparation}:{}), ...(nativeEvidence?{nativeEvidence}:{}), ...(mediaEvidence ? {mediaEvidence} : {}), records: ids.map(id => { const item = records.find(r => r.id === id); return { ...item, path: resolve(root, item.path) }; }), descriptor: pack.descriptor, descriptorSha256: pack.descriptorSha256 };
 }
 
 async function main(args) {
+  const catalog=args.length===3&&args[0]==='--root'&&args[2]==='--catalog';
+  const asset=args.length===4&&args[0]==='--root'&&args[2]==='--asset';
+  if(catalog||asset){const root=resolve(args[1]),config=JSON.parse(await readFile(await boundedFile(root,'source-config.json'))),pack=await loadHtmlEvidence(root,config);if(pack.descriptor.policyVersion!==selectedPolicyVersion)fail('Selected source catalog/assets cannot change another source policy');const result=catalog?selectedSourceCatalog(pack):await selectedAssetDelivery(pack,args[3]);if(asset){try{await boundedFile(root,'source-audit.jsonl');}catch(e){if(e.code!=='ENOENT')throw e;}await appendFile(join(root,'source-audit.jsonl'),JSON.stringify({operation:'html-original-asset-delivery',...result})+'\n');}console.log(JSON.stringify(result));return;}
   const showing = args.length === 4 && args[2] === '--show';
   const rendering = args.length === 5 && args[2] === '--render' && args[4] === '--new-output';
   if (args[0] !== '--root' || !(showing || rendering)) fail('Usage: node source-html.mjs --root ATTEMPT --show ID,ID (writer); --render ID,ID --new-output (coordinator only)');
@@ -218,6 +229,6 @@ async function main(args) {
   const audit = join(root, 'source-audit.jsonl');
   try { await boundedFile(root, 'source-audit.jsonl'); } catch (e) { if (e.code !== 'ENOENT') throw e; }
   for (const item of result.records) await appendFile(audit, `${JSON.stringify({ operation: showing ? 'html-delivery' : 'html-render', ...item, descriptorSha256: result.descriptorSha256 })}\n`);
-  console.log(JSON.stringify(result));
+  console.log(JSON.stringify(result.descriptor.policyVersion===selectedPolicyVersion?{records:result.records,descriptorSha256:result.descriptorSha256,sourceScope:selectedDisclosure}:result));
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) main(process.argv.slice(2)).catch(error => { console.error(error.message); process.exitCode = 1; });

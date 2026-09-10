@@ -19,7 +19,7 @@ interface OriginalMediaPin {
   originalAssetSha256: string;
 }
 export type HtmlSourceLocator = HtmlSourceBase & (
-  { kind: 'html-original' } |
+  { kind: 'html-original'; selectedPolicyVersion?: 'wam-selected-original-html-evidence-v1'; profile?: 'sutton-1998-selected41-v1'; documentId?: string; nodeUrl?: string; nodeSha256?: string; sourceArchiveSha256?: string; recipeSha256?: string; assetUses?: Array<{name:string;sha256?:string;missing?:boolean}> } |
   { kind: 'html-original-table' | 'html-gif-derived-still';
     policyVersion: 'wam-openscene-original-html-gif-evidence-v1';
     profile: 'openscene-7286074-resource-v2'; documentId: string; sourceId: string; sourceSha256: string;
@@ -41,6 +41,7 @@ export interface ReportVisual {
   sourceLabel: string;
   page?: number;
   htmlSource?: HtmlSourceLocator;
+  mp4Source?: { policyVersion: 'wam-original-mp4-full-report-v1'; kind: 'html-original-mp4-decoded-still'; clipId: string; sampleIndex: number; originalMp4Url: string; originalMp4Sha256: string; frameSha256: string; descriptorSha256: string; rawCaptionRange: {startCharacter: number; endCharacter: number; sha256: string}; caption: string; requestedSeconds: number; actualSeconds: number; width: 1920; height: 1080 };
   sourceRendering?: string;
   asset: string;
   width: number;

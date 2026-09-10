@@ -1,3 +1,5 @@
+import {selectedPolicyVersion,validateSelectedBundle,validateSelectedReviewContext,selectedEvidenceBinding} from './selected-html-source.mjs';
+import {validateFullMp4Context} from './mp4-contract.mjs';
 import {validateIdentitySupportContext} from './identity-support.mjs';
 import {openScenePolicyVersion,loadOpenSceneEvidence,validateOpenSceneChunks,validateOpenSceneBundle,validateOpenSceneReviewContext} from './openscene-original-evidence.mjs';
 import { access, copyFile, lstat, mkdir, readFile, realpath, rename, writeFile } from 'node:fs/promises';
@@ -208,6 +210,7 @@ export async function validateHtmlBundleEvidence({ attempt, context, report, edi
   const pack = await loadHtmlEvidence(attempt, context.config);
   const d = pack.descriptor;
   const prepared = await preparedHtmlImages(attempt, context.config);
+  if(d.policyVersion===selectedPolicyVersion)validateSelectedBundle(pack,report,edition);
   if(d.policyVersion===openScenePolicyVersion)validateOpenSceneBundle(pack,report,edition);
   if (metadata.page !== undefined || metadata.location !== d.identitySectionId || !edition.visualAudit.inspectedSections.includes(d.identitySectionId)) throw new Error('HTML title metadata must name the actual inspected identity section');
   const sections = edition.visualAudit.inspectedSections;
@@ -222,6 +225,7 @@ export async function validateHtmlBundleEvidence({ attempt, context, report, edi
   for (const id of [...sections, ...figureIds]) if (!audit.some(a => a.operation === 'html-delivery' && a.id === id && a.descriptorSha256 === pack.descriptorSha256)) throw new Error('A declared HTML image has no coordinator-source delivery record');
   const directory = join(attempt, `html-verification-${Date.now()}-${process.pid}`);
   const fresh = await renderHtmlEvidence({ root: attempt, config: context.config, ids: [...sections, ...figureIds], outputDirectory: directory, shouldStop: context.isStopping });
+  if(d.policyVersion===selectedPolicyVersion&&JSON.stringify(fresh.selectedEvidence.binding)!==JSON.stringify(selectedEvidenceBinding(pack,[...sections,...figureIds])))throw new Error('Fresh selected HTML source/region inventory differs');
   if(d.policyVersion===openScenePolicyVersion&&JSON.stringify(prepared.nativeEvidence.binding)!==JSON.stringify(fresh.nativeEvidence.binding))throw new Error('Fresh native runtime/source/derivation binding differs');
   if (d.policyVersion===mediaPolicyVersion && JSON.stringify(prepared.mediaEvidence)!==JSON.stringify(fresh.mediaEvidence)) throw new Error('Fresh media runtime/derivation differs from preparation');
   const assets = [], images = [];
@@ -236,7 +240,7 @@ export async function validateHtmlBundleEvidence({ attempt, context, report, edi
     assets.push({ id: visual.id, path: name, sha256: item.sha256, width: item.width, height: item.height, htmlSource: item.locator, destination: `public/${visual.asset}` });
     images.push({ imageId: `figure-${visual.id}`, path: item.path, sha256: item.sha256, kind: 'html-original-figure', locator: item.locator, description: visual });
   }
-  if (!reviewImages || await reviewImages({ attempt, context, report, edition, metadata, images, ...(fresh.mediaEvidence ? {htmlMediaRendering:fresh.mediaEvidence} : {}), ...(fresh.nativeEvidence?{htmlOpenSceneRendering:fresh.nativeEvidence}:{}) }) !== true) throw new Error('Independent HTML image review did not approve this bundle');
+  if (!reviewImages || await reviewImages({ attempt, context, report, edition, metadata, images, ...(fresh.mediaEvidence ? {htmlMediaRendering:fresh.mediaEvidence} : {}), ...(fresh.nativeEvidence?{htmlOpenSceneRendering:fresh.nativeEvidence}:{}), ...(fresh.selectedEvidence?{htmlSelectedRendering:fresh.selectedEvidence}:{}) }) !== true) throw new Error('Independent HTML image review did not approve this bundle');
   await loadHtmlEvidence(attempt, context.config);
   for (const asset of assets) if (await fileHash(await safeFile(attempt, asset.path)) !== asset.sha256) throw new Error('HTML asset changed during independent review');
   return { receipt, report, edition, metadata, assets, sourceOmissionsAdded };
@@ -256,16 +260,23 @@ export async function verifyOriginalCrops({ attempt, context, assets, pages = []
   return { directory };
 }
 export function validateVisualReview(review, context) {
+  const mp4Context=validateFullMp4Context(context);
+  if(mp4Context){
+    const keys=['schemaVersion','paperId','sourceSha256','approved','identityMatches','identityNotes','images','sampledScopeAcknowledged'];
+    if(review.sampledScopeAcknowledged!==true||Object.keys(review).length!==keys.length||keys.some(k=>!Object.hasOwn(review,k)))throw Error('MP4 review fields or sampled scope rejected');
+    for(const i of review.images||[]){const fields=['imageId','sha256','reviewRole','legible','matchesDescription','claimsSupported','observedDetail'];if(Object.keys(i).length!==fields.length||fields.some(k=>!Object.hasOwn(i,k)))throw Error('MP4 image receipt fields rejected');}
+  }
   const identityContext=validateIdentitySupportContext(context);
   const mediaContext=validateMediaReviewContext(context);
   const nativeContext=validateOpenSceneReviewContext(context);
+  const selectedContext=validateSelectedReviewContext(context);
   const { paperId, sourceSha256, images } = context;
   validateSourceDetailContext(context);
   if (review.schemaVersion !== 1 || review.paperId !== paperId || review.sourceSha256 !== sourceSha256 || review.approved !== true || review.identityMatches !== true || typeof review.identityNotes !== 'string' || !review.identityNotes.trim() || !Array.isArray(review.images) || review.images.length !== images.length) throw new Error('Independent visual reviewer rejected identity or bundle');
   const seen = new Set();
   for (const item of review.images) {
     const image = images.find(image => image.imageId === item.imageId);
-    if ((context.identitySupport || context.sourceDetails || mediaContext || nativeContext) && item.reviewRole !== image?.reviewRole) throw new Error('Independent source-detail receipt role mismatch');
+    if ((context.identitySupport || context.sourceDetails || mediaContext || nativeContext || selectedContext || mp4Context) && item.reviewRole !== image?.reviewRole) throw new Error('Independent source-detail receipt role mismatch');
     if (!image || seen.has(item.imageId) || item.sha256 !== image.sha256 || item.legible !== true || item.matchesDescription !== true || item.claimsSupported !== true || typeof item.observedDetail !== 'string' || !item.observedDetail.trim()) throw new Error('Independent visual reviewer rejected an image, claim or fingerprint');
     seen.add(item.imageId);
   }
