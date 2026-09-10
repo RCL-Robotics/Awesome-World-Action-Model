@@ -1,0 +1,288 @@
+{
+  "schemaVersion": 1,
+  "paperId": "ref-ae98866e6b155b0f253c",
+  "shortTitle": "FAST-LIVO2",
+  "thesis": "FAST-LIVO2 uses LiDAR geometry to stabilize sparse visual alignment in a shared-map filter, trading dependence on calibrated sensors and local photometric assumptions for efficient odometry.",
+  "standfirst": "A wall can provide abundant LiDAR returns while still leaving motion along the wall poorly constrained. Image texture can help, but only if geometric projection, brightness and visibility are handled well enough for direct alignment. FAST-LIVO2 organizes these dependencies around a shared voxel map: inertial propagation supplies a prior, LiDAR refines it, and image patches refine it again. This reading follows that information flow, then separates benchmark accuracy from the narrower evidence for patch selection, normal refinement and raycasting. It covers the supplied August 2024 arXiv v2 PDF and its embedded supplement; the catalog’s later journal edition was not available for comparison.",
+  "evidenceIds": [
+    "e-identity",
+    "e-problem",
+    "e-overview",
+    "e-filter",
+    "e-benchmark"
+  ],
+  "featuredResultTask": "Public-dataset odometry",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/ref-ae98866e6b155b0f253c/architecture.png",
+      "width": 1433,
+      "height": 422,
+      "sourceSha256": "8a9e5643ff99e4d9b735507ddd80fddb6af38401f635d72a0bf017eda57c5695",
+      "sourceUrl": "https://arxiv.org/pdf/2408.14035#page=5",
+      "crop": [
+        0.078,
+        0.07,
+        0.921,
+        0.262
+      ],
+      "alt": "System overview with IMU propagation, blue LiDAR processing, salmon visual processing and a shared adaptive voxel map.",
+      "caption": "One map supplies geometric and photometric constraints to consecutive state updates.",
+      "readingGuide": "Start at the IMU input and follow forward propagation into the LiDAR branch. Scan recombination groups points at image timestamps, and backward propagation compensates motion before point-to-plane residual construction. The blue arrow from LiDAR Update into Visual Update is the key ordering: the image optimizer receives the corrected state and covariance. At the bottom, follow the map retrieval path through visible-voxel queries, raycasting, outlier rejection and reference-patch warping into photometric error construction. The right-hand map stores both LiDAR points and patches. Geometry is appended after the LiDAR update; visual observations and reference patches are updated after image alignment.",
+      "takeaway": "The diagram makes the map’s dual role explicit: planes constrain LiDAR registration and support patch geometry, while stored appearance supplies visual constraints. This explains how the system can share depth information without reconstructing an independent visual map. It is an online estimator with map maintenance, rather than a learned predictor of future actions.",
+      "caution": "The dashed normal-refinement block is optional and disabled in default experiments. The diagram describes information flow, not guaranteed observability when both sensors lose useful constraints; timing and rigid extrinsic calibration are assumed.",
+      "evidenceIds": [
+        "e-overview",
+        "e-filter",
+        "e-map",
+        "e-visibility",
+        "e-visual",
+        "e-config",
+        "e-state"
+      ]
+    },
+    {
+      "id": "affine-geometry",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 5",
+      "page": 8,
+      "asset": "report-assets/ref-ae98866e6b155b0f253c/affine-geometry.png",
+      "width": 1058,
+      "height": 456,
+      "sourceSha256": "8a9e5643ff99e4d9b735507ddd80fddb6af38401f635d72a0bf017eda57c5695",
+      "sourceUrl": "https://arxiv.org/pdf/2408.14035#page=8",
+      "crop": [
+        0.507,
+        0.417,
+        0.922,
+        0.555
+      ],
+      "alt": "Reference and target camera frames viewing a small plane, beside a sphere-to-plane reparameterization of its normal.",
+      "caption": "Plane orientation determines how an image patch should warp between views.",
+      "readingGuide": "Read panel (a) from the central reference frame toward the two target frames. The red warping arrows agree with Equation (13): the transform maps reference-patch pixels into each target patch using relative pose and a local plane normal. The visual measurement in Equation (21) uses the reverse, current-to-reference direction; these are distinct uses of warping, not contradictory arrows. In panel (b), the normal on the unit sphere is represented by a scaled vector M satisfying the source-plane constraint. Its two free coordinates m permit unconstrained optimization, after which normalization recovers the plane normal. LiDAR supplies the initial geometric estimate.",
+      "takeaway": "Using a plane allows depth to vary within a patch instead of imposing constant depth across its pixels. The supplementary patch projections and map comparisons support this choice in the two examined scenes. Further normal refinement is a separate option; the benchmark’s default system already uses the LiDAR plane prior.",
+      "caution": "A small planar patch remains an approximation, especially near discontinuities or foliage. The picture illustrates a geometric parameterization, not measured normal accuracy, and the normal-refined variant is not uniformly better in the benchmark.",
+      "evidenceIds": [
+        "e-warp",
+        "e-visual",
+        "e-affine-study",
+        "e-config",
+        "e-ablation"
+      ]
+    },
+    {
+      "id": "benchmark",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table II",
+      "page": 13,
+      "asset": "report-assets/ref-ae98866e6b155b0f253c/benchmark.png",
+      "width": 1436,
+      "height": 869,
+      "sourceSha256": "8a9e5643ff99e4d9b735507ddd80fddb6af38401f635d72a0bf017eda57c5695",
+      "sourceUrl": "https://arxiv.org/pdf/2408.14035#page=13",
+      "crop": [
+        0.077,
+        0.064,
+        0.922,
+        0.459
+      ],
+      "alt": "Full translational RMSE table for Hilti’22, Hilti’23 and NTU-VIRAL, including baselines, FAST-LIVO2 variants, reported averages and failure symbols.",
+      "caption": "Separate the default result from the normal-refined variant before comparing accuracy.",
+      "readingGuide": "Rows are individual sequences, grouped by dataset; columns mix external baselines, the authors’ LiDAR-only subsystem and FAST-LIVO2 variants. Lower translational RMSE is better. Read the four rightmost columns carefully: removing exposure estimation, enabling normal refinement, removing reference updating, and the default system are different configurations. The bottom row contains the paper’s reported averages, while the retained cross-symbol footnote marks total failure. The evaluation uses selected single cameras and excludes Hilti’23 Site 3. Baseline implementations also differ from untouched releases: R3LIVE is adapted, SDV-LOAM is reimplemented with a LiDAR backend, and LVI-SAM’s loop closure is disabled.",
+      "takeaway": "The reported default average is 0.045 m, compared with 0.137 m for FAST-LIVO, 0.151 m for FAST-LIO2 and 0.278 m for R3LIVE. Normal refinement reports 0.044 m. Removing exposure estimation or reference updating reports 0.051 m or 0.089 m, respectively, making reference updating the larger of these measured ablation effects.",
+      "caution": "The nearby prose highlights 0.044 m, which belongs to the normal-refined column. Treat the Average row as reported: repeat counts, uncertainty intervals and a detailed aggregation prescription are not supplied. Inspect failures and individual sequences before ranking systems.",
+      "evidenceIds": [
+        "e-benchmark",
+        "e-ablation",
+        "e-datasets",
+        "e-config"
+      ]
+    },
+    {
+      "id": "patch-normal",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure S3",
+      "page": 22,
+      "asset": "report-assets/ref-ae98866e6b155b0f253c/patch-normal.png",
+      "width": 1434,
+      "height": 453,
+      "sourceSha256": "8a9e5643ff99e4d9b735507ddd80fddb6af38401f635d72a0bf017eda57c5695",
+      "sourceUrl": "https://arxiv.org/pdf/2408.14035#page=22",
+      "crop": [
+        0.078,
+        0.653,
+        0.922,
+        0.859
+      ],
+      "alt": "Two mapped scenes with labeled regions A–H, five patch observations per region, selected references outlined in red and angular-change curves.",
+      "caption": "Reference quality and normal refinement are related but separately testable choices.",
+      "readingGuide": "Begin with regions A–D on HIT Graffiti Wall and E–H on HKU Centennial Garden. The numbered camera poses identify the observations shown in each patch row; red boxes mark selected reference patches. Compare how the same surface’s apparent resolution and orientation change across views. These displayed patches are 40×40 for visualization, whereas the normal-refinement experiment uses 11×11 patches. Next read panel (c): its horizontal axis is iteration number and its vertical axis is angular change from the initial LiDAR-derived normal. The A–H legend connects each curve to its scene region. It does not plot error against a known true normal.",
+      "takeaway": "Structured regions generally need smaller angular corrections than foliage-related regions in these selected examples. The reference-selection mechanism favors representative appearance and a more frontal view, while refinement adjusts local geometry from multiple observations. Together the panels help explain the design; the benchmark table is needed to assess whether those choices improve trajectory accuracy.",
+      "caution": "The curves continue to fluctuate after their initial rise despite the authors’ convergence language. Neither stabilization nor a larger correction establishes a more accurate normal. These eight selected regions lack ground-truth normal errors and do not establish universal benefit.",
+      "evidenceIds": [
+        "e-normal-study",
+        "e-patches",
+        "e-warp",
+        "e-benchmark",
+        "e-ablation"
+      ]
+    },
+    {
+      "id": "raycasting",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure S4",
+      "page": 23,
+      "asset": "report-assets/ref-ae98866e6b155b0f253c/raycasting.png",
+      "width": 1434,
+      "height": 323,
+      "sourceSha256": "8a9e5643ff99e4d9b735507ddd80fddb6af38401f635d72a0bf017eda57c5695",
+      "sourceUrl": "https://arxiv.org/pdf/2408.14035#page=23",
+      "crop": [
+        0.078,
+        0.068,
+        0.922,
+        0.215
+      ],
+      "alt": "Top-down map of a 1.9 m corridor with trajectory and motion arrows, linked to a weakly textured wall view containing recalled map points.",
+      "caption": "Raycasting recalls existing visual anchors when recent LiDAR returns are sparse.",
+      "readingGuide": "Follow the cyan trajectory through the corridor and the yellow arrows indicating travel direction. The dashed box links the turn toward a wall to the camera inset. The original caption’s color key is essential: blue/cyan dots are visual map points recalled by raycasting, yellow dots come from voxel queries, and red denotes current LiDAR scan points. At close range the recent scans contain few points, so their voxel hits alone retrieve few visual anchors. Section VII-A therefore casts rays only through image cells still lacking selected map points. Those rays search stored geometry; they do not measure new depth or create observations of unseen surfaces.",
+      "takeaway": "The inset demonstrates that many stored visual anchors can remain available even when LiDAR returns become scarce. This is a concrete explanation for why map retrieval must not rely entirely on the latest scan. It supports the mechanism in this corridor example, while leaving the magnitude of its trajectory-level benefit unmeasured.",
+      "caution": "There is no quantitative raycasting-on versus raycasting-off result here. Recalled points require previously mapped surfaces and useful image gradients; their presence alone does not prove correct correspondences or full pose observability.",
+      "evidenceIds": [
+        "e-raycast-study",
+        "e-visibility"
+      ]
+    },
+    {
+      "id": "sequential-update",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure S6",
+      "page": 24,
+      "asset": "report-assets/ref-ae98866e6b155b0f253c/sequential-update.png",
+      "width": 1434,
+      "height": 429,
+      "sourceSha256": "8a9e5643ff99e4d9b735507ddd80fddb6af38401f635d72a0bf017eda57c5695",
+      "sourceUrl": "https://arxiv.org/pdf/2408.14035#page=24",
+      "crop": [
+        0.078,
+        0.638,
+        0.922,
+        0.833
+      ],
+      "alt": "Three AMvalley03 aerial maps with matched blue and orange detail boxes and a current-scan inset for the sequential strategy.",
+      "caption": "Update strategy changes the linearization conditions in this aerial mapping comparison.",
+      "readingGuide": "Compare corresponding columns: (a) is asynchronous standard updating, (b) synchronizes scans and images but updates their measurements jointly, and (c) synchronizes them and applies LiDAR before vision. The blue and orange boxes select corresponding road regions, enlarged along the bottom for inspection of alignment and layering. The cyan line is the flight path; red points in (c3) mark the current LiDAR scan near the challenging slope. Read these images alongside the same page’s RTK-based APE and runtime results. The numerical comparison belongs to this single MARS-LVIG sequence and to the iteration budgets and measurement scaling described above the figure.",
+      "takeaway": "The page reports APE RMSE of 3.12 m, 2.45 m and 0.68 m for (a), (b) and (c), respectively; corresponding times are 27.6, 49.9 and 23.1 ms. The authors attribute the sequential variant’s advantage to the LiDAR-corrected visual prior and avoiding repeated LiDAR fusion at every visual pyramid level.",
+      "caution": "The joint update uses fewer iterations per pyramid level and a tuned normalization factor. Thus this is not a controlled test of ordering alone. Conditional-independent Bayesian equivalence does not remove practical differences from nonlinear linearization, synchronization or computational budgets.",
+      "evidenceIds": [
+        "e-sequential",
+        "e-filter",
+        "e-config"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Why a LiDAR update comes before the image update",
+      "kind": "source",
+      "text": "At an image timestamp, FAST-LIVO2 first needs a plausible estimate of where its sensors are. IMU integration supplies that estimate, and motion compensation expresses the scan consistently at its endpoint. LiDAR then compares observed points with local planes and updates the state and covariance. The camera starts from that corrected distribution. This matters because direct image alignment searches locally through image gradients: a poor initial projection can lead it toward a wrong alignment. The Bayesian factorization in Equations (5)–(7) explains how independent measurement likelihoods can be applied sequentially. It does not make the resulting nonlinear algorithms interchangeable. The supplement’s AMvalley03 comparison illustrates the practical distinction, but also changes iteration limits and joint residual scaling. Its empirical advantage therefore belongs to the tested implementation and settings.",
+      "evidenceIds": [
+        "e-state",
+        "e-filter",
+        "e-lidar",
+        "e-visual",
+        "e-sequential"
+      ]
+    },
+    {
+      "heading": "How LiDAR geometry becomes a visual constraint",
+      "kind": "source",
+      "text": "A visual map point is a LiDAR-derived location with image observations attached to it. Its depth does not have to be triangulated by a separate visual backend. The surrounding plane tells the system how neighboring patch pixels should move between views; the reference patch supplies their appearance. Reference selection balances agreement with other observations against a near-normal viewing direction, instead of automatically choosing the closest view. Optional normal refinement adjusts the plane using photometric consistency across observations and freezes it after convergence. Meanwhile, the main visual residual scales intensities by estimated relative inverse exposure so brightness changes need not be explained entirely as motion. These mechanisms address different sources of mismatch. The reported implementation uses 8×8 patches for alignment and 11×11 for refinement, with refinement disabled by default.",
+      "evidenceIds": [
+        "e-overview",
+        "e-patches",
+        "e-warp",
+        "e-visual",
+        "e-config"
+      ]
+    },
+    {
+      "heading": "What the evidence says about usefulness for robots",
+      "kind": "analysis",
+      "text": "Reader analysis: the strongest evidence is the combination of trajectory benchmarks, mechanism studies and a working downstream flight stack, each answering a different question. Table II compares odometry errors under the authors’ evaluation choices; it does not measure navigation success. The corridor image shows where extra visual anchors come from, but lacks a quantitative disabled-module control. Normal-change curves explain optimizer behavior without revealing true normal error. In the flight application, FAST-LIVO2 supplies localization and registered points to separate planning and control components, with only Basement and Woods using autonomous planning. Its shared map is therefore useful infrastructure for robot control, but is not itself an action-generating model. A reproduction should keep pose accuracy, map appearance, latency and closed-loop behavior as separate outcomes.",
+      "evidenceIds": [
+        "e-benchmark",
+        "e-raycast-study",
+        "e-normal-study",
+        "e-uav",
+        "e-flight-modes",
+        "e-runtime"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Isolate sequential fusion from its computation budget",
+      "text": "Reader-proposed check, not performed: replay AMvalley03 with the paper’s asynchronous-standard, synchronous-standard and synchronous-sequential settings first. Then compare the two synchronous variants with identical input points, initial state/covariance, sensor noise, outlier gates and convergence tolerances, reporting both matched iteration limits and matched elapsed-time budgets. Keep and disclose the joint residual scaling, including a sweep around the reported 0.0032. Measure RTK-based APE, per-frame latency, actual iteration counts and visual residuals before and after updating. A persistent sequential advantage under these controls would support the corrected-prior explanation; disappearance of the gap would implicate the original budget or weighting choices.",
+      "evidenceIds": [
+        "e-sequential",
+        "e-filter",
+        "e-config"
+      ]
+    },
+    {
+      "title": "Test whether recalled anchors prevent tracking loss",
+      "text": "Reader-proposed check, not performed: replay Narrow Corridor with raycasting enabled and disabled while holding voxel-query logic, map initialization, patches, exposure estimation and all other settings fixed. Compare the wall-facing turn with earlier segments where LiDAR returns are plentiful. Log scan-point counts, visual anchors retrieved by each route, accepted residuals, tracking-loss duration and latency. Report endpoint drift separately; add trajectory APE only if independent synchronized ground truth is obtained. The mechanism predicts an interaction: raycasting should help most during sparse-return intervals. More recalled points without better tracking, or an equal benefit in ordinary segments, would weaken that explanation.",
+      "evidenceIds": [
+        "e-raycast-study",
+        "e-visibility",
+        "e-private",
+        "e-config"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30
+    ],
+    "notes": "All 30 pages of the supplied PDF were rendered and visually inspected, including the title/author/version block, complete method and equations, Tables I–III, Figures 1–16, and embedded supplementary Figures S1–S15 and Tables S1–S3. All six final original crops were inspected after cropping; the narrow Figure 5 crop uses a fresh 300-DPI render. Figure 2 flow and Figure 5 warp directions were cross-checked against the equations and algorithm. Benchmark configuration distinctions and the pyramid-indexing ambiguity are preserved in the report. All supporting pages for the retained method, numerical, evaluation and reproduction claims are declared here. External videos, code, datasets and separately linked supplements remain outside this reading."
+  }
+}
