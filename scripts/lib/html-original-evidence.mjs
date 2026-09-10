@@ -153,7 +153,7 @@ export async function renderHtmlEvidence({ root, config, ids, outputDirectory, s
   if ((await lstat(dirname(output))).isSymbolicLink() || await realpath(dirname(output)) !== dirname(output)) fail('symlink render output');
   await mkdir(output, { recursive: false });
   const { chromium } = await import(pathToFileURL(d.runtime.playwrightPath));
-  const browser = await chromium.launch({ executablePath: d.runtime.chromePath, headless: true, args: ['--disable-background-networking','--host-resolver-rules=MAP * ~NOTFOUND'] });
+  const browser = await chromium.launch({ executablePath: d.runtime.chromePath, headless: true, args: ['--disable-background-networking','--host-resolver-rules=MAP * ~NOTFOUND','--disable-gpu'] });
   const records = [];
   try {
     if (browser.version() !== d.runtime.browserVersion) fail('browser version differs from pinned recipe');
