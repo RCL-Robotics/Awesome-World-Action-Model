@@ -24,17 +24,54 @@
 
 > **A World-Action Model (WAM) connects future-state modeling with executable action generation to support predictive robot control.**
 
-Given observation history and a task instruction, a WAM models both what may happen next and which actions can bring about that future. The connection can be learned through joint world-action prediction or through a plan-then-act process that translates predicted futures into actions using inverse dynamics.
+World models learn how the environment evolves, often conditioned on actions; VLA policies map observations and language to actions. In our survey, WAMs connect these capabilities within a shared learning or inference process, so action generation is informed by predicted consequences.
 
-| Model family | Central role |
-| --- | --- |
-| World Model (WM) | Predict how the environment evolves, often conditioned on actions. |
-| Vision-Language-Action model (VLA) | Map visual observations and language instructions to actions. |
-| World-Action Model (WAM) | Couple future-state prediction with action generation for planning and control. |
+### Predicting futures and actions
 
-Our focus is on **whether predicted futures are useful for action**: how predictions ground executable behavior, support look-ahead decisions, and remain consistent with the physical consequences of control. We examine this connection across representations, model components, architecture, training, data, and evaluation.
+Let $h_t = \mathbf{o}_{<t}$ denote observation history and $\ell$ a task instruction. Over a horizon $H$, write $\mathbf{O} = \mathbf{o}_{t:t+H}$ for future observations and $\mathbf{A} = \mathbf{a}_{t:t+H}$ for the action chunk. The survey's unified view is:
 
-The collection covers complete WAM systems alongside related foundations, VLA policies, reusable components, datasets, and evaluation resources.
+```math
+\left(\widehat{\mathbf{O}},\widehat{\mathbf{A}}\right)
+= f_{\mathrm{WAM}}(h_t,\ell).
+```
+
+This is a functional view of the system: predictions and actions may be produced by a unified backbone or by connected modules. Predictive representations can encode visual appearance, latent dynamics, or 3D structure.
+
+[![WAM components: language and visual encoders condition a predictive backbone, which connects world prediction and action decoding to robot execution.](public/survey-assets/wam-components.webp)](public/survey-assets/wam-components.pdf)
+
+*Component view from our survey.* Language provides task conditioning, the visual encoder defines the predictive state, the backbone models dynamics, and the action decoder produces executable controls. [Open the full-size figure](public/survey-assets/wam-components.pdf).
+
+### Two routes from prediction to action
+
+**Joint prediction** models future observations and actions together, coupling world prediction and policy generation:
+
+```math
+p_{\mathrm{joint}}(\mathbf{O},\mathbf{A}\mid h_t,\ell).
+```
+
+**Inverse dynamics (IDM)** follows a plan-then-act factorization: predict a future, then infer actions that connect the current context to that future:
+
+```math
+\underbrace{p_{\mathrm{plan}}(\mathbf{O}\mid h_t,\ell)}_{\text{predict a future}}
+\;\underbrace{p_{\mathrm{IDM}}(\mathbf{A}\mid h_t,\mathbf{O})}_{\text{infer executable actions}}.
+```
+
+These prediction routes form a separate axis from architecture: either can use **One Model** with a shared backbone or a **Dual-system** design with distinct world and action experts. Joint training alone does not determine the architecture. Some IDM-style systems learn this interface implicitly and decode actions without explicitly generating a full future rollout at inference.
+
+[![Four WAM architectures: a unified backbone with joint prediction, a unified backbone with inverse dynamics, dual experts with joint prediction, and dual experts with inverse dynamics.](public/survey-assets/wam-architectures.webp)](public/survey-assets/wam-architectures.pdf)
+
+*Architecture taxonomy from our survey.* (a) One Model + joint prediction; (b) One Model + IDM; (c) Dual-system + joint prediction; (d) Dual-system + IDM. [Browse these four families](#architecture-index) · [Open the full-size figure](public/survey-assets/wam-architectures.pdf).
+
+### What makes a predicted world useful?
+
+Our central criterion is **control utility**. Visual fidelity and prediction accuracy should be evaluated alongside task success, robustness, and deployment cost. The survey highlights four requirements:
+
+- **Action grounding:** connect predicted changes to controls the robot can execute.
+- **Spatial and temporal consistency:** preserve geometry, object permanence, and coherent evolution.
+- **Closed-loop improvement:** use interaction and failure feedback to improve behavior.
+- **Real-time control:** keep prediction and action decoding within the feedback budget.
+
+The collection covers complete WAM systems alongside foundations, VLA policies, reusable components, datasets, and evaluation resources. [Explore the category index ↓](#major-categories)
 
 ## Navigation
 
