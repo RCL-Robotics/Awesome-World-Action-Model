@@ -3,7 +3,7 @@
 
 A curated, searchable collection of research on world action models: learning to understand, predict, and act in the physical world.
 
-**Development status: private repository, local preview only. Public hosting and automatic deployment are disabled.**
+**[Explore the project website](https://rcl-robotics.github.io/Awesome-World-Action-Model/)**
 
 [Browse the data](data/papers.json) · [Suggest a paper](https://github.com/RCL-Robotics/Awesome-World-Action-Model/issues/new?template=paper.yml)
 
@@ -719,7 +719,7 @@ Validation checks unique identities, canonical source URLs, recorded calendar da
 
 The website and this README display English taxonomy labels through the shared translation module. Source labels are preserved except for the explicitly reviewed component placements. See the [Notion field mapping](docs/MAINTAINING.md#notion-field-mapping) for exact source property names and the 25 exported fields.
 
-See [maintenance and synchronization setup](docs/MAINTAINING.md) for local preview and private catalog updates. GitHub Pages and public deployment remain disabled.
+See [maintenance and synchronization setup](docs/MAINTAINING.md) for local preview, catalog updates, and manual GitHub Pages deployment.
 
 ## License
 

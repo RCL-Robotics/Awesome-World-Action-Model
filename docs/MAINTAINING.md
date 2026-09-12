@@ -1,6 +1,6 @@
 # Maintenance and synchronization
 
-The repository remains private. GitHub Pages is off and the deployment workflow is disabled. Use local preview only. Public release requires explicit approval from the repository owner; syncing data or merging a PR does not publish the website.
+The public project website is hosted at [rcl-robotics.github.io/Awesome-World-Action-Model](https://rcl-robotics.github.io/Awesome-World-Action-Model/). Deployments are manual: syncing data or merging a PR updates the repository, and a maintainer publishes the reviewed `main` branch through the Pages workflow.
 
 The **Awesome-World-Action-Model** database in Notion is the editorial source. Reviewed arXiv additions can also be retained in `data/local-papers.json`. The exporter merges both into `data/papers.json` and `data/meta.json`; the website and generated README use the same catalog.
 
@@ -128,10 +128,10 @@ npm run preview
 
 ## Routine updates
 
-1. Review paper recommendations or corrections in the private repository, using the paper, DOI record, publisher page, or author-provided source.
+1. Review paper recommendations or corrections in the repository, using the paper, DOI record, publisher page, or author-provided source.
 2. Update the bibliographic or taxonomy fields in Notion. Preserve the original research topics as separate fields. Apply accepted data corrections there before exporting so the next sync does not overwrite them.
 3. Export locally or through the manual Actions workflow below.
-4. Review additions, removals, taxonomy changes, the generated README, and category counts. Merging into `main` updates the private repository only.
+4. Review additions, removals, taxonomy changes, the generated README, and category counts. After merging into `main`, run the manual Pages workflow to publish the update.
 
 `README.md` is generated. Change its fixed wording or layout in `scripts/generate-readme.mjs`, then run `npm run generate:readme` instead of editing the generated list directly.
 
@@ -170,20 +170,18 @@ If the branch is pushed but PR creation fails, use the compare link in that run'
 
 A PR created with `GITHUB_TOKEN` may require a maintainer to select **Approve workflows to run**. The sync workflow already validates and builds the export, but review the PR's current check status before merging. [GitHub workflow-trigger behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)
 
-## Future public release — currently disabled
+## Public website deployment
 
-Do not enable public hosting without explicit approval from the repository owner. A private repository does not necessarily make its GitHub Pages website private. The repository remains private and the website remains unpublished under the current instructions.
+The repository owner has approved public release. The repository and its GitHub Pages website are public. Website updates use an explicit manual deployment from `main`; pushes and merges do not trigger deployment.
 
-GitHub Free supports Pages for public repositories; private repositories need an eligible plan such as GitHub Pro or Team. If the current plan is not eligible, the owner must decide whether to change the plan, choose another host, or explicitly approve making the repository public. No script changes repository visibility. [GitHub Pages availability](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)
-
-Only after explicit approval for a public release:
+To publish a reviewed update:
 
 1. Merge the reviewed website, data, lockfile, and workflows into `main`.
 2. Set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**.
-3. Re-enable **Deploy to GitHub Pages**, select `main`, and explicitly check `publish_publicly` when running it manually. This input defaults to false; pushes to `main` do not deploy.
+3. Open **Actions → Deploy to GitHub Pages → Run workflow**, select `main`, and explicitly check `publish_publicly`. This input defaults to false.
 4. Open the deployment URL reported by the completed job or Pages settings.
 
-There is currently no public site. PR checks only validate and build. The future deployment workflow uses GitHub's official Pages actions, separating read-only build permissions from the deployment job's `pages: write` and `id-token: write` permissions. [GitHub Pages workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
+PR checks validate and build. The deployment workflow repeats these checks before publishing with GitHub's official Pages actions, separating read-only build permissions from the deployment job's `pages: write` and `id-token: write` permissions. [GitHub Pages workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
 
 ## Repository paths and future domains
 
@@ -201,7 +199,7 @@ For a future approved rename, fork, or domain change, update `site`, `base`, and
 | A category, abstract, or date is missing, or the quadrant is Pending verification | Preserve the recorded state. Review the source in Notion before changing it. |
 | A URL, duplicate identity, or recorded field fails validation | Review the named field or duplicate records. Taxonomy labels must match the shared definitions; missing new fields may be null or empty lists. |
 | `npm ci` fails | Check the Node version, network access, and consistency between `package.json` and the lockfile. |
-| The old Pages address returns 404 | Expected while public hosting is disabled. Use local preview. |
+| The Pages address returns 404 | Check Pages settings and the latest deployment run. Use the URL reported by the completed deployment, including `/Awesome-World-Action-Model/`. |
 | Details or styles return 404 in preview | Check `site` and `base`, then rebuild and restart local preview. |
 | A sync branch exists without a PR | Use the run Summary's compare link and check Actions PR permissions. |
 
