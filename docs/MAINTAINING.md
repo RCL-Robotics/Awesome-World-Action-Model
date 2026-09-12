@@ -76,7 +76,7 @@ Internal classification evidence (`分类依据`) can contain private file paths
 
 ## Taxonomy views
 
-The default view follows **major category → subcategory**. The 2026-09-07 snapshot contains Foundational work 139, VLA 35, WAM 227, Datasets 32, Evaluation metrics 14, and Benchmarks & simulators 32: 479 entries in total. The README lists every entry once under its major category and retains the original research topics as a separate summary.
+The default view follows **major category → subcategory**. The 2026-09-07 snapshot contains Foundational work 139, VLA 35, WAM 227, Datasets 32, Evaluation metrics 14, and Benchmarks & simulators 32: 479 entries in total. The README provides the survey definition and a navigation index. The generated `docs/PAPERS.md` lists every entry once under its major category and retains the original research topics as a separate summary.
 
 The quadrant view crosses **architecture × prediction paradigm**: One Model or Dual-system, with Joint prediction or IDM. Joint training alone does not establish a One Model architecture. Outside quadrants, Not applicable, and Pending verification remain separate states. In that snapshot, Q1–Q4 contain 38, 9, 27, and 54 entries, respectively; the other states contain 95, 252, and 4. Current website and README counts are computed from the data.
 
@@ -135,7 +135,7 @@ npm run preview
 3. Export locally or through the manual Actions workflow below.
 4. Review additions, removals, taxonomy changes, the generated README, and category counts. After merging into `main`, run the manual Pages workflow to publish the update.
 
-`README.md` is generated. Change its fixed wording or layout in `scripts/generate-readme.mjs`, then run `npm run generate:readme` instead of editing the generated list directly.
+`README.md` and `docs/PAPERS.md` are generated together. Change the README definition, navigation, citation placeholder, or layout in `scripts/generate-readme.mjs`, then run `npm run generate:readme`. The paper lists live in `docs/PAPERS.md`; both documents use the same committed catalog. The sync workflow stages both outputs. README-only changes do not require a Pages deployment.
 
 ### Export with an authenticated Notion CLI
 
@@ -148,7 +148,7 @@ npm run generate:readme
 npm run check
 npm test
 npm run build
-git diff -- data/papers.json data/meta.json README.md
+git diff -- data/papers.json data/meta.json README.md docs/PAPERS.md
 ```
 
 Alternatively, use `npm run sync:notion -- --cli --source your-data-source-id`. CLI mode uses the existing local login; credentials do not need to be copied into the repository or a conversation.
