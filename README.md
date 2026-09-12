@@ -28,7 +28,7 @@ World models learn how the environment evolves, often conditioned on actions; VL
 
 ### Predicting futures and actions
 
-Let $h_t = \mathbf{o}_{<t}$ denote observation history and $\ell$ a task instruction. Over a horizon $H$, write $\mathbf{O} = \mathbf{o}_{t:t+H}$ for future observations and $\mathbf{A} = \mathbf{a}_{t:t+H}$ for the action chunk. The survey's unified view is:
+Let $`h_t = \mathbf{o}_{\lt t}`$ denote observation history and $`\ell`$ a task instruction. Over a horizon $`H`$, write $`\mathbf{O} = \mathbf{o}_{t:t+H}`$ for future observations and $`\mathbf{A} = \mathbf{a}_{t:t+H}`$ for the action chunk. The survey's unified view is:
 
 ```math
 \left(\widehat{\mathbf{O}},\widehat{\mathbf{A}}\right)

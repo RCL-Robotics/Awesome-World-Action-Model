@@ -67,7 +67,8 @@ export function renderReadme(inputPapers, inputMeta) {
     // Sec-III (components and architectures), and Sec-V/VI/VII (control utility).
     'World models learn how the environment evolves, often conditioned on actions; VLA policies map observations and language to actions. In our survey, WAMs connect these capabilities within a shared learning or inference process, so action generation is informed by predicted consequences.', '',
     '### Predicting futures and actions', '',
-    String.raw`Let $h_t = \mathbf{o}_{<t}$ denote observation history and $\ell$ a task instruction. Over a horizon $H$, write $\mathbf{O} = \mathbf{o}_{t:t+H}$ for future observations and $\mathbf{A} = \mathbf{a}_{t:t+H}$ for the action chunk. The survey's unified view is:`, '',
+    // GitHub's backtick math delimiters protect TeX underscores from Markdown emphasis parsing.
+    "Let $`h_t = \\mathbf{o}_{\\lt t}`$ denote observation history and $`\\ell`$ a task instruction. Over a horizon $`H`$, write $`\\mathbf{O} = \\mathbf{o}_{t:t+H}`$ for future observations and $`\\mathbf{A} = \\mathbf{a}_{t:t+H}`$ for the action chunk. The survey's unified view is:", '',
     '```math',
     String.raw`\left(\widehat{\mathbf{O}},\widehat{\mathbf{A}}\right)
 = f_{\mathrm{WAM}}(h_t,\ell).`,
