@@ -117,6 +117,8 @@ http://localhost:4321/Awesome-World-Action-Model/
 
 Before submitting a change:
 
+The full test suite uses the pinned Playwright Chromium browser (`npx --no-install playwright install chromium`), Python 3.11 or newer with `Pillow`, `pypdf`, and `reportlab`, and Poppler's `pdftoppm`. Outside the bundled local runtime, set `ILLUSTRATED_PYTHON` and `ILLUSTRATED_PDFTOPPM` to their absolute executable paths, and `ILLUSTRATED_FONTS` to a font directory. The Pages workflow installs and configures these dependencies on Ubuntu before running every test.
+
 ```bash
 npm run check
 npm test

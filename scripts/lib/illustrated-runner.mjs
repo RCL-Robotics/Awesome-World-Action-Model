@@ -16,9 +16,9 @@ import { loadHtmlEvidence, renderHtmlEvidence, htmlLocator, snapshotHtmlEvidence
 import { validateSourceDetailContext } from './source-details.mjs';
 
 const RUNTIME = join(homedir(), '.cache/codex-runtimes/codex-primary-runtime/dependencies');
-export const DEFAULT_PYTHON = join(RUNTIME, 'python/bin/python3');
-export const DEFAULT_PDFTOPPM = join(RUNTIME, 'bin/override/pdftoppm');
-const DEFAULT_FONTS = join(RUNTIME, 'native/poppler/poppler/fonts');
+export const DEFAULT_PYTHON = process.env.ILLUSTRATED_PYTHON || join(RUNTIME, 'python/bin/python3');
+export const DEFAULT_PDFTOPPM = process.env.ILLUSTRATED_PDFTOPPM || join(RUNTIME, 'bin/override/pdftoppm');
+const DEFAULT_FONTS = process.env.ILLUSTRATED_FONTS || join(RUNTIME, 'native/poppler/poppler/fonts');
 const execute = promisify(execFile);
 export const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 export const fileHash = async path => sha(await readFile(path));

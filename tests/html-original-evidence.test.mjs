@@ -9,16 +9,19 @@ import { digest, originalHtmlLayoutCss, loadHtmlEvidence, renderHtmlEvidence, ht
 import { validateIllustratedReport } from '../scripts/lib/illustrated-reports.mjs';
 import { validateBundle, validateVisualReview } from '../scripts/lib/illustrated-runner.mjs';
 import { visualReviewSchemaForContext } from '../scripts/lib/visual-review-schema.mjs';
+import { chromium } from 'playwright';
 const execute = promisify(execFile), repo = fileURLToPath(new URL('../', import.meta.url));
 const base = JSON.parse(await readFile(join(repo,'data/reports/2608.08839.json')));
 const originalEdition = JSON.parse(await readFile(join(repo,'data/illustrated-reports/2608.08839.json')));
 const template = JSON.parse(await readFile(join(repo,'schemas/illustrated-visual-review.schema.json')));
-const chromePath='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const playwrightPath='/Users/lzx/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.mjs';
-// Bind this synthetic recipe to the installed bundle, just as its executable
-// hash is captured below. The renderer still checks the live browser version.
-const {stdout:chromeVersion}=await execute('/usr/libexec/PlistBuddy',['-c','Print :CFBundleShortVersionString',join(dirname(dirname(chromePath)),'Info.plist')],{timeout:5000});
-const browserVersion=chromeVersion.trim();assert.match(browserVersion,/^\d+\.\d+\.\d+\.\d+$/);
+const chromePath=chromium.executablePath();
+const playwrightPath=fileURLToPath(import.meta.resolve('playwright'));
+// Pin the installed Playwright browser and its actual version on every platform.
+// Each renderer invocation still verifies the executable hash and live version.
+const browser=await chromium.launch({executablePath:chromePath,headless:true});
+let browserVersion;
+try {browserVersion=browser.version();} finally {await browser.close();}
+assert.match(browserVersion,/^\d+\.\d+\.\d+\.\d+$/);
 const runtime={chromePath,chromeSha256:digest(await readFile(chromePath)),browserVersion,playwrightPath,playwrightEntrySha256:digest(await readFile(playwrightPath)),nodePath:process.execPath};
 const css=originalHtmlLayoutCss([]);
 const title='<section id="identity"><h1>Fixture title</h1><p>Fixture author</p><p>Protocol: 10 synthetic trials, one synthetic device.</p></section>';
