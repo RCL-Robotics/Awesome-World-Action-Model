@@ -108,6 +108,17 @@ test('English taxonomy queries match translated labels while filters retain thei
   assert.equal(filterPapers([record], { ...filters, major: 'Foundational work' }).length, 0);
 });
 
+test('plural display labels and original taxonomy names remain searchable with stored filter keys', () => {
+  const record = make('named', { title: 'Fast-WAM: Efficient control', majorCategory: 'WAM Components' });
+  const original = structuredClone(record);
+  const filters = { major: 'WAM Components', category: 'Memory WAM', secondary: 'WAM + RL' };
+  for (const query of ['WAM Components', 'Components of WAMs', 'MemoryWAM', 'MemoryWAMs', 'WAM+RL', 'WAMs+RL', 'Fast-WAM']) {
+    assert.deepEqual(filterPapers([record, make('other')], { ...filters, query }).map(p => p.id), ['named'], query);
+  }
+  assert.deepEqual(record, original);
+  assert.equal(filterPapers([record], { ...filters, major: 'Components of WAMs' }).length, 0);
+});
+
 test('English venue annotations are searchable without changing the stored venue', () => {
   const record = make('book', { venue: 'MIT Press（图书，第一版）' });
   assert.deepEqual(filterPapers([record, make('other')], { query: 'book first edition' }).map(p => p.id), ['book']);

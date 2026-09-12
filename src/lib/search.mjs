@@ -42,9 +42,10 @@ export function filterPapers(papers, filters) {
     if (filters.year && String(paper.publicationYear ?? '') !== String(filters.year)) return false;
     if (filters.code && !paper.codeUrls.length) return false;
     const taxonomy = [paper.majorCategory, ...(paper.subcategories || []), paper.architecture, paper.predictionParadigm, paper.quadrant, paper.classificationStatus].filter(Boolean);
+    const topics = [paper.primaryCategory, ...paper.secondaryCategories];
     // Keep field boundaries: a compact name must not be invented by joining a
     // title's ending to an author's name. Separate keywords may match any field.
-    const searchable = [paper.title, paper.authors, paper.affiliations, paper.contribution, paper.abstract, paper.id, paper.bibtexKey, paper.bibtex, paper.paperUrl, paper.arxivUrl, paper.pdfUrl, paper.doi, paper.publicationYear, paper.venue, paper.venue ? venueLabel(paper.venue) : '', ...taxonomy, ...taxonomy.map(taxonomyLabel), paper.primaryCategory, ...paper.secondaryCategories].map(compact).join('\0');
+    const searchable = [paper.title, paper.authors, paper.affiliations, paper.contribution, paper.abstract, paper.id, paper.bibtexKey, paper.bibtex, paper.paperUrl, paper.arxivUrl, paper.pdfUrl, paper.doi, paper.publicationYear, paper.venue, paper.venue ? venueLabel(paper.venue) : '', ...taxonomy, ...taxonomy.map(taxonomyLabel), ...topics, ...topics.map(taxonomyLabel)].map(compact).join('\0');
     return words.every(word => searchable.includes(word));
   });
   return result.sort((a, b) => comparePapers(a, b, filters.sort));

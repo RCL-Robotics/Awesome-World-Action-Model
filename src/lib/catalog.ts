@@ -58,9 +58,9 @@ export const categories = [
   { name: 'Multimodal / Tactile WAM', label: 'Multimodal / tactile', slug: 'multimodal', color: '#528b81', description: 'Combining vision, touch, and other signals to represent and interact with the world.' },
   { name: 'Real-Time / Efficient WAM', label: 'Real-time / efficient', slug: 'efficient', color: '#bf8952', description: 'Efficient prediction, planning, and inference for practical control.' },
   { name: 'Latent / Representation WAM', label: 'Latent / representation', slug: 'latent', color: '#6d7ac2', description: 'Learning compact representations and predicting dynamics in latent space.' },
-  { name: 'Navigation / Driving / Domain WAM', label: 'Navigation / domains', slug: 'domains', color: '#6e9273', description: 'World action models for navigation, driving, and specialized environments.' },
+  { name: 'Navigation / Driving / Domain WAM', label: 'Navigation / domains', slug: 'domains', color: '#6e9273', description: 'World-Action Models for navigation, driving, and specialized environments.' },
   { name: 'Evaluation / Survey / Theory', label: 'Evaluation / theory', slug: 'evaluation', color: '#968879', description: 'Benchmarks, analysis, surveys, and foundations for understanding world models.' },
-  { name: 'General WAM', label: 'General world models', slug: 'general', color: '#82929f', description: 'Broad world-model approaches that connect prediction with action.' },
+  { name: 'General WAM', label: 'General WAMs', slug: 'general', color: '#82929f', description: 'General World-Action Models that connect prediction with action.' },
 ].map(category => ({ ...category, count: papers.filter(p => p.primaryCategory === category.name).length }));
 export const pendingCount = papers.filter(p => p.primaryCategory === 'Uncategorized').length;
 export const classifiedCount = categories.reduce((total, category) => total + category.count, 0);

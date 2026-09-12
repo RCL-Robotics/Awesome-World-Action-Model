@@ -1,0 +1,234 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import '../../styles/classic-library.css';
+import PaperCard from '../../components/PaperCard.astro';
+import { papers, meta, categories, uncategorizedCategory, pendingCount, majorCategories, quadrantStatuses, subtypes, majorPendingCount, quadrantPendingCount, repoUrl, pathFor, formatDate } from '../../lib/catalog';
+import { taxonomyLabel } from '../../lib/taxonomy.mjs';
+const dates = papers.map(p => p.submittedDate).filter((date): date is string => Boolean(date)).sort();
+const months = [...new Set(dates.map(date => date.slice(0, 7)))].sort().reverse();
+const years = [...new Set(papers.map(p => p.publicationYear).filter((year): year is number => Number.isInteger(year)))].sort((a, b) => b - a);
+const earliest = dates[0] || null;
+const latest = dates.at(-1) || null;
+const rangeLabel = years.length ? `${years.at(-1)}${years.length > 1 ? ` – ${years[0]}` : ''}` : earliest && latest ? `${formatDate(earliest, { month: 'short', year: 'numeric' })} – ${formatDate(latest, { month: 'short', year: 'numeric' })}` : 'Not recorded';
+const rangeCaption = years.length ? 'recorded publication years' : 'known submission dates';
+---
+<BaseLayout pageClass="classic-library" title="Paper library" description="A searchable collection of papers, datasets, benchmarks, and reading reports on World-Action Models.">
+  <section class="collection-intro shell" aria-labelledby="collection-title">
+    <h1 id="collection-title">Paper library</h1>
+    <p>Papers, datasets, benchmarks, and reading notes on World-Action Models.</p>
+    <div class="collection-facts" aria-label="Collection overview">
+      <span><strong>{papers.length}</strong> entries</span>
+      <span>{majorCategories.length} major categories</span>
+      <span>{rangeLabel} <span class="date-caption">{rangeCaption}</span></span>
+      <span>Updated <time datetime={meta.updatedAt.slice(0, 10)}>{formatDate(meta.updatedAt.slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' })}</time></span>
+    </div>
+  </section>
+
+  <section class="library shell" id="library" aria-labelledby="library-heading">
+    <aside class="catalog-sidebar">
+      <h2 class="sidebar-heading">Categories <span>{majorCategories.length}</span></h2>
+      <nav class="category-nav major-nav" aria-label="Filter by major category">
+        <a href="#library" data-major="" class="selected" aria-current="true"><span>All papers</span><b>{papers.length}</b></a>
+        {majorCategories.map(category => <a href={`?major=${encodeURIComponent(category.name)}#library`} data-major={category.name}><span>{category.label}</span><b>{category.count}</b></a>)}
+        {majorPendingCount > 0 && <a href="?major=__unassigned__#library" data-major="__unassigned__"><span>Not assigned</span><b>{majorPendingCount}</b></a>}
+      </nav>
+      <details class="topic-filters" id="research-topic-filters">
+        <summary>Research topics <span>{categories.length}</span></summary>
+        <p>Supplementary topic labels</p>
+        <nav class="category-nav" aria-label="Filter by research topic">
+          <a href="#library" data-category=""><span>Any research topic</span></a>
+          {categories.map(category => <a href={`?category=${encodeURIComponent(category.name)}#library`} data-category={category.name}><span>{category.label}</span><b>{category.count}</b></a>)}
+          {pendingCount > 0 && <a href={`?category=${uncategorizedCategory.name}#library`} data-category={uncategorizedCategory.name}><span>{uncategorizedCategory.label}</span><b>{pendingCount}</b></a>}
+        </nav>
+      </details>
+      <nav class="collection-links" aria-label="Collection resources">
+        <h2 class="sidebar-heading">Browse &amp; contribute</h2>
+        <a href={pathFor('map/?mode=major')}>Category board <span aria-hidden="true">↗</span></a>
+        <a href={pathFor('map/?mode=quadrants')}>Four quadrants <span aria-hidden="true">↗</span></a>
+        <a href={pathFor('reports/')}>Reading reports <span aria-hidden="true">↗</span></a>
+        <a class="download-link" href={pathFor('papers.json')} download="WAMs-papers.json">Download collection <span class="link-format">JSON</span></a>
+        <a href={`${repoUrl}/issues/new/choose`} target="_blank" rel="noopener noreferrer">Suggest a paper <span aria-hidden="true">↗</span></a>
+      </nav>
+    </aside>
+
+    <div class="catalog-main">
+      <div class="section-heading"><h2 id="library-heading">Papers</h2><a class="taxonomy-guide" href={pathFor('about/#organization-heading')}>About the classification</a></div>
+      <form id="catalog-form" class="catalog-tools" role="search">
+        <div class="search-box">
+          <Icon name="search" size={18}/>
+          <label class="sr-only" for="paper-search">Search papers, authors, abstracts, identifiers, or source URLs</label>
+          <input id="paper-search" name="q" type="search" autocomplete="off" aria-describedby="search-help" placeholder="Search papers, authors, abstracts, or identifiers"/>
+          <kbd aria-hidden="true">/</kbd>
+        </div>
+        <p id="search-help" class="search-help">Search ignores case, spaces and hyphens. Try “FastWAM” or “Fast WAM”.</p>
+        <div class="filter-row taxonomy-filter-row">
+          <div class="filter-select"><label for="major-filter">Major category</label><select id="major-filter" name="major" aria-label="Filter by major category"><option value="">All major categories</option>{majorCategories.map(category => <option value={category.name}>{category.label} ({category.count})</option>)}<option value="__unassigned__" hidden={majorPendingCount === 0}>Not assigned ({majorPendingCount})</option></select></div>
+          <div class="filter-select quadrant-select"><label for="quadrant-filter">Quadrant</label><select id="quadrant-filter" name="quadrant" aria-label="Filter by quadrant or status"><option value="">All quadrants &amp; statuses</option>{quadrantStatuses.map(quadrant => <option value={quadrant.name}>{taxonomyLabel(quadrant.name)} ({quadrant.count})</option>)}<option value="__unassigned__" hidden={quadrantPendingCount === 0}>Not assigned ({quadrantPendingCount})</option></select></div>
+          <div class="filter-select subtype-select"><label for="subtype-filter">Subcategory</label><select id="subtype-filter" name="subtype" aria-label="Filter by subcategory"><option value="">All subcategories</option>{subtypes.map(subtype => <option value={subtype}>{taxonomyLabel(subtype)}</option>)}</select></div>
+          <button id="reset-filters" class="reset-button" type="button" hidden>Reset filters</button>
+        </div>
+        <details class="more-filters" id="more-filters">
+          <summary>More filters <span>Dates, research topics, code</span></summary>
+          <div class="filter-row">
+            <div class="filter-select"><label for="year-filter">Publication year</label><select id="year-filter" name="year" aria-label="Filter by recorded publication year"><option value="">All publication years</option>{years.map(year => <option value={year}>{year}</option>)}</select></div>
+            <div class="filter-select"><label for="month-filter">Submitted</label><select id="month-filter" name="month"><option value="">All months</option>{months.map(month => <option value={month}>{formatDate(`${month}-01`, { month: 'long', year: 'numeric' })}</option>)}</select></div>
+            <div class="filter-select secondary-select"><label for="secondary-filter">Also explores</label><select id="secondary-filter" name="secondary"><option value="">Any direction</option>{categories.map(category => <option value={category.name}>{category.label}</option>)}</select></div>
+            <label class="code-filter"><input type="checkbox" id="code-filter" name="code"/><span>With code</span></label>
+          </div>
+        </details>
+      </form>
+      <noscript><p class="notice">All papers are listed below. Enable JavaScript to search, filter, and paginate the collection.</p></noscript>
+      <div id="search-scope" class="search-scope" hidden><span id="search-scope-label"></span><button id="search-all" type="button" class="reset-button">Search all papers</button></div>
+      <div class="results-toolbar">
+        <p id="result-count" aria-live="polite" aria-atomic="true"><strong>{papers.length}</strong> papers in the collection</p>
+        <div class="results-controls">
+          <label class="sr-only" for="sort-order">Sort papers</label>
+          <select id="sort-order"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="title">Title A–Z</option></select>
+          <span class="toolbar-divider"></span>
+          <div class="view-toggle" aria-label="List density"><button class="selected" type="button" data-view="detailed" aria-label="Detailed view" aria-pressed="true">Detailed</button><button type="button" data-view="compact" aria-label="Compact view" aria-pressed="false">Compact</button></div>
+        </div>
+      </div>
+      <div id="paper-list" class="paper-list">{papers.map((paper, index) => <PaperCard paper={paper} index={index}/>)}</div>
+      <div id="empty-state" class="empty-state" hidden><h3>No papers found</h3><p>Try another keyword or broaden your filters.</p><button type="button" id="empty-reset" class="button button-secondary">Clear all filters</button></div>
+      <nav class="pagination" id="pagination" aria-label="Paper list pages" hidden><span id="page-range"></span><div><button id="previous-page" type="button" aria-label="Previous page">← Previous</button><span id="page-position"></span><button id="next-page" type="button" aria-label="Next page">Next →</button></div></nav>
+      <div class="contribute-strip"><p>Missing a paper, or found a correction?</p><a href={`${repoUrl}/issues/new/choose`} target="_blank" rel="noopener noreferrer">Suggest an update on GitHub ↗</a></div>
+    </div>
+  </section>
+</BaseLayout>
+<script>
+  import { papers, categories, uncategorizedCategory, majorCategories, quadrantStatuses, subtypes } from '../../lib/catalog';
+  import { filterPapers } from '../../lib/search.mjs';
+  import { taxonomyLabel } from '../../lib/taxonomy.mjs';
+  const PAGE_SIZE = 12;
+  const search = document.querySelector<HTMLInputElement>('#paper-search')!;
+  const major = document.querySelector<HTMLSelectElement>('#major-filter')!;
+  const quadrant = document.querySelector<HTMLSelectElement>('#quadrant-filter')!;
+  const subtype = document.querySelector<HTMLSelectElement>('#subtype-filter')!;
+  const month = document.querySelector<HTMLSelectElement>('#month-filter')!;
+  const year = document.querySelector<HTMLSelectElement>('#year-filter')!;
+  const secondary = document.querySelector<HTMLSelectElement>('#secondary-filter')!;
+  const code = document.querySelector<HTMLInputElement>('#code-filter')!;
+  const sort = document.querySelector<HTMLSelectElement>('#sort-order')!;
+  const list = document.querySelector<HTMLElement>('#paper-list')!;
+  const items = new Map([...list.querySelectorAll<HTMLElement>('[data-paper-id]')].map(item => [item.dataset.paperId!, item]));
+  const categoryLinks = [...document.querySelectorAll<HTMLAnchorElement>('[data-category]')];
+  const majorLinks = [...document.querySelectorAll<HTMLAnchorElement>('[data-major]')];
+  const quadrantLinks = [...document.querySelectorAll<HTMLAnchorElement>('[data-quadrant]')];
+  const reset = document.querySelector<HTMLButtonElement>('#reset-filters')!;
+  const previous = document.querySelector<HTMLButtonElement>('#previous-page')!;
+  const next = document.querySelector<HTMLButtonElement>('#next-page')!;
+  const resultCount = document.querySelector<HTMLElement>('#result-count')!;
+  let category = '';
+  let page = 1;
+  let view = 'detailed';
+  let totalPages = 1;
+
+  function readURL() {
+    const params = new URLSearchParams(location.search);
+    search.value = params.get('q') || '';
+    major.value = majorCategories.some(item => item.name === params.get('major')) || params.get('major') === '__unassigned__' ? params.get('major')! : '';
+    quadrant.value = quadrantStatuses.some(item => item.name === params.get('quadrant')) || params.get('quadrant') === '__unassigned__' ? params.get('quadrant')! : '';
+    subtype.value = subtypes.includes(params.get('subtype') || '') ? params.get('subtype')! : '';
+    category = [...categories, uncategorizedCategory].some(c => c.name === params.get('category')) ? params.get('category')! : '';
+    month.value = params.get('month') || '';
+    year.value = params.get('year') || '';
+    secondary.value = params.get('secondary') || '';
+    code.checked = params.get('code') === '1';
+    sort.value = ['newest', 'oldest', 'title'].includes(params.get('sort') || '') ? params.get('sort')! : 'newest';
+    page = Math.max(1, Math.floor(Number(params.get('page')) || 1));
+    view = params.get('view') === 'compact' ? 'compact' : 'detailed';
+    if (category) document.querySelector<HTMLDetailsElement>('#research-topic-filters')!.open = true;
+    if (month.value || year.value || secondary.value || code.checked) document.querySelector<HTMLDetailsElement>('#more-filters')!.open = true;
+  }
+
+  function render(writeURL = true) {
+    const matching = filterPapers(papers, { query: search.value, major: major.value, quadrant: quadrant.value, subtype: subtype.value, category, month: month.value, year: year.value, secondary: secondary.value, code: code.checked, sort: sort.value });
+    totalPages = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
+    page = Math.min(page, totalPages);
+    const start = (page - 1) * PAGE_SIZE;
+    for (const item of items.values()) item.hidden = true;
+    const fragment = document.createDocumentFragment();
+    for (const paper of matching.slice(start, start + PAGE_SIZE)) {
+      const item = items.get(paper.id)!;
+      item.hidden = false;
+      fragment.append(item);
+    }
+    list.append(fragment);
+    list.classList.toggle('compact', view === 'compact');
+    resultCount.replaceChildren();
+    const count = document.createElement('strong');
+    count.textContent = String(matching.length);
+    resultCount.append(count, ` ${matching.length === 1 ? 'paper' : 'papers'}${matching.length === papers.length ? ' in the collection' : ` of ${papers.length}`}`);
+    document.querySelector<HTMLElement>('#empty-state')!.hidden = matching.length > 0;
+    document.querySelector<HTMLElement>('#pagination')!.hidden = matching.length <= PAGE_SIZE;
+    document.querySelector<HTMLElement>('#page-range')!.textContent = `${start + 1}–${Math.min(start + PAGE_SIZE, matching.length)} of ${matching.length} papers`;
+    document.querySelector<HTMLElement>('#page-position')!.textContent = `${page} / ${totalPages}`;
+    previous.disabled = page <= 1;
+    next.disabled = page >= totalPages;
+    reset.hidden = !(search.value || major.value || quadrant.value || subtype.value || category || month.value || year.value || secondary.value || code.checked);
+    const scopes = [
+      major.value && `Major: ${major.value === '__unassigned__' ? 'Not assigned' : taxonomyLabel(major.value)}`,
+      quadrant.value && `Quadrant: ${quadrant.value === '__unassigned__' ? 'Not assigned' : taxonomyLabel(quadrant.value)}`,
+      subtype.value && `Subtype: ${subtype.value === '__unassigned__' ? 'Not assigned' : taxonomyLabel(subtype.value)}`,
+      category && `Topic: ${taxonomyLabel(category)}`, month.value && `Submitted: ${month.value}`,
+      year.value && `Year: ${year.value}`, secondary.value && `Also explores: ${taxonomyLabel(secondary.value)}`,
+      code.checked && 'With code',
+    ].filter(Boolean);
+    document.querySelector<HTMLElement>('#search-scope')!.hidden = !search.value.trim() || scopes.length === 0;
+    document.querySelector<HTMLElement>('#search-scope-label')!.textContent = `Searching within ${scopes.join(' · ')}`;
+    categoryLinks.forEach(link => {
+      const active = link.dataset.category === category;
+      link.classList.toggle('selected', active);
+      if (active) link.setAttribute('aria-current', 'true'); else link.removeAttribute('aria-current');
+    });
+    for (const [links, value] of [[majorLinks, major.value], [quadrantLinks, quadrant.value]] as const) {
+      links.forEach(link => {
+        const active = (link.dataset.major ?? link.dataset.quadrant) === value;
+        link.classList.toggle('selected', active);
+        if (active) link.setAttribute('aria-current', 'true'); else link.removeAttribute('aria-current');
+      });
+    }
+    document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(button => {
+      button.classList.toggle('selected', button.dataset.view === view);
+      button.setAttribute('aria-pressed', String(button.dataset.view === view));
+    });
+    if (writeURL) {
+      const params = new URLSearchParams();
+      if (search.value) params.set('q', search.value);
+      if (major.value) params.set('major', major.value);
+      if (quadrant.value) params.set('quadrant', quadrant.value);
+      if (subtype.value) params.set('subtype', subtype.value);
+      if (category) params.set('category', category);
+      if (month.value) params.set('month', month.value);
+      if (year.value) params.set('year', year.value);
+      if (secondary.value) params.set('secondary', secondary.value);
+      if (code.checked) params.set('code', '1');
+      if (sort.value !== 'newest') params.set('sort', sort.value);
+      if (view !== 'detailed') params.set('view', view);
+      if (page > 1) params.set('page', String(page));
+      const query = params.toString();
+      history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}${location.hash}`);
+    }
+  }
+  function clearFacets() { major.value = ''; quadrant.value = ''; subtype.value = ''; month.value = ''; year.value = ''; secondary.value = ''; code.checked = false; category = ''; page = 1; render(); }
+  function clearFilters() { search.value = ''; clearFacets(); }
+  let debounce: ReturnType<typeof setTimeout>;
+  search.addEventListener('input', () => { clearTimeout(debounce); debounce = setTimeout(() => { page = 1; render(); }, 120); });
+  [major, quadrant, subtype, month, year, secondary, code, sort].forEach(input => input.addEventListener('change', () => { page = 1; render(); }));
+  categoryLinks.forEach(link => link.addEventListener('click', event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); category = link.dataset.category || ''; page = 1; render(); }));
+  majorLinks.forEach(link => link.addEventListener('click', event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); major.value = link.dataset.major || ''; page = 1; render(); }));
+  quadrantLinks.forEach(link => link.addEventListener('click', event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); quadrant.value = link.dataset.quadrant || ''; page = 1; render(); }));
+  document.querySelector<HTMLFormElement>('#catalog-form')!.addEventListener('submit', event => { event.preventDefault(); clearTimeout(debounce); page = 1; render(); });
+  reset.addEventListener('click', clearFilters);
+  document.querySelector('#empty-reset')!.addEventListener('click', clearFilters);
+  document.querySelector('#search-all')!.addEventListener('click', clearFacets);
+  document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(button => button.addEventListener('click', () => { view = button.dataset.view!; render(); }));
+  previous.addEventListener('click', () => { page--; render(); document.querySelector('#library')!.scrollIntoView({ behavior: 'auto' }); });
+  next.addEventListener('click', () => { page++; render(); document.querySelector('#library')!.scrollIntoView({ behavior: 'auto' }); });
+  window.addEventListener('popstate', () => { readURL(); render(false); });
+  document.addEventListener('keydown', event => {
+    if (event.key === '/' && !event.metaKey && !event.ctrlKey && !(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLTextAreaElement) && !(event.target instanceof HTMLSelectElement)) { event.preventDefault(); search.focus(); }
+  });
+  readURL(); render(false);
+</script>
