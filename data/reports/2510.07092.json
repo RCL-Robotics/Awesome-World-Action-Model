@@ -1,0 +1,384 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2510.07092",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T18:30:03.360Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2510.07092",
+      "title": "Generative World Modelling for Humanoids: 1X World Model Challenge Technical Report",
+      "kind": "pdf",
+      "sha256": "cd3751aed78b95a5a9e57d679cf3e6881f86f6deaa93aaad61cbc2420ce7f2e4",
+      "wordCount": 4367,
+      "accessedAt": "2026-09-10T10:28:23.094099+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, authors, affiliations and version (p. 1)",
+      "Abstract and 1. Introduction (p. 1)",
+      "2. Sampling Challenge: problem and preprocessing (p. 2)",
+      "2.1. Model; 2.2. Training; 2.3. Inference (pp. 2–3)",
+      "2.4. Results (p. 3)",
+      "3. Compression Challenge: problem and data (p. 3)",
+      "3.1. Model; 3.2. Training (pp. 3–4)",
+      "3.3. Inference; 3.4. Results; 4. Conclusion (p. 4)",
+      "References [1]–[41] (pp. 5–6)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Identity: the supplied catalog title matches the main title and technical-report subtitle. The printed subtitle additionally ends '- Team Revontuli'. All nine authors match in order. The inspected artifact is arXiv:2510.07092v1 [cs.LG], 8 October 2025; no other edition was supplied or compared.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This extraction limitation was addressed by inspecting all six PDF pages and every final crop.",
+      "Separate supplemental material availability has not been fully verified.",
+      "No appendix is present in this six-page PDF. No external references, code, checkpoints or supplementary files were inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1): task overview",
+      "Figure 2 (p. 2): state-conditioned DiT",
+      "Figure 3a (p. 4): ST-Transformer",
+      "Figure 3b (p. 4): training and rollout curves"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 1): leaderboard",
+      "Table 2 (p. 3): sampling ablations, submission markers and footnotes"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "Team Revontuli uses two separate, state-conditioned predictors: a LoRA-adapted Wan video model for future RGB frames and a spatio-temporal Transformer for future discrete tokens. Both lead the reported challenge leaderboard, but their scores measure conditional prediction rather than executed humanoid control.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Given observed video and supplied past and future robot states, forecast visual consequences. Sampling scores the 512×512 final frame two seconds ahead by PSNR; compression scores future Cosmos tokens by top-500 cross-entropy. Future states are privileged conditioning within these protocols, not actions selected by either predictor.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-tasks",
+      "e-compression-data"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Adapt a pretrained flow-matching video model through fixed context latents and state-driven adaLN-Zero modulation; average stochastic predictions to improve the pixel-based challenge score.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-sampling-method",
+        "e-sampling-inference"
+      ]
+    },
+    {
+      "text": "Train a separate Transformer from scratch with factorized spatial and causal temporal attention, then use greedy autoregressive token prediction.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-compression-model",
+        "e-compression-inference"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Sampling: frames x₀:₁₆ and robot states s₀:₇₆ of shape 77×25.",
+      "Compression: three 32×32 token grids and robot states s₀:₆₃ of shape 64×25."
+    ],
+    "outputs": [
+      "Sampling: future RGB frames, evaluated at the 77th original frame.",
+      "Compression: categorical predictions for three future 32×32 token grids; greedy grids become subsequent context."
+    ],
+    "steps": [
+      {
+        "name": "Align and fix visual context",
+        "detail": "Wan 2.2 TI2V-5B supplies a 30-layer DiT and Wan2.2-VAE latents. The source reports downsampling 77 frames to 21, with five conditioning frames and sixteen targets. Multiple context latents remain fixed during generation. Empty text prompts retain the original cross-attention path. The frame-count inconsistency is unresolved below.",
+        "evidenceIds": [
+          "e-sampling-method"
+        ]
+      },
+      {
+        "name": "Inject time-aligned robot information",
+        "detail": "Angle and velocity features receive sinusoidal augmentation. An MLP projects states to dimension 256; a two-layer 1D convolution compresses time to align with video latents. Another MLP produces adaLN-Zero modulation, added to flow-timestep modulation. State modulation varies across corresponding temporal slices; timestep modulation is shared.",
+        "evidenceIds": [
+          "e-sampling-method"
+        ]
+      },
+      {
+        "name": "Factor token attention",
+        "detail": "Compression alternates attention within each 32×32 grid and causal attention across time at each spatial coordinate, followed by an MLP. The model uses 24 layers, eight heads, dimension 512, sequence length T=5, pre-LayerNorm, QKNorm, learned absolute positions and dropout 0.1. State embeddings pass through an MLP and convolution before addition to video embeddings.",
+        "evidenceIds": [
+          "e-compression-model"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Sampling uses rank-32 LoRA on the DiT for 23,000 AdamW steps at constant learning rate 4×10⁻⁴ and effective batch 1,024. The reported cluster has four nodes with eight NVIDIA B200 GPUs each. Runs with and without classifier-free guidance are compared.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-sampling-training"
+        ]
+      },
+      {
+        "text": "Compression uses approximately 306,000 samples, each containing six grids (6,144 tokens) plus aligned states. Teacher forcing minimizes future-grid cross-entropy. Training lasts 80 epochs with fused AdamW, β₁=0.9, β₂=0.95, matrix-only weight decay 0.05, tied input/output embeddings and batch 160. After 2,000 warmup steps, learning rate decays linearly from 8×10⁻⁴ to zero. Training uses bfloat16 AMP on the same cluster.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-compression-data",
+          "e-compression-training"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Sampling keeps observed latents fixed, generates multiple stochastic futures and averages predictions. Table 2 varies ensemble size, denoising steps and CFG scale. The challenge imposes no inference-time compute restriction; this does not establish real-time operation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-sampling-method",
+          "e-sampling-inference"
+        ]
+      },
+      {
+        "text": "Compression predicts categorical distributions per spatial token and greedily feeds selected grids into later steps. Inference uses float32 because bfloat16 degraded performance. No inverse-dynamics module, action decoder or execution feedback loop is described.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-compression-training",
+          "e-compression-inference",
+          "e-tasks"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "p(z_{H:H+M-1}\\mid z_{0:H-1},s_{0:63})=\\prod_{t=H}^{H+M-1}f_{\\theta}(z_t\\mid z_{<t},s_{0:63})",
+        "explanation": "The compression rollout factorizes over future grids. H=3 is the context length, M=3 the prediction length, z denotes token grids, s the supplied robot-state sequence, and fθ the learned predictor. Each step conditions on previous grids; teacher forcing supplies ground truth during training, whereas deployment uses generated grids.",
+        "evidenceIds": [
+          "e-compression-data",
+          "e-compression-inference",
+          "e-compression-training"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Sampling challenge leaderboard",
+      "setting": "Public challenge test set; first submission additionally trained on train plus validation raw data.",
+      "metric": "Final-frame PSNR (higher is better)",
+      "value": "23.00 dB; rank 1.",
+      "comparison": "Duke: 21.56 dB; Michael: 18.51 dB.",
+      "interpretation": "A leaderboard advantage under submitted systems' differing training and inference choices. The associated 26.62 dB validation score is contaminated by training exposure.",
+      "evidenceIds": [
+        "e-leaderboard",
+        "e-sampling-protocol"
+      ]
+    },
+    {
+      "task": "Sample-averaging ablation",
+      "setting": "Table 2 first three rows: no CFG, 20 inference steps, 1/5/20 averaged samples; validation and test reported separately.",
+      "metric": "PSNR, SSIM, LPIPS and FID",
+      "value": "Validation PSNR: 22.63/24.52/24.88 dB; test: 21.05/22.11/22.42 dB. Validation SSIM: 0.707/0.750/0.762; LPIPS: 0.137/0.165/0.201; FID: 40.23/71.46/90.71.",
+      "comparison": "One sample is the control; larger averages improve PSNR and SSIM but worsen LPIPS and FID.",
+      "interpretation": "The metric tradeoff contradicts any blanket claim that all visual-quality measures improve with averaging.",
+      "evidenceIds": [
+        "e-sampling-ablation"
+      ]
+    },
+    {
+      "task": "Post-deadline sampling configuration",
+      "setting": "Table 2 last row: 100 inference steps, 20 samples, CFG scale 1.0.",
+      "metric": "Validation/test PSNR",
+      "value": "25.53/23.04 dB; test result explicitly obtained after the deadline.",
+      "comparison": "At 20 steps and CFG 1.5: 24.59/22.53 dB; at 100 steps and CFG 1.5: 25.07/22.55 dB, also post-deadline on test.",
+      "interpretation": "Keep the 23.04 dB result separate from the official 23.00 dB submission. Table 1 pairs validation 25.53 with test 23.00, which Table 2 assigns to different configurations.",
+      "evidenceIds": [
+        "e-sampling-protocol",
+        "e-leaderboard"
+      ]
+    },
+    {
+      "task": "Compression challenge leaderboard",
+      "setting": "Public challenge test set; validation CE is a separate column.",
+      "metric": "Test top-500 cross-entropy (lower is better)",
+      "value": "6.6386 in the abstract, rounded to 6.64 in Table 1; rank 1. Validation CE: 4.92.",
+      "comparison": "Duke: test 7.50, validation 5.60; a27sridh: test 7.99.",
+      "interpretation": "Supports stronger token prediction on this benchmark. No uncertainty intervals or executed-task success are reported.",
+      "evidenceIds": [
+        "e-leaderboard",
+        "e-compression-data"
+      ]
+    },
+    {
+      "task": "Teacher-forcing versus rollout diagnostic",
+      "setting": "Figure 3b: compression training and validation curves.",
+      "metric": "Cross-entropy loss",
+      "value": "Autoregressive validation remains above teacher-forced validation; no exact endpoint is tabulated in this plot.",
+      "comparison": "Same model evaluated using generated versus ground-truth history.",
+      "interpretation": "Teacher-forced validation is optimistic. Scheduled sampling reportedly gave no meaningful improvement, but its settings and quantitative ablation are absent.",
+      "evidenceIds": [
+        "e-compression-diagnostic"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors leave the best sampling strategy for downstream decision-making open. Frame and token scores establish neither action selection nor physical execution success; supplied future states make the evaluation conditional on information a controller would need to produce.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-conclusion",
+        "e-tasks"
+      ]
+    },
+    {
+      "text": "Preprocessing says factor-four downsampling of indices 0–76 yields 21 frames, although those regularly spaced indices yield 20. Padding or endpoint handling is unspecified. The compression objective also switches from H to an undefined K; the reported T=5 alignment with six dataset grids is not explained.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-sampling-method",
+        "e-compression-data",
+        "e-compression-model",
+        "e-compression-training"
+      ]
+    },
+    {
+      "text": "The paper reports neither uncertainty across seeds nor detailed split construction. Its optimistic teacher-forced loss is called a lower bound, but no general bound is proved. Leaderboard ranking and qualitative learning curves should not be read as controlled evidence for every architectural component.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-leaderboard",
+        "e-sampling-protocol",
+        "e-compression-diagnostic"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required artifacts include the challenge raw/tokenized data, Wan 2.2 TI2V-5B and its VAE, and the Cosmos tokenizer. Exact split identifiers, state normalization, LoRA target modules, frozen-module inventory, sampler/scheduler configuration and software versions are not specified. Resolve temporal alignment before claiming faithful reproduction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-sampling-method",
+        "e-sampling-training",
+        "e-compression-data",
+        "e-compression-model",
+        "e-compression-training"
+      ]
+    },
+    {
+      "text": "The authors report reaching the sampling leaderboard lead in 36 hours and training compression in under 17 hours. These are author-reported timings on the described cluster, not controlled hardware-normalized comparisons or independently reproduced costs.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-conclusion",
+        "e-sampling-training",
+        "e-compression-training"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    },
+    "reasoning": {
+      "text": "The catalog records no classification to confirm or dispute. Architecture evidence shows two separate conditional world predictors: latent flow matching and autoregressive token modeling. Neither jointly predicts executable actions nor implements inverse dynamics. A One Model world-action label is unsupported; under an action-output quadrant definition, this is outside that scope, not an unverified claim of integration.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-sampling-method",
+        "e-compression-model",
+        "e-compression-inference",
+        "e-tasks"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "When does sample averaging preserve enough detail for downstream decisions despite its LPIPS/FID cost?",
+    "How much of the compression rollout gap comes from generated-history errors rather than distribution calibration?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, author superscripts, equal-contribution footnote and arXiv margin",
+      "detail": "Main title and technical-report subtitle include Team Revontuli; the nine named authors and five affiliations are visible. Margin identifies arXiv:2510.07092v1 [cs.LG], 8 Oct 2025. Mereu and Scannell have equal-contribution marks."
+    },
+    {
+      "id": "e-tasks",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Figure 1 and caption; p. 2, Section 2 Problem Statement; p. 3, Section 3 Problem Statement",
+      "detail": "Sampling observes 17 frames and past/future states, scoring the 77th frame at 512×512 by PSNR. Compression uses three context grids and predicts three more; both tracks condition on supplied states."
+    },
+    {
+      "id": "e-sampling-method",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Data Pre-processing, Section 2.1 and Figure 2/caption",
+      "detail": "Wan 2.2 TI2V-5B has 30 DiT layers. Context latents are fixed; empty text keeps cross-attention. State sinusoidal features, 256-dimensional projection, two-layer temporal convolution and an MLP produce adaLN-Zero modulation added to timestep modulation. The text states 77-to-21 downsampling, five context frames, sixteen targets and VAE temporal length 1+(L−1)/4."
+    },
+    {
+      "id": "e-sampling-training",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 2.2 Training",
+      "detail": "Reports rank-32 LoRA, AdamW, 23k steps, constant learning rate 4×10⁻⁴, effective batch 1024 and four nodes each with eight NVIDIA B200 GPUs; compares CFG and non-CFG training."
+    },
+    {
+      "id": "e-sampling-inference",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 2.3; p. 3, Section 2.4",
+      "detail": "Inference compute is unrestricted. Authors describe averaging predictions to blur uncertain regions, tuning ensemble size, inference steps and CFG, and contrasting averaging with Gaussian blur."
+    },
+    {
+      "id": "e-sampling-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Table 2 first block, first three rows; Section 2.4 first-block discussion",
+      "detail": "For 1/5/20 samples at 20 inference steps without CFG: validation PSNR 22.63/24.52/24.88, test PSNR 21.05/22.11/22.42, SSIM 0.707/0.750/0.762, LPIPS 0.137/0.165/0.201 and FID 40.23/71.46/90.71."
+    },
+    {
+      "id": "e-sampling-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Table 2 caption, starred submission row, CFG blocks and daggered test cells; Section 2.4",
+      "detail": "Starred first submission trains on train+validation, reporting validation/test PSNR 26.62/23.00. At 20 steps, 20 samples, CFG 1.5: 24.59/22.53. At 100 steps, 20 samples, CFG 1.5: 25.07/22.55; CFG 1.0: 25.53/23.04. Both 100-step test scores carry post-deadline daggers."
+    },
+    {
+      "id": "e-leaderboard",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Abstract and Table 1, sampling and compression rows",
+      "detail": "Table 1 lists Revontuli sampling test/validation PSNR 23.00/25.53, Duke 21.56/25.30, Michael test 18.51; compression test top-500 CE/validation CE 6.64/4.92, Duke 7.50/5.60, a27sridh test 7.99. Revontuli ranks first in both; abstract gives compression 6.6386."
+    },
+    {
+      "id": "e-compression-data",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3 Problem Statement and Eq. (1)",
+      "detail": "Cosmos 8×8×8 tokenizer supplies six 32×32 grids per approximately 306,000 samples, with 64×25 robot states; H=M=3. Each three-grid block corresponds to 17 RGB frames at 256×256. Test metric considers top-500 logits per token."
+    },
+    {
+      "id": "e-compression-model",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1; p. 4, Figure 3a and caption",
+      "detail": "Spatial attention covers one grid; causal temporal attention covers the same coordinate across time. Model uses 24 layers, eight heads, dimension 512, T=5, dropout 0.1, pre-LayerNorm, QKNorm and absolute positions. States pass through an MLP and 1D convolution (kernel 3, padding 1) before additive conditioning."
+    },
+    {
+      "id": "e-compression-training",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.2; p. 4, Training Objective and Implementation",
+      "detail": "Training is teacher-forced future-grid cross-entropy for 80 epochs with fused AdamW β₁=0.9, β₂=0.95, matrix-only decay 0.05 and tied embeddings. Peak learning rate 8×10⁻⁴ decays to zero after 2000 warmup steps; batch 160, bfloat16 AMP and same B200 cluster. Inference switches to float32. The objective writes K without explicitly defining it."
+    },
+    {
+      "id": "e-compression-inference",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.3, autoregressive factorization and greedy-decoding equation",
+      "detail": "Future-grid probabilities factor over time conditioned on earlier grids and the complete robot-state sequence. Each step predicts categorical spatial-token distributions; greedy decoding selects argmax outputs to build deterministic sequences."
+    },
+    {
+      "id": "e-compression-diagnostic",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 3b, caption and Section 3.4",
+      "detail": "Blue is teacher-forced training, orange teacher-forced validation and green greedy autoregressive validation. Orange is persistently below green. Authors interpret teacher-forced validation as optimistic and an idealized lower bound; scheduled sampling reportedly did not meaningfully improve results."
+    },
+    {
+      "id": "e-conclusion",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 4 Conclusion",
+      "detail": "Authors report a sampling leaderboard lead in 36 hours and compression training in under 17 hours. They state that averaging optimizes PSNR but the appropriate inference strategy for downstream decision-making remains open."
+    }
+  ]
+}

@@ -1,0 +1,381 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2604.25859",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T11:27:38.965Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2604.25859",
+      "title": "Privileged Foresight Distillation: Zero-Cost Future Correction for World Action Models",
+      "kind": "pdf",
+      "sha256": "11a5f0975f769e62a684ff9b6b7003ce17e1c8db7c283be7a6fe808c1c7eaeaa",
+      "wordCount": 5805,
+      "accessedAt": "2026-09-10T10:24:55.188368+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, authors, version and abstract (p. 1)",
+      "1 Introduction (pp. 1–2)",
+      "2 Related Work (p. 2)",
+      "3 Method, including 3.1–3.5 and Eqs. (1)–(10) (pp. 3–5)",
+      "4 Experiments, including 4.1–4.4 (pp. 5–9)",
+      "5 Conclusion and Limitations (p. 9)",
+      "References (pp. 9–10)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity: the title and all three authors match the supplied catalog. The inspected PDF is arXiv:2604.25859v2 [cs.RO], stamped 2 May 2026, with a title-page and running-header date of May 5, 2026. The catalog records submission on 2026-04-28. Only the supplied v2 artifact was reviewed; the earlier edition and the reason for the two PDF dates were not verified.",
+      "The supplied extraction does not reconstruct figure images; this limitation was addressed by visually inspecting all ten original PDF pages and all six final crops.",
+      "Separate supplemental material availability has not been fully verified. No appendix is present in the supplied ten-page PDF.",
+      "The linked code and inherited Fast-WAM implementation were not inspected; no experiments were reproduced and no external sources were opened."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, architecture and masks (p. 3), including discrepancies with its caption and equations",
+      "Figure 2, LIBERO probe comparison (p. 8)"
+    ],
+    "tablesReviewed": [
+      "Table 1, LIBERO (p. 6)",
+      "Table 2, RoboTwin 2.0 (p. 6)",
+      "Table 3, epistemic probes (p. 7)",
+      "Table 4, inference latency (p. 8)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "Privileged Foresight Distillation (PFD) compares two attention masks on the same world-action backbone, then learns the future-enabled change in action velocity through an output adapter. Deployment uses only the current frame and corrected action denoising. The reported LIBERO mean improves by 1.15 percentage points over reproduced Fast-WAM, with a measured 5.15% cached-context latency overhead; the title's zero-cost wording does not mean zero additional computation.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "If future-video prediction can be removed at deployment, does its training contribution reduce to visual regularization? The authors argue that real future observations reveal an action-specific denoising correction that ordinary current-only training only partly captures. PFD tests whether this correction can be transferred without generating future video at inference.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A shared-parameter, two-mask construction defines a model-dependent foresight residual while holding the noisy inputs and backbone fixed.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "A zero-initialized output adapter learns this residual; LIBERO controls probe temporal correspondence, direct fine-tuning, and allocation of depth versus width.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e12"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Training: demonstrated video sequence X with current frame X_1, corresponding action chunk A, Gaussian corruptions and separate video/action flow timesteps.",
+      "Deployment: current-frame observation, noisy action chunk and action flow timestep; inherited observation conditioning is not fully restated."
+    ],
+    "outputs": [
+      "Training video velocity and base action velocity.",
+      "Corrected action velocity, integrated into an action chunk; the timed LIBERO setting uses 32 actions per chunk."
+    ],
+    "steps": [
+      {
+        "name": "Construct the paired predictions",
+        "detail": "The Mixture-of-Transformers backbone contains video and action experts coupled by attention. Student action queries see current-frame video tokens and action tokens. Teacher queries additionally see future-video tokens derived from the demonstrated trajectory. Both forwards share parameters, timesteps and the same corrupted inputs; the teacher is neither an EMA network nor a separately frozen copy.",
+        "evidenceIds": [
+          "e03",
+          "e04"
+        ]
+      },
+      {
+        "name": "Learn the mask-induced difference",
+        "detail": "Detach the teacher prediction and the teacher-minus-student residual target. Apply the token-wise adapter to the live student velocity and action timestep. Its zero-initialized output projection initially leaves the student unchanged. The target evolves as the shared backbone changes; it is not an oracle correction independent of the model.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Route supervision through the corrected output",
+        "detail": "Combine video flow matching, corrected-action ground truth, residual matching and weak teacher consistency. Residual matching reaches trainable backbone blocks through the adapter input; teacher consistency also has a direct path through the base velocity. Equal forward loss values therefore do not imply equivalent optimization.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Main runs update the last 12 of 30 blocks in each expert plus the adapter; other backbone blocks remain frozen. The adapter is a three-layer SiLU MLP of width 512, using a linear velocity projection and sinusoidal action-time embedding. Loss weights are video=1, ground truth=1, residual=0.5, teacher=0.1.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09"
+        ]
+      },
+      {
+        "text": "Training uses Wan2.2-5B without embodied pretraining, 8 H100 GPUs, 30 LIBERO epochs or 15 RoboTwin epochs, AdamW with cosine decay, weight decay 0.01 and gradient clipping 1.0. Learning rates are 6×10⁻⁵ and 10⁻⁴ respectively. The additional teacher forward increases training work; numerical batch size and detailed inherited schedules are not restated.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08",
+          "e09"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Use 10 flow-matching denoising steps with classifier-free guidance scale 1.0. At every step, add the adapter prediction to the student velocity and update the action sample. Neither the teacher mask nor future frames are instantiated. The paper specifies chunk prediction, but does not detail the executed prefix or observation-refresh loop.",
+        "kind": "source",
+        "evidenceIds": [
+          "e07",
+          "e14"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "X_{\\tau_v}=(1-\\tau_v)\\varepsilon_v+\\tau_v X,\\qquad A_{\\tau_a}=(1-\\tau_a)\\varepsilon_a+\\tau_a A,\\qquad v_{\\mathrm{target}}=A-\\varepsilon_a",
+        "explanation": "X is the video sequence and A its action chunk. Independently sampled flow times τ_v and τ_a lie in [0,1]; ε_v and ε_a are independent Gaussian noise. The two masks reuse the same corrupted samples. First-frame conditioning and scheduler weighting are omitted from the paper's displayed forward equations.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "r=\\operatorname{sg}(v_{\\mathrm{teacher}}-v_{\\mathrm{base}}),\\qquad \\hat{\\delta}=g_\\phi(v_{\\mathrm{base}},\\tau_a),\\qquad v_{\\mathrm{final}}=v_{\\mathrm{base}}+\\hat{\\delta}",
+        "explanation": "The teacher velocity uses the future-visible mask; the base velocity uses the current-only mask. sg stops gradients, r is the target residual, and g_φ predicts correction δ̂. Crucially, the adapter input remains live although the target is detached.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}=\\lambda_{\\mathrm{video}}\\mathcal{L}_{\\mathrm{video}}+\\lambda_{\\mathrm{gt}}\\mathcal{L}_{\\mathrm{gt}}+\\lambda_{\\mathrm{res}}\\|\\hat{\\delta}-r\\|^2+\\lambda_{\\mathrm{teacher}}\\|v_{\\mathrm{final}}-v_{\\mathrm{teacher}}\\|^2",
+        "explanation": "The λ coefficients weight the four losses. L_video and L_gt are timestep-weighted squared video-velocity and corrected-action-velocity errors. The two displayed teacher-derived squared errors coincide numerically, but detaching r changes their gradient paths.",
+        "evidenceIds": [
+          "e06",
+          "e09"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO four-suite manipulation",
+      "setting": "One model per suite; 500 demonstrations across 10 tasks per suite; 500 evaluation trials per suite.",
+      "metric": "Success rate (%)",
+      "value": "PFD: Spatial 98.6, Object 99.2, Goal 99.2, Long 95.4; average 98.10 ±0.06.",
+      "comparison": "Reproduced Fast-WAM: 97.0/99.4/96.6/94.8; 96.95 ±0.08 average. Released Fast-WAM reports 97.60.",
+      "interpretation": "The controlled reference gives +1.15 percentage points overall, strongest on Goal (+2.6); Object decreases 0.2 points. The meanings of ± and the repeat count are unspecified. Published embodied-pretraining baselines provide context, not a unified retraining comparison.",
+      "evidenceIds": [
+        "e08",
+        "e10"
+      ]
+    },
+    {
+      "task": "RoboTwin 2.0 bimanual manipulation",
+      "setting": "Multi-task setup: 2,500 clean-scene and 25,000 randomized-scene demonstrations across more than 50 tasks; 100 trials per task per condition.",
+      "metric": "Success rate (%)",
+      "value": "PFD: clean 93.11, randomized 92.69, average 92.9 ±0.12.",
+      "comparison": "Fast-WAM row: 91.88/91.78, average 91.8 ±0.22; LingBot-VA with embodied pretraining: 92.2 average.",
+      "interpretation": "Reported gains are +1.23/+0.91 points by condition and +1.10 on the displayed average. Table 2 cites Fast-WAM without a released/reproduced label, unlike Table 1; preserve that provenance ambiguity. No physical-robot evaluation is separately reported.",
+      "evidenceIds": [
+        "e08",
+        "e11"
+      ]
+    },
+    {
+      "task": "LIBERO foresight-transfer ablations",
+      "setting": "Section 4.3 controls under the stated PFD training budget; four-suite evaluation.",
+      "metric": "Average success rate (%)",
+      "value": "Default 98.10; pure fine-tuning 96.70; shuffled future 96.62; width 1024 at depths (12,6): 97.36; depths (6,6): 97.40; adapter-only 96.60.",
+      "comparison": "Reproduced Fast-WAM: 96.95.",
+      "interpretation": "Aligned future information helps under these controls, and freezing the backbone loses the gain. Width and video depth change together in the 97.36 row; it is not a clean width ablation. Its displayed suite values average to 97.35; retain the reported 97.36 without inferring unseen precision.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "LIBERO action-chunk inference latency",
+      "setting": "Single H100; 32-action chunks; 10 denoising steps; 20 timing trials after discarding 5 warmup runs.",
+      "metric": "Milliseconds per chunk; relative overhead",
+      "value": "Measured cached-context PFD 271.04 versus baseline 257.77: +13.27 ms, +5.15%.",
+      "comparison": "Table 4 displays 271.0 versus 257.7. Its joint/IDM values, 786.2/1098.1 ms and 3.05×/4.26×, are projections from prior relative slowdowns.",
+      "interpretation": "The adapter is inexpensive but not free. Prompt-mode PFD separately reports 282.29 ms and +7.80 ms (+2.84%) over its corresponding baseline; do not mix prompt and cached-context protocols.",
+      "evidenceIds": [
+        "e14"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors test one backbone family, an output MLP and a full-horizon teacher mask. They provide no formal conditions guaranteeing that a small adapter can approximate the residual.",
+      "kind": "source",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "text": "Figure 1 conflicts with its caption and Eqs. (4)–(10): it marks the student as stop-gradiented, draws a residual-to-adapter arrow, and shows L1 residual matching and cross-entropy instead of the squared flow losses. This report follows the explicit equations and gradient-routing prose; the figure alone cannot specify implementation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "text": "The controls support a bounded empirical account, not universal elimination of capacity or regularization explanations. Pure fine-tuning also removes the adapter and changes supervision; the depth–width probe changes two factors. No multi-seed uncertainty is defined for these ablations.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e12"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction needs the inherited Fast-WAM checkpoint/configuration, aligned demonstrations and paired noisy forwards with identical parameters. Exact batch size, frame horizon, action representation, preprocessing, software versions and weighting schedules are not fully specified here; the PDF's code link establishes only an author availability claim.",
+      "kind": "source",
+      "evidenceIds": [
+        "e01",
+        "e04",
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "text": "Proposed checks: audit gradient paths against Eqs. (4)–(10), then compare aligned and shuffled teachers under identical settings. Separately hold action depth fixed while crossing video depth and adapter width, reporting seed variation, trainable parameters and compute. These would test implementation fidelity and the unresolved width–depth confound.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e06",
+        "e09",
+        "e12",
+        "e16"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The supplied catalog has no assigned class. Architecture evidence shows one shared Mixture-of-Transformers parameter set with video/action experts and two training masks, rather than a separately parameterized teacher pipeline. Training combines video/action flow objectives with privileged residual distillation; deployment is current-only action denoising, not future generation followed by inverse dynamics. This supports an integrated-backbone reading but leaves the unassigned catalog quadrant unchanged.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e06",
+        "e07"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "Would the residual remain useful when the future is ambiguous from the current observation?",
+    "How much of the improvement survives a fixed-depth width comparison and repeated training seeds?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/byline, date, arXiv margin stamp and abstract code statement",
+      "detail": "Title matches the observed title. Authors are Pengcheng Fang (The University of Southampton), Hongli Chen (The University of Queensland), and Xiaohao Cai (The University of Southampton). Margin: arXiv:2604.25859v2 [cs.RO], 2 May 2026; title date: May 5, 2026. The abstract states that code is available."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1, regularizer/privileged-foresight distinction and contributions",
+      "detail": "The authors ask what future-video training contributes after removing test-time imagination and propose distilling a future-conditioned action correction."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 1, attention matrices, training/inference panels and caption",
+      "detail": "The action-query row sees current video plus actions in the student and all video plus actions in the teacher. The caption states a live student prediction, detached residual and current-only inference."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Sections 3.1–3.2, Eqs. (1)–(3) and conditioning note",
+      "detail": "Video and action experts use flow matching. Same-parameter student/teacher forwards reuse identical corrupted inputs and differ in video attention support; the teacher forward is detached. Observation conditioning and scheduler weights follow Fast-WAM but are omitted from the displayed forwards."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.3, Eqs. (4)–(5) and adapter initialization paragraph",
+      "detail": "The detached teacher-minus-student target is predicted by an adapter consuming live base velocity and action timestep. Its zero-initialized output preserves the original student at initialization."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.4, Eqs. (6)–(10), Gradient routing and L_res versus L_teacher",
+      "detail": "Four weighted losses include video/action squared flow errors, detached-target residual matching and teacher consistency. The two teacher losses have equal numerical values but distinct direct and adapter-mediated gradient paths."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.5 and Section 4.1 Inference",
+      "detail": "Every inference step adds the adapter output to the current-only student velocity. Ten denoising steps and guidance scale 1.0 are used, with no teacher mask or future-video generation."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1 Benchmarks and Baselines",
+      "detail": "LIBERO uses four suites, 500 demonstrations over 10 tasks and 500 trials per suite. RoboTwin uses 2,500 clean and 25,000 randomized demonstrations over more than 50 tasks, with 100 trials per task. Context baselines are copied from Fast-WAM; PFD/Fast-WAM use Wan2.2-5B without embodied pretraining."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.1 Training and Implementation",
+      "detail": "Training specifies 8 H100 GPUs, 30/15 epochs, AdamW, cosine decay, 0.01 weight decay, 1.0 clipping and learning rates 6×10⁻⁵/10⁻⁴. Default depths are (12,12) of 30 blocks each; adapter width is 512 with three SiLU MLP layers. Loss weights are 1/1/0.5/0.1."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, Fast-WAM and PFD rows, and Section 4.2 LIBERO",
+      "detail": "Reproduced Fast-WAM averages 96.95 ±0.08 and PFD 98.10 ±0.06. PFD suite results are 98.6/99.2/99.2/95.4. Released Fast-WAM is 97.60, adapter-only PFD 96.60, and LingBot-VA 98.5. The ± statistic is not defined."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2, Fast-WAM, PFD and LingBot-VA rows, and Section 4.2 RoboTwin",
+      "detail": "PFD reports 93.11/92.69 and 92.9 ±0.12 average; Fast-WAM reports 91.88/91.78 and 91.8 ±0.22 average. LingBot-VA with embodied pretraining averages 92.2; its Wan2.2 row lacks a randomized result. Fast-WAM's row has no released/reproduced qualifier."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3, all rows, and Section 4.3 control descriptions",
+      "detail": "Default averages 98.10; pure fine-tune 96.70; shuffled future 96.62; width1024/depths(12,6) 97.36; depths(6,6) 97.40; adapter-only 96.60. Pure fine-tuning uses action supervision without teacher/adapter; shuffled futures come from unrelated batch trajectories. The wider row also reduces video depth; its displayed suite entries are 97.9/99.8/97.2/94.5."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 2, axes, labels, arrows and legend; PDF p. 7, Table 3 for complete depth settings",
+      "detail": "Figure 2 plots a 96.95 baseline, 98.10 default, 97.40 shallow model and 97.36 wider/shallow-video model, with 0.70/0.74 point gaps. The vertical axis starts at 96.0 and no uncertainty bars are shown. Table 3 identifies both expert depths where the figure labels emphasize video depth."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4 and Section 4.4, projection paragraph and timing protocol",
+      "detail": "Table values for joint/IDM are projected from previous slowdowns. Measured cached-context latency is 257.77 ms baseline and 271.04 ms PFD, +13.27 ms/+5.15%, on one H100 for 32-action chunks and ten denoising steps, over 20 trials after five warmups. Prompt-mode PFD is 282.29 ms, +7.80 ms/+2.84%."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5, Limitations paragraph",
+      "detail": "The study uses one output MLP, a full-horizon teacher mask and one backbone family. Richer adapters/masks and theoretical conditions for low-capacity residual approximation remain unexplored."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 1 training panel and caption; PDF pp. 4–5, Eqs. (4)–(10) and gradient-routing prose",
+      "detail": "The graphic places a stop-gradient marker at the student, an arrow from residual to adapter, and L1/cross-entropy loss formulas. Its caption and equations instead specify a live adapter input, a detached residual target, and squared velocity losses including video flow matching. These source inconsistencies are retained, not repaired."
+    }
+  ]
+}

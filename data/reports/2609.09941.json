@@ -1,0 +1,434 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.09941",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T10:43:49.840Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2609.09941",
+      "title": "HaWMPO: Hallucination-Aware World Model-based Policy Optimization for Generalist Robot Policy",
+      "kind": "pdf",
+      "sha256": "b50a6b325a460026f65acdc349fb71256d4dde0f2d2a28ecad6855d596e9e306",
+      "wordCount": 6899,
+      "accessedAt": "2026-09-10T10:23:53.600185+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, author block and abstract (p. 1): arXiv:2609.09941v1, 9 September 2026",
+      "1 Introduction (pp. 1–3)",
+      "2 Related Work, including 2.1–2.2 (p. 3)",
+      "3 Methodology, including 3.1–3.3 and Algorithm 1 (pp. 3–6)",
+      "4 Experiments, including 4.1–4.6 (pp. 6–9)",
+      "5 Conclusion and 6 Limitations (pp. 9–10)",
+      "References (pp. 10–12)",
+      "Appendix A.1 Data Collection and A.2 Training Data Analysis (pp. 13–14)",
+      "Appendix A.3 Baseline (p. 14)",
+      "Appendix A.4 Real-World Experiments (p. 15)",
+      "Appendix A.5 World Model as Simulator (pp. 15–16)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction limitation was addressed by inspecting original PDF pages and all ten figures and four tables. All five supplied text chunks were read completely; reference-only pages 11–12 were read as text, without separate page-image inspection.",
+      "Only the supplied v1 was reviewed. Its title and four-author byline match the catalog; no alternate revision or edition was supplied or compared.",
+      "Code, external links, datasets and separate supplemental media were not inspected; no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2), pipeline",
+      "Figure 2 (p. 4), HAM architecture",
+      "Figure 3 (p. 7), physical task setups",
+      "Figure 4 (p. 7), penalty sweep",
+      "Figure 5 (p. 8), predicted versus observed frames",
+      "Figure 6 (p. 13), metric distributions",
+      "Figure 7 (p. 14), metric box plots",
+      "Figure 8 (p. 14), metric PCA",
+      "Figure 9 (p. 15), actual robot execution frames",
+      "Figure 10 (p. 16), world-model predictions"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 6), LIBERO comparison",
+      "Table 2 (p. 7), physical success counts",
+      "Table 3 (p. 8), human-label detector evaluation",
+      "Table 4 (p. 9), integrated-module ablation"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "HaWMPO post-trains OpenVLA-OFT inside a frozen video world model. A separate hallucination detector discounts rewards assigned to unreliable imagined action chunks before GRPO updates the policy. Table 1 reports 63.7% average LIBERO success, but gains vary by suite and the penalty-selection description is inconsistent. Physical testing provides preliminary evidence on two G1 tasks.",
+  "readingTimeMinutes": 8,
+  "problem": {
+    "text": "Imagined rollouts reduce dependence on physical interaction, but accumulated visual prediction errors can become false rewards. The policy may exploit these errors. HaWMPO asks whether action-conditioned reliability estimates can improve the learning signal without modifying the simulator during policy optimization.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-overview",
+      "e-world-rollout"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "HAM learns continuous chunk reliability from a composite visual, geometric and motion proxy, using observed futures only to construct training targets.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-ham-target",
+        "e-ham-architecture"
+      ]
+    },
+    {
+      "text": "Reward-Soft incorporates hallucination scores into GRPO rewards. The paper evaluates both human-labeled hallucination detection and downstream policy success, which test different parts of this proposal.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-reward-soft",
+        "e-grpo",
+        "e-ham-validation",
+        "e-libero"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "VLA: current visual observation and task instruction.",
+      "Simulator: fixed reference plus four recent RGB frames, associated action context and eight proposed actions.",
+      "HAM: eight predicted frames, conditioning actions, current image and initial anchor image."
+    ],
+    "outputs": [
+      "Simulator: eight future RGB frames.",
+      "HAM: continuous hallucination score, higher meaning less reliable.",
+      "Training: post-trained VLA policy producing robot action chunks."
+    ],
+    "steps": [
+      {
+        "name": "Build an action-conditioned simulator",
+        "detail": "The inherited WoVR simulator uses Wan2.2-TI2V-5B: a video VAE and a 30-block DiT with hidden dimension 3072 and 24 heads. Actions condition cross-attention through projected tokens and block modulation through grouped-action embeddings added to timestep embeddings.",
+        "evidenceIds": [
+          "e-baseline",
+          "e-world-architecture"
+        ]
+      },
+      {
+        "name": "Construct reliability supervision",
+        "detail": "Generate chunks from recorded successful and failed trajectories. Normalize DINOv3 similarity, depth consistency, optical-flow trajectory consistency and MUSIQ quality, then invert their equally weighted mean. Task failure is not itself hallucination. Appendix percentile groups describe the proxy distribution; training uses continuous targets.",
+        "evidenceIds": [
+          "e-ham-target",
+          "e-proxy-analysis"
+        ]
+      },
+      {
+        "name": "Regress the hallucination score",
+        "detail": "Frozen DINOv3 features, projected context and projected actions enter four fusion layers with action-to-visual cross-attention, self-attention and feed-forward processing. A learnable query, MLP and sigmoid yield the score; HAM is trained with mean squared error.",
+        "evidenceIds": [
+          "e-ham-architecture"
+        ]
+      },
+      {
+        "name": "Roll out and update the policy",
+        "detail": "Eight parallel imagined environments generate chunks. A separate reward model assesses generated observations; HAM estimates reliability. Reward-Soft modifies rewards before group normalization. The GRPO objective uses clipped policy likelihood ratios and reference-policy KL regularization to update the VLA.",
+        "evidenceIds": [
+          "e-reward-soft",
+          "e-grpo"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "OpenVLA-OFT starts from one expert trajectory per task for SFT. Compared RL policies receive 200 optimization steps. World-model methods train their simulator once and freeze it; reproduced WoVR* omits PACE, so it is not the complete original WoVR pipeline.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training",
+          "e-libero",
+          "e-baseline"
+        ]
+      },
+      {
+        "text": "The reported setup uses Adam, backbone learning rate 2.0×10⁻⁵, a stated value-network rate 3.0×10⁻³, weight decay 0.01, gradient norm limit 1.0 and eight NVIDIA H200 GPUs. The value network's role is not explained in the presented group-relative objective.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-training",
+          "e-grpo"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "During imagined rollouts, the last four generated frames refresh context while the reference stays fixed. Frames are 256×256; LIBERO actions have three translation, three rotation and one gripper component. Denoising jointly generates a chunk; recurrence across chunks is autoregressive. Instructions enter the VLA, not the video model.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-world-architecture",
+          "e-world-rollout"
+        ]
+      },
+      {
+        "text": "HAM needs no observed future during rollout. The deployed object is the post-trained action policy; the supplied pipeline does not specify deployment-time HAM filtering or video-search planning. Physical robot trials and generated videos are separate evidence.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-ham-architecture",
+          "e-grpo",
+          "e-robot",
+          "e-world-rollout"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "q_c^{(m)}=\\operatorname{clip}_{[0,1]}\\!\\left(\\frac{s_c^{(m)}-\\ell_m}{\\max(u_m-\\ell_m,\\varepsilon)}\\right),\\qquad h_c^\\star=1-\\frac{1}{4}\\sum_{m=1}^{4}q_c^{(m)}",
+        "explanation": "Equation (1): c indexes a chunk and m one of four quality metrics. Raw quality s is normalized with lower/upper bounds ℓ and u; ε>0 prevents division by zero. Higher normalized quality q means lower target hallucination h⋆.",
+        "evidenceIds": [
+          "e-ham-target"
+        ]
+      },
+      {
+        "expression": "\\widehat R=(1-\\alpha H)R",
+        "explanation": "Equation (3): R is average raw chunk reward, H its average predicted hallucination score, α the penalty strength, and R̂ the modulated reward. Section 3.2 and Algorithm 1 incorrectly refer to this as Equation (1).",
+        "evidenceIds": [
+          "e-reward-soft",
+          "e-grpo"
+        ]
+      },
+      {
+        "expression": "\\widehat O_{t+1:t+K}\\sim p_\\phi(\\,\\cdot\\mid C_t,U_t,A_t),\\qquad K=8",
+        "explanation": "Equation (8): C is five-frame visual context, U associated action context, A the proposed action chunk and φ simulator parameters. The decoded sequence has 13 frames, but only eight future frames Ô become the transition; conditioning latents remain fixed.",
+        "evidenceIds": [
+          "e-world-rollout"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO three-suite policy success",
+      "setting": "Spatial, Goal and Object; one-shot SFT initialization and 200 RL steps; fixed world models, WoVR* without PACE. Simulation evaluation trial counts and uncertainty are unspecified.",
+      "metric": "Success rate (%)",
+      "value": "Spatial 77.2; Goal 61.6; Object 52.2; reported average 63.7.",
+      "comparison": "Average: base 48.7, WMPO 56.8, WoVR* 60.9. Differences are +15.0, +6.9 and +2.8 percentage points. WoVR* wins Goal, 64.0 versus 61.6.",
+      "interpretation": "Best reported average, not uniform superiority. Retain Table 1 unchanged despite the penalty-selection conflict.",
+      "evidenceIds": [
+        "e-training",
+        "e-libero",
+        "e-penalty",
+        "e-ablation"
+      ]
+    },
+    {
+      "task": "G1 physical manipulation",
+      "setting": "Tissue-to-Box and Headphone-on-Stand; 20 trials per method per task; success requires stable placement after release.",
+      "metric": "Success rate (%) and successes/trials",
+      "value": "HaWMPO: tissue 85% (17/20), headphones 75% (15/20); average 80.0%.",
+      "comparison": "Base: 75% (15/20), 60% (12/20), average 67.5%. WoVR: 80% (16/20), 65% (13/20), average 72.5%.",
+      "interpretation": "Observed average gains are 12.5 and 7.5 percentage points; two tasks and small counts establish only preliminary transfer evidence.",
+      "evidenceIds": [
+        "e-robot"
+      ]
+    },
+    {
+      "task": "HAM hallucination detection",
+      "setting": "50 chunks from 50 LIBERO trajectories, ten tasks; human labels: 18 hallucinated, 32 non-hallucinated. Confidence intervals use 2,000 trajectory bootstrap resamples.",
+      "metric": "AUROC and average precision (AP), higher is better",
+      "value": "HAM AUROC 0.9375 [0.8648, 0.9911]; AP 0.8952 [0.7660, 0.9885], 95% intervals.",
+      "comparison": "DINO-only: 0.9062 / 0.8299; Depth-only: 0.8941 / 0.8644; MUSIQ-only: 0.3056 / 0.3750. DINO/depth require observed futures; HAM does not.",
+      "interpretation": "Highest point estimates, without established statistical significance. Separate proxy-target MAE 0.0174, RMSE 0.0250 and Spearman 0.9310 measure target agreement, not physical validity.",
+      "evidenceIds": [
+        "e-ham-validation"
+      ]
+    },
+    {
+      "task": "Integrated HAM and Reward-Soft ablation",
+      "setting": "LIBERO, 200 steps, unified α=0.3; removing HAM also disables Reward-Soft.",
+      "metric": "Success rate (%)",
+      "value": "Full versus removed module: Spatial 77.2 versus 69.2; Object 52.2 versus 49.6; Goal 61.6 versus 64.0.",
+      "comparison": "Differences: +8.0, +2.6 and −2.4 percentage points. Figure 4 separately reports Goal 66.2 at α=1.",
+      "interpretation": "The combined module helps two suites at this checkpoint. This does not isolate detector architecture from reward shaping.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-penalty"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify incomplete hand-designed hallucination supervision, mostly short-horizon evaluation and limited adaptability from separately trained modules. Plausible generated frames do not establish accurate contact dynamics.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-limitations",
+        "e-world-rollout"
+      ]
+    },
+    {
+      "text": "Section 4.4 says Table 1 uses per-suite α, but Table 1's Goal 61.6 matches α=0.3, while Figure 4 gives 66.2 for α=1. Section 4.6 explicitly fixes α=0.3. Section 4.4 also says Object 52.0 where the figure and tables show 52.2. These remain unresolved reporting discrepancies.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-libero",
+        "e-penalty",
+        "e-ablation"
+      ]
+    },
+    {
+      "text": "Proxy-defined percentile separation is partly built into label construction. Human-label evaluation is more independent, but small; the source does not establish detector train/test separation or downstream simulation uncertainty.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-proxy-analysis",
+        "e-ham-validation",
+        "e-libero"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires the initialized VLA, action-conditioned simulator, reward model, recorded action/video pairs and four metric implementations. The appendix names DepthAnything-v3 and NDTW, but exact normalization bounds, HAM training split, reward-model training, diffusion schedule and full RL configuration remain unspecified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-ham-target",
+        "e-proxy-analysis",
+        "e-world-architecture",
+        "e-world-rollout",
+        "e-grpo"
+      ]
+    },
+    {
+      "text": "Proposed checks: evaluate HAM on trajectory/task-disjoint human labels; then compare learned, shuffled and constant hallucination scores against unmodulated rewards with the same frozen simulator and optimization budget. Report both advantage changes and actual LIBERO success, with penalty selection separated from final evaluation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-ham-validation",
+        "e-reward-soft",
+        "e-grpo",
+        "e-libero",
+        "e-penalty",
+        "e-ablation"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The supplied taxonomy is entirely Not assigned, so no existing quadrant can be confirmed. Architectural evidence supports separate world-model-assisted policy optimization: a VLA predicts actions, a frozen video model predicts observations, and separate heads/models score reliability and reward. This is neither a demonstrated unified One Model nor inverse-dynamics action extraction; no catalog fields are changed.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-overview",
+        "e-grpo",
+        "e-world-architecture",
+        "e-world-rollout"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "Does HAM detect policy-induced dynamics errors on unseen tasks, or chiefly reproduce the metric mixture used for supervision?",
+    "Would the reported average improvement survive predeclared penalty selection, repeated seeds and the complete WoVR PACE baseline?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/byline, affiliation lines and arXiv margin stamp",
+      "detail": "Title and four authors match the catalog. The stamp identifies arXiv:2609.09941v1 [cs.RO], 9 Sep 2026. Affiliations are Joy Future Academy, JD; School of Artificial Intelligence, Jilin University."
+    },
+    {
+      "id": "e-overview",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Introduction and Figure 1 with caption",
+      "detail": "The pipeline links a VLA, action-conditioned world model, HAM and reward model; unreliable imagined transitions can bias policy learning. Figure 1's Multiplication block is shorthand clarified by Equation (3)."
+    },
+    {
+      "id": "e-ham-target",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1, Equation (1) and paragraph after Figure 2",
+      "detail": "HAM uses predicted eight-frame chunks, actions, current and anchor images. Four normalized quality metrics yield one minus their mean as hallucination target. Observed successful and failed trajectories supply targets; the composite is a proxy and failure alone is not hallucination."
+    },
+    {
+      "id": "e-ham-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2, Section 3.1 and Equation (2)",
+      "detail": "Frozen DINOv3, context/action projection, four fusion layers, a learnable query and sigmoid head regress chunk hallucination by MSE. Observed future images are needed for supervision, not imagined-rollout scoring."
+    },
+    {
+      "id": "e-reward-soft",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.2, Equation (3)",
+      "detail": "Reward-Soft multiplies average raw chunk reward by 1−αH. H is average predicted chunk hallucination; α controls modulation. The prose mistakenly calls the formula Equation (1)."
+    },
+    {
+      "id": "e-grpo",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Algorithm 1, Section 3.3, Equations (4)–(7)",
+      "detail": "Eight parallel imagined environments supply action chunks. Modulated rewards are normalized within groups before a clipped ratio and reference-policy KL objective updates the VLA. Algorithm 1 repeats the incorrect Equation (1) cross-reference."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1",
+      "detail": "OpenVLA-OFT receives one expert trajectory per task for SFT. Adam settings are backbone 2.0×10⁻⁵, value network 3.0×10⁻³, weight decay 0.01, gradient norm 1.0; hardware is eight NVIDIA H200 GPUs."
+    },
+    {
+      "id": "e-libero",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.2 and Table 1, all method rows and suite/Avg columns",
+      "detail": "All RL policies are evaluated after 200 steps; world models are trained once then fixed. WoVR* excludes PACE. HaWMPO reports 77.2/61.6/52.2 and average 63.7; base average 48.7, WMPO 56.8, WoVR* 60.9. Trial counts and uncertainty are not given here."
+    },
+    {
+      "id": "e-penalty",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 4 with caption and Section 4.4; PDF p. 9, Section 4.6 penalty discussion",
+      "detail": "Figure 4 at 200 steps shows α=0.3 Object 52.2, Goal 61.6, Spatial 77.2; α=1 Goal 66.2. Section 4.4 instead prints Object 52.0 and claims per-suite α for Table 1, whereas Section 4.6 fixes α=0.3. Figure 4 has no uncertainty bands."
+    },
+    {
+      "id": "e-robot",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.3, Figure 3 and Table 2; PDF p. 15, Appendix A.4 and Figure 9",
+      "detail": "Each method has 20 G1 trials per task with stable placement after release as success. Tissue counts: base 15, WoVR 16, HaWMPO 17; headphone counts: 12, 13, 15. Means are 67.5%, 72.5%, 80.0%. Figure 9 is identified as actual physical execution."
+    },
+    {
+      "id": "e-ham-validation",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.5, Table 3 including dagger note, and Figure 5; PDF p. 14, Figure 8",
+      "detail": "Human detection uses 50 chunks/trajectories over ten tasks, with 18 positives and 32 negatives; 2,000 trajectory bootstrap resamples give 95% intervals. HAM AUROC/AP are 0.9375/0.8952; DINO 0.9062/0.8299, trajectory 0.8872/0.8069, depth 0.8941/0.8644, MUSIQ 0.3056/0.3750. Reference requirements, significance boundary and separate proxy regression metrics are explicit. The Section 4.5 reference to Figure 8 for qualitative frame comparisons is inconsistent: those examples are Figure 5, while Figure 8 is PCA."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 4.6 and Table 4, all suite/step rows",
+      "detail": "Removing HAM simultaneously disables Reward-Soft. At α=0.3 and 200 steps, full/removed success is Spatial 77.2/69.2, Object 52.2/49.6, Goal 61.6/64.0. Object is also worse at 120 steps, 52.8 versus 54.2; Goal is lower at all reported checkpoints."
+    },
+    {
+      "id": "e-limitations",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 6",
+      "detail": "The authors limit coverage of their handcrafted proxy, acknowledge mostly short-horizon manipulation evaluation and underexplored long-horizon real-world scaling, and describe separate HAM/world-model training as limiting adaptability."
+    },
+    {
+      "id": "e-proxy-analysis",
+      "sourceId": "primary",
+      "location": "PDF pp. 13–14, Appendix A.1–A.2 and Figures 6–8",
+      "detail": "Data processing names DINOv3, DepthAnything-v3, MUSIQ and optical-flow trajectory consistency via NDTW. Metrics are normalized and equally weighted. Top 10%, middle 40%, bottom 50% define descriptive quality groups; continuous composite supervision is used. Metric figures visualize distribution overlap and proxy-defined separation."
+    },
+    {
+      "id": "e-baseline",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix A.3",
+      "detail": "HaWMPO inherits WoVR's action-conditioned Wan2.2 world model and omits PACE. The appendix claims PACE is orthogonal; no experiment establishing additivity is presented."
+    },
+    {
+      "id": "e-world-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A.5, Model architecture and Inputs and outputs",
+      "detail": "Wan2.2-TI2V-5B uses a VAE and DiT with 30 blocks, hidden dimension 3072 and 24 heads. Actions condition token cross-attention and timestep modulation. Five RGB context frames plus eight action steps are supplied; LIBERO actions have seven components and frames are 256×256."
+    },
+    {
+      "id": "e-world-rollout",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Appendix A.5, Equation (8), Closed-loop imagined rollouts and Figure 10 with concluding paragraph",
+      "detail": "The simulator decodes 13 frames, returns eight futures and fixes conditioning latents. Four recent frames update while the reference is retained. The VLA receives language; the frozen world model receives images/actions. Reward and reliability are estimated separately. Generated visual plausibility does not guarantee contact dynamics or physical success."
+    }
+  ]
+}

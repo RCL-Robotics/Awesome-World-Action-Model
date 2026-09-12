@@ -40,7 +40,8 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
     <div class="catalog-main">
       <div class="section-heading"><div><div class="eyebrow small">THE PAPER INDEX</div><h2 id="library-heading">Explore the literature<span>.</span></h2></div><span class="collection-update"><span class="status-dot"></span> Updated {meta.updatedAt.slice(0, 10)}</span></div>
       <form id="catalog-form" class="catalog-tools" role="search">
-        <div class="search-box"><Icon name="search" size={21}/><label class="sr-only" for="paper-search">Search papers, authors, abstracts, identifiers, or source URLs</label><input id="paper-search" name="q" type="search" autocomplete="off" placeholder="Search papers, authors, DOI, or an idea…"/><kbd aria-hidden="true">/</kbd></div>
+        <div class="search-box"><Icon name="search" size={21}/><label class="sr-only" for="paper-search">Search papers, authors, abstracts, identifiers, or source URLs</label><input id="paper-search" name="q" type="search" autocomplete="off" aria-describedby="search-help" placeholder="Search papers, authors, DOI, or an idea…"/><kbd aria-hidden="true">/</kbd></div>
+        <p id="search-help" class="search-help">Ignore case, spaces and hyphens — try “FastWAM” or “Fast WAM”.</p>
         <div class="filter-row taxonomy-filter-row">
           <div class="filter-select"><label for="major-filter">Major</label><select id="major-filter" name="major" aria-label="Filter by major category"><option value="">All major categories</option>{majorCategories.map(category => <option value={category.name}>{category.label} ({category.count})</option>)}<option value="__unassigned__" hidden={majorPendingCount === 0}>Not assigned ({majorPendingCount})</option></select></div>
           <div class="filter-select quadrant-select"><label for="quadrant-filter">Quadrant</label><select id="quadrant-filter" name="quadrant" aria-label="Filter by quadrant or status"><option value="">All quadrants &amp; statuses</option>{quadrantStatuses.map(quadrant => <option value={quadrant.name}>{taxonomyLabel(quadrant.name)} ({quadrant.count})</option>)}<option value="__unassigned__" hidden={quadrantPendingCount === 0}>Not assigned ({quadrantPendingCount})</option></select></div>
@@ -55,6 +56,7 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
         </div></details>
       </form>
       <noscript><p class="notice">All papers are listed below. Enable JavaScript to search, filter, and paginate the collection.</p></noscript>
+      <div id="search-scope" class="search-scope" hidden><span id="search-scope-label"></span><button id="search-all" type="button" class="reset-button">Search all papers</button></div>
       <div class="results-toolbar"><p id="result-count" aria-live="polite" aria-atomic="true"><strong>{papers.length}</strong> papers in the collection</p><div class="results-controls"><label class="sr-only" for="sort-order">Sort papers</label><select id="sort-order"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="title">Title A–Z</option></select><span class="toolbar-divider"></span><div class="view-toggle" aria-label="List density"><button class="selected" type="button" data-view="detailed" aria-label="Detailed view" aria-pressed="true"><Icon name="grid" size={16}/></button><button type="button" data-view="compact" aria-label="Compact view" aria-pressed="false"><Icon name="list" size={17}/></button></div></div></div>
       <div id="paper-list" class="paper-list">{papers.map((paper, index) => <PaperCard paper={paper} index={index}/>)}</div>
       <div id="empty-state" class="empty-state" hidden><Icon name="search" size={30}/><h3>No papers found</h3><p>Try another keyword or broaden your filters.</p><button type="button" id="empty-reset" class="button button-secondary">Clear all filters</button></div>
@@ -66,6 +68,7 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
 <script>
   import { papers, categories, uncategorizedCategory, majorCategories, quadrantStatuses, subtypes } from '../lib/catalog';
   import { filterPapers } from '../lib/search.mjs';
+  import { taxonomyLabel } from '../lib/taxonomy.mjs';
   const PAGE_SIZE = 12;
   const search = document.querySelector<HTMLInputElement>('#paper-search')!;
   const major = document.querySelector<HTMLSelectElement>('#major-filter')!;
@@ -133,6 +136,16 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
     previous.disabled = page <= 1;
     next.disabled = page >= totalPages;
     reset.hidden = !(search.value || major.value || quadrant.value || subtype.value || category || month.value || year.value || secondary.value || code.checked);
+    const scopes = [
+      major.value && `Major: ${major.value === '__unassigned__' ? 'Not assigned' : taxonomyLabel(major.value)}`,
+      quadrant.value && `Quadrant: ${quadrant.value === '__unassigned__' ? 'Not assigned' : taxonomyLabel(quadrant.value)}`,
+      subtype.value && `Subtype: ${subtype.value === '__unassigned__' ? 'Not assigned' : taxonomyLabel(subtype.value)}`,
+      category && `Topic: ${category}`, month.value && `Submitted: ${month.value}`,
+      year.value && `Year: ${year.value}`, secondary.value && `Also explores: ${secondary.value}`,
+      code.checked && 'With code',
+    ].filter(Boolean);
+    document.querySelector<HTMLElement>('#search-scope')!.hidden = !search.value.trim() || scopes.length === 0;
+    document.querySelector<HTMLElement>('#search-scope-label')!.textContent = `Searching within ${scopes.join(' · ')}`;
     categoryLinks.forEach(link => {
       const active = link.dataset.category === category;
       link.classList.toggle('selected', active);
@@ -167,7 +180,8 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
       history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}${location.hash}`);
     }
   }
-  function clearFilters() { search.value = ''; major.value = ''; quadrant.value = ''; subtype.value = ''; month.value = ''; year.value = ''; secondary.value = ''; code.checked = false; category = ''; page = 1; render(); }
+  function clearFacets() { major.value = ''; quadrant.value = ''; subtype.value = ''; month.value = ''; year.value = ''; secondary.value = ''; code.checked = false; category = ''; page = 1; render(); }
+  function clearFilters() { search.value = ''; clearFacets(); }
   let debounce: ReturnType<typeof setTimeout>;
   search.addEventListener('input', () => { clearTimeout(debounce); debounce = setTimeout(() => { page = 1; render(); }, 120); });
   [major, quadrant, subtype, month, year, secondary, code, sort].forEach(input => input.addEventListener('change', () => { page = 1; render(); }));
@@ -177,6 +191,7 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
   document.querySelector<HTMLFormElement>('#catalog-form')!.addEventListener('submit', event => { event.preventDefault(); clearTimeout(debounce); page = 1; render(); });
   reset.addEventListener('click', clearFilters);
   document.querySelector('#empty-reset')!.addEventListener('click', clearFilters);
+  document.querySelector('#search-all')!.addEventListener('click', clearFacets);
   document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(button => button.addEventListener('click', () => { view = button.dataset.view!; render(); }));
   previous.addEventListener('click', () => { page--; render(); document.querySelector('#library')!.scrollIntoView({ behavior: 'auto' }); });
   next.addEventListener('click', () => { page++; render(); document.querySelector('#library')!.scrollIntoView({ behavior: 'auto' }); });

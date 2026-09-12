@@ -6,6 +6,12 @@ export function normalize(text) {
   return String(text).normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
 }
 
+// Names vary between Fast-WAM, Fast WAM and FastWAM. Also discard invisible
+// formatting characters from copied PDF text, while retaining symbols like +.
+function compact(text) {
+  return normalize(text ?? '').replace(/[\s\p{Pd}\p{Pc}\p{Cf}]/gu, '');
+}
+
 // A recorded year is enough to order a paper, but is never turned into a date.
 // Within a year, dated records precede year-only records. Missing dates and years
 // stay last in both chronological directions.
@@ -25,7 +31,7 @@ export function comparePapers(a, b, sort = 'newest') {
 }
 
 export function filterPapers(papers, filters) {
-  const words = normalize(filters.query || '').trim().split(/\s+/).filter(Boolean);
+  const words = normalize(filters.query || '').split(/\s+/).map(compact).filter(Boolean);
   const result = papers.filter(paper => {
     if (filters.major && (filters.major === '__unassigned__' ? Boolean(paper.majorCategory) : paper.majorCategory !== filters.major)) return false;
     if (filters.quadrant && (filters.quadrant === '__unassigned__' ? Boolean(paper.quadrant) : paper.quadrant !== filters.quadrant)) return false;
@@ -36,7 +42,9 @@ export function filterPapers(papers, filters) {
     if (filters.year && String(paper.publicationYear ?? '') !== String(filters.year)) return false;
     if (filters.code && !paper.codeUrls.length) return false;
     const taxonomy = [paper.majorCategory, ...(paper.subcategories || []), paper.architecture, paper.predictionParadigm, paper.quadrant, paper.classificationStatus].filter(Boolean);
-    const searchable = normalize([paper.title, paper.authors, paper.affiliations, paper.contribution, paper.abstract, paper.id, paper.bibtexKey, paper.bibtex, paper.paperUrl, paper.arxivUrl, paper.pdfUrl, paper.doi, paper.publicationYear, paper.venue, paper.venue ? venueLabel(paper.venue) : '', ...taxonomy, ...taxonomy.map(taxonomyLabel), paper.primaryCategory, ...paper.secondaryCategories].join(' '));
+    // Keep field boundaries: a compact name must not be invented by joining a
+    // title's ending to an author's name. Separate keywords may match any field.
+    const searchable = [paper.title, paper.authors, paper.affiliations, paper.contribution, paper.abstract, paper.id, paper.bibtexKey, paper.bibtex, paper.paperUrl, paper.arxivUrl, paper.pdfUrl, paper.doi, paper.publicationYear, paper.venue, paper.venue ? venueLabel(paper.venue) : '', ...taxonomy, ...taxonomy.map(taxonomyLabel), paper.primaryCategory, ...paper.secondaryCategories].map(compact).join('\0');
     return words.every(word => searchable.includes(word));
   });
   return result.sort((a, b) => comparePapers(a, b, filters.sort));

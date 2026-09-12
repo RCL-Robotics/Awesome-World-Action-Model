@@ -1,0 +1,460 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2602.21633",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T14:14:07.236Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2602.21633",
+      "title": "Self-Correcting VLA: Online Action Refinement via Sparse World Imagination",
+      "kind": "pdf",
+      "sha256": "49d491f99cd63466c5b7e08ef037496a294c4f634348964280e97b9d457f4bed",
+      "wordCount": 8523,
+      "accessedAt": "2026-09-10T10:28:20.494794+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; 1. Introduction",
+      "2. Related Works",
+      "3. Preliminary: 3.1 Basic Robot Policy; 3.2 Soft Actor-Critic",
+      "4. Self-Correcting VLA: 4.1 Sparse World Imagination; 4.2 Online Action Refinement; Algorithm 1",
+      "5. Experiments: 5.1 Simulation Setup and Baselines; 5.2 Ablation Study; 5.3 Real World Experiments",
+      "6. Conclusion; Impact Statement; References",
+      "Appendix A: Task Setup and Evaluation Details (A.1–A.2)",
+      "Appendix B: Baseline Details and Settings (B.1–B.4)",
+      "Appendix C: Experiment Details",
+      "Appendix D: Implementation Details; final simulation and real-world visualizations"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "All five supplied text chunks and all 15 PDF pages were read; the extraction's image limitation was addressed by inspecting the original PDF pages and six final crops.",
+      "Identity: the title page shows arXiv:2602.21633v1 [cs.RO], 25 February 2026, and Preprint Version. Its title and seven authors match the supplied catalog. No different revision was supplied or compared.",
+      "The paper links code, but code, external references, datasets and separate supplements were not inspected; no experiments were reproduced.",
+      "No dedicated limitations section is present; the limitations below identify reader assessments and unresolved reporting details."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, p. 2: overview",
+      "Figure 2, p. 5: architecture",
+      "Figure 3, p. 8: ARX5 setup",
+      "Figure 4, p. 8: reward ablations",
+      "Figure 5, p. 13: schematic residual schedule",
+      "Figures 6–7, p. 15: simulation and real-world task sequences"
+    ],
+    "tablesReviewed": [
+      "Tables 1–3, p. 7: simulation success, completion length and imagination ablations",
+      "Table 4, p. 8: real-world success",
+      "Table 5, p. 11: success criteria",
+      "Table 6, p. 13: base training",
+      "Table 7, p. 14: residual training"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "SC-VLA adds progress and end-effector-change predictions to a GR00T N1.5-based flow policy, then freezes it and trains a SAC residual controller. Predicted motion supplies a directional reward whose influence decreases with predicted progress. Simulation supports both stages; physical ARX5 trials test only the predictive base policy. The evidence supports improved executed manipulation under the reported protocols, with unresolved reward and evaluation details.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "The authors argue that imitation-trained VLAs lack explicit short-term physical constraints, while external reward models can be disconnected from policy representations. Their question is whether small, interpretable predictions inside the action backbone can improve imitation and subsequently guide local corrections during environment interaction.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e04",
+      "e07"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Sparse World Imagination (SPI) adds progress and relative-state queries to the same DiT that generates actions; separate lightweight heads read intermediate features.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "text": "Online Action Refinement (OAR) learns a scaled residual around a frozen base policy, using predicted translation for dense guidance and progress to reduce that guidance during later task stages.",
+      "kind": "source",
+      "evidenceIds": [
+        "e07",
+        "e08"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Multi-view images and language instruction",
+      "Current embodiment/proprioceptive state",
+      "Environment transitions and sparse rewards during residual training"
+    ],
+    "outputs": [
+      "Flow-generated base action trajectory",
+      "Predicted task progress and seven-dimensional relative end-effector/gripper change",
+      "Executed base action plus a scaled residual when OAR is enabled"
+    ],
+    "steps": [
+      {
+        "name": "Fuse observations",
+        "detail": "Section 4.1 names SigLIP-2 for images and Eagle-2 for multimodal processing. An intermediate VLM representation conditions the DiT. The backbone citation is ambiguous, as noted under reproduction.",
+        "evidenceIds": [
+          "e04",
+          "e20"
+        ]
+      },
+      {
+        "name": "Share action and prediction features",
+        "detail": "The query sequence contains current state, one progress query, one relative-state query and 16 action queries. Prediction heads read an intermediate DiT block; the action head reads the final block. This is shared-feature supervision, not a demonstrated sequential rollout of imagined scenes.",
+        "evidenceIds": [
+          "e04",
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "name": "Predict local physical change",
+        "detail": "The target covers translation, relative Euler rotation and gripper-opening change at a future time offset by the execution horizon plus random temporal jitter. It describes the end effector, not a complete object/contact state.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "name": "Correct and collect feedback",
+        "detail": "A Gaussian MLP residual policy receives current state, predicted progress and predicted state change. The summed action is executed; observed displacement supplies directional feedback, and transitions enter a replay buffer for SAC updates.",
+        "evidenceIds": [
+          "e07",
+          "e08"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage I jointly minimizes flow-matching error and two weighted MSE prediction losses. Appendix D reports AdamW, 50,000 iterations, batch size 32, learning rate 0.0001, initialization seed 42 and one NVIDIA L40 GPU.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e06",
+          "e17"
+        ]
+      },
+      {
+        "text": "Stage II freezes the base. Buffer collection first uses zero residual weight, followed by linear residual injection and main training. Table 7 gives 500,000 steps for StackCube/PlaceSphere, 600,000 for LiftPegUpright and 3,000,000 for PegInsertion. PegInsertion uses train/evaluation residual scales 0.1/0.03; the other tasks use 0.01/0.005.",
+        "kind": "source",
+        "evidenceIds": [
+          "e16",
+          "e17",
+          "e18"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Flow matching generates base actions by numerically integrating a learned vector field from Gaussian noise. With OAR, the frozen base also supplies predictions, and the residual policy adjusts its action before execution. SAC optimization belongs to online training; the paper does not establish continual weight updates during evaluation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e07",
+          "e18"
+        ]
+      },
+      {
+        "text": "The dense term rewards alignment with predicted translation after executing n steps, with n smaller than the execution horizon. It ignores predicted rotation and gripper change in that reward. Equation (15) retains sparse environment reward and a time penalty despite broader endogenous-reward language.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e05",
+          "e08"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\Delta s_t=\\left[R_t^\\top(P_{t'}-P_t),\\ \\operatorname{Euler}(R_t^\\top R_{t'}),\\ g_{t'}-g_t\\right],\\qquad t'=t+H+\\delta",
+        "explanation": "Equation (8): P is end-effector position, R its rotation matrix, g gripper opening, H the execution horizon and δ a uniformly sampled temporal offset. Translation and rotation are expressed relative to the current local frame.",
+        "evidenceIds": [
+          "e05"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{total}}=\\mathcal{L}_{\\mathrm{FM}}+\\lambda_1\\mathcal{L}_{\\mathrm{prog}}+\\lambda_2\\mathcal{L}_{\\Delta s_t}",
+        "explanation": "Equation (10) combines the flow-matching objective with progress and relative-state MSE losses; λ₁ and λ₂ weight the auxiliary supervision.",
+        "evidenceIds": [
+          "e06"
+        ]
+      },
+      {
+        "expression": "a_t=a_t^{\\mathrm{base}}+\\lambda a_t^{\\mathrm{res}}",
+        "explanation": "Equation (12): the executed action combines the frozen base output with the learned residual, scaled by λ.",
+        "evidenceIds": [
+          "e07"
+        ]
+      },
+      {
+        "expression": "r_t^{\\mathrm{final}}=\\eta(\\hat p_t)\\,w_{\\mathrm{guide}}\\,r_t^{\\mathrm{guide}}+r_t^{\\mathrm{env}}-c",
+        "explanation": "Equation (15): η decreases with predicted progress, w_guide weights directional guidance, r_env is sparse environment reward, and c penalizes each step. The exact η and c are not specified.",
+        "evidenceIds": [
+          "e08",
+          "e19"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "ManiSkill3 four-task manipulation success",
+      "setting": "100 demonstrations per task; 50 evaluation episodes per task; StackCube, PlaceSphere, LiftPegUpright and PegInsertion.",
+      "metric": "Task success fraction; higher is better",
+      "value": "SPI+OAR: 1.00 / 1.00 / 0.88 / 0.56; reported average 0.86.",
+      "comparison": "SPI alone averages 0.82; GR00T N1.5 0.72; specialist DP† 0.77; multitask DP‡ 0.36. The full method exceeds specialist DP by 9 percentage points.",
+      "interpretation": "OAR adds 4 average percentage points over SPI. DP† uses separate task specialists; OAR additionally receives online interactions, so equal demonstration budgets do not imply equal total experience.",
+      "evidenceIds": [
+        "e09",
+        "e10",
+        "e18"
+      ]
+    },
+    {
+      "task": "ManiSkill3 successful-episode completion length",
+      "setting": "Table 2 labels this as completion length over successful episodes on the same four tasks.",
+      "metric": "Environment steps; lower is better",
+      "value": "SPI+OAR: 158 / 110 / 189 / 173; reported average 157.",
+      "comparison": "Reported averages: SPI 187, specialist DP† 172, GR00T N1.5 195, π0 276. Table 2 reports a 16% reduction from SPI.",
+      "interpretation": "These are step counts, not wall-clock throughput. The headline 16% compares with SPI, not the strongest external length baseline. Table 2 reports 800 for multitask DP on PegInsertion although Table 1 reports zero successes; that cell's aggregation is unresolved.",
+      "evidenceIds": [
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "SPI prediction-component ablation",
+      "setting": "Same simulation demonstration data and evaluation protocol; SPI base without OAR.",
+      "metric": "Average success fraction",
+      "value": "Both predictions: 0.82; without state: 0.78; without progress: 0.80; without both: 0.72.",
+      "comparison": "Removing state lowers PegInsertion from 0.50 to 0.42 and StackCube from 0.96 to 0.88.",
+      "interpretation": "The pattern supports complementary auxiliary signals, but is not uniform: removing state raises LiftPegUpright from 0.82 to 0.84. No uncertainty is given for these table entries.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "ARX5 four-task physical manipulation success",
+      "setting": "SPI only; 60 demonstrations and 20 execution trials per task; StackCube, PlaceSphere, PushCube and PegInsertion.",
+      "metric": "Task success fraction",
+      "value": "0.85 / 0.60 / 1.00 / 0.40; Table 4 reports average 0.71.",
+      "comparison": "GR00T N1.5 reports 0.57; multitask DP‡ reports 0.28. Rounded table averages differ by 14 and 43 percentage points.",
+      "interpretation": "Adjacent prose says 70%, conflicting with 0.71; the displayed task values average 0.7125 (reader calculation). These trials support SPI on physical hardware, not physical online residual learning or zero-shot simulation transfer.",
+      "evidenceIds": [
+        "e14"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The reward is only partly endogenous. Figure 2 includes environment feedback while its caption says 'without external supervision'; Equation (15) explicitly includes sparse reward. Predicted end-effector motion alone does not establish learned object dynamics or general physical understanding.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e08"
+      ]
+    },
+    {
+      "text": "Equation (8) predicts local-frame translation, whereas Equation (13) adds it directly to P_t and Equation (14) compares it with measured displacement. The necessary common-frame conversion is not specified; silently inserting one would change the published formulation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e08"
+      ]
+    },
+    {
+      "text": "Figure 4 shows main-training average-length curves only, excluding buffer collection and residual warm-up. The shaded bands lack a defined statistical meaning. The paper supplies no dedicated unseen-task or controlled perturbation evaluation, and OAR gains are demonstrated only in simulation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e13",
+        "e14",
+        "e16"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the named GR00T N1.5 initialization, demonstrations, ManiSkill3 success criteria and task-specific SAC configuration. Table 5 caps PlaceSphere at 500 steps and the other tasks at 800. Baseline horizons, iterations and hardware differ; matching demonstration counts alone is insufficient.",
+      "kind": "source",
+      "evidenceIds": [
+        "e09",
+        "e15",
+        "e17",
+        "e18"
+      ]
+    },
+    {
+      "text": "Missing specifications include progress-label construction, auxiliary-loss weights, chosen feature layers, temporal-jitter bound, exact guidance schedule, time penalty, reward interval n and coordinate conversion. Software/checkpoint versions and residual-stage hardware/runtime are not pinned. Section 4.1's Eagle-2 citation points to a bibliography entry about language-model draft trees, leaving the intended multimodal checkpoint unresolved.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e19",
+        "e20"
+      ]
+    },
+    {
+      "text": "Keep action-scale warm-up separate from progress-dependent reward decay. Figure 5 is schematic, rising to 1 despite smaller task scales in Table 7; its jump at learning start also differs from the stated linear injection from zero. Section 3.2 describes automatically tuned entropy, while Table 7 lists 0.2 without clarifying whether it is fixed or initial.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e16",
+        "e18",
+        "e19"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The recorded taxonomy is entirely unassigned, so there is no substantive label to affirm or reject. Architecture evidence supports joint action and sparse future-state prediction within one base DiT, followed by a separate residual controller. It is not inverse dynamics or video rollout. A whole-system 'One Model' label would need to distinguish that shared base from the two-stage control pipeline.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e07"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "Does guidance retain its advantage when the coordinate frame is varied systematically?",
+    "Does predicted progress outperform an elapsed-time schedule under matched interaction budgets?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/byline, affiliation footnote and arXiv margin stamp",
+      "detail": "Exact title and seven catalog authors; Tongji University, University of Technology Sydney, University of Electronic Science and Technology of China, Advanced Institute of Big Data; v1, 25 Feb 2026."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "Motivates explicit sparse predictions and self-correction through progress-dependent residual reinforcement learning."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1, Eqs. (1)–(3)",
+      "detail": "Conditional flow matching learns noise-to-action velocity with MSE and generates actions through numerical ODE integration."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 4.1, Eqs. (6)–(7); p. 5, Figure 2 and caption",
+      "detail": "Names SigLIP-2/Eagle-2 conditioning; shared DiT has intermediate prediction heads and final action head. Figure 2 marks a frozen SPI base, trainable residual and environment reward; caption claims no external supervision."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Query Sequence Construction, Eqs. (7)–(9)",
+      "detail": "State, progress, relative-state and 16 action queries; future target at t+H+δ; seven components encode local translation, relative Euler rotation and gripper change."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Joint Optimization, Eqs. (9)–(10)",
+      "detail": "Intermediate DiT features feed separate MLP heads; total objective adds weighted progress and state-change MSE to flow matching."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.2, Eqs. (11)–(12); p. 6, Algorithm 1",
+      "detail": "Residual Gaussian MLP observes state and predictions; base is frozen; scaled actions are summed, executed and stored for SAC updates."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Eq. (13); p. 6, Eqs. (14)–(15), Algorithm 1 and Dynamic Weight Scheduling",
+      "detail": "Adds predicted translation to current position; cosine-style alignment with observed n-step displacement shapes reward, with n<H. Progress-decayed guidance is added to sparse environment reward minus a time penalty."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 5.1; p. 11, Appendix A.1–A.2 and Table 5",
+      "detail": "Four ManiSkill3 tasks use 100 demonstrations and 50 evaluation episodes each. Official reward criteria are referenced; PlaceSphere cap is 500 steps, others 800."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, all rows and caption",
+      "detail": "SPI+OAR task successes 1.00/1.00/0.88/0.56 average 0.86; SPI 0.82; GR00T 0.72; specialist DP† 0.77; multitask DP‡ 0.36. Caption defines † specialists and ‡ multitask training."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2 and following completion-length paragraph",
+      "detail": "Successful-episode length: full method 158/110/189/173, reported average 157; SPI 187, DP† 172, GR00T 195, π0 276. OAR average reduction is printed 16%. DP‡ PegInsertion cell is 800."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 5.2, Table 3 and component-ablation paragraphs",
+      "detail": "Average success is 0.78 without state, 0.80 without progress, 0.72 without both, 0.82 with SPI. Without-state LiftPegUpright is 0.84 versus SPI 0.82; no table uncertainty is reported."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 4, caption and reward/scheduling ablation paragraphs; p. 13, Visualization Rationale",
+      "detail": "Average-length curves compare full SC-VLA, fixed guidance weight and no imagination reward. Caption excludes initialization phases; band meaning is unspecified. PegInsertion benefits from guidance and PlaceSphere fixed weighting degrades late."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5.3, Figure 3 and Table 4",
+      "detail": "ARX5 wrist/third-person setup uses SPI only, 60 demonstrations and 20 trials per task. Task success 0.85/0.60/1.00/0.40; table average 0.71 versus GR00T 0.57 and DP‡ 0.28; adjacent prose instead says 70%."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix B.1–B.4",
+      "detail": "DP uses prediction/execution horizons 16/8, ACT 50/20; both train 200,000 iterations on one RTX 5090. π0 and GR00T train 50,000 iterations on RTX PRO 6000 and L40 respectively."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, Appendix C, stages 1–3, Figure 5 and Visualization Rationale",
+      "detail": "Zero-residual buffer collection precedes linear residual injection and main training. Figure 4 omits initialization. Figure 5 is explicitly schematic, with a jump at learning start and a plateau at 1."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendix D, Stage I/II and Table 6",
+      "detail": "Base training: GR00T N1.5 DiT, AdamW, one NVIDIA L40, 50,000 steps, batch 32, learning rate 0.0001, seed 42. Base is fully frozen for residual training."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Appendix D and Table 7, shared and task-specific columns",
+      "detail": "Seed 0; guidance weight 0.6; entropy coefficient 0.2. Task budgets 500k/500k/600k/3M. Residual train/eval scales 0.01/0.005 except PegInsertion 0.1/0.03; warm-up parameters vary by task."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–6, Sections 3.2 and 4.1–4.2; pp. 13–14, Appendix D, Tables 6–7",
+      "detail": "Provides symbolic losses, jitter and reward schedule but no exact progress labels, layer choices, loss weights, η, c, n or frame conversion. Implementation tables do not pin software/checkpoints or residual hardware/runtime. SAC preliminaries call α automatically tuned; Table 7 lists 0.2."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Conditional Information Processing; p. 10, References, Li, Y. et al. (2024)",
+      "detail": "Multimodal backbone is called Eagle-2 and cites Li et al. (2024); that bibliography entry is 'Eagle-2: Faster inference of language models with dynamic draft trees.'"
+    }
+  ]
+}

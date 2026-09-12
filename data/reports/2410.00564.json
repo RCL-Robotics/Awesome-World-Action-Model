@@ -1,0 +1,431 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2410.00564",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T18:48:41.463Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2410.00564",
+      "title": "Scaling Offline Model-Based RL via Jointly-Optimized World-Action Model Pretraining",
+      "kind": "pdf",
+      "sha256": "2de5781c1bb2f389d662d0ea82989e63498cebe34e841f53bd82147e1e1b394d",
+      "wordCount": 11523,
+      "accessedAt": "2026-09-10T10:28:41.206738+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, abstract and Sections 1–3: introduction, related work, distributional RL, CQL and problem setup",
+      "Sections 4.1–4.3: architecture, objectives, planning and training pipeline",
+      "Sections 5.1–5.6: data, baselines, main results, scaling, transfer and ablations",
+      "Section 6: conclusion and limitations; acknowledgments and references",
+      "Appendices A–C: Bellman derivation, constrained search and error-bound proof",
+      "Appendices D–F: game split, implementation, fine-tuning, evaluation, raw scores and additional experiments"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "The complete supplied 23-page PDF text was read. The original 2024 submission was not supplied: this report reviews arXiv v4 dated 29 January 2026, labeled ICLR 2025. The observed title and all eight authors match the catalog; earlier versions were not compared (e01).",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This acquisition caveat was addressed by inspecting original PDF pages and all six final crops; exact visual scope is recorded in the edition.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Code, linked resources and checkpoints were not inspected; no experiments were reproduced.",
+      "Table 1 was read as text; both figures and Tables 2–21 were visually inspected. Reference-only pages were read as text."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1: architecture (PDF p. 4)",
+      "Figure 2: model-size scaling (PDF p. 8)"
+    ],
+    "tablesReviewed": [
+      "Table 1: method comparison (text only, PDF p. 3)",
+      "Tables 2–6: main results, transfer and ablations (PDF pp. 8–9)",
+      "Tables 7–17: games, architecture, optimization and evaluation (PDF pp. 18–21)",
+      "Tables 18–21: raw scores and additional ablations (PDF pp. 22–23)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "JOWA learns an Atari world model and distributional Q-function through one shared transformer, then searches short imagined futures to choose actions. Its strongest evidence is improved aggregate game return and data-efficient offline adaptation; neither universal game-wise scaling nor unconditional planning optimality is established (e02, e03, e04, e07, e08, e11, e12).",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "Can a single image-based offline RL agent learn transferable dynamics and decision-making from heterogeneous replay, while avoiding the instability of scaling temporal-difference learning? The experiment spans fifteen training games and five held-out Atari games; adaptation uses offline data from each new game rather than zero-shot deployment.",
+    "kind": "source",
+    "evidenceIds": [
+      "e01",
+      "e06",
+      "e08"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A shared backbone receives both predictive and value-learning gradients. The authors interpret world prediction as a regularizer for large-model TD learning; their stopped-gradient and loss-removal experiments test this design.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e10"
+      ]
+    },
+    {
+      "text": "A parallelizable beam search ranks imagined outcomes using learned rewards and terminal Q-values, connecting generative prediction to executed game actions.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "84×84 grayscale observations, previous discrete actions and task ID; replay additionally supplies rewards and termination labels (e02, e03)"
+    ],
+    "outputs": [
+      "Autoregressive observation-token distributions, ternary reward and termination distributions, and action-conditioned return distributions/Q-values (e02, e03)",
+      "A discrete Atari action selected by greedy Q-values or beam search (e04)"
+    ],
+    "steps": [
+      {
+        "name": "Tokenize observations",
+        "detail": "A VQ-VAE converts each image into 36 discrete tokens from a 2048-entry vocabulary. Visual and action tokens are interleaved; vocabulary, position and task embeddings form the transformer input. Eight timesteps occupy 296 tokens.",
+        "evidenceIds": [
+          "e02",
+          "e05",
+          "e14"
+        ]
+      },
+      {
+        "name": "Share history, separate predictions",
+        "detail": "Observation prediction is autoregressive over earlier visual tokens and actions. Reward and termination use the current action. Figure 1 places the Q-head at the final observation token, so it can score candidate actions before consuming the chosen current action.",
+        "evidenceIds": [
+          "e02"
+        ]
+      },
+      {
+        "name": "Learn a conservative critic",
+        "detail": "The Q-head represents a return distribution whose mean is Q. Its objective combines distributional TD with CQL, which discourages unsupported actions. World heads use classification losses, including rewards mapped by sign to −1, 0 or 1.",
+        "evidenceIds": [
+          "e03"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage one trains the tokenizer and world part for 250k updates. Stage two freezes the tokenizer and jointly trains world and action parts for 1.5M updates. Pretraining samples 10M transitions per game from two DQN-Replay runs, totaling approximately six billion tokens. Default pretraining uses real replay, without planning or synthetic transitions.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e11"
+        ]
+      },
+      {
+        "text": "Transfer separately fine-tunes each held-out game for 50k updates using 5k expert-level transitions, batch 32 and learning rate 0.00005. Appendix E.2 describes a second stage appending two planned synthetic steps to six-step real segments, but leaves its stage allocation unclear. The reported snapshot is selected by highest fine-tuning score.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08",
+          "e16"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "At each decision, restrict candidate actions to the top Q-ranked set, expand imagined transitions, and retain beams with the largest discounted reward-plus-terminal-value total. Execute the first action of the selected path and repeat with real observations. Evaluation uses horizon two and game-specific beam widths two to four; the paper reuses K for both token count and beam width.",
+        "kind": "source",
+        "evidenceIds": [
+          "e02",
+          "e04",
+          "e17"
+        ]
+      },
+      {
+        "text": "Planning is an approximate search over learned dynamics. Appendix B assumes the optimum survives top-K restriction; a finite beam can prune alternatives. The theoretical discussion therefore does not certify globally optimal executed actions.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e04",
+          "e12"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}(\\theta,\\phi)=\\beta\\mathcal{L}_{\\mathrm{world}}(\\theta)+\\mathcal{L}_{\\mathrm{action}}(\\phi)",
+        "explanation": "Equation (9): theta denotes world-part parameters and phi action-part parameters; their transformer parameters overlap. Beta is 0.1. Both objectives update that shared backbone; the action loss includes CQL with alpha 0.1.",
+        "evidenceIds": [
+          "e02",
+          "e03"
+        ]
+      },
+      {
+        "expression": "\\max_{\\pi\\in\\Pi_{\\hat Q^*}}\\mathbb{E}_{s_{1:H}\\sim\\hat P,\\,a_{0:H-1}\\sim\\pi}\\left[\\sum_{t=0}^{H-1}\\gamma^t\\hat r(s_t,a_t)+\\gamma^H\\max_{a_H}\\hat Q^*(s_H,a_H)\\right]",
+        "explanation": "Equation (11): states s and actions a follow policy pi through learned dynamics P-hat. The constrained policy set permits top-K Q-ranked actions. H is the search horizon, gamma the discount, r-hat predicted reward, and Q-hat-star the estimated optimal action value. The two terms are imagined income-to-date and terminal income-to-go.",
+        "evidenceIds": [
+          "e04",
+          "e12"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Multi-game offline Atari performance",
+      "setting": "Fifteen pretrained games; 10% subsample from two replay runs, 10M transitions/game; 1.75M updates and batch 512. Evaluation averages sixteen episodes/game with no sticky actions and epsilon 0.001.",
+      "metric": "IQM human-normalized score (HNS)",
+      "value": "JOWA-150M: 0.789 (78.9%); median HNS 0.456; six superhuman games.",
+      "comparison": "EDT-200M 0.502; MGDT-200M 0.498; FICC-85M 0.433; SQL-80M 0.420.",
+      "interpretation": "The 28.7 percentage-point IQM gap over EDT is a reader calculation. Aggregate advantage coexists with losses on individual games. JOWA-70M is inconsistent: Table 2 gives 0.485, while Section 5.3 and Table 4 give 0.476.",
+      "evidenceIds": [
+        "e06",
+        "e07",
+        "e09",
+        "e17"
+      ]
+    },
+    {
+      "task": "Offline adaptation to five unseen Atari games",
+      "setting": "Gravitar, MsPacman, Pong, Robotank and YarsRevenge; 5k expert-level transitions/game; separate fine-tuning and best-score checkpoint selection.",
+      "metric": "IQM DQN-normalized score (DNS)",
+      "value": "JOWA-150M: 0.647.",
+      "comparison": "FICC-85M 0.575; EDT-200M 0.380; JOWA-150M from scratch 0.181. Pretrained/scratch budgets are 50k/500k updates.",
+      "interpretation": "Supports transfer after adaptation. DNS and HNS have different reference agents. Table 18 omits raw FICC and smaller-JOWA scores despite their aggregates in Table 3.",
+      "evidenceIds": [
+        "e08",
+        "e13",
+        "e16",
+        "e19"
+      ]
+    },
+    {
+      "task": "Planning benefit and runtime",
+      "setting": "Table 4 uses fifteen games; Table 5 uses seven games where the bare 150M agent is weak.",
+      "metric": "IQM HNS and reported frames per second",
+      "value": "Fifteen-game 150M IQM: 50.8% without planning, 78.9% with planning, a 28.1 percentage-point increase.",
+      "comparison": "Seven-game beam/MCTS/no-planning IQM: 23.7%/13.4%/3%; FPS: 1.26/0.12/10.8.",
+      "interpretation": "Beam search trades speed for return versus greedy inference. The Python MCTS comparison uses a Q-derived policy and selected games, not a general ranking of planners.",
+      "evidenceIds": [
+        "e09",
+        "e18"
+      ]
+    },
+    {
+      "task": "Joint-training loss ablation",
+      "setting": "40M model, six named training games, 1M updates, 10% replay subsample.",
+      "metric": "IQM HNS",
+      "value": "Original 1.123; no world loss 0.659; stopped action-loss gradient 0.307.",
+      "comparison": "No CQL 0.637; MSE TD 0.126; synthetic-data pretraining 0.464.",
+      "interpretation": "Supports both shared-gradient training and distributional conservative learning in this reduced setup. Synthetic replay also changes the objective to COMBO, so its effect is confounded.",
+      "evidenceIds": [
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "task": "Fine-tuning data-quality sensitivity",
+      "setting": "JOWA-150M, five held-out games, 5k transitions from final 20%, complete, or initial 20% replay pools.",
+      "metric": "Mean and IQM DNS",
+      "value": "Expert/suboptimal/highly-suboptimal mean: 0.647/0.516/0.422; IQM: 0.647/0.511/0.383.",
+      "comparison": "Same nominal transition count across quality conditions.",
+      "interpretation": "Aggregate transfer depends on replay quality; Gravitar does not follow the aggregate ordering.",
+      "evidenceIds": [
+        "e20"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Full Atari and complete-data scaling were not tested. Larger models sometimes perform worse on individual games. The authors attribute apparent Zaxxon emergence to nonlinear rewards; aggregate scaling alone cannot establish newly acquired capabilities.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e11",
+        "e20"
+      ]
+    },
+    {
+      "text": "The error-bound presentation is internally inconsistent: Eq. (28) changes coefficients L_r and L_Q into epsilon_r and epsilon_Q in its last equality. Eqs. (12), (24) and (29) repeat that printed form. Together with the top-K assumption, this prevents treating the stated theorem as an independently verified guarantee.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "text": "The main tables provide no confidence intervals or independent training-seed variability. Sixteen rollout episodes do not establish training-run robustness. Fine-tuning selects the highest-scoring snapshot, whereas pretraining uses the final snapshot; this distinction matters when reproducing transfer claims.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e15",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Recover the specified game split and replay subsample; match the tokenizer, context length, game-conditioned embeddings and Q-head configuration. Table 13 specifies Adam/AdamW, transformer rates 0.0001 then 0.00005, discount 0.99, 51 atoms over [-10,30], and target-Q updates every 1000 steps.",
+      "kind": "source",
+      "evidenceIds": [
+        "e13",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "text": "Resolve how new task embeddings are initialized, how fine-tuning stages divide the update budget, and how checkpoints are selected before claiming a faithful transfer replication. A100 hardware is named, but GPU count and software versions are not specified in the supplied implementation details.",
+      "kind": "open-question",
+      "evidenceIds": [
+        "e05",
+        "e14",
+        "e15",
+        "e16"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The recorded catalog is unassigned. Architecture evidence supports one shared world/value backbone with separate heads, not two independently trained models. Its action mechanism is Q-value-based control with forward-model planning, not inverse dynamics or direct joint generation of future observations and actions. This is an assessment for classification, not a catalog edit.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "Would planning still help when Q-ranking excludes the best action from the beam?",
+    "How much transfer advantage remains under fixed checkpoints, repeated training seeds, and matched fine-tuning-data quality?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, byline, affiliations and arXiv margin",
+      "detail": "Title and eight authors match the catalog; the artifact is arXiv:2410.00564v4, 29 January 2026, labeled published at ICLR 2025."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 1 and Sections 4.1.1–4.1.2, Eqs. (4)–(6)",
+      "detail": "VQ-VAE tokens and actions enter a shared transformer with task embeddings. Observation, reward and termination predictors accompany a Q-value head. Q-values use the final observation-token representation before the current action."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Sections 4.1.2–4.1.3, Eqs. (7)–(9)",
+      "detail": "World prediction uses cross-entropy and signed ternary rewards. Distributional TD and CQL train the action part; both losses update the transformer, with alpha and beta each 0.1."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.2, Eqs. (10)–(13) and beam-search description",
+      "detail": "Search combines discounted imagined rewards with a terminal maximum Q-value, restricts actions to top-K, and retains K beams. The first action of the selected path is chosen for execution. The claimed error improvement is conditional."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.3 and Section 5.1",
+      "detail": "Pretraining has 250k world-model/tokenizer steps and 1.5M joint steps with a frozen tokenizer. Data comprise 10M transitions per training game, 36 visual tokens per frame, length-eight sequences, approximately six billion tokens, and A100 training."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Sections 5.1–5.3",
+      "detail": "Fifteen games are used for pretraining and five held out. Ten percent is sampled from two DQN-Replay runs. Baselines use batch size 512 and 1.75M steps, but differ in architecture and augmentation; FICC is adapted to offline multi-game training."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2 and Figure 2; p. 7, Section 5.3",
+      "detail": "Table 2 reports IQM HNS 0.789 for JOWA-150M, 0.502 EDT, 0.498 MGDT, 0.420 SQL and 0.433 FICC. JOWA-70M is 0.485 in Table 2 but 0.476 in Section 5.3. Scaling is aggregate, with exceptions in individual games."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3 and Section 5.5; p. 9, Section 5.5",
+      "detail": "Held-out adaptation uses 5k expert-level transitions per game. IQM DNS is 0.647 for JOWA-150M, 0.575 FICC, 0.380 EDT and 0.181 JOWA-150M from scratch. Pretrained models receive 50k steps; scratch receives 500k."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Tables 4–5 and planning ablation text",
+      "detail": "On fifteen games, planning changes JOWA-150M IQM HNS from 50.8% to 78.9%; JOWA-70M is 45.1% to 47.6%. On seven selected games, beam search, MCTS and no planning achieve IQM HNS 23.7%, 13.4% and 3%, at 1.26, 0.12 and 10.8 FPS."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Table 6 and Section 5.6",
+      "detail": "Six-game 40M ablations use 1M updates. IQM HNS is 1.123 original, 0.637 no CQL, 0.659 no world loss, 0.307 stopped action-loss gradient, 0.126 MSE TD, and 0.464 synthetic-data pretraining. The synthetic condition also changes the action loss to COMBO and uses half imagined transitions."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 10, synthetic-data discussion and Section 6 limitations",
+      "detail": "Default pretraining excludes planning and synthetic data. Synthetic pretraining is costly and worsens the tested setup; model error and conservatism are hypotheses. Full Atari/full-data experiments were not performed, and some games decline as model size increases."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–18, Appendices A–C, especially p. 16 top-K assumption and p. 17 Eqs. (26)–(29); p. 6 Eqs. (12)–(13)",
+      "detail": "Appendix B assumes the optimum remains within top-K actions. Appendix C assumes bounded estimation errors and Lipschitz functions. Eq. (28) first contains L_r and L_Q, then prints epsilon_r and epsilon_Q as their coefficients in its final equality; the same error-term form appears in Eqs. (12), (24), and (29)."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 18, Appendix D and Table 7",
+      "detail": "The five held-out games are Gravitar, MsPacman, Pong, Robotank and YarsRevenge. Table 7 lists the twenty games, their difficulty labels, action-space sizes and train/fine-tune assignments."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF pp. 18–19, Appendix E.1.1 and Tables 8–12",
+      "detail": "The tokenizer uses reconstruction, embedding/commitment and perceptual terms, vocabulary 2048, and 36 tokens per frame. The transformer has a 296-token context; 40M uses four layers, width 512 and eight attention heads, whereas 150M uses twelve layers, width 768 and twelve heads. The 150M configuration has three Q-heads."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Table 13 and end of Appendix E.1",
+      "detail": "Adam trains VQ-VAE; AdamW trains other modules. Learning rates are 0.0001 then 0.00005 for the transformer, batch size 512, discount 0.99, 51 return atoms over [-10,30], and target-Q updates every 1000 steps. Final pretraining checkpoints are reported."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Appendix E.2",
+      "detail": "Each held-out game is fine-tuned separately with batch 32, learning rate 0.00005 and 50k updates, reporting the highest-scoring snapshot. A second stage uses horizon/beam width two, six-step real segments and two synthesized steps; its stage-length allocation and new-task embedding initialization are not specified here."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 21, Appendix E.3 and Tables 16–17",
+      "detail": "Scores average sixteen evaluation episodes; sticky actions are disabled, evaluation epsilon is 0.001, frame skip and listed frame stack are four, and the episode cap is 108K frames. Planning horizon is two, with game-specific beam widths two to four."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF pp. 21–22, Appendix F planning comparison and Table 19",
+      "detail": "Both planners use Python. MCTS is adapted using Q-derived values and action probabilities; tuning selects maximum Q, temperature 0.9, most valuable root child, and per-game depths. Seven games are selected where the bare policy is weak; the authors did not find satisfactory MCTS settings for the other eight."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 22–23, Tables 18 and 20 and Appendix F ensemble/task-embedding discussion",
+      "detail": "Table 18 provides raw held-out scores for only a subset of Table 3 methods, omitting FICC and the smaller JOWA variants. Table 20 reports IQM 0.824 without task embedding versus 1.123 original, and 1.049/0.931 with equal/random Q-head ensembles."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 23, Table 21 and Appendix F non-expert-data/emergence discussions",
+      "detail": "For 5k-transition adaptation, expert, suboptimal and highly-suboptimal data yield mean DNS 0.647/0.516/0.422 and IQM 0.647/0.511/0.383. Sampling pools are the final 20%, all data and initial 20% respectively. The authors attribute the apparent Zaxxon emergence to nonlinear rewards."
+    }
+  ]
+}

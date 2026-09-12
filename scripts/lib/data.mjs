@@ -2,7 +2,7 @@ import { readFile, writeFile, rename, unlink, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { MAJOR_CATEGORIES, QUADRANT_STATUSES, ARCHITECTURES, PREDICTION_PARADIGMS, CLASSIFICATION_STATUSES, QUADRANT_AXES } from '../../src/lib/taxonomy.mjs';
+import { MAJOR_CATEGORIES, COMPONENT_AREAS, componentSubcategory, QUADRANT_STATUSES, ARCHITECTURES, PREDICTION_PARADIGMS, CLASSIFICATION_STATUSES, QUADRANT_AXES, taxonomyLabel } from '../../src/lib/taxonomy.mjs';
 
 export const CATEGORIES = Object.freeze([
   'General WAM', 'Memory WAM', 'WAM + RL', '3D/4D WAM',
@@ -195,27 +195,78 @@ export function sortPapers(papers) {
   return [...papers].sort((a, b) => key(b).localeCompare(key(a)) || a.title.localeCompare(b.title, 'en') || a.id.localeCompare(b.id));
 }
 
-export function buildMeta(papers, updatedAt = new Date().toISOString()) {
+export const CATALOG_SOURCES = Object.freeze(['Notion', 'Notion + arXiv discovery']);
+
+// These explicit editorial decisions affect only category placement. Source
+// verification status, quadrant axes, bibliography and reading snapshots stay intact.
+export function validateClassificationOverrides(manifest) {
+  const exact = (value, fields) => value && !Array.isArray(value) && typeof value === 'object'
+    && Object.keys(value).length === fields.length && fields.every(key => Object.hasOwn(value, key));
+  if (!exact(manifest, ['schemaVersion', 'reviewedAt', 'entries']) || manifest.schemaVersion !== 1) throw new Error('Classification overrides must contain exactly the version 1 manifest fields');
+  if (typeof manifest.reviewedAt !== 'string' || Number.isNaN(Date.parse(manifest.reviewedAt)) || new Date(manifest.reviewedAt).toISOString() !== manifest.reviewedAt) throw new Error('Classification overrides reviewedAt must be an ISO UTC timestamp');
+  if (!Array.isArray(manifest.entries)) throw new Error('Classification override entries must be an array');
+  const ids = new Set();
+  for (const entry of manifest.entries) {
+    if (!exact(entry, ['paperId', 'componentArea', 'reason', 'evidenceIds', 'reportSha256'])) throw new Error('Classification override must contain exactly the public review fields');
+    if (typeof entry.paperId !== 'string' || !/^(?:\d{4}\.\d{4,5}|ref-[a-f0-9]{20})$/.test(entry.paperId)) throw new Error('Classification override has an invalid paperId');
+    if (ids.has(entry.paperId)) throw new Error(`Duplicate classification override: ${entry.paperId}`);
+    ids.add(entry.paperId);
+    if (!COMPONENT_AREAS.includes(entry.componentArea)) throw new Error(`Unknown componentArea for ${entry.paperId}`);
+    if (typeof entry.reason !== 'string' || !entry.reason.trim()) throw new Error(`Missing classification reason for ${entry.paperId}`);
+    if (!Array.isArray(entry.evidenceIds) || !entry.evidenceIds.length || entry.evidenceIds.some(id => typeof id !== 'string' || !id.trim()) || new Set(entry.evidenceIds).size !== entry.evidenceIds.length) throw new Error(`Invalid classification evidenceIds for ${entry.paperId}`);
+    if (typeof entry.reportSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(entry.reportSha256)) throw new Error(`Invalid reportSha256 for ${entry.paperId}`);
+  }
+  return manifest;
+}
+
+export function applyClassificationOverrides(papers, manifest) {
+  validatePapers(papers, { allowEmpty: true });
+  validateClassificationOverrides(manifest);
+  const reviews = new Map(manifest.entries.map(entry => [entry.paperId, entry]));
+  // A review cannot resurrect a paper deleted from both catalog sources.
+  return papers.map(paper => {
+    const review = reviews.get(paper.id);
+    if (!review) return paper;
+    return { ...paper, majorCategory: 'WAM Components', subcategories: [componentSubcategory(review.componentArea),
+      ...paper.subcategories.filter(value => !COMPONENT_AREAS.includes(value) && taxonomyLabel(value) !== review.componentArea)] };
+  });
+}
+
+// Local discoveries persist across exports; an editor's current Notion record
+// takes precedence as a whole, including intentionally empty classifications.
+export function mergeCatalogPapers(notionPapers, localPapers = []) {
+  validatePapers(notionPapers, { allowEmpty: true });
+  validatePapers(localPapers, { allowEmpty: true });
+  const notionIds = new Set(notionPapers.map(paper => paper.id));
+  const localOnly = localPapers.filter(paper => !notionIds.has(paper.id));
+  const papers = sortPapers([...notionPapers, ...localOnly]);
+  validatePapers(papers, { allowEmpty: true });
+  return { papers, source: localOnly.length ? CATALOG_SOURCES[1] : CATALOG_SOURCES[0] };
+}
+
+export function buildMeta(papers, updatedAt = new Date().toISOString(), source = 'Notion') {
+  if (!CATALOG_SOURCES.includes(source)) throw new Error('Unknown catalog metadata source');
   const dates = papers.map((paper) => paper.submittedDate).filter((date) => date !== null).sort();
-  return { updatedAt, source: 'Notion', paperCount: papers.length, sourceDateRange: { start: dates[0] ?? null, end: dates.at(-1) ?? null } };
+  return { updatedAt, source, paperCount: papers.length, sourceDateRange: { start: dates[0] ?? null, end: dates.at(-1) ?? null } };
 }
 
 export function validateMeta(meta, papers) {
-  const expected = buildMeta(papers, meta?.updatedAt);
+  const expected = buildMeta(papers, meta?.updatedAt, meta?.source);
   if (!meta || Object.keys(meta).sort().join() !== Object.keys(expected).sort().join()) throw new Error('meta.json must contain exactly the catalog metadata fields');
   if (typeof meta.updatedAt !== 'string' || Number.isNaN(Date.parse(meta.updatedAt)) || new Date(meta.updatedAt).toISOString() !== meta.updatedAt) throw new Error('Metadata updatedAt must be an ISO UTC timestamp');
-  if (JSON.stringify(meta.sourceDateRange) !== JSON.stringify(expected.sourceDateRange) || meta.paperCount !== expected.paperCount || meta.source !== 'Notion') throw new Error('Metadata does not match papers.json');
+  if (JSON.stringify(meta.sourceDateRange) !== JSON.stringify(expected.sourceDateRange) || meta.paperCount !== expected.paperCount || meta.source !== expected.source) throw new Error('Metadata does not match papers.json');
   return meta;
 }
 
-export function planCatalogUpdate(papers, previous, previousMeta, fetchedAt) {
+export function planCatalogUpdate(papers, previous, previousMeta, fetchedAt, source = 'Notion') {
+  if (!CATALOG_SOURCES.includes(source)) throw new Error('Unknown catalog metadata source');
   if (isDeepStrictEqual(sortPapers(papers), sortPapers(previous))) {
     try {
       validateMeta(previousMeta, papers);
-      return { changed: false, meta: previousMeta };
+      if (previousMeta.source === source) return { changed: false, meta: previousMeta };
     } catch { /* Missing or invalid metadata must be repaired even when papers are unchanged. */ }
   }
-  const meta = buildMeta(papers, fetchedAt);
+  const meta = buildMeta(papers, fetchedAt, source);
   validateMeta(meta, papers);
   return { changed: true, meta };
 }

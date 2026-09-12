@@ -1,7 +1,20 @@
 // Exact editorial labels shared by import validation and the website.
 export const MAJOR_CATEGORIES = Object.freeze([
-  '奠基性工作', 'VLA', 'WAM', '数据集', '评估指标（Metrics）', '评测基准与模拟器',
+  '奠基性工作', 'VLA', 'WAM', '数据集', '评估指标（Metrics）', '评测基准与模拟器', 'WAM Components',
 ]);
+
+export const COMPONENT_AREAS = Object.freeze([
+  'Visual encoders & representations',
+  'Language & vision-language backbones',
+  'Generative modeling & tokenizers',
+  'Video & world prediction backbones',
+  'Spatial perception & geometry',
+  'Action representations & policies',
+  'Training & inference methods',
+]);
+
+// Reuse the existing source key to keep translated filter options unique.
+export const componentSubcategory = (area) => area === 'Visual encoders & representations' ? '视觉编码器与表征' : area;
 
 export const QUADRANTS = Object.freeze([
   'Q1 · One Model × 联合预测',

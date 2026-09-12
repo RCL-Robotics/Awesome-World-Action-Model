@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2511.17502",
+  "shortTitle": "RynnVLA-002",
+  "thesis": "A shared action-and-image predictor improves robot learning through joint supervision, while a separate continuous head makes action chunks practical without imagined-image rollouts during control.",
+  "standfirst": "RynnVLA-002 asks whether learning what actions do to images can improve learning which actions to take. It places both problems in one Chameleon backbone, then gives the policy a continuous Action Transformer alongside its discrete token output. The useful distinction is between training and deployment: future-image targets shape the shared representation, but a policy call does not imagine a video before acting. Read the architecture first, then the attention mask, and finally the comparisons that separate leaderboard performance from controlled ablations. The supplied v3 reports strong LIBERO results and narrower SO100 evidence, with several qualifications that are clearer in its tables than in its headline claims.",
+  "evidenceIds": [
+    "identity",
+    "architecture",
+    "continuous",
+    "inference",
+    "libero",
+    "continuous-ablation",
+    "real-ablation"
+  ],
+  "featuredResultTask": "LIBERO four-suite manipulation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2511.17502/architecture.png",
+      "width": 1315,
+      "height": 603,
+      "sourceSha256": "2788b0a36abb737af6c59511f7d2d00bcc0012570deb33a519afbe8e8b3fbb94",
+      "sourceUrl": "https://arxiv.org/pdf/2511.17502#page=3",
+      "crop": [
+        0.115,
+        0.08,
+        0.889,
+        0.354
+      ],
+      "alt": "Two training branches share RynnVLA-002: language, state and images feed discrete or continuous action outputs on the left; images and actions feed generated images on the right.",
+      "caption": "One shared backbone learns two conditional tasks, with two ways to decode actions.",
+      "readingGuide": "Follow the arrows upward from the tokenizers. On the left, the instruction, proprioceptive state and image history enter the shared backbone. The upper left separates a parallel continuous Action Transformer from autoregressive discrete action detokenization. M marks the image-history count and K the action-chunk length. On the right, an image and an action condition the next image, with N denoting repetitions of that prediction sequence. The repeated image arrow belongs to this world-model branch. Figure 2 and Section 3.1 establish shared parameters; the explicit inference description on pages 5–6 establishes that one query uses only one of these task modes.",
+      "takeaway": "The benefit being tested is transfer through a shared representation. During training, discrete action targets and future-image targets teach the same backbone; the continuous head also receives regression supervision. During control, actions can be obtained directly from that learned context without spending inference time generating the image sequence shown on the right.",
+      "caution": "The figure is a training overview, not a closed-loop planner. Its displayed state/action vectors are not accompanied by a complete coordinate-convention specification. Do not infer a rollout-selection mechanism or an action execution schedule from the repetition arrows.",
+      "evidenceIds": [
+        "architecture",
+        "formulation",
+        "training",
+        "continuous",
+        "inference"
+      ]
+    },
+    {
+      "id": "attention-mask",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 5,
+      "asset": "report-assets/2511.17502/attention-mask.png",
+      "width": 1315,
+      "height": 462,
+      "sourceSha256": "2788b0a36abb737af6c59511f7d2d00bcc0012570deb33a519afbe8e8b3fbb94",
+      "sourceUrl": "https://arxiv.org/pdf/2511.17502#page=5",
+      "crop": [
+        0.115,
+        0.08,
+        0.889,
+        0.29
+      ],
+      "alt": "Three token-attention matrices compare default causal VLA attention, masked cross-action VLA attention, and causal world-model attention; gray denotes allowed attention.",
+      "caption": "The discrete policy blocks attention between actions while keeping causal structure inside each action.",
+      "readingGuide": "Read each matrix by rows: a gray cell allows the row token to attend to the column token. Compare the Action_1 rows in panels (a) and (b). The proposed mask turns the Action_0 columns white, removing a route by which an earlier action can influence the next action. Text and image columns remain available. The triangular gray blocks within Action_0 and Action_1 remain, so this is not a fully independent-token decoder. Panel (c) preserves conventional causal attention for image prediction, allowing the next image to depend on the preceding image and supplied action. These markings agree with the cross-action restriction described in Section 3.3.",
+      "takeaway": "The mask targets error propagation across actions rather than the entire autoregressive token mechanism. Table 3 supplies a relevant controlled comparison: with chunking enabled and world-model training absent, average success rises from 54.0% with naive attention to 76.6% with the proposed mask, a reader-computed gain of 22.6 percentage points.",
+      "caution": "State tokens are omitted from this schematic although Equation (1) and the policy sequence include state. The source's language about independent actions should not erase the visible within-action causal blocks. The mask also does not guarantee smooth physical trajectories.",
+      "evidenceIds": [
+        "mask",
+        "formulation",
+        "training",
+        "discrete-ablation",
+        "continuous"
+      ]
+    },
+    {
+      "id": "libero-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "asset": "report-assets/2511.17502/libero-results.png",
+      "width": 1315,
+      "height": 963,
+      "sourceSha256": "2788b0a36abb737af6c59511f7d2d00bcc0012570deb33a519afbe8e8b3fbb94",
+      "sourceUrl": "https://arxiv.org/pdf/2511.17502#page=6",
+      "crop": [
+        0.115,
+        0.108,
+        0.889,
+        0.546
+      ],
+      "alt": "LIBERO success-rate table with robot-pretraining flags, action types, four suite scores and averages for baselines and two RynnVLA-002 variants.",
+      "caption": "Continuous RynnVLA reaches 97.4% average without large-scale robot-data pretraining.",
+      "readingGuide": "Begin with the bottom two rows, then read horizontally across Spatial, Object, Goal and Long before consulting Average. Continuous RynnVLA scores 99.0, 99.8, 96.4 and 94.4, yielding the reported 97.4 average; the discrete variant averages 93.3. The Pretraining column has a narrow meaning from the original caption: large-scale robot manipulation data. RynnVLA still inherits Chameleon initialization. Check the stronger pretrained rows as well: X-VLA and EO-1 have higher averages, while OpenVLA-OFT is slightly below RynnVLA. Dashes for Seer and UVA represent missing suite results, not zero success, and their averages remain unreported.",
+      "takeaway": "The source demonstrates a competitive policy without additional large-scale robot pretraining. It does not establish an overall leaderboard win: EO-1 reports 98.2% and X-VLA 98.1%, compared with RynnVLA's 97.4%. The continuous/discrete comparison also indicates why the action-output mechanism matters alongside the shared training objective.",
+      "caution": "The rows combine different backbones and pretraining resources; they do not isolate world-model supervision. The paper reports 50 deployment rollouts per task, but this table gives no uncertainty intervals. Preserve its missing entries rather than filling in averages.",
+      "evidenceIds": [
+        "libero",
+        "tokens",
+        "training",
+        "sim-protocol"
+      ]
+    },
+    {
+      "id": "continuous-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 9,
+      "asset": "report-assets/2511.17502/continuous-ablation.png",
+      "width": 1308,
+      "height": 237,
+      "sourceSha256": "2788b0a36abb737af6c59511f7d2d00bcc0012570deb33a519afbe8e8b3fbb94",
+      "sourceUrl": "https://arxiv.org/pdf/2511.17502#page=9",
+      "crop": [
+        0.115,
+        0.094,
+        0.885,
+        0.202
+      ],
+      "alt": "Four rows add wrist camera, world-model training and proprioceptive state to a continuous policy; average LIBERO success rises from 84.5 to 91.6 to 94.6 to 97.4.",
+      "caption": "Rows 2–3 isolate the listed world-model-training change; rows 3–4 add state.",
+      "readingGuide": "Treat this table as a sequence of different questions. Rows 1–2 add the wrist camera; rows 2–3 add world-model training while keeping the listed sensory inputs fixed; rows 3–4 add proprioceptive state. For the paper's central training claim, the middle comparison is the most informative: the average changes from 91.6 to 94.6. Looking across that pair shows improvements in every suite, including Long from 81.4 to 85.8. The last row reaches 97.4 only after state is added. It is therefore essential to keep the world-model and state contributions separate when explaining the final benchmark score.",
+      "takeaway": "The table supports a 3.0-percentage-point average gain from the world-model objective in the listed wrist-camera, no-state configuration. Adding state then yields another 2.8 points. This is more specific evidence for the joint-learning mechanism than the heterogeneous leaderboard, while also showing the importance of the policy's input information.",
+      "caution": "The four rows are not a complete factorial experiment: there is no world-model-off row with both wrist camera and state present. The source describes a common training recipe, but it does not report multi-seed uncertainty or detailed compute matching.",
+      "evidenceIds": [
+        "continuous-ablation",
+        "sim-protocol"
+      ]
+    },
+    {
+      "id": "real-robot-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 5",
+      "page": 9,
+      "asset": "report-assets/2511.17502/real-robot-ablation.png",
+      "width": 1293,
+      "height": 271,
+      "sourceSha256": "2788b0a36abb737af6c59511f7d2d00bcc0012570deb33a519afbe8e8b3fbb94",
+      "sourceUrl": "https://arxiv.org/pdf/2511.17502#page=9",
+      "crop": [
+        0.118,
+        0.465,
+        0.879,
+        0.588
+      ],
+      "alt": "SO100 ablation table compares discrete and continuous actions, world-model training, wrist camera and state; the full continuous row scores 80, 80 and 50.",
+      "caption": "Physical performance depends on the continuous head, sensory inputs and joint training together.",
+      "readingGuide": "Read rows 4–5 first, because they keep continuous actions, wrist camera and state enabled while changing the world-model column. Success changes from 30/10/0 to 80/80/50 for single-target, multi-target and distractor conditions. Then compare row 5 with rows 1–3: the discrete version and the versions missing either state or wrist camera each record zero in all three columns. These are tested configurations, not universal impossibility results. The table does not name its particular pick-and-place task, so its 80/80/50 row should not be silently assigned to strawberries merely because those values match one row in Table 2.",
+      "takeaway": "World-model supervision produces a large gain in this physical ablation, but it works within a particular continuous-action and sensor configuration. The table also makes a source discrepancy visible: the nearby prose says performance rises to 'over 80%', whereas the best displayed cells are exactly 80%, and distractor success is 50%.",
+      "caution": "The real-world protocol states ten tests per task and does not quantify its time budget. Table 5's task identity is unspecified. Neither this table nor the abstract defines the aggregation behind the headline '50%' overall improvement.",
+      "evidenceIds": [
+        "real-ablation",
+        "real-protocol",
+        "real-results"
+      ]
+    },
+    {
+      "id": "world-prediction",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 6",
+      "page": 10,
+      "asset": "report-assets/2511.17502/world-prediction.png",
+      "width": 1370,
+      "height": 1034,
+      "sourceSha256": "2788b0a36abb737af6c59511f7d2d00bcc0012570deb33a519afbe8e8b3fbb94",
+      "sourceUrl": "https://arxiv.org/pdf/2511.17502#page=10",
+      "crop": [
+        0.483,
+        0.384,
+        0.886,
+        0.619
+      ],
+      "alt": "Four paired LIBERO validation blocks compare world-model-only and joint action-world training using FVD, PSNR, SSIM and LPIPS, with arrows showing each metric's preferred direction.",
+      "caption": "Action supervision broadly improves held-out visual prediction, with a Goal PSNR exception.",
+      "readingGuide": "Within each suite, compare World Model with Action World Model and use the arrows rather than assuming every larger number is better. FVD and LPIPS favor lower values; PSNR and SSIM favor higher ones. The Object block is a clear example: FVD falls from 1141.6 to 877.2 while PSNR rises from 20.31 to 22.18. Inspect Goal carefully before generalizing: its FVD, SSIM and LPIPS improve, but PSNR falls slightly from 22.25 to 22.13. The original printed SSIM and LPIPS values are retained here because the paper does not explain their scaling. Evaluation uses the held-out portion of cleaned LIBERO video-action pairs.",
+      "takeaway": "These results support the other direction of mutual enhancement: action learning can benefit the same model's future-image prediction. FVD improves in all four suites, and Object improves on all four metrics. The evidence concerns predictive visual fidelity under supplied actions; it is separate from the policy deployment success reported in the other tables.",
+      "caution": "The source does not specify video evaluation horizon, detailed metric implementation or SSIM/LPIPS scaling. No uncertainty accompanies the pairs. Improved rendered futures, including the selected Figure 8 examples, do not establish autonomous planning or general physical correctness.",
+      "evidenceIds": [
+        "world-results",
+        "sim-protocol",
+        "qualitative",
+        "inference"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Use two conditional tasks to teach one representation",
+      "kind": "source",
+      "text": "Start with the two conditionals in Section 3.1. A policy needs an instruction, robot state and image history to decide an action; a world model needs observations and actions to predict visual change. RynnVLA makes both problems available to one backbone by expressing images, text, states and discrete actions in a common vocabulary. During the default finetuning stage, the task types are sampled equally. Discrete action targets and next-image targets both use cross-entropy, while the continuous action branch adds L1 regression. This construction explains what the paper means by unification: shared parameters and complementary supervised tasks. It does not require a robot to generate imagined images before acting. The inference paragraph explicitly separates the queries, so the world-model contribution to the deployed policy is carried through training.",
+      "evidenceIds": [
+        "formulation",
+        "tokens",
+        "training",
+        "continuous",
+        "inference"
+      ]
+    },
+    {
+      "heading": "Understand why the discrete fix does not finish the control problem",
+      "kind": "analysis",
+      "text": "The discrete mask addresses a specific dependency: one generated action should not make the next action drift away from the observed scene. Figure 3 removes that cross-action path while preserving token-level causal structure inside each action. Table 3 and the chunk-length curves support the usefulness of this restriction in simulation. The authors then identify a different physical problem: isolated actions can form a discontinuous trajectory, and a large discrete decoder can overfit limited robot demonstrations. Their continuous head uses learnable queries and parallel chunk prediction, with bidirectional attention described in the introduction. My reading is that the two designs target different failure modes: dependence on erroneous earlier actions versus coordination across a trajectory. The continuous head retains discrete supervision during training, so changing the execution output need not discard the action-token learning signal.",
+      "evidenceIds": [
+        "mask",
+        "discrete-ablation",
+        "continuous",
+        "auxiliary"
+      ]
+    },
+    {
+      "heading": "Separate mutual benefit from a claim of learned physics",
+      "kind": "analysis",
+      "text": "Read the empirical argument in two directions. Table 4 asks whether future-image supervision improves executed continuous policies; its middle pair gives a three-point average gain with the listed inputs held fixed. Table 6 asks whether action supervision improves visual prediction; most metric comparisons improve, with Goal PSNR providing an explicit exception. Together they support mutual training benefit within the evaluated data and tasks. They do not directly identify why the representation improved. The authors' explanation that moving objects receive harder, more useful predictive supervision is plausible, but the paper does not measure a physics representation or control for every alternative auxiliary-learning effect. The SO100 table strengthens the case for practical benefit while narrowing its scope to a small physical setup with incomplete reporting of uncertainty and implementation details.",
+      "evidenceIds": [
+        "continuous-ablation",
+        "world-results",
+        "qualitative",
+        "real-protocol",
+        "real-ablation",
+        "scope-cost"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does correct action-to-image alignment cause the policy gain?",
+      "text": "Reader-proposed check, not performed: reproduce the Table 4 rows 2–3 comparison using the same wrist-camera, no-state inputs and fixed cleaned LIBERO split. Add a diagnostic joint-training arm that permutes only the conditioning actions in world-model examples while retaining their images and targets; leave VLA examples intact. Match VLA exposures, joint-arm task ratio, update count, token lengths and initialization, and report training compute and multiple seeds. Evaluate policy success and held-out visual prediction separately. If correctly aligned world supervision beats both VLA-only and shuffled-action supervision, that supports action-conditioned dynamics as a useful signal. If shuffled supervision preserves the policy gain despite worse action-conditioned prediction, generic auxiliary regularization becomes a stronger alternative explanation.",
+      "evidenceIds": [
+        "training",
+        "sim-protocol",
+        "continuous-ablation",
+        "world-results",
+        "qualitative"
+      ]
+    },
+    {
+      "title": "Does the mask block error propagation without solving trajectory continuity?",
+      "text": "Reader-proposed check, not performed: train discrete policies with default versus Figure 3 attention on identical data and settings, keeping world-model supervision fixed. Evaluate the source's chunk lengths 5, 10, 15 and 20 with matched initial states. In an offline decoder probe, perturb the generated Action_0 tokens while fixing text, state, images and sampling randomness; measure the resulting change in later-action outputs. Then test unperturbed execution for success and action discontinuity, comparing with a continuous-head reference under matched observations. The proposed mask should reduce sensitivity to preceding-action corruption; failure to do so would challenge its claimed isolation. If it reduces that sensitivity but still produces discontinuous physical actions, the continuous head addresses a distinct limitation rather than merely duplicating the mask.",
+      "evidenceIds": [
+        "mask",
+        "continuous",
+        "discrete-ablation",
+        "sim-protocol",
+        "real-ablation"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "notes": "Visually inspected the title/authors/affiliations/version on p. 1; Figures 1–9 and Tables 1–8 on pp. 2–12; all supporting method, training, evaluation, efficiency and reproduction-detail pages 4–13; and the scope/cost statement on p. 13. Every final crop was viewed, including a tightened Table 6 crop rendered directly at 400 DPI. Figure 2 arrows and Figure 3 row/column semantics were checked against their captions and Sections 3.1–3.3. Figure 3 omits the state input and retains within-action causal blocks; the guides preserve these distinctions. Reference-only pages 14–17 were read as text, not visually inspected. No appendix is present; separate supplements, external code and videos were not inspected, and no experiments were run."
+  }
+}

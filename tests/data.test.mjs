@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile, mkdir, symlink, cp } from 'node:fs/pr
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CATEGORIES, LEGACY_PUBLIC_FIELDS, REFERENCE_PUBLIC_FIELDS, PUBLIC_FIELDS, arxivIdentity, atomicWriteFiles, buildMeta, guardDecrease, mapNotionPage, migrateLegacyCatalog, normalizeDoi, paperIdentity, planCatalogUpdate, propertyUrls, sortPapers, validateMeta, validatePapers } from '../scripts/lib/data.mjs';
+import { CATEGORIES, LEGACY_PUBLIC_FIELDS, REFERENCE_PUBLIC_FIELDS, PUBLIC_FIELDS, applyClassificationOverrides, validateClassificationOverrides, arxivIdentity, atomicWriteFiles, buildMeta, guardDecrease, mapNotionPage, mergeCatalogPapers, migrateLegacyCatalog, normalizeDoi, paperIdentity, planCatalogUpdate, propertyUrls, sortPapers, validateMeta, validatePapers } from '../scripts/lib/data.mjs';
 import { createNotionReader, paginate, queryAllPages, withRetry } from '../scripts/lib/notion.mjs';
 import { privateSnapshotPath } from '../scripts/lib/paths.mjs';
 import { QUADRANTS, QUADRANT_AXES } from '../src/lib/taxonomy.mjs';
@@ -41,6 +41,65 @@ function fixture() {
   };
 }
 function paper() { return mapNotionPage(fixture()); }
+function componentReview() {
+  return { schemaVersion: 1, reviewedAt: '2026-09-11T10:00:00.000Z', entries: [{ paperId: paper().id,
+    componentArea: 'Visual encoders & representations', reason: 'Reusable image embeddings for downstream policies.',
+    evidenceIds: ['e1'], reportSha256: 'a'.repeat(64) }] };
+}
+
+test('component reviews preserve source fields, avoid duplicate translated subtypes and never resurrect deleted papers', () => {
+  const original = { ...paper(), majorCategory: '奠基性工作', subcategories: ['视觉编码器与表征', '视觉表征迁移基准'], quadrant: '不适用', classificationStatus: '部分待核实' };
+  const before = structuredClone(original);
+  const result = applyClassificationOverrides([original], componentReview());
+  assert.deepEqual(result, [{ ...original, majorCategory: 'WAM Components', subcategories: ['视觉编码器与表征', '视觉表征迁移基准'] }]);
+  assert.deepEqual(original, before);
+  validatePapers(result);
+  assert.deepEqual(applyClassificationOverrides(result, componentReview()), result);
+  assert.deepEqual(applyClassificationOverrides([], componentReview()), []);
+  const unrelated = mapNotionPage(referenceFixture());
+  assert.deepEqual(applyClassificationOverrides([unrelated], componentReview()), [unrelated]);
+});
+
+test('component reviews reject duplicate identities, unsupported fields and malformed evidence', () => {
+  const valid = componentReview();
+  assert.throws(() => validateClassificationOverrides({ ...valid, privatePath: '/private/review' }), /exactly/);
+  assert.throws(() => validateClassificationOverrides({ ...valid, entries: [valid.entries[0], valid.entries[0]] }), /Duplicate/);
+  for (const patch of [{ componentArea: 'guess' }, { reason: '' }, { evidenceIds: [] }, { evidenceIds: ['e1', 'e1'] }, { reportSha256: 'bad' }, { paperId: '../outside' }, { classificationStatus: '一手资料核实' }]) {
+    assert.throws(() => validateClassificationOverrides({ ...valid, entries: [{ ...valid.entries[0], ...patch }] }));
+  }
+});
+
+test('offline Notion sync reapplies component reviews while accepting bibliographic updates', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'wam-classification-sync-test-'));
+  try {
+    const repository = join(dir, 'repo');
+    await copyImportRuntime(repository);
+    await mkdir(join(repository, 'data'));
+    const papersPath = join(repository, 'data/papers.json');
+    const metaPath = join(repository, 'data/meta.json');
+    const reviewPath = join(repository, 'data/classification-overrides.json');
+    const inputPath = join(dir, 'input.json');
+    const reviews = componentReview();
+    const reviewBytes = JSON.stringify(reviews);
+    await writeFile(reviewPath, reviewBytes);
+    const notion = fixture();
+    notion.properties['大类'] = select('奠基性工作');
+    notion.properties['Paper Name'].title = [text('Updated encoder title')];
+    notion.properties['分类状态'] = select('部分待核实');
+    await writeFile(inputPath, JSON.stringify({ results: [notion], fetchedAt: '2026-09-11T10:00:00.000Z' }));
+    const sync = () => execFileSync(process.execPath, [join(repository, 'scripts/sync-notion.mjs'), '--input', inputPath], { encoding: 'utf8', timeout: 10000, stdio: 'pipe' });
+    assert.match(sync(), /Updated data/);
+    const expected = applyClassificationOverrides([mapNotionPage(notion)], reviews);
+    assert.deepEqual(JSON.parse(await readFile(papersPath, 'utf8')), expected);
+    const stable = [await readFile(papersPath, 'utf8'), await readFile(metaPath, 'utf8')];
+    assert.match(sync(), /No catalog changes/);
+    assert.deepEqual([await readFile(papersPath, 'utf8'), await readFile(metaPath, 'utf8')], stable);
+    assert.equal(await readFile(reviewPath, 'utf8'), reviewBytes);
+    await rm(reviewPath);
+    assert.throws(sync, /Missing data\/classification-overrides.json/);
+    assert.deepEqual([await readFile(papersPath, 'utf8'), await readFile(metaPath, 'utf8')], stable);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
 function referenceFixture() {
   const source = fixture();
   source.properties['Paper URL'].url = 'https://proceedings.example.org/2022/reference.html';
@@ -322,6 +381,122 @@ test('unchanged papers still repair missing or invalid public metadata', () => {
     assert.equal(plan.meta.updatedAt, '2026-09-08T08:00:00.000Z');
     validateMeta(plan.meta, papers);
   }
+});
+
+test('local discoveries survive a merge while complete Notion records win ID collisions', () => {
+  const notion = [{ ...paper(), title: 'Current editor title', majorCategory: 'VLA' }];
+  const localOnly = mapNotionPage(referenceFixture());
+  const local = [{ ...paper(), title: 'Earlier discovery title', majorCategory: 'WAM', subcategories: ['Earlier classification'] }, localOnly];
+  const before = JSON.stringify({ notion, local });
+  const merged = mergeCatalogPapers(notion, local);
+  assert.equal(merged.source, 'Notion + arXiv discovery');
+  assert.equal(merged.papers.length, 2);
+  assert.deepEqual(merged.papers.find(p => p.id === notion[0].id), notion[0]);
+  assert.deepEqual(merged.papers.find(p => p.id === localOnly.id), localOnly);
+  assert.equal(JSON.stringify({ notion, local }), before);
+  assert.deepEqual(mergeCatalogPapers(notion), { papers: notion, source: 'Notion' });
+  assert.deepEqual(mergeCatalogPapers(notion, [local[0]]), { papers: notion, source: 'Notion' });
+  assert.throws(() => mergeCatalogPapers(notion, [localOnly, localOnly]), /duplicate/);
+  assert.throws(() => mergeCatalogPapers([notion[0], notion[0]], local), /duplicate/);
+  assert.throws(() => mergeCatalogPapers(notion, [{ ...local[0], privateNotes: 'must not be ignored on collision' }]), /exactly/);
+});
+
+test('mixed metadata retains its four-field schema and source-only changes update its timestamp', () => {
+  const papers = [paper()];
+  const original = buildMeta(papers, '2026-09-07T08:00:00.000Z');
+  const changed = planCatalogUpdate(papers, papers, original, '2026-09-08T08:00:00.000Z', 'Notion + arXiv discovery');
+  assert.equal(changed.changed, true);
+  assert.equal(changed.meta.source, 'Notion + arXiv discovery');
+  assert.equal(changed.meta.updatedAt, '2026-09-08T08:00:00.000Z');
+  assert.deepEqual(Object.keys(changed.meta), Object.keys(original));
+  validateMeta(changed.meta, papers);
+  const repeated = planCatalogUpdate(papers, papers, changed.meta, '2026-09-09T08:00:00.000Z', changed.meta.source);
+  assert.equal(repeated.changed, false);
+  assert.equal(repeated.meta, changed.meta);
+  assert.equal(planCatalogUpdate(papers, papers, changed.meta, '2026-09-10T08:00:00.000Z').meta.source, 'Notion');
+  assert.throws(() => buildMeta(papers, original.updatedAt, 'unverified'), /source/);
+  assert.throws(() => validateMeta({ ...original, source: 'unverified' }, papers), /source/);
+  assert.throws(() => validateMeta({ ...changed.meta, scope: 'extra' }, papers), /exactly/);
+  assert.throws(() => validateMeta({ ...changed.meta, paperCount: 99 }, papers), /does not match/);
+  assert.throws(() => planCatalogUpdate(papers, papers, original, original.updatedAt, 'unverified'), /source/);
+});
+
+test('offline sync preserves overlay bytes, editor precedence and idempotence until Notion adopts local IDs', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'wam-overlay-sync-test-'));
+  try {
+    const repository = join(dir, 'repo');
+    await copyImportRuntime(repository);
+    await mkdir(join(repository, 'data'));
+    const papersPath = join(repository, 'data/papers.json');
+    const metaPath = join(repository, 'data/meta.json');
+    const localPath = join(repository, 'data/local-papers.json');
+    const inputPath = join(dir, 'input.json');
+    const local = [{ ...paper(), title: 'Stale title', majorCategory: 'WAM' }, mapNotionPage(referenceFixture())];
+    const localBytes = `${JSON.stringify(local, null, 2)}\n`;
+    await writeFile(localPath, localBytes);
+    await writeFile(papersPath, JSON.stringify([paper()]));
+    await writeFile(metaPath, JSON.stringify(buildMeta([paper()], '2026-09-07T08:00:00.000Z')));
+    const notion = fixture();
+    notion.properties['大类'] = select('VLA');
+    const snapshot = { results: [notion], fetchedAt: '2026-09-08T08:00:00.000Z', has_more: false };
+    await writeFile(inputPath, JSON.stringify(snapshot));
+    const args = [join(repository, 'scripts/sync-notion.mjs'), '--input', inputPath];
+    const sync = () => execFileSync(process.execPath, args, { encoding: 'utf8', timeout: 10000, stdio: 'pipe' });
+    assert.match(sync(), /Updated data/);
+    const merged = JSON.parse(await readFile(papersPath, 'utf8'));
+    assert.deepEqual(merged.find(p => p.id === paper().id), mapNotionPage(notion));
+    assert.deepEqual(merged.find(p => p.id === local[1].id), local[1]);
+    assert.equal(JSON.parse(await readFile(metaPath, 'utf8')).source, 'Notion + arXiv discovery');
+    const stable = [await readFile(papersPath, 'utf8'), await readFile(metaPath, 'utf8')];
+    assert.match(sync(), /No catalog changes/);
+    assert.deepEqual([await readFile(papersPath, 'utf8'), await readFile(metaPath, 'utf8')], stable);
+    assert.equal(await readFile(localPath, 'utf8'), localBytes);
+    await rm(localPath);
+    assert.throws(sync, /Missing data\/local-papers\.json/);
+    assert.deepEqual([await readFile(papersPath, 'utf8'), await readFile(metaPath, 'utf8')], stable);
+    await writeFile(localPath, JSON.stringify([local[1], local[1]]));
+    assert.throws(sync, /duplicate/);
+    assert.deepEqual([await readFile(papersPath, 'utf8'), await readFile(metaPath, 'utf8')], stable);
+    await writeFile(localPath, localBytes);
+    snapshot.results.push(referenceFixture());
+    snapshot.fetchedAt = '2026-09-09T08:00:00.000Z';
+    await writeFile(inputPath, JSON.stringify(snapshot));
+    assert.match(sync(), /Updated data/);
+    assert.deepEqual(JSON.parse(await readFile(papersPath, 'utf8')), merged);
+    assert.equal(JSON.parse(await readFile(metaPath, 'utf8')).source, 'Notion');
+    assert.equal(await readFile(localPath, 'utf8'), localBytes);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('local overlay cannot mask an empty or substantially truncated Notion export', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'wam-overlay-guard-test-'));
+  try {
+    const repository = join(dir, 'repo');
+    await copyImportRuntime(repository);
+    await mkdir(join(repository, 'data'));
+    const notion = Array.from({ length: 10 }, (_, i) => {
+      const item = fixture(); item.properties['Paper URL'].url = `https://arxiv.org/abs/2605.${String(10000 + i)}`; return item;
+    });
+    const local = Array.from({ length: 10 }, (_, i) => {
+      const item = fixture(); item.properties['Paper URL'].url = `https://arxiv.org/abs/2606.${String(10000 + i)}`; return mapNotionPage(item);
+    });
+    const merged = mergeCatalogPapers(notion.map(mapNotionPage), local);
+    const papersPath = join(repository, 'data/papers.json');
+    const metaPath = join(repository, 'data/meta.json');
+    const inputPath = join(dir, 'input.json');
+    const original = JSON.stringify(merged.papers);
+    const originalMeta = JSON.stringify(buildMeta(merged.papers, '2026-09-07T08:00:00.000Z', merged.source));
+    await writeFile(papersPath, original);
+    await writeFile(metaPath, originalMeta);
+    await writeFile(join(repository, 'data/local-papers.json'), JSON.stringify(local));
+    const sync = () => execFileSync(process.execPath, [join(repository, 'scripts/sync-notion.mjs'), '--input', inputPath], { encoding: 'utf8', timeout: 10000, stdio: 'pipe' });
+    for (const [results, message] of [[[], /empty/], [notion.slice(0, 7), /decrease from 10 to 7/]]) {
+      await writeFile(inputPath, JSON.stringify({ results, fetchedAt: '2026-09-08T08:00:00.000Z', has_more: false }));
+      assert.throws(sync, message);
+      assert.equal(await readFile(papersPath, 'utf8'), original);
+      assert.equal(await readFile(metaPath, 'utf8'), originalMeta);
+    }
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
 test('raw snapshot guard rejects in-repo ..audit directories and symlinks into the repo', async () => {

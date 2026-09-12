@@ -1,0 +1,471 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.09155",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T10:55:24.190Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2609.09155",
+      "title": "SyncWorld: Visual Calibration Enables World Models as Zero-Shot Simulators",
+      "kind": "pdf",
+      "sha256": "2d5495c2a82d2c0b6174192fedb5b87c4da63e7a049691f57e155a6789de3c13",
+      "wordCount": 11566,
+      "accessedAt": "2026-09-10T10:24:09.403842+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "identityVerified": true,
+    "sectionsRead": [
+      "Abstract; Sections 1–2.3 (problem and related work)",
+      "Sections 3.1–3.4 (method, calibration, ranking and data)",
+      "Sections 4.1–4.5 and 5 (evaluation, ablations and conclusion)",
+      "References",
+      "Appendices A–B.2.5, including B.2.3 (training and data generation)",
+      "Appendices C.1–C.4.3 and D (inference, evaluation and augmentation ablation)",
+      "Appendices E.1–E.4 and F.1–F.5 (failures and qualitative descriptions)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Identity: inspected arXiv:2609.09155v1 [cs.CV], 8 September 2026, marked Preprint. The styled title and all nine authors match the supplied catalog; no other revision or edition was supplied or compared.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This limitation was addressed by inspecting original PDF pages and final crops.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The supplementary index.html, videos, full-episode demonstrations and VGGT reconstruction media mentioned in Appendices A and F were not supplied for inspection. Their descriptions were read; continuous videos were not viewed.",
+      "Code, external project resources and checkpoints were not inspected; experiments were not reproduced.",
+      "All seven text chunks were read completely. PDF pages 1–9 and 15–24 were visually inspected; the conclusion continuation and bibliography on pages 10–14 were read as text."
+    ],
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 5)",
+      "Figure 4 (p. 6)",
+      "Figure 5 (p. 7)",
+      "Figures 6–7 (p. 21)",
+      "Figures 8–9 (p. 22)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 7)",
+      "Tables 2–3 (p. 8)",
+      "Tables 4–5 (p. 9)",
+      "Table 6 (p. 18)",
+      "Table 7 (p. 19)",
+      "Tables 8–9 (p. 20)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "SyncWorld interprets robot commands through a short visual calibration context, then predicts proposed actions’ consequences with a video diffusion model. Calibration-conditioned training and distillation also support history-only prediction. It improves held-out video metrics and selected LIBERO policy outcomes, but the evidence is strongest for short-horizon simulation: ranking quality, object interactions and unseen-embodiment controllability remain limiting factors.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "A numerical command can produce different image motion after a camera, robot base or embodiment change. Mixed training therefore asks a predictor to fit conflicting action–visual mappings. SyncWorld supplies setup-specific paired motion evidence in context, avoiding a new parameter update at each deployment.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-mapping"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Visual calibration exposes six motion dimensions; pose conditioning grounds future-video generation in the current setup.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-calibration",
+        "e-architecture"
+      ]
+    },
+    {
+      "text": "Calibration-to-history distillation transfers prediction behavior to deployment without an explicit calibration episode.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-distillation"
+      ]
+    },
+    {
+      "text": "Imagined rollouts support sample-and-rank policy improvement on an oracle-positive diagnostic subset of LIBERO.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-ranking",
+        "e-policy-results"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Single-view RGB history paired with robot controls",
+      "A future chunk of seven-DoF translation, rotation and gripper controls",
+      "Optional paired calibration frames and poses from the current setup"
+    ],
+    "outputs": [
+      "Future RGB video conditioned on supplied actions",
+      "In the separate ranking pipeline: selection of a policy candidate for execution"
+    ],
+    "steps": [
+      {
+        "name": "Compress calibration",
+        "detail": "Record primitive motion and return phases under a fixed camera. Extract the strongest contiguous run for each signed dimension, thresholded at 1 mm or 0.2 degrees. Take five frames per segment, re-anchor actions, and concatenate twelve segments canonically. Random collection order does not imply random model-prefix order.",
+        "evidenceIds": [
+          "e-calibration"
+        ]
+      },
+      {
+        "name": "Condition the video denoiser",
+        "detail": "Wan2.2-TI2V-5B encodes calibration/history video into latents, appends future noise and receives pose conditioning in every DiT block. Samples contain 60 calibration, 25 history and 16 future frames at 512×512. Four eight-dimensional pose vectors form a 32-dimensional token. Output is video, not predicted controls.",
+        "evidenceIds": [
+          "e-architecture"
+        ]
+      },
+      {
+        "name": "Rank and execute",
+        "detail": "A separate π0 policy proposes eight 16-action chunks. SyncWorld predicts front/side outcomes; GPT-5 judges three sampled frames per rollout. Execute all 16 actions from the highest-ranked candidate, observe again and repeat. The described procedure samples candidates without gradient-based action optimization.",
+        "evidenceIds": [
+          "e-ranking",
+          "e-ranking-config"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Fine-tune all denoising parameters. Warm up with calibration on every item, then use mixed data with history-only examples. Shared pose perturbations discourage memorizing coordinate conventions; augmentation probability rises from 0.3 to 0.6. Distillation matches the calibration-conditioned branch through a stopped-gradient target. A −2.0 flag distinguishes null calibration from static motion.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-architecture",
+          "e-augmentation",
+          "e-distillation"
+        ]
+      },
+      {
+        "text": "Use calibrated RLBench, RoboCasa and RoboMimic trajectories, scripted/noisy counterfactuals, and uncalibrated DROID data. The corpus is approximately 166 video hours, including 54 real hours, or about 8,300 unique trajectories. Training uses 32 H100s, total batch 64, learning rate 5×10⁻⁵, bf16 and 2–3 days.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-data",
+          "e-training"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Keep parameters fixed and supply calibration or its explicit null placeholder with history. Inference uses 20 FlowMatchScheduler steps, shift 5, minimum sigma 0 and action guidance strength 5.0. Video evaluation independently predicts segments at stride 16; these metrics do not quantify unrestricted open-loop drift.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-distillation",
+          "e-inference",
+          "e-evaluation"
+        ]
+      },
+      {
+        "text": "Zero-shot improvement means no additional training: the base π0 checkpoint was already pretrained on LIBERO, so the policy is not entirely task-naive.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-ranking-config"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "I_{t+1:t+H}\\sim W_{\\theta}(\\cdot\\mid C^{s},H_t,A_t)",
+        "explanation": "Equation (3): Wθ predicts H future RGB observations I from setup-s calibration C^s, interaction history H_t and future action chunk A_t. Adaptation changes conditioning, not deployment-time parameters.",
+        "evidenceIds": [
+          "e-architecture"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{distill}}=\\mathbb{E}_{\\tau}\\left[\\left\\|\\hat{\\epsilon}_{\\theta}(\\text{history},\\text{null-calib})-\\operatorname{sg}\\left(\\hat{\\epsilon}_{\\theta}(\\text{history},\\text{calib})\\right)\\right\\|_2^2\\right],\\quad\\mathcal{L}=\\mathcal{L}_{\\mathrm{base}}+\\lambda_{\\mathrm{distill}}\\mathcal{L}_{\\mathrm{distill}}",
+        "explanation": "B.1.3: τ is the diffusion timestep; the student matches a stopped-gradient (sg) calibration-conditioned prediction. The source leaves ε̂θ generic across prediction parameterizations. λdistill weights consistency against the base loss; its value is unstated.",
+        "evidenceIds": [
+          "e-distillation"
+        ]
+      },
+      {
+        "expression": "\\hat{\\epsilon}=\\hat{\\epsilon}_{\\varnothing}+\\lambda_{\\mathrm{action}}(\\hat{\\epsilon}_{\\mathrm{cond}}-\\hat{\\epsilon}_{\\varnothing}),\\qquad\\lambda_{\\mathrm{action}}=5.0",
+        "explanation": "Equation (7): cond is the requested-action prediction and ∅ the null-action prediction. Their difference steers denoising toward requested motion. The null-action flag −1 differs from the null-calibration flag.",
+        "evidenceIds": [
+          "e-inference",
+          "e-distillation"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Held-out 16-action video prediction",
+      "setting": "50 LIBERO, 50 ManiSkill and 25 real xArm trajectories, two views each; identical held-out trajectories for baselines.",
+      "metric": "LPIPS, lower is better",
+      "value": "Calibrated: 0.035 / 0.049 / 0.039; history-only: 0.049 / 0.071 / 0.042 (LIBERO / ManiSkill / Real).",
+      "comparison": "Ctrl-World: 0.137 / 0.178 / 0.142.",
+      "interpretation": "Perceptual improvements accompany better PSNR, SSIM and FID in Table 1. These are short video forecasts, not task-success measurements.",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-quality"
+      ]
+    },
+    {
+      "task": "Cross-view consistency",
+      "setting": "Same two-view data; average generated-to-opposite-ground-truth Met3R in both directions.",
+      "metric": "Met3R, lower is better",
+      "value": "Calibrated average 0.538; history-only 0.542.",
+      "comparison": "Ctrl-World average 0.565; ground-truth-pair reference 0.523. Real: SyncWorld 0.473 versus IRASim 0.468.",
+      "interpretation": "Best learned-model average, but not every domain; Table 2 contradicts the broader prose claim. This is a learned geometric-feature proxy.",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-cross-view"
+      ]
+    },
+    {
+      "task": "LIBERO Orange Juice policy improvement",
+      "setting": "Oracle-headroom-selected task; 50 episodes; eight candidates, GPT-5 ranking and 16-action execution.",
+      "metric": "Task success rate",
+      "value": "0.72 with calibration; 0.68 without calibration.",
+      "comparison": "Direct π0: 0.56; ground-truth-simulator ranking: 0.80.",
+      "interpretation": "A 16-percentage-point increase over direct policy on this selected task. Confidence intervals and repeated-seed variation are not reported.",
+      "evidenceIds": [
+        "e-policy-results",
+        "e-ranking-config"
+      ]
+    },
+    {
+      "task": "Training calibration and distillation ablation",
+      "setting": "LIBERO held-out prediction; full-model row matches the history-only setting.",
+      "metric": "LPIPS, lower is better",
+      "value": "Full model 0.049.",
+      "comparison": "Without training calibration: 0.134; without distillation: 0.148.",
+      "interpretation": "Supports the training designs for history-only deployment. Dropping training calibration differs from withholding it only at inference.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-quality"
+      ]
+    },
+    {
+      "task": "Calibrated pose-augmentation ablation",
+      "setting": "ManiSkill, with test-time calibration; Section D.",
+      "metric": "LPIPS, lower is better",
+      "value": "Default augmentation probability 0.6: 0.049.",
+      "comparison": "Probabilities 0.0 / 0.3 / 0.9: 0.088 / 0.059 / 0.060.",
+      "interpretation": "Moderate augmentation wins this sweep; it does not establish a universal optimum.",
+      "evidenceIds": [
+        "e-augmentation-results"
+      ]
+    },
+    {
+      "task": "LIBERO tasks without consistent oracle headroom",
+      "setting": "Additional diagnostics using the same ranking framework; Table 8 omits calibration mode.",
+      "metric": "Task success rate",
+      "value": "Ketchup: SyncWorld 0.72.",
+      "comparison": "Direct policy 0.80; oracle ranking 0.74.",
+      "interpretation": "Even perfect rollout images can accompany worse selection. Main policy gains cannot be generalized to the whole suite.",
+      "evidenceIds": [
+        "e-negative-tasks"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Extreme views, novel-object transitions, nearby-object hallucinations and fine xArm rotations remain failure modes. F.5 reports poorer directional control without calibration on unseen embodiments despite close aggregate metrics.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-failures",
+        "e-qualitative-scope"
+      ]
+    },
+    {
+      "text": "Oracle-positive selection isolates simulator usefulness where the judge already helps. Real-world evidence evaluates forecasts, whereas reported executed policy improvement is in LIBERO simulation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-evaluation",
+        "e-policy-results",
+        "e-negative-tasks"
+      ]
+    },
+    {
+      "text": "Table 6 reports 3.2 seconds for 20-step inference on four H100s versus 15.6 seconds on one. It does not time the full eight-candidate, two-view policy-and-judge loop or demonstrate real-time control.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-efficiency",
+        "e-ranking-config"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Recreate calibrated multi-suite data and counterfactuals, signed-segment extraction, Wan2.2 conditioning, distillation and two-view evaluation. Pin the non-official π0 checkpoint and VLM judge before comparing direct, learned-simulator and oracle ranking.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-data",
+        "e-calibration",
+        "e-architecture",
+        "e-distillation",
+        "e-evaluation",
+        "e-ranking-config"
+      ]
+    },
+    {
+      "text": "Resolve augmentation first: Section 3.2 describes translational axis flips/permutations, but B.1.2 writes R′=RS and p′=sp. Obtain distillation weight/target, phase lengths, complete pose serialization, VAE update status and judge prompt. The source misreferences canonical ordering as Eq. (5) instead of (4), and augmentation results as Table 4 instead of 9.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-augmentation",
+        "e-reproduction-gaps",
+        "e-augmentation-results"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    },
+    "reasoning": {
+      "text": "The catalog is unassigned. Architecture evidence identifies an action-conditioned video predictor, not joint future/action prediction or inverse dynamics. Control adds a separate π0 action generator and GPT-5 judge. A single denoising backbone therefore does not establish a unified One Model world-action architecture; leave the quadrant unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-ranking",
+        "e-ranking-config"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "How much signed-motion coverage must history contain before it can replace explicit calibration?",
+    "Does improved rollout fidelity help ranking on tasks fixed before oracle-headroom screening?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, byline, affiliations and arXiv margin stamp",
+      "detail": "The title and nine-author order match the catalog. The artifact is arXiv:2609.09155v1 [cs.CV], 8 September 2026, marked Preprint. Affiliations are UMass Amherst, UC Berkeley, NYU and Harvard; the first three authors share equal contribution."
+    },
+    {
+      "id": "e-mapping",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract, Section 1 and Sections 2.1–2.3",
+      "detail": "Setup-dependent action semantics motivate paired visual calibration for an action-conditioned predictor. Adaptation uses context without deployment-time parameter updates or explicit camera extrinsics."
+    },
+    {
+      "id": "e-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and Section 3.1, Eqs. (1)–(3); p. 15, B.1.1",
+      "detail": "Calibration/history video latents and pose embeddings condition future-video denoising. Wan2.2-TI2V-5B supplies the backbone and VAE; every DiT block gains pose-conditioning modules, and all denoising parameters are fine-tuned. Samples have 60 calibration, 25 history and 16 future frames at 512×512; four 8-dimensional pose vectors form a 32-dimensional token."
+    },
+    {
+      "id": "e-calibration",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.1, Figure 3 and Eq. (4); pp. 16–17, B.2.2–B.2.3",
+      "detail": "Six motion dimensions exclude gripper openness. Randomized directional motions return to nominal; twelve signed segments are canonically reordered. Extraction thresholds are 1 mm and 0.2 degrees. The maximal cumulative-motion contiguous run supplies five frames from its onset; actions are re-anchored."
+    },
+    {
+      "id": "e-augmentation",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2; p. 15, B.1.2; p. 16, B.1.4",
+      "detail": "All three pose streams share a random transform. Main text describes translational sign flips, permutations and scaling; the appendix writes R′=RS and p′=sp with a right-handed signed-permutation S. Translation scale is uniform from 0.7 to 1.5; curriculum probabilities are 0.3 then 0.6. The precise coordinate implementation remains unresolved."
+    },
+    {
+      "id": "e-distillation",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2; p. 16, B.1.3–B.1.4 and displayed loss",
+      "detail": "A history-only student matches a calibration-conditioned prediction with stopped-gradient teacher target; both use theta notation. Null calibration uses normalized black video, zero/identity poses and eighth-dimension flag −2.0. Base loss plus weighted consistency is stated without a numerical weight or fixed prediction parameterization."
+    },
+    {
+      "id": "e-data",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.4; pp. 16–18, B.2.1–B.2.5",
+      "detail": "RLBench, RoboCasa and RoboMimic provide randomized-view calibrated simulation data; DROID supplies uncalibrated real data. Counterfactuals use scripted divergence or noisy replay. Dataset estimates are 166 video hours, 29,880 videos, 8,300 unique trajectories and 54 real-world hours. Camera acceptance requires gripper visibility."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Section 4.1, Training Details; p. 15, B.1.1; p. 16, B.1.4",
+      "detail": "Training uses 4×8 H100 GPUs, total batch 64, and converges in 2–3 days. Appendix gives bf16, gradient checkpointing, learning rate 5×10^-5 and per-device batch 2; calibration-centric warmup precedes mixed-data training."
+    },
+    {
+      "id": "e-evaluation",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Sections 4.1–4.2; p. 18, C.1",
+      "detail": "Evaluation uses 50 ManiSkill, 50 LIBERO and 25 real trajectories, two views each. Simulation uses seen Panda embodiment, real evaluation unseen xArm. Baselines are fine-tuned on the same downstream dataset and tested on the same held-out trajectories. Predictions cover the next 16 actions; evaluation segments are independently supplied at stride 16."
+    },
+    {
+      "id": "e-quality",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, all rows and domain columns; Figure 5",
+      "detail": "Calibrated PSNR/SSIM/LPIPS/FID are 28.3/0.935/0.035/7.0 for LIBERO, 27.0/0.870/0.049/9.7 for ManiSkill and 29.2/0.936/0.039/5.5 for Real. History-only LPIPS is 0.049/0.071/0.042, versus Ctrl-World 0.137/0.178/0.142. Figure 5 compares ground truth, Ctrl-World and SyncWorld real robot motion."
+    },
+    {
+      "id": "e-cross-view",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2 and Section 4.3; pp. 18–19, C.3",
+      "detail": "Lower Met3R is better. Calibrated SyncWorld has 0.540/0.602/0.473, average 0.538; history-only average is 0.542, Ctrl-World 0.565 and ground-truth-pair reference 0.523. IRASim is better on Real, 0.468 versus 0.473, contrary to the universal-win prose. Evaluation averages generated-view/other-ground-truth-view scores in both directions using DINO, FeatUp and DUSt3R."
+    },
+    {
+      "id": "e-ranking",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.3, Eqs. (5)–(6) and Figure 4",
+      "detail": "A separate policy samples candidate chunks; SyncWorld predicts outcomes, a VLM scores them, and the highest-scoring chunk is executed. Figure 4 depicts two views and illustrative scores; it does not establish a cross-view architectural constraint or measured Ketchup gain."
+    },
+    {
+      "id": "e-ranking-config",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.4; p. 19, C.4.1–C.4.2 and Table 7",
+      "detail": "The base policy is a non-official LeRobot π0 checkpoint pretrained on LIBERO. Eight candidates each contain 16 actions; all selected actions execute open-loop before replanning. GPT-5 judges task progress and physical plausibility from three representative frames per rollout. Evaluation uses 50 episodes per task and front/side generated views."
+    },
+    {
+      "id": "e-policy-results",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 3 and Section 4.4; p. 20, C.4.3",
+      "detail": "For BBQ Sauce/Orange Juice/Black Bowl, direct-policy success fractions are 0.52/0.56/0.48; history-only ranking 0.54/0.68/0.58; calibrated ranking 0.58/0.72/0.60; oracle ranking 0.60/0.80/0.66. Selection uses oracle headroom rather than SyncWorld performance."
+    },
+    {
+      "id": "e-negative-tasks",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Table 8 and C.4.3",
+      "detail": "For Alphabet Soup/Ketchup/Put Cream Cheese, direct policy is 0.58/0.80/0.34, SyncWorld 0.58/0.72/0.34, and oracle ranking 0.62/0.74/0.30. Table 8 does not label calibration mode. True simulator rollouts do not ensure useful VLM ranking."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Tables 4–5 and Section 4.5",
+      "detail": "The full Table 4 row matches history-only inference in Table 1. LIBERO LPIPS is 0.049 versus 0.134 without calibration training and 0.148 without distillation. Average Met3R in Table 5 is 0.542/0.566/0.574 respectively. The prose identifies distillation as enabling inference without calibration."
+    },
+    {
+      "id": "e-augmentation-results",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Table 9 and Section D; p. 21, continuation of D",
+      "detail": "All augmentation ablations use test-time calibration. Default 0.6 yields ManiSkill LPIPS 0.049 versus 0.088/0.059/0.060 at probabilities 0.0/0.3/0.9. The prose mistakenly refers to Table 4; the displayed results are Table 9."
+    },
+    {
+      "id": "e-inference",
+      "sourceId": "primary",
+      "location": "PDF p. 18, C.1 and Eq. (7)",
+      "detail": "Inference uses 20 FlowMatchScheduler steps, shift 5, minimum sigma 0, bf16 and tiled VAE processing. Action CFG weight is 5.0; the null-action branch retains the first observation and zeros subsequent action steps with sentinel −1."
+    },
+    {
+      "id": "e-efficiency",
+      "sourceId": "primary",
+      "location": "PDF p. 18, C.2 and Table 6",
+      "detail": "Inference takes 15.6 seconds on one H100 at 20 denoising steps, or 3.2 seconds on four H100s with sequence parallelism. At 50 steps it takes 39.4 seconds on one H100. The table does not report complete multi-candidate policy-loop latency."
+    },
+    {
+      "id": "e-failures",
+      "sourceId": "primary",
+      "location": "PDF pp. 21–22, Figures 6–9 and Sections E.1–E.4",
+      "detail": "Extreme views yield unstable gripper trajectories; unseen peg interactions yield blurry or misplaced objects; nearby cubes can hallucinate; precise xArm rotations blur the gripper. These are predicted-video failure cases."
+    },
+    {
+      "id": "e-qualitative-scope",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix A; pp. 23–24, F.1–F.5",
+      "detail": "The PDF refers to separate supplementary videos, full-episode rollouts and VGGT reconstructions through an index.html. F.5 reports worse history-only directional controllability on unseen embodiments despite close aggregate metrics. These are written descriptions, not inspected video evidence."
+    },
+    {
+      "id": "e-reproduction-gaps",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–19, B.1–B.2 and C.1–C.4.2; p. 5, Eq. (4)",
+      "detail": "Implementation text leaves the distillation weight, exact denoising target, phase lengths, complete pose serialization, policy checkpoint revision and full GPT-5 judging prompt unspecified. Denoiser fine-tuning is explicit; VAE freezing is not. B.2.3 references Eq. (5) for ordering, which appears in Eq. (4)."
+    }
+  ]
+}

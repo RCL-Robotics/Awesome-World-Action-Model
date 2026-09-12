@@ -1,0 +1,395 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.03565",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T11:07:06.071Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2609.03565",
+      "title": "Toward Physically Grounded JEPA World Models for Goal-Conditioned Robotic Planning",
+      "kind": "pdf",
+      "sha256": "5c5fcf62f9b19f19a6f2968b4449d430d4d4cbc3e0fa49218e013f96aeb2ebbd",
+      "wordCount": 2878,
+      "accessedAt": "2026-09-10T10:24:17.008276+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "PDF p. 1: title, authors, version, abstract and I. Introduction",
+      "PDF p. 2: II.A Offline Data and II.B Model Architecture",
+      "PDF pp. 2–3: II.C Implementation",
+      "PDF p. 3: II.D Latent Planning, III.A Experimental Setup and III.B Planning Performance in Latent Space",
+      "PDF pp. 4–5: III.C Temporal Straightening",
+      "PDF p. 5: IV. Conclusion, Acknowledgment and References"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Both supplied text chunks were read completely; all five PDF pages and all six final figure/table crops were visually inspected.",
+      "Identity: the inspected title and author order match the catalog. The title page identifies arXiv:2609.03565v1 [cs.RO], 3 September 2026. No different revision was supplied or compared; this report covers v1 only (e1).",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This acquisition limitation was resolved here by inspecting the supplied PDF images.",
+      "Separate supplemental material availability has not been fully verified.",
+      "No appendix appears in the five-page PDF. No code, external references or separate supplements were inspected, and no experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, p. 2",
+      "Figure 2, p. 3",
+      "Figure 3, p. 4",
+      "Figure 4, p. 5"
+    ],
+    "tablesReviewed": [
+      "Table I, p. 3",
+      "Table II, p. 4"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "SA+IDM trains an action-conditioned JEPA world model with two auxiliary heads: inverse dynamics recovers executed actions, while state alignment predicts measured physical state from consecutive image representations. Deployment uses only the encoder and latent predictor inside CEM planning. State alignment improves all four reported tasks over IDM alone, while the diagnostics challenge average temporal straightening as a sufficient representation-quality criterion (e2–e12).",
+  "readingTimeMinutes": 8,
+  "problem": {
+    "text": "Predicting future embeddings avoids pixel reconstruction, but constant embeddings can minimize prediction loss. Recovering actions discourages full collapse without directly specifying which physical configuration and motion information the representation must preserve. The paper asks whether measured-state supervision supplies a useful complementary constraint for image-goal planning.",
+    "kind": "source",
+    "evidenceIds": [
+      "e2",
+      "e4"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A pair-based state-alignment objective complements latent prediction and inverse dynamics in an end-to-end world model; physical measurements supervise training only.",
+      "kind": "source",
+      "evidenceIds": [
+        "e4"
+      ]
+    },
+    {
+      "text": "The IDM-only ablation supports consistent gains from state alignment across four tasks. Transition analysis shows that greater average straightening can accompany lower effective transition dimension and weaker planning; it does not establish dimension as the causal mediator.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e8",
+        "e10",
+        "e11",
+        "e12"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Training: offline visual observations, associated physical measurements and intervening action chunks (e3).",
+      "Deployment: current observation, goal image and candidate action sequences (e6)."
+    ],
+    "outputs": [
+      "Predicted future latent representations; auxiliary action and state estimates during training (e4).",
+      "CEM-selected actions executed in the environment, followed by replanning (e6)."
+    ],
+    "steps": [
+      {
+        "name": "Encode offline trajectories",
+        "detail": "A behavior-policy dataset pairs observations with physical measurements. Each action chunk contains a fixed number of low-level actions between observations. A randomly initialized ViT-Tiny/14 projects its CLS token to 192 dimensions.",
+        "evidenceIds": [
+          "e3",
+          "e5"
+        ]
+      },
+      {
+        "name": "Predict latent dynamics",
+        "detail": "The encoder E produces z_t; predictor F uses actions to predict the next embedding. Its implementation is a six-layer causal Transformer with up to three recent latent–action pairs and 192-dimensional action embeddings injected through zero-initialized AdaLN at every layer.",
+        "evidenceIds": [
+          "e4",
+          "e5"
+        ]
+      },
+      {
+        "name": "Ground consecutive representations",
+        "detail": "H receives the encoded pair (z_t, z_{t+1}) to recover action a_t. G receives (z_{t-1}, z_t) to predict physical measurements s_t. The temporal pair supplies context for velocity as well as configuration. These heads use observed embeddings, not F's predicted embeddings.",
+        "evidenceIds": [
+          "e4"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "G and H are two-layer MLPs with hidden widths 256 and 512, respectively. All components train jointly with AdamW. Actions and Euclidean state quantities are standardized per dimension using dataset statistics; angular quantities use continuous coordinates to avoid wrap-around.",
+        "kind": "source",
+        "evidenceIds": [
+          "e5"
+        ]
+      },
+      {
+        "text": "The experiments supervise G with each task's full physical state. Tied weights α = β = 1.0 are selected from {0.01, 0.1, 1.0} using PushT validation planning success and reused across tasks. IDM-only sets α = 0, β = 1.0.",
+        "kind": "source",
+        "evidenceIds": [
+          "e7",
+          "e8"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Freeze E and F, encode current and goal images, and recursively roll out candidate action sequences. CEM samples sequences, scores terminal latent distance and updates its distribution from elites. Execute the optimized sequence, observe again and replan until success or budget exhaustion. G, H and physical-state measurements are unnecessary at deployment.",
+        "kind": "source",
+        "evidenceIds": [
+          "e4",
+          "e6"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "z_t=E(o_t),\\quad \\hat z_{t+1}=F(z_t,a_t),\\quad \\mathcal L_{\\mathrm{pred}}=\\mathbb E_{(o_t,a_t,o_{t+1})\\sim\\mathcal D}\\left[\\|\\hat z_{t+1}-z_{t+1}\\|_2^2\\right]",
+        "explanation": "Equations (1)–(3): o_t is an observation, a_t its ensuing action chunk, and D the offline dataset. The target z_{t+1} is directly encoded from the next observation; E and F are optimized end-to-end.",
+        "evidenceIds": [
+          "e3",
+          "e4"
+        ]
+      },
+      {
+        "expression": "\\begin{aligned}\\mathcal L_{\\mathrm{idm}}&=\\mathbb E_{(o_t,a_t,o_{t+1})\\sim\\mathcal D}\\left[\\|H(z_t,z_{t+1})-a_t\\|_2^2\\right],\\\\ \\mathcal L_{\\mathrm{sa}}&=\\mathbb E_{(o_{t-1},o_t,s_t)\\sim\\mathcal D}\\left[\\|G(z_{t-1},z_t)-s_t\\|_2^2\\right],\\\\ \\mathcal L_{\\mathrm{total}}&=\\mathcal L_{\\mathrm{pred}}+\\alpha\\mathcal L_{\\mathrm{sa}}+\\beta\\mathcal L_{\\mathrm{idm}}.\\end{aligned}",
+        "explanation": "Equations (4)–(6): H recovers executed actions; G predicts measured physical state s_t. α and β weight auxiliary losses. Beating a constant-action predictor requires action-informative variation, but the paper's argument discourages full collapse rather than proving complete state preservation.",
+        "evidenceIds": [
+          "e4"
+        ]
+      },
+      {
+        "expression": "a^*_{t:t+K-1}=\\operatorname*{arg\\,min}_{a_{t:t+K-1}}\\|\\hat z_{t+K}(a)-z_g\\|_2^2",
+        "explanation": "Equation (7): K is the candidate sequence horizon, z_g encodes the goal image, and the terminal prediction is obtained recursively. CEM approximates this search; the inverse-dynamics head does not produce deployment actions.",
+        "evidenceIds": [
+          "e6",
+          "e4"
+        ]
+      },
+      {
+        "expression": "\\Delta z_t^{(i)}=z_{t+1}^{(i)}-z_t^{(i)},\\quad S_{\\mathrm{straight}}^{(i)}=\\frac{1}{T_i-2}\\sum_{t=1}^{T_i-2}\\frac{\\langle\\Delta z_t^{(i)},\\Delta z_{t+1}^{(i)}\\rangle}{\\|\\Delta z_t^{(i)}\\|_2\\|\\Delta z_{t+1}^{(i)}\\|_2}",
+        "explanation": "Equation (8) averages consecutive-displacement cosine alignment for trajectory i of length T_i. Scores use the full latent space, whereas Figure 3's PCA is only a visualization. Handling zero-length displacements is unspecified.",
+        "evidenceIds": [
+          "e10"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "TwoRoom goal-conditioned planning",
+      "setting": "LeWorldModel benchmark protocol; 50 fixed start–goal problems per seed, three trained seeds; goals 25 environment steps ahead, 50-step interaction budget.",
+      "metric": "Planning success rate (%)",
+      "value": "SA+IDM: 100%",
+      "comparison": "IDM 94%; DINO-WM 100%; PLDM 97%; LeWorldModel 87%.",
+      "interpretation": "Six percentage points above IDM, tied with DINO-WM. Baseline means are imported; success uncertainty is unreported.",
+      "evidenceIds": [
+        "e7",
+        "e8"
+      ]
+    },
+    {
+      "task": "Reacher goal-conditioned planning",
+      "setting": "Same four-task protocol: 50 fixed problems per seed, three trained seeds, 25-step goal offset and 50-step budget.",
+      "metric": "Planning success rate (%)",
+      "value": "SA+IDM: 85%",
+      "comparison": "IDM 63%; DINO-WM 79%; PLDM 78%; LeWorldModel 86%.",
+      "interpretation": "Twenty-two percentage points above IDM; one below LeWorldModel. Comparable point estimates do not establish statistical equivalence.",
+      "evidenceIds": [
+        "e7",
+        "e8"
+      ]
+    },
+    {
+      "task": "PushT goal-conditioned planning",
+      "setting": "Same fixed-problem protocol; auxiliary weights selected using the PushT validation split. Exact evaluation split membership is not restated.",
+      "metric": "Planning success rate (%)",
+      "value": "SA+IDM: 98%",
+      "comparison": "IDM 83%; DINO-WM 74%; PLDM 78%; LeWorldModel 96%.",
+      "interpretation": "Fifteen percentage points above IDM and two above the strongest listed baseline; no uncertainty supports a significance claim.",
+      "evidenceIds": [
+        "e7",
+        "e8"
+      ]
+    },
+    {
+      "task": "OGBench-Cube goal-conditioned planning",
+      "setting": "Same 50 fixed problems per seed and three trained seeds, with a 25-step goal offset and 50-step budget; simulator execution is illustrated in Figure 2.",
+      "metric": "Planning success rate (%)",
+      "value": "SA+IDM: 87%",
+      "comparison": "IDM 85%; DINO-WM 86%; PLDM 65%; LeWorldModel 74%.",
+      "interpretation": "Two percentage points above IDM and thirteen above LeWorldModel. The one-point lead over DINO-WM is a reported mean difference only.",
+      "evidenceIds": [
+        "e7",
+        "e8",
+        "e9"
+      ]
+    },
+    {
+      "task": "OGBench-Cube temporal straightening",
+      "setting": "100 sampled observation trajectories held fixed across models; full 192-dimensional latent calculations.",
+      "metric": "Mean trajectory straightening score ± standard deviation",
+      "value": "SA+IDM: 0.55 ± 0.034",
+      "comparison": "IDM: 0.62 ± 0.029; LeWorldModel: 0.69 ± 0.025.",
+      "interpretation": "Straightening decreases while planning improves; this diagnostic is not a success rate or direct measure of physical accuracy.",
+      "evidenceIds": [
+        "e10",
+        "e8"
+      ]
+    },
+    {
+      "task": "OGBench-Cube transition-subspace analysis",
+      "setting": "Uncentered SVD of latent displacements, separately for the same 100 trajectories.",
+      "metric": "Mean r95: components retaining 95% of transition energy",
+      "value": "SA+IDM: 32.8; figure legend reports 32.8 ± 3.0.",
+      "comparison": "IDM 30.2 ± 2.6; LeWorldModel 17.0 ± 1.7, as printed in Figure 4. The ± statistic is not explicitly defined.",
+      "interpretation": "SA+IDM spreads transition energy across more directions. This association does not prove those directions encode useful physical variables.",
+      "evidenceIds": [
+        "e11"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Evidence covers four benchmarks using full physical-state training labels, without a physical-robot study or label-noise/missing-state ablation. The source has no dedicated limitations section; these are boundaries of its reported evaluation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e7",
+        "e8",
+        "e9",
+        "e12"
+      ]
+    },
+    {
+      "text": "Table I imports baseline means from LeWorldModel and omits seed dispersion. State alignment's gain over IDM is consistent, but small cross-method margins and statistical significance remain unresolved. No SA-only or single-frame-SA control isolates the importance of pairing.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e7",
+        "e8"
+      ]
+    },
+    {
+      "text": "The authors suggest state supervision exposes physical turns in latent space, lowering straightening. Neither the separate PCA projections nor transition ranks establish that explanation causally; the diagnostic analysis covers OGBench-Cube only.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Required inputs include the behavior-policy data, measured-state fields, normalization statistics and fixed evaluation problems. The PDF specifies architecture and AdamW, but omits dataset sizes, exact state/angle encodings, action-chunk length, learning rate, batch size, training duration, image preprocessing, hardware and software versions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e3",
+        "e5",
+        "e7"
+      ]
+    },
+    {
+      "text": "CEM population, elite fraction, iterations, horizon value and executed portion before replanning are not specified. Task success thresholds and exact split membership are inherited by reference rather than restated. Code and evaluation configurations are promised upon acceptance; that statement is not evidence of a public release.",
+      "kind": "source",
+      "evidenceIds": [
+        "e5",
+        "e6",
+        "e7"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The recorded classification is entirely unassigned, leaving no existing quadrant to confirm. Architecturally, this is action-conditioned latent future prediction with auxiliary inverse dynamics and state regression. CEM supplies deployment actions through search. Joint training alone does not establish a One Model policy jointly generating futures and actions, and training-time H does not make deployment inverse-dynamics control.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e4",
+        "e5",
+        "e6"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "Does the gain survive missing or noisy velocity supervision, and does pair-based G outperform a single-frame control? (e4, e7, e8)",
+    "Would transition dimension still correlate with success after holding latent prediction error and planner settings fixed? (e6, e10, e11)"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e1",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/byline/affiliation and arXiv margin stamp",
+      "detail": "Title matches the supplied catalog. Authors are Muyuan Liu, Yue Huang, Zheng Liang and Xiang Gao; the first two contributed equally, and Xiang Gao is corresponding author. Affiliation is GENISOM AI, Beijing, China. Stamp: arXiv:2609.03565v1 [cs.RO], 3 Sep 2026."
+    },
+    {
+      "id": "e2",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Abstract and I. Introduction, motivation and contributions",
+      "detail": "The paper motivates physical-state alignment as complementary to action recovery in a latent-prediction world model. It distinguishes pixel-free planning, collapse prevention and control-relevant physical grounding."
+    },
+    {
+      "id": "e3",
+      "sourceId": "primary",
+      "location": "PDF p. 2, II.A Offline Data",
+      "detail": "The fixed behavior-policy dataset contains trajectories of visual observations, physical measurements and action chunks. Each chunk spans a fixed number of low-level actions between adjacent observations; its numerical length and dataset size are not given."
+    },
+    {
+      "id": "e4",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 1 and caption; II.B Model Architecture, Eqs. (1)–(6)",
+      "detail": "E encodes observations and F predicts future latents. H(z_t,z_{t+1}) regresses a_t; G(z_{t-1},z_t) regresses s_t. Squared-error losses combine as prediction + α state alignment + β inverse dynamics. The dashed branch is the preceding prediction. Physical measurements and auxiliary heads serve training; deployment uses E and F."
+    },
+    {
+      "id": "e5",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–3, II.C Implementation",
+      "detail": "Random ViT-Tiny/14, projected CLS width 192; six-layer causal predictor with up to three latent–action pairs; action width 192 and zero-initialized AdaLN at each layer; two-layer G/H MLPs with hidden widths 256/512. Actions and Euclidean states are standardized, angles use continuous coordinates, and all components use AdamW. Code/configurations are promised upon acceptance. Training schedule, hardware and exact preprocessing/configuration are not supplied."
+    },
+    {
+      "id": "e6",
+      "sourceId": "primary",
+      "location": "PDF p. 3, II.D Latent Planning, Eq. (7)",
+      "detail": "Frozen E and F encode current/goal images and recursively predict candidate terminal latents. CEM minimizes terminal squared latent distance by sampling and elite updates; execution is followed by observation and replanning. Numerical CEM settings, horizon and execution interval are not specified."
+    },
+    {
+      "id": "e7",
+      "sourceId": "primary",
+      "location": "PDF p. 3, III.A Experimental Setup and Table I caption",
+      "detail": "Four LeWorldModel benchmark tasks use full physical-state SA labels, 50 fixed problems per seed, goals 25 environment steps ahead and a 50-step interaction budget. Own results average three independently trained seeds; baseline means come from LeWorldModel. PushT validation selects tied α = β = 1.0 from 0.01, 0.1 and 1.0. Exact split membership and task success thresholds are not restated."
+    },
+    {
+      "id": "e8",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Table I, all method rows and task columns; III.B ablation paragraph",
+      "detail": "Success percentages in TwoRoom/Reacher/PushT/OGB-Cube order: DINO-WM 100/79/74/86; PLDM 97/78/78/65; LeWorldModel 87/86/96/74; IDM 94/63/83/85; SA+IDM 100/85/98/87. IDM-only uses α = 0 and β = 1.0. No success uncertainty, SA-only or single-frame-SA result is reported."
+    },
+    {
+      "id": "e9",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2 and caption; III.B final paragraph",
+      "detail": "Top row is an OGBench-Cube reference trajectory; bottom row shows actual simulator observations after executing CEM actions. The text describes one successful trial within the evaluation budget, not predicted images or physical-robot execution."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 4, III.C Temporal Straightening, Eq. (8), Table II and Figure 3/caption",
+      "detail": "Consecutive-displacement cosine scores are calculated in the full 192-dimensional space. Table II gives mean ± SD over 100 fixed OGBench-Cube trajectories: LeWorldModel 0.69 ± 0.025, IDM 0.62 ± 0.029, SA+IDM 0.55 ± 0.034. Figure 3 independently fits each PCA projection; representative means are 0.718, 0.602 and 0.555. Physical-turn sensitivity is a suggested explanation, and zero-displacement handling is not specified."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 4, III.C final paragraph; PDF p. 5, Figure 4/caption and III.C continuation",
+      "detail": "Uncentered SVD analyzes displacements from the same 100 trajectories; r95 counts components retaining 95% of transition energy. Figure 4 plots mean cumulative energy and labels LeWorldModel 17.0 ± 1.7, IDM 30.2 ± 2.6, SA+IDM 32.8 ± 3.0. The text identifies mean r95 but does not explicitly define the ± statistic. The rank-one parallel/antiparallel argument explains how high average alignment can coexist with restricted transition variation."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 5, IV. Conclusion",
+      "detail": "The authors conclude that state alignment complements inverse dynamics and that average straightening can conceal concentrated transition variation. Combining SIGReg's distributional safeguard with physical grounding is future work. The conclusion adds no physical-robot experiment or dedicated limitations analysis."
+    }
+  ]
+}

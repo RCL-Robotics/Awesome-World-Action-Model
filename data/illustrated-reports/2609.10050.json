@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.10050",
+  "shortTitle": "GALATEA",
+  "thesis": "GALATEA preserves hand and object motion from generated video plans, then learns physical execution through simulation tracking, trading a structured, reusable controller for dependence on reconstruction quality and reference-following recovery.",
+  "standfirst": "A video can specify where an object should go and how fingers should interact with it, yet still leave the robot’s actions unknown. GALATEA builds an explicit bridge: reconstruct the hand and object together, use those trajectories to train tracking experts in simulation, and distill the experts into one feedback controller. Generated videos then serve as new plans for that controller. Read the evidence in three layers: reconstruction measures whether the reference is geometrically useful, simulation tests whether the robot can track it, and physical trials test transfer. The final layer reports 27 successful executions out of 40 unseen plans, with substantial limits on task breadth and recovery.",
+  "evidenceIds": [
+    "e02",
+    "e04",
+    "e09",
+    "e13",
+    "e17",
+    "e18"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 2,
+      "asset": "report-assets/2609.10050/architecture.png",
+      "width": 1411,
+      "height": 862,
+      "sourceSha256": "98b3cc4971b2994089c9a3a94263e8614a7f94875f50f2bba3912c5b7cb609b8",
+      "sourceUrl": "https://arxiv.org/pdf/2609.10050#page=2",
+      "crop": [
+        0.08,
+        0.062,
+        0.495,
+        0.258
+      ],
+      "alt": "Pipeline with solid training arrows from video generation through HOI reconstruction to RL grounding, and dashed inference arrows through the tracking controller to real-world execution.",
+      "caption": "Generated videos supply both training references and deployment plans; a separate controller supplies executable actions.",
+      "readingGuide": "Start at the video-generation block in the upper left. Image and instruction inputs produce videos, which the reconstruction block converts into hand–object interaction (HOI) references. Follow the solid black arrows to RL Grounding: this is the training route that produces the Tracking Controller. Then follow the dashed gray arrows, identified as inference in the lower legend. A newly reconstructed reference goes directly to the learned controller, whose execution arrow points toward the real world. The two routes share a geometric interface, but use it differently: one learns how to act from simulation interaction, while the other asks the resulting policy to follow a plan.",
+      "takeaway": "The useful separation is between specifying an interaction and learning the robot actions needed to realize it. Figure 2 supports a modular architecture with a reusable tracking layer. The source’s distillation stage explains how multiple object-category experts become the single controller shown in the deployment path.",
+      "caution": "The schematic does not establish continuous video replanning or joint training of the generator and controller. Real-world closed-loop operation is described through object-pose feedback to the tracker; generation and reconstruction are separate stages.",
+      "evidenceIds": [
+        "e02",
+        "e06",
+        "e09",
+        "e16"
+      ]
+    },
+    {
+      "id": "reconstruction",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 3,
+      "asset": "report-assets/2609.10050/reconstruction.png",
+      "width": 1374,
+      "height": 458,
+      "sourceSha256": "98b3cc4971b2994089c9a3a94263e8614a7f94875f50f2bba3912c5b7cb609b8",
+      "sourceUrl": "https://arxiv.org/pdf/2609.10050#page=3",
+      "crop": [
+        0.088,
+        0.061,
+        0.492,
+        0.165
+      ],
+      "alt": "Generated video feeds MoGe-2, SAM2, WiLoR and HOI-DETR; first-frame depth calibrates dense depth before FoundationPose and joint hand–object optimization.",
+      "caption": "Metric anchoring and joint refinement reconcile independently estimated hand and object motion.",
+      "readingGuide": "Read the upper dashed boxes as inputs. Generated video fans out to depth, segmentation, hand-motion and contact-interval estimates. The separate first-frame-depth arrow enters Depth alignment, where the text specifies a scale-and-offset correction against a static background. The corrected depth and SAM2 masks feed FoundationPose; its object poses join WiLoR hand motion and HOI-DETR contact intervals at Joint optimization. Equations (1)–(2) explain what the gray block does beyond these arrows: it reconciles object projection, hand keypoints, visible silhouettes, contact proximity and temporal smoothness. Calibrated intrinsics and a metric object mesh are additional inputs specified in the method text.",
+      "takeaway": "The diagram makes reconstruction a coupled geometry problem. Independent hand and object estimates are starting points; contact intervals help determine when their surfaces should meet. Joint refinement applies rigid corrections while retaining finger articulation, so it repairs relative placement without freely redesigning the generated grasp.",
+      "caution": "Metric recovery assumes a fixed camera, static background, calibrated intrinsics and known object dimensions. Contact detection and retained finger articulation can still be wrong; the optimization is not evidence that every generated interaction is physically feasible.",
+      "evidenceIds": [
+        "e03",
+        "e04"
+      ]
+    },
+    {
+      "id": "reconstruction-benchmark",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table I",
+      "page": 5,
+      "asset": "report-assets/2609.10050/reconstruction-benchmark.png",
+      "width": 1412,
+      "height": 266,
+      "sourceSha256": "98b3cc4971b2994089c9a3a94263e8614a7f94875f50f2bba3912c5b7cb609b8",
+      "sourceUrl": "https://arxiv.org/pdf/2609.10050#page=5",
+      "crop": [
+        0.085,
+        0.315,
+        0.915,
+        0.436
+      ],
+      "alt": "HOI reconstruction table comparing the full method, depth-alignment and joint-optimization ablations, VideoManip, EgoInfinity and DO AS I DO on H2O and HO-Cap.",
+      "caption": "Joint optimization improves relative geometry, while depth alignment creates a measurable metric tradeoff.",
+      "readingGuide": "Read the two dataset blocks separately: each contains 40 clips of 150 frames, with the image resolution printed in its header. ADD-S measures closest-point object alignment in centimeters; MRRPE measures wrist-to-object relative-position error in millimeters; CDev measures distances of ground-truth contact pairs under predicted poses, also in millimeters. Lower is better for all columns. Avg. Rank averages the three geometry-metric ranks and excludes runtime. Time is minutes per clip on one RTX 5880, as specified below the table in the source. Compare Ours with the two immediately following rows before comparing whole pipelines: these rows remove depth alignment or joint optimization.",
+      "takeaway": "On HO-Cap, joint optimization reduces MRRPE from 102.08 to 54.87 mm and CDev from 112.43 to 41.36 mm. Depth alignment improves ADD-S from 6.01 to 3.88 cm. These changes support distinct roles for relative hand–object refinement and absolute metric anchoring, rather than one undifferentiated reconstruction gain.",
+      "caution": "CDev is slightly better without depth alignment: 39.34 versus 41.36 mm on HO-Cap. DO AS I DO also has lower MRRPE. Full-method stereo input differs from monocular baselines; aggregate rank does not imply superiority on every metric or equal sensing.",
+      "evidenceIds": [
+        "e04",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "id": "tracking-ablation",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 5",
+      "page": 6,
+      "asset": "report-assets/2609.10050/tracking-ablation.png",
+      "width": 1374,
+      "height": 884,
+      "sourceSha256": "98b3cc4971b2994089c9a3a94263e8614a7f94875f50f2bba3912c5b7cb609b8",
+      "sourceUrl": "https://arxiv.org/pdf/2609.10050#page=6",
+      "crop": [
+        0.086,
+        0.062,
+        0.49,
+        0.263
+      ],
+      "alt": "Success-rate violin and box plots with object-level dots for all experts, benchmark experts, PPO, no lift reward, two-stage training, baselines, distilled control and transfer settings.",
+      "caption": "Simulation tests both the RL recipe and how much performance survives distillation and transfer.",
+      "readingGuide": "Read the vertical axis as trajectory-completion success, not image quality or average pose accuracy. Black circles represent the 42 training objects, colored circles the ten benchmark objects, and diamonds the five novel objects. The violins and boxes summarize variation across objects; the source describes interquartile ranges, medians and 1.5-times-IQR whiskers. Compare the benchmark expert column with PPO, w/o lift reward and Two-stage before reading the transfer columns on the right. The setup uses the same evaluation references and matched learned-policy training budgets, with 20,000 rollouts per method–object experiment. Numerical summaries are stated in the following page’s Results paragraph.",
+      "takeaway": "Benchmark experts reach 77.4% mean and 81.0% median success. Replacing SAPG with PPO reduces success on all ten benchmark objects; removing lift reward reduces it on seven. The distilled policy reaches 66.6% mean on unseen trajectories and 54.2% on novel objects, establishing transfer with an evident remaining performance gap.",
+      "caution": "Object distributions are not confidence intervals over training seeds. DO AS I DO retains a floating wrist, unlike the arm–hand methods. The source’s separate tracking-error table further conditions on intent-executing segments, so its error ordering cannot replace this completion comparison.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e13",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "id": "real-execution",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 7",
+      "page": 7,
+      "asset": "report-assets/2609.10050/real-execution.png",
+      "width": 1412,
+      "height": 545,
+      "sourceSha256": "98b3cc4971b2994089c9a3a94263e8614a7f94875f50f2bba3912c5b7cb609b8",
+      "sourceUrl": "https://arxiv.org/pdf/2609.10050#page=7",
+      "crop": [
+        0.085,
+        0.063,
+        0.915,
+        0.311
+      ],
+      "alt": "Four paired generated-human and robot examples: jar neck grasp, jar top-down pinch, mug rim push and mug handle engagement.",
+      "caption": "The reference specifies an interaction site and grasp style as well as object movement.",
+      "readingGuide": "Within each of the four panels, compare the generated human reference on the left with robot execution on the right. The upper panels show a neck grasp and a top-down pinch of the jar; the lower panels show contact at the mug rim and handle. Map these visible labels to the evaluation tasks in Table III: jar-neck pose adjustment, jar top-down grasp-and-move, mug-rim pushing and mug-handle pulling. The source states that all displayed reference trajectories were unseen during policy training. Its discussion emphasizes that the neck grasp leaves the opening accessible, whereas the top-down grasp occupies that opening.",
+      "takeaway": "These pairs illustrate why retaining hand motion matters to the intended interaction: different grasps can serve different purposes on the same object. Reader interpretation: the reference communicates contact strategy beyond object displacement. The physical success counts come from Table III; this figure supplies qualitative examples of the resulting behavior.",
+      "caution": "Selected stills do not establish full-trajectory accuracy, robustness or a causal advantage over object-only references. No such real-world ablation is reported. The source separately records failures at contact transitions and after the controller departs from its reference.",
+      "evidenceIds": [
+        "e17",
+        "e18"
+      ]
+    },
+    {
+      "id": "real-success",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table III",
+      "page": 7,
+      "asset": "report-assets/2609.10050/real-success.png",
+      "width": 1380,
+      "height": 361,
+      "sourceSha256": "98b3cc4971b2994089c9a3a94263e8614a7f94875f50f2bba3912c5b7cb609b8",
+      "sourceUrl": "https://arxiv.org/pdf/2609.10050#page=7",
+      "crop": [
+        0.509,
+        0.366,
+        0.915,
+        0.448
+      ],
+      "alt": "Real-world table listing four tasks with 6/10, 6/10, 7/10 and 8/10 successes, totaling 27/40 on unseen trajectories.",
+      "caption": "Physical evaluation reports 27 successful trials across four unseen-plan tasks.",
+      "readingGuide": "Read each task column together with its Type row: Jar neck is pose adjustment, Jar top is grasp-and-move, and both mug tasks are push-and-pull behaviors. Each success entry uses ten trials, so the overall 27/40 combines equally sized task groups. The surrounding text specifies unseen video plans conditioned on a scene image and new language instruction. Success means completing the reference while meeting the simulation section’s tracking thresholds, including 4-cm object-position and 30-degree object-rotation limits. In the physical trials, FoundationPose supplies object poses and forward kinematics from measured joints supplies hand keypoints.",
+      "takeaway": "The controller succeeds in 6/10 jar-neck, 6/10 jar-top, 7/10 mug-rim and 8/10 mug-handle trials. This is direct physical execution evidence for the four listed tasks, complementing the larger simulation evaluation. It does not by itself measure general dexterous competence beyond this selected task set.",
+      "caution": "Ten trials per task and no reported confidence intervals limit precision. Scoring depends on online pose estimation, with calibration described in the setup; an independent ground-truth pose system is not reported. No real-world baseline appears in this table.",
+      "evidenceIds": [
+        "e13",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Separate absolute scale from relative contact",
+      "text": "A visually plausible hand and a visually plausible object need not occupy a consistent 3-D scene. GALATEA therefore tackles two different ambiguities. First-frame stereo depth anchors MoGe-2 predictions to metric scale through background alignment, helping the object tracker place a known-size mesh. Joint optimization then reconciles the hand with that object using image evidence and contact intervals. It preserves initial object projections strongly because the authors find them relatively reliable, while allowing rigid hand corrections without changing finger articulation. Table I helps distinguish the effects: removing depth alignment especially harms object alignment on HO-Cap, whereas removing joint optimization strongly worsens relative and contact geometry. Reader interpretation: this division makes the reconstruction easier to diagnose, but the CDev tradeoff warns against treating any one aggregate rank as proof of a universally better reference.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e11"
+      ]
+    },
+    {
+      "heading": "Reward interaction without locking in noisy finger targets",
+      "text": "The tracker receives current hand–object errors and shape information, but no retargeted hand-joint target. Its reward combines reference imitation with explicit contact and lift incentives. Object tracking becomes active when either the reference or rollout has contact. Dense hand tracking is suppressed when the reference has lifted the object beyond 5 cm but the rollout has not, preventing that reward component from remaining active during a missed lift. Augmentation also respects the contact boundary: approach perturbations vanish toward first contact, while later perturbations move hand and object together. SAPG supplies varied exploration across PPO agents. These are training mechanisms; at execution the MLP emits arm deltas and absolute hand targets with smoothing. The PPO and no-lift ablations test parts of this recipe, with success decreases on ten and seven benchmark objects respectively.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e08",
+        "e13",
+        "e14"
+      ]
+    },
+    {
+      "heading": "Follow what survives expert distillation into deployment",
+      "text": "The unified controller is produced through an intermediate population of experts, not by an unspecified single training run over all references. Each object category has at most two experts, and behavior cloning followed by DAgger combines their behavior. The evaluation then changes one kind of novelty at a time: unseen reference trajectories for benchmark objects, and a separate five-object novel set in simulation. Physical testing adds perception and actuation mismatch, using the D455 for object feedback while the image-conditioning D435 is removed. Figure 7 illustrates preserved interaction choices; Table III quantifies completion for four tasks. Reader interpretation: these results support a reusable low-level execution interface, while the documented tendency to fail after leaving the reference limits any claim of general goal-directed recovery or systematic in-hand manipulation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e13",
+        "e14",
+        "e16",
+        "e17",
+        "e18"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does better reconstructed geometry actually improve tracking?",
+      "text": "Reader-proposed check, not an executed experiment: apply a 2-by-2 depth-alignment/joint-optimization ablation to the same generated benchmark clips, meshes and initial estimates. Keep augmentation, feasibility screening, embodiment, training budget and evaluation thresholds fixed across controller runs. Report accepted-reference yield and tracking success per original input clip, counting rejected reconstructions separately and as failures in an end-to-end rate. Measure the geometry metrics separately on the fixed HO-Cap set. The claim is weakened if relative-geometry gains do not improve matched-clip tracking, or if apparent control gains arise only from discarding difficult references. Record the omitted loss weights and screening criteria explicitly.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e11",
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "title": "Separate exploration gains from lift shaping",
+      "text": "Reader-proposed check, not an executed experiment: on the same ten benchmark objects, compare SAPG and PPO with the lift bonus enabled and disabled, using equal environment-step budgets and multiple recorded training seeds. Hold the other reward gates, observations, open-hand initialization and reference augmentation fixed. Report per-object completion and separate lifting from push-and-pull references; also retain failed-lift counts alongside the source’s conditional tracking errors. Lift shaping should preferentially improve lift-dependent completion. If SAPG helps only with the bonus, the evidence would favor an interaction between exploration and reward design rather than independent additive gains.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e08",
+        "e13",
+        "e14",
+        "e15"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "notes": "All nine pages were rendered and visually inspected after reading all four complete text chunks. Page 1 verifies the title, authors, affiliations, v1 date and Figure 1. Pages 2–4 support Figures 2–3, reconstruction equations, contact-aware augmentation, observations, action mapping, rewards and RL setup. Page 5 supplies Figure 4, Table I, metric units, reconstruction timing and distillation. Pages 6–7 supply Figures 5–7, Tables II–III, simulation/real-world protocols, numerical results and perception/calibration details. Page 8 supplies failure modes and scope limits; pages 8–9 contain acknowledgments and references. All six final original crops were individually viewed, retaining their headers, labels and legends. Diagram arrows were checked against the method text; no claim-relevant arrow discrepancy was found. Table I metric units and Figure 5 evaluation details are supplied by the inspected accompanying text. No separate supplement, linked video, code or experiment execution was inspected."
+  },
+  "featuredResultTask": "Real-world tracking of unseen video plans"
+}

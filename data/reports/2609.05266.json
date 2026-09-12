@@ -1,0 +1,405 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.05266",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T11:04:11.391Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2609.05266",
+      "title": "TacPAC: Tactile Prediction and Real-Time Action Correction in World-Action Models for Contact-Rich Manipulation",
+      "kind": "pdf",
+      "sha256": "bd5bba44569f4706ff03c33c0be4cdde42d4e7e8d86fee07c0aefbefac10e17b",
+      "wordCount": 7291,
+      "accessedAt": "2026-09-10T10:24:11.419449+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, author block and Abstract (p. 1)",
+      "1 Introduction (pp. 1–2)",
+      "2 Related work (pp. 2–3)",
+      "3 Method: 3.1 Problem formulation, 3.2 Prediction-grounded tactile correction, 3.3 Training and inference (pp. 3–5)",
+      "4 Experiments: 4.1 Experimental setup, 4.2 Results and analysis, 4.3 Ablation study (pp. 5–7)",
+      "5 Conclusion (p. 7)",
+      "References (pp. 8–9)",
+      "Appendix A Notation and B Implementation details (pp. 10–11)",
+      "Appendix C Evaluation details and D Task descriptions (pp. 11–14)",
+      "Appendix E Diagnostic for Q2 (p. 15)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Only the supplied arXiv:2609.05266v1, dated 4 September 2026, was reviewed. Its title and all five authors match the catalog; no other revision or edition was supplied or compared.",
+      "Text extraction does not reconstruct figure images; this limitation was addressed by inspecting the retained PDF's figures, equations and table layouts.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The linked code, datasets and external references were not opened; no implementation or experiments were reproduced.",
+      "Reference pages 8–9 were read as text; visual inspection covered pages 1–7 and 10–15."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 5)",
+      "Figure 4 (p. 6)",
+      "Figure 5 (p. 7)",
+      "Figure 6 (p. 10)",
+      "Figures 7–8 (p. 12)",
+      "Figures 9–10 (p. 13)",
+      "Figure 11 (p. 14)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 6)",
+      "Table 2 (p. 7)",
+      "Table 3 (p. 11)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "TacPAC predicts future visual and tactile observations while planning an action chunk, then uses incoming touch to revise its unfinished actions against a fixed prediction-and-plan cache. On five physical manipulation tasks, it reports 64% average success versus 48% for T-Rex and 22% for its vision-only ablation. The central evidence is the controlled cache-access ablation, not visual prediction quality alone.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A plan made before contact cannot incorporate tactile evidence that arrives during execution. Vision also misses local deformation and insertion misalignment. TacPAC asks whether the anticipated contact can become a reference for fast feedback, instead of remaining a prediction that only influences the initial chunk.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem",
+      "e-base"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A three-expert Mixture-of-Transformers couples future observation prediction and action generation to a separately trained, single-pass tactile residual corrector.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-base",
+        "e-corrector",
+        "e-training"
+      ]
+    },
+    {
+      "text": "The authors argue that matching current touch to the plan's expected contact explains the benefit of cached tactile attention states. The cache ablation supports their mechanism within this task suite.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-ablation"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Task instruction, proprioception, two RGB camera views and two tactile image views",
+      "Incoming tactile images and the commands already executed within the active chunk"
+    ],
+    "outputs": [
+      "Predicted future visual/tactile latents and a planned action chunk",
+      "Delta actions applied only to the eligible unfinished suffix"
+    ],
+    "steps": [
+      {
+        "name": "Plan with predictive observations",
+        "detail": "Camera and tactile views are tiled into one video stream. The observed first frame stays clean; future latents and actions undergo conditional flow matching. Action queries attend to all video and action tokens, while video queries attend only to video tokens. Thus predicted observations condition actions, but noisy actions do not condition video prediction.",
+        "evidenceIds": [
+          "e-base"
+        ]
+      },
+      {
+        "name": "Cache a clean expectation",
+        "detail": "After ten generation steps, an additional pass at flow time zero stores each layer's tactile and action keys/values. Visual keys are discarded. The cache is fixed for the whole chunk; it represents both expected contact and the plan conditioned on that contact.",
+        "evidenceIds": [
+          "e-cache",
+          "e-config"
+        ]
+      },
+      {
+        "name": "Read feedback against the plan",
+        "detail": "The tactile expert encodes current touch with the frozen video tokenizer and tactile patch embedding. Its queries contain the actual executed prefix, original planned suffix and learned execution-status embeddings. They attend to the cache and the expert's own tokens. Instruction conditioning reaches this expert through cached keys; correction is learned without explicit image subtraction.",
+        "evidenceIds": [
+          "e-corrector"
+        ]
+      },
+      {
+        "name": "Execute a residual",
+        "detail": "Every update replaces the previous residual on eligible steps, adding to the original plan rather than accumulating corrections. Already sent commands remain the input prefix. The arm executes joint/gripper commands, not generated images.",
+        "evidenceIds": [
+          "e-corrector",
+          "e-inference",
+          "e-config"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage 1 optimizes video and action experts with weighted flow losses; the action term compares clean-action estimates in action space. Stage 2 freezes those experts, VAE, text and proprioceptive encoders. The tactile expert starts from the trained action expert with a zero-initialized output head.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training",
+          "e-config"
+        ]
+      },
+      {
+        "text": "The frozen base generates its own plan and clean cache. Four sampled offsets share them; each uses a demonstrated prefix and the tactile image it produced, with residual supervision only on the remaining suffix. Stage 2 uses learning rate 10^{-4} and cosine decay.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training",
+          "e-config"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "A 48-step chunk contains seven joint-command dimensions relative to the initial joint configuration plus one gripper dimension. Execution runs at 30 Hz for 1.6 seconds. Prefill overlaps the first actions. A frame at offset m triggers correction, but writeback starts at m+d, where d is the recent maximum observed delay in action steps. Replanning waits until the horizon is exhausted.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-inference",
+          "e-config"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "x_\\tau=(1-\\tau)x+\\tau\\epsilon,\\qquad u=\\epsilon-x,\\quad \\tau\\in[0,1]",
+        "explanation": "Equation (1): x is a clean sample, epsilon Gaussian noise, x_tau its noisy interpolant, and u the target velocity. Flow time tau is a noise coordinate, separate from physical execution time t.",
+        "evidenceIds": [
+          "e-base"
+        ]
+      },
+      {
+        "expression": "\\Delta a=f(I_m,\\hat a,m,\\mathcal C)",
+        "explanation": "Equation (2): f is the tactile expert, I_m current touch at execution offset m, and C the per-layer tactile/action cache. The plan input incorporates the executed prefix; the remaining commands are corrected relative to the original planned chunk.",
+        "evidenceIds": [
+          "e-corrector"
+        ]
+      },
+      {
+        "expression": "\\mathcal L_{\\mathrm{tac}}=\\frac{1}{H-m}\\sum_{i\\ge m}\\left\\|\\hat a_i+\\Delta a_i-a_i\\right\\|^2",
+        "explanation": "Equation (3): H is the chunk horizon, i an action position, a_i the demonstrated action, and hat a_i the plan. Training averages residual error over the unexecuted suffix; deployment additionally respects delay d.",
+        "evidenceIds": [
+          "e-training",
+          "e-inference"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Five-task contact-rich manipulation",
+      "setting": "Flexiv Rizon 4, two InTac S1 sensors, wrist RealSense D405 and external D435i. Each method receives 20 real trials per task with common resets and all attempts counted. Success requires a seated plug/card, all three fruits transferred without visible damage, an intact chip transferred, or a bottle stably upright after release.",
+      "metric": "Episode success rate (%) and unweighted five-task average",
+      "value": "TacPAC: plug 80%, fruit 65%, chip 90%, bottle 40%, card 45%; average 64%.",
+      "comparison": "T-Rex averages 48%, Dream-Tac 45%, π0.5 36%, LingBot-VA 28%, VITaL 22%, ACT 0%. The best baseline per task reaches 65%, 50%, 85%, 30%, and 35%, respectively.",
+      "interpretation": "TacPAC leads every task against external baselines and gains 16 percentage points over the strongest average. These are executed-robot outcomes under the supplied protocol.",
+      "evidenceIds": [
+        "e-setup",
+        "e-protocol",
+        "e-main",
+        "e-tasks"
+      ]
+    },
+    {
+      "task": "Tactile-pathway component ablation",
+      "setting": "Same five-task evaluation. The paper reports matched data, backbone, action interface, optimization steps and resets for its prediction comparison.",
+      "metric": "Average episode success rate (%)",
+      "value": "Full system 64%; without tactile cache 47%; prediction only 37%; correction without tactile prediction 33%; vision only 22%.",
+      "comparison": "Direct tactile-cache access adds 17 percentage points with base model, corrector, current tactile input and parameter count unchanged. Prediction alone gains 15 of the full 42-point improvement.",
+      "interpretation": "This isolates direct access to predicted tactile states more cleanly than the no-prediction variant, which also removes tactile input from the base. Bottle success ties at 40% with and without tactile cache.",
+      "evidenceIds": [
+        "e-ablation"
+      ]
+    },
+    {
+      "task": "Inference-stage efficiency",
+      "setting": "Reported average stage wall-clock times; ten flow steps for generation and one pass each for prefill/correction.",
+      "metric": "Latency (ms) and corresponding rate (Hz)",
+      "value": "Generation 628.6 ms / 1.59 Hz; prefill 62.6 ms / 15.97 Hz; correction 30.4 ms / 32.90 Hz.",
+      "comparison": "Correction latency is reported as 20.7 times lower than chunk regeneration. In execution traces, 1.6% of correction calls span at least one robot control step.",
+      "interpretation": "The speedup concerns one correction, excluding generation and prefill. The authors report no correction-induced jerks, without a quantitative jerk metric.",
+      "evidenceIds": [
+        "e-efficiency"
+      ]
+    },
+    {
+      "task": "Tactile activity across execution phases",
+      "setting": "Diagnostic subset of 296 training episodes; 284,948 frames remain after codec-related exclusions. Changes are normalized within each episode.",
+      "metric": "Share of frames/change and activity relative to episode mean",
+      "value": "Contact transitions occupy 4.9% of frames but 18.6% of tactile change; their relative activity is 4.1 ± 0.1 (mean ± standard error across episodes).",
+      "comparison": "A five-frame-lag check gives 5.0% of frames, 18.5% of change and relative activity 4.00 ± 0.18.",
+      "interpretation": "Temporal concentration motivates feedback at contact transitions; pixel change does not directly measure prediction error or causal task importance.",
+      "evidenceIds": [
+        "e-diagnostic"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Twenty trials per task produce coarse success estimates; no success confidence intervals or repeated-training variability are reported. Baselines retain different observation modalities and recommended hyperparameters, so the external ranking does not isolate architecture. Generalization beyond the single robot and five tasks is untested.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-protocol",
+        "e-main",
+        "e-setup"
+      ]
+    },
+    {
+      "text": "Compression suppresses small tactile changes. Width-derived phases miss object–environment contact and label some early contact as approach. The diagnostic therefore supports temporal activity concentration, not a complete contact annotation. Appendix rollout images and activity curves come from different episodes.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-diagnostic",
+        "e-tasks"
+      ]
+    },
+    {
+      "text": "The tactile expert trains with demonstrated prefixes, whereas deployment prefixes include model commands. This leaves an exposure mismatch despite training on the base model's own planned suffix. Effects of stale caches and long correction delays are not isolated.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-training",
+        "e-inference",
+        "e-ablation"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "The paper specifies eight NVIDIA H100 GPUs on one node, global batch 64 and 10 epochs for both stages. It names Python ≥3.10, transformers 4.57.0, accelerate 1.12.0 and DeepSpeed 0.16.9; these are source-reported requirements, not verified installation results.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-config"
+      ]
+    },
+    {
+      "text": "Rebuilding requires synchronized visual/tactile demonstrations, relative-joint action normalization, the exact frozen base and a command queue enforcing suffix writeback. Missing details include total training-set size/split, Stage-1 loss weights and initialization provenance, numerical Dream-Tac gating adjustments, inference hardware and delay-window length. The diagnostic sample is not a stated full training-set size.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-training",
+        "e-config",
+        "e-protocol",
+        "e-diagnostic",
+        "e-inference"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    },
+    "reasoning": {
+      "text": "The snapshot is unassigned. Architecture evidence establishes a coupled video/action MoT plus a frozen-cache tactile expert, rather than inferring integration from joint training alone. Future observations and actions are generated jointly with asymmetric attention; correction is learned residual prediction, not inverse dynamics. Future prediction remains active at inference. No recorded One Model label or quadrant can be confirmed.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-base",
+        "e-cache",
+        "e-corrector",
+        "e-training"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does correctly paired predicted contact outperform equally sized but mismatched tactile caches when action states and compute are held fixed?",
+    "How does correction benefit change when tactile latency approaches several control steps?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/author/affiliation block and arXiv margin",
+      "detail": "Observed title matches the supplied title. Authors are Zipei Ma, Xiaofei Wei, Junzhe Jiang, Shunlin Lu and Li Zhang; affiliations are School of Data Science, Fudan University; Shanghai Innovation Institute; NeoteAI. Margin identifies arXiv:2609.05266v1 [cs.RO], 4 Sep 2026."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Abstract and Section 1",
+      "detail": "The paper motivates contact-sensitive feedback by visual ambiguity and the mismatch between pre-execution prediction and tactile evidence arriving during execution."
+    },
+    {
+      "id": "e-base",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1, Eq. (1) and asymmetric-attention paragraph",
+      "detail": "Visual/tactile views share a latent stream. Conditional flow uses a clean first frame; action queries attend video/actions, but video queries attend only video. Flow time is distinct from physical time."
+    },
+    {
+      "id": "e-cache",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.2, 'Caching the prediction and the plan'",
+      "detail": "A separate clean pass at tau=0 constructs per-layer tactile/action keys and values; visual keys are excluded, and the cache is reused unchanged for the chunk."
+    },
+    {
+      "id": "e-corrector",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.2, 'Tactile expert', Eq. (2); p. 4, Figure 2 and 'Technical advantage'",
+      "detail": "The expert reads current touch, status-tagged executed/planned actions and the cache. Instruction enters through cached keys. Residuals replace earlier suffix corrections relative to the original plan; no explicit predicted-minus-observed image comparison is computed."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.3, Algorithm 1 training lines 1–5 and Eq. (3)",
+      "detail": "Stage 1 trains video/action flow objectives. Stage 2 freezes the base, generates its own plans and prefills, inserts demonstrated prefixes at sampled offsets, and supervises corrected unexecuted actions."
+    },
+    {
+      "id": "e-inference",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Algorithm 1 inference lines 1–5; p. 5, Figure 3 and Section 3.3 'Inference'",
+      "detail": "Robot execution begins before prefill finishes. Corrections conditioned at m are committed only for i≥m+d, with d determined from the largest recent delay. The base replans after exhausting the chunk."
+    },
+    {
+      "id": "e-setup",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1 'Robot and observation–action interface'; p. 10, Figure 6",
+      "detail": "Experiments use a Flexiv Rizon 4, two InTac S1 sensors, wrist D405 and third-person D435i; visual baselines omit tactile views."
+    },
+    {
+      "id": "e-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1 'Baselines' and 'Evaluation protocol'; p. 11, Appendix C",
+      "detail": "Twenty attempts per method/task share resets and binary criteria; failures are neither excluded nor repeated based on outcome. Baselines retain official modalities and recommended hyperparameters; Dream-Tac gating is adjusted without numerical values."
+    },
+    {
+      "id": "e-main",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 4, all task groups and Average; Section 4.2",
+      "detail": "TacPAC's plug/fruit/chip/bottle/card rates are 80/65/90/40/45%, averaging 64%. Baseline averages are T-Rex 48%, Dream-Tac 45%, π0.5 36%, LingBot-VA 28%, VITaL 22%, ACT 0%; no success uncertainty is plotted."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, all rows; p. 7, Section 4.3 Q2–Q3",
+      "detail": "Average success is 22/37/33/47/64% for vision-only/prediction-only/no-prediction/no-tactile-cache/full. The no-cache variant blocks direct tactile keys while preserving the base, current touch, expert and parameter count. Both no-cache and full attain 40% on bottle."
+    },
+    {
+      "id": "e-efficiency",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2, all rows; Section 4.3 Q4",
+      "detail": "Generation/prefill/correction take 628.6/62.6/30.4 ms with corresponding rates 1.59/15.97/32.90 Hz. Authors report 20.7-fold lower correction latency, 1.6% of calls spanning a control step, and no correction-induced jerks."
+    },
+    {
+      "id": "e-config",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Appendix B, all four implementation paragraphs; p. 11, Table 3",
+      "detail": "Experts have 30 layers and 24 heads of dimension 128; hidden/feed-forward widths are 3072/14336 for video and 1024/4096 for action/tactile. A 3072-to-1024 bridge and zero-initialized tactile head are specified. H=48 at 30 Hz; ten flow steps; VAE and future-frame strides 4 each; three future latent frames; visual/tactile views 256×256/128×128. K=4, Stage-2 learning rate 10^-4 with cosine schedule; both stages use eight H100s, batch 64, ten epochs. Software requirements are listed, but inference hardware and Stage-1 initialization provenance are not."
+    },
+    {
+      "id": "e-diagnostic",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.3 Q2; p. 7, Figure 5; p. 15, Appendix E and Eq. (4)",
+      "detail": "Mean absolute inter-frame tactile change is measured on 296 episodes, retaining 284,948 frames. Transitions occupy 4.9% of frames and 18.6% of change; activity is 4.1±0.1 times episode mean. Five-frame lag gives 5.0%, 18.5%, 4.00±0.18. Codec boundary differences are excluded; normalization and standard errors use episodes. Width phases use 10 mm/s movement, 3 mm minimum travel, 15-frame minimum hold and ±8-frame boundary windows."
+    },
+    {
+      "id": "e-tasks",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Appendix D introduction; pp. 12–14, Figures 7–11 and captions",
+      "detail": "Captions give starting states and success criteria for plug seating, three-fruit damage-free transfer, intact-chip transfer, stable released bottle and card seating. Each figure's visual/tactile rollout is separate from the median-profile training episode used for the activity curve; their frames are not aligned."
+    },
+    {
+      "id": "e-overview-notation",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Figure 1 right-hand success chart; p. 6, Table 1, Vision only and TacPAC rows",
+      "detail": "Figure 1 annotates the 22%-to-64% success difference as '42%'. Table 1 establishes a 42-percentage-point absolute increase; the annotation should not be read as a relative percent improvement."
+    }
+  ]
+}

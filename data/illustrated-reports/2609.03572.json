@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.03572",
+  "shortTitle": "Drive-HWM",
+  "thesis": "A cached forecast of motion latents guides a per-step driving policy, with reported NAVSIM gains offset by unresolved result discrepancies and incomplete implementation details.",
+  "standfirst": "Drive-HWM asks how a driving model can anticipate scene changes without committing to a long sequence of actions before seeing new evidence. Its answer is a slow predictor that supplies a cache of future motion representations and a fast policy that revisits the camera observation at every step. The choice of supervision matters: optical flow trains the slow representation, while next-frame RGB prediction trains the fast expert. Follow the architecture into the component and target ablations, then examine the failure case. The reported benchmark gains are promising, but the tables disagree with several prose summaries, and generated future images do not establish safe physical execution.",
+  "evidenceIds": [
+    "e02",
+    "e03",
+    "e04",
+    "e06",
+    "e09",
+    "e11",
+    "e19"
+  ],
+  "featuredResultTask": "NAVSIM v1 driving",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2609.03572/architecture.png",
+      "width": 1422,
+      "height": 634,
+      "sourceSha256": "ff512e1c019e01c4dbff651ef0a06903aca2c16b8b123ed3c44acf0caeceaef9",
+      "sourceUrl": "https://arxiv.org/pdf/2609.03572#page=4",
+      "crop": [
+        0.082,
+        0.11,
+        0.918,
+        0.398
+      ],
+      "alt": "Two panels connect a slow VL-JEPA motion predictor to FiLM in an Emu3-based fast autoregressive model. The slow panel shows future optical flows and latents; the fast panel shows instruction, image and action inputs and next-image/action outputs.",
+      "caption": "The hierarchy passes predicted motion representations into a policy that receives new visual evidence every step.",
+      "readingGuide": "Read each panel from bottom to top, then follow the gold arrow between them. The left panel turns observed context into a sequence of Dynamic-Aware Latents, with optical flow supplying motion supervision. The arrow carries latent features into FiLM on the right; it does not carry an explicit driving command. The red schedule labels distinguish a slow update every N steps from fast prediction each step. Equations (11) and (17)–(18) specify the operative details: select the latent aligned with the next transition, then modulate transformer hidden states. Although two outputs are drawn, Section III.C explicitly allows next-image generation to be omitted at inference.",
+      "takeaway": "The architectural contribution is an inference-time path from predicted future dynamics to immediate actions. Its fast branch also learns an action-conditioned visual transition during training. This separates the continuing use of a learned future representation from the optional cost of decoding a future image.",
+      "caution": "The graphic labels actions A_t→A_{t+1}; Eqs. (15), (20)–(24) use prior actions→A_t. It places FiLM beside the expert, while Eq. (18) specifies transformer hidden-state modulation. Exact layers remain unspecified. VL-JEPA here is named V-JEPA in Table V.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06",
+        "e14"
+      ]
+    },
+    {
+      "id": "navsim-v1",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table I",
+      "page": 7,
+      "asset": "report-assets/2609.03572/navsim-v1.png",
+      "width": 1428,
+      "height": 680,
+      "sourceSha256": "ff512e1c019e01c4dbff651ef0a06903aca2c16b8b123ed3c44acf0caeceaef9",
+      "sourceUrl": "https://arxiv.org/pdf/2609.03572#page=7",
+      "crop": [
+        0.085,
+        0.101,
+        0.925,
+        0.41
+      ],
+      "alt": "NAVSIM v1 comparison table with sensors, collision, drivable-area, time-to-collision, comfort, progress and aggregate PDMS columns. The highlighted Drive-HWM row has PDMS 93.8; DriveVLA-W0 with the double-dagger marker has 93.0, and the human reference has 94.8.",
+      "caption": "Table I reports a single-camera PDMS advantage over the listed learned baselines, subject to protocol and prose discrepancies.",
+      "readingGuide": "Begin with Sensors and the retained footnotes before comparing scores. Some rows use multiple cameras or LiDAR, while Drive-HWM and the marked DriveVLA-W0 variants use one front camera. Follow the highlighted row across NC, DAC, TTC, comfort and ego progress before reading PDMS at the far right. The strongest listed DriveVLA-W0 aggregate is the double-dagger row, whose footnote specifies autoregressive action prediction with best-of-6 selection. Drive-HWM has no corresponding marker, so the table does not establish identical selection settings. Keep the human row separate from learned methods when describing the leading score.",
+      "takeaway": "The displayed Drive-HWM aggregate is 93.8 versus 93.0 for DriveVLA-W0‡, a reader-computed 0.8-point gain. Its NC, TTC, comfort and progress values are 99.6, 98.5, 100.0 and 89.0. The human reference remains higher on aggregate at 94.8; Drive-HWM does not lead every individual column.",
+      "caution": "Section IV.B instead reports PDMS 93.3 and DAC 98.4; this crop shows 93.8 and 99.0. The conflict is unresolved. Exact evaluation splits, sampling uncertainty and equal decoding budgets are not established by this table.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "id": "hierarchy-horizon",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table IV",
+      "page": 9,
+      "asset": "report-assets/2609.03572/hierarchy-horizon.png",
+      "width": 1059,
+      "height": 499,
+      "sourceSha256": "ff512e1c019e01c4dbff651ef0a06903aca2c16b8b123ed3c44acf0caeceaef9",
+      "sourceUrl": "https://arxiv.org/pdf/2609.03572#page=9",
+      "crop": [
+        0.51,
+        0.131,
+        0.925,
+        0.282
+      ],
+      "alt": "Component and horizon ablation with checkmarks for slow and fast branches. PDMS is 93.0 for fast-only, 90.2 for slow-only, and 93.0, 93.8 and 93.2 for the full hierarchy at horizons four, eight and twelve.",
+      "caption": "The tested eight-step hierarchy outperforms branch removal and the shorter or longer tested prediction horizons.",
+      "readingGuide": "Use the Slow and Fast checkmarks to separate component removal from horizon changes. The first two rows remove a branch; the last three retain both branches and vary K, the slow prediction horizon. The highlighted default is K=8, with NC 99.6, DAC 99.0 and PDMS 93.8. This is not an independent sweep of update frequency: the table has no N column. Elsewhere the default sets N=K=8. Because the aligned latent must exist throughout the reuse interval, reproducing the K=4 row requires knowing whether N changed or how missing offsets were handled; that detail is absent.",
+      "takeaway": "Using the table values, the full default gains 0.8 PDMS points over fast-only and 3.6 over slow-only. Longer prediction is not monotonically better: K=12 reaches 93.2, below K=8. These observations support the chosen configuration among the reported alternatives without establishing a universal optimal horizon.",
+      "caution": "The slow-only action interface and nondefault update schedules are unspecified. Section IV.D(a) instead uses a 93.3 full-model PDMS and a 3.1-point slow-only drop. The table–prose discrepancy prevents treating either delta as an independently verified correction.",
+      "evidenceIds": [
+        "e04",
+        "e08",
+        "e11",
+        "e13"
+      ]
+    },
+    {
+      "id": "slow-targets",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 4",
+      "page": 10,
+      "asset": "report-assets/2609.03572/slow-targets.png",
+      "width": 1599,
+      "height": 891,
+      "sourceSha256": "ff512e1c019e01c4dbff651ef0a06903aca2c16b8b123ed3c44acf0caeceaef9",
+      "sourceUrl": "https://arxiv.org/pdf/2609.03572#page=10",
+      "crop": [
+        0.507,
+        0.353,
+        0.925,
+        0.533
+      ],
+      "alt": "Grouped bars compare BEV, depth, RGB and optical-flow supervision for the slow model. Red, purple and gray bars show NC, DAC and PDMS. Optical flow has the largest values, 99.6, 99.0 and 93.8, on an axis restricted to 90–100.",
+      "caption": "Future optical-flow supervision yields the strongest reported slow-target driving scores.",
+      "readingGuide": "Compare the same bar color across groups: red measures No At-fault Collision, purple Drivable Area Compliance, and gray the aggregate PDMS. The horizontal categories identify what the slow branch learns to predict, not what the fast branch outputs. Optical flow leads all three plotted measures, while RGB has the lowest aggregate score. Notice the axis starts at 90 and the figure explicitly labels its focused 90–100 range; bar-height ratios therefore exaggerate relative differences. The authors say other configurations are unchanged. Their neighboring representation images illustrate prediction targets, but do not provide a quantitative flow-error measure.",
+      "takeaway": "The PDMS ordering is optical flow 93.8, depth 93.0, BEV 92.8 and RGB 92.2. This supports learning the slow interface from displacement supervision in the tested system. It does not imply that RGB supervision is generally harmful: the fast branch's auxiliary-target comparison favors RGB.",
+      "caution": "There are no error bars or repeated-run statistics. The chart measures downstream driving scores, not optical-flow accuracy or uncertainty calibration; it cannot by itself prove that better motion prediction causes the policy improvement.",
+      "evidenceIds": [
+        "e04",
+        "e08",
+        "e15",
+        "e18"
+      ]
+    },
+    {
+      "id": "fast-targets",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table VIII",
+      "page": 11,
+      "asset": "report-assets/2609.03572/fast-targets.png",
+      "width": 1279,
+      "height": 414,
+      "sourceSha256": "ff512e1c019e01c4dbff651ef0a06903aca2c16b8b123ed3c44acf0caeceaef9",
+      "sourceUrl": "https://arxiv.org/pdf/2609.03572#page=11",
+      "crop": [
+        0.528,
+        0.145,
+        0.904,
+        0.239
+      ],
+      "alt": "Four auxiliary-target rows show action-only PDMS 93.1, next-optical-flow 93.5, next-frame-depth 93.6 and next-frame-RGB 93.8. The RGB row also has NC 99.6 and DAC 99.0.",
+      "caption": "RGB is the preferred auxiliary target for the fast policy, although the slow predictor favors flow.",
+      "readingGuide": "All rows retain action supervision; only the next-frame auxiliary target changes. Start with None to see the action-only training reference, then compare flow, depth and RGB. Here None means no fast visual auxiliary target, not the removal of the slow model in Table IV. That distinction matters because the two controls have different reported scores and test different mechanisms. RGB reaches the highest NC, DAC and PDMS in this table. Section III.C explains how it enters training: the expert predicts next-image tokens conditioned on current context, the aligned DAL and action tokens. Those image tokens need not be decoded during driving.",
+      "takeaway": "Next-frame RGB increases PDMS from 93.1 to 93.8 relative to action-only training, a reader-computed 0.7-point gain. It also exceeds next-depth by 0.2 points and next-flow by 0.3. Together with Figure 4, the results favor assigning different predictive targets to the two temporal roles.",
+      "caution": "These small point differences have no reported uncertainty estimates. The ablation tests auxiliary supervision, not whether generating images at inference improves control. A crossed slow-target/fast-target experiment would better test whether the two choices interact.",
+      "evidenceIds": [
+        "e06",
+        "e13",
+        "e15",
+        "e18"
+      ]
+    },
+    {
+      "id": "failure-case",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 6",
+      "page": 12,
+      "asset": "report-assets/2609.03572/failure-case.png",
+      "width": 1572,
+      "height": 910,
+      "sourceSha256": "ff512e1c019e01c4dbff651ef0a06903aca2c16b8b123ed3c44acf0caeceaef9",
+      "sourceUrl": "https://arxiv.org/pdf/2609.03572#page=12",
+      "crop": [
+        0.082,
+        0.07,
+        0.493,
+        0.254
+      ],
+      "alt": "At an unsignalized Y-intersection, rows show input images, ground-truth futures, futures generated under the ground-truth trajectory and futures generated under the predicted trajectory. The final generated row marks an approaching vehicle and a potential collision; a right-side bird's-eye plot contrasts green ground-truth and red predicted trajectories.",
+      "caption": "The authors' failure case exposes insufficient yielding in a trajectory-conditioned generated future.",
+      "readingGuide": "Read the row labels before interpreting the apparent collision. The top row contains observed inputs; the next row contains ground-truth future observations. The last two rows are generated futures conditioned on different trajectories. Compare the approaching vehicle across the bottom row from the first to the fourth future frame, then inspect the bird's-eye trajectory overlay and its green/red legend. The figure's collision annotation belongs to the predicted-trajectory-conditioned sequence. The authors describe the event as a potential collision caused by inadequate yielding at an unsignalized Y-intersection; it is not a direct recording of physical deployment.",
+      "takeaway": "The example shows that plausible future generation and aggregate benchmark gains can coexist with a serious interaction failure. It motivates the authors' stated need to represent multimodal futures and predictive uncertainty, especially when another vehicle's behavior determines whether an ego maneuver is safe.",
+      "caution": "One selected generated rollout cannot establish a failure rate or a verified physical crash. The safe-looking ground-truth-conditioned row also does not show that Drive-HWM can select that trajectory autonomously. The figure is qualitative evidence of a failure mode.",
+      "evidenceIds": [
+        "e19",
+        "e21"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Build a future cache without rolling out actions",
+      "text": "At a slow update, Drive-HWM reads the observed interaction history and predicts several future DALs. Each latent is trained to decode the optical flow between two consecutive future observations. All offsets are predicted from the same history, so a mistaken early flow is not recursively fed into the next prediction. The fast policy then selects the latent aligned with its next transition. With the reported N=K=8 schedule, the cache spans the full eight-step update interval. A direct consequence of Equation (11) is that successive fast steps use successive offsets from that cache, while receiving fresh observations of their own. This is a way to reuse predicted context; it does not remove uncertainty in later offsets or update the slow prediction when an unexpected event occurs between scheduled refreshes.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "heading": "Locate the world prediction that survives deployment",
+      "text": "Two different predictive pathways need to be kept separate. The slow branch's DAL is consumed by the fast model at inference. A FiLM projection converts it to scales and shifts of normalized hidden channels, after which the autoregressive expert predicts action tokens. The fast branch's next-frame prediction is instead an auxiliary training task, conditioned on the action as well as the observed context and DAL. The source explicitly permits skipping image decoding at inference. Reader interpretation: this makes the system a policy guided by a learned future representation, without requiring a rendered future image in every control cycle. It also explains why next-frame accuracy alone would be an incomplete test: the decisive questions are whether the latent changes actions usefully and whether those actions perform well under the evaluation protocol.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e07",
+        "e08"
+      ]
+    },
+    {
+      "heading": "Test the target asymmetry without overstating the benchmark",
+      "text": "The slow-target and fast-target ablations favor different signals. Flow wins when supervising the slow predictor; RGB wins as the fast policy's auxiliary target. The authors explain this through motion-focused anticipation versus preservation of immediate scene semantics. Reader interpretation: the evidence motivates a division of labor, but the separate ablations do not measure the interaction between those choices. The efficiency table adds another constraint: on one H200 at batch one, the reported 84.8 ms average includes amortized slow computation, while an update step takes 107.2 ms. These are hardware-specific latency results, not a documented deployed control frequency. Read them alongside the unresolved table–prose score conflicts and the yielding failure, rather than treating better averages as proof of robust interactive driving.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e12",
+        "e15",
+        "e18",
+        "e19"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does temporally aligned DAL guidance affect driving?",
+      "text": "Reader-proposed check: with fixed weights, observations, decoding and N=K=8, compare the normal cache against within-scene permutations of its future offsets and a cross-scene latent permutation. Keep both branches running so compute is matched. Measure paired NAVSIM score changes, collision-related metrics and action changes; stratify by time since the slow update. Repeat with several seeds and report paired confidence intervals. If correctly aligned latents do not consistently outperform temporal permutations, the claim that future timing supplies useful guidance is weakened. A drop under every corruption would establish dependence on the latent, but would not alone distinguish correct motion reasoning from sensitivity to unfamiliar inputs.",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e08",
+        "e13",
+        "e16"
+      ]
+    },
+    {
+      "title": "Does the slow-flow/fast-RGB pairing have a reproducible advantage?",
+      "text": "Reader-proposed check: train a crossed comparison with slow targets {flow, RGB} and fast auxiliary targets {RGB, none}. Hold checkpoints, training examples, action supervision, update interval, horizon, parameter budgets, decoding and evaluation scenes fixed; document any target-specific decoder costs and match training compute where feasible. Resolve loss weights and target construction first. Use multiple seeds and compare paired PDMS changes across the four cells. If flow helps equally with and without the fast RGB loss, the effects may be additive; a reliably different gain would support an interaction. Failure to recover the target ordering would weaken the claimed division of predictive roles.",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e07",
+        "e08",
+        "e15",
+        "e18"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "notes": "All 14 PDF pages were rendered and actually viewed, including the title/byline, all method equations, training settings, Figures 1–7, Tables I–VIII, conclusions, references and biographies. The six final original crops were each viewed after extraction; axes, legends and relevant table footnotes are retained. Pages 3, 5, 6 and 7 support the architecture reading; pages 8–11 support numerical cross-checks and discrepancies; pages 12 and 14 support limitations and backbone-reference checks. Figure 2 was checked against Eqs. (11), (15), (17)–(18) and (20)–(24): its action indexing, schematic FiLM placement and backbone naming differences are disclosed. No separate supplement, video or code was inspected; the failure illustration is a static figure containing generated future frames."
+  }
+}

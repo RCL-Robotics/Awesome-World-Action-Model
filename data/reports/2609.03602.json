@@ -1,0 +1,463 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.03602",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T18:08:40.487Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2609.03602v1",
+      "title": "SV-WAM: An Efficient Surround-View World-Action Model for End-to-End Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "dbc51e64e73b220d005016441af70dd00760fccc823f671598a494cb800be0eb",
+      "wordCount": 11679,
+      "accessedAt": "2026-09-10T10:24:33.498220+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "identityVerified": true,
+    "sectionsRead": [
+      "Abstract and Introduction (pp. 1–2)",
+      "Related Work (p. 2)",
+      "Methodology: tokenization, causal mask, flow matching, compliance regularization, inference (pp. 3–5)",
+      "Experiments, ablations, efficiency, qualitative analysis and Conclusion (pp. 5–8)",
+      "References (pp. 8–9)",
+      "Appendix: Implementation Details (pp. 10–11)",
+      "Appendix: Dataset and Metric Details (pp. 11–12)",
+      "Appendix: Additional Quantitative Results, Ablations and Inference-Efficiency Details (pp. 12–14)",
+      "Appendix: qualitative analyses, failure cases, Limitations and Future Work (pp. 12–23)",
+      "Separately marked derived transcription of three Figure 3 loss labels"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Poppler layout text is faithfully retained without manual repairs. Mathematical symbols, table ordering, figure labels and ligatures require inspection against the original PDF; successful extraction is not scientific reading.",
+      "The prior full-text HTML source at https://arxiv.org/html/2609.03602 and its extracted text are preserved unchanged in the private recovery history. The complete original PDF is also preserved and remains available for visual reading; no replacement characters have been edited or guessed.",
+      "The original PDF is complete and readable. Its unchanged raw extraction retains 3 replacement characters in diagram labels. A separately marked, independently image-reviewed TeX transcription covers every affected label in the derived reading text. These annotations are reading support, not author prose or restoration of the original font encoding. Original PDF pages 4 remain required visual evidence and must be inspected and included in the report visual audit.",
+      "Identity: the inspected title, all 15 authors, and printed arXiv:2609.03602v1 stamp dated 3 Sep 2026 match the supplied identity. This report concerns v1 only; no alternate revision was compared.",
+      "The supplied text extraction does not reconstruct figure images. Original PDF figures and tables were therefore inspected separately; reference-only pages 8–9 were read as text.",
+      "The original layout extraction remains unrepaired; mathematical symbols, table ordering, labels and ligatures were checked against original page images where used.",
+      "Separate supplemental material availability has not been fully verified.",
+      "A prior full-text HTML source and extraction are retained in the supplied provenance history; this reading uses the complete original v1 PDF and does not infer equivalence to another edition.",
+      "The unchanged extraction contains three replacement characters in Figure 3 labels. The separately marked TeX transcription is derived reading support, not author prose or repaired original encoding. PDF page 4 was personally inspected to verify the three loss labels.",
+      "Code, checkpoints, external links and separate media were not inspected; no experiments were reproduced."
+    ],
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8",
+      "Figure 9",
+      "Figure 10",
+      "Figure 11",
+      "Figure 12",
+      "Figure 13",
+      "Figure 14",
+      "Figure 15",
+      "Figure 16"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4",
+      "Table 5",
+      "Table 6",
+      "Table 7",
+      "Table 8",
+      "Table 9",
+      "Table 10",
+      "Table 11"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "SV-WAM trains one shared transformer to denoise driving actions and future surround-view video, but blocks action attention to future-video tokens. Deployment retains six-camera history while generating only trajectories. A differentiable vehicle-footprint loss improves road compliance. The strongest reported result is 91.0 EPDMS on NAVSIMv2 navtest; the evidence concerns benchmark planning, with weaker hard-split performance and no demonstrated real-vehicle deployment.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Six-camera context can expose lateral and rear hazards, but denoising six-view futures is expensive. SV-WAM asks whether predictive visual supervision can improve planning without requiring future-video generation during deployment. NAVSIMv2 evaluates this through pseudo-simulation with pre-generated shifted-state observations; nuScenes measures open-loop trajectory predictions.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e09"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "An asymmetric attention mask supports joint action/video flow training in a shared backbone while permitting removal of future-video tokens at inference.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "A differentiable rollout and signed-distance footprint penalty inject drivable-boundary supervision into action learning without an inference-time compliance branch.",
+      "kind": "source",
+      "evidenceIds": [
+        "e06",
+        "e07"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Four historical frames at 2 Hz from six ordered cameras, with each processed view 448 × 224 pixels.",
+      "Eight-dimensional ego states: four-way command, planar velocity and acceleration; future actions/video and a drivable-area map supply training supervision."
+    ],
+    "outputs": [
+      "Twelve stepwise ego-relative motion increments (Δx, Δy, Δψ); the first eight accumulated increments provide the standard 4 s NAVSIM trajectory.",
+      "Future-video latents during joint training or optional analysis; no future-video output in deployed action-only planning."
+    ],
+    "steps": [
+      {
+        "name": "Encode the observed surround",
+        "detail": "Resize each view to 455 × 256 and center-crop to 448 × 224. Concatenate front-left, front, front-right, rear-right, rear and rear-left along width. A frozen Wan2.2-TI2V-5B causal VAE and shared patch tokenizer encode history and training futures; MLPs embed ego states and actions.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "name": "Restrict information flow",
+        "detail": "The clean state/history prefix attends only within itself. Action queries attend to that prefix and actions. Future-video queries can attend to all groups. Thus video losses update shared parameters without introducing a forward dependency from actions to future video.",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "name": "Penalize the tracked footprint",
+        "detail": "Recover clean actions, denormalize them and roll out an LQR tracker with a kinematic bicycle model. The differentiable PyTorch implementation samples a signed-distance field at all four vehicle corners. Distances are positive inside the drivable area; a soft margin penalty and log-mean-exp aggregation emphasize dangerous corners.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The full approximately 5B-parameter, 30-block Wan2.2 DiT is trainable; the VAE stays frozen. Train on NAVSIM trainval for 10k AdamW iterations, batch 80, learning rate 10^-4 and weight decay 10^-2. Fine-tune for 1k iterations with effective batch 640 and learning rate decaying from 10^-5 to 10^-6. Each stage takes roughly one day on 16 H800 GPUs.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08"
+        ]
+      },
+      {
+        "text": "Both action and video targets share a shifted noise time with coefficient 5.0. Their flow losses have equal weight; compliance weight is 0.01. Training uses twelve future actions and twelve-frame six-view video supervision.",
+        "kind": "source",
+        "evidenceIds": [
+          "e05",
+          "e08"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Encode the observation/state prefix once, cache its keys and values, initialize Gaussian action noise, and perform two Euler flow steps. Denormalize and accumulate actions in SE(2). The authors report identical trajectories up to numerical precision when optional future-video tokens are included at the same step count. This is trajectory generation; the LQR rollout is a tracking model, not evidence of physical action execution.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e07"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "p_\\theta(A_0,Z_0^{\\mathrm{fut}}\\mid\\Omega)=p_\\theta(A_0\\mid\\Omega)\\,p_\\theta(Z_0^{\\mathrm{fut}}\\mid\\Omega,A_0)",
+        "explanation": "Equation (8): A₀ is the clean future action sequence, Z₀ᶠᵘᵗ the clean future-video latents, and Ω the historical video latents and ego-state history. θ denotes model parameters. This action-centered factorization explains why future video is unnecessary for the action marginal.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "A_t=(1-t)A_0+t\\epsilon_a,\\qquad v_a^\\star=\\epsilon_a-A_0,\\qquad \\hat A_0=A_t-t\\hat v_a",
+        "explanation": "Equations (6), (9), (12): t is flow time, εₐ Gaussian action noise, vₐ⋆ the target flow velocity, and v̂ₐ the predicted velocity. The last expression supplies the clean action estimate used by the compliance loss. Video latents use the analogous interpolation and velocity target.",
+        "evidenceIds": [
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "expression": "\\ell(d_{i,j})=\\beta\\log\\!\\left(1+\\exp\\!\\left(\\frac{m-d_{i,j}}{\\beta}\\right)\\right),\\qquad \\mathcal L=\\mathcal L_{\\mathrm{fm}}+\\lambda_{\\mathrm{dac}}\\mathcal L_{\\mathrm{dac}}",
+        "explanation": "Equations (15), (17): dᵢ,ⱼ is the signed distance of corner j at simulated pose i, m the safety margin, and β the smoothing temperature. Ldac aggregates these penalties; Lfm is the weighted sum of action/video velocity squared errors. λdac controls compliance strength.",
+        "evidenceIds": [
+          "e05",
+          "e06"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "NAVSIMv2 navtest planning",
+      "setting": "Human penalty enabled; 12,146-scenario navtest; two-step C×6 planner; pseudo-simulation.",
+      "metric": "EPDMS (%) ↑",
+      "value": "91.0",
+      "comparison": "DriveLaW and EponaV2: 88.9; AutoDrive-P3: 89.9. Controlled SV-WAM C×1/C×3 variants: 89.3/90.5.",
+      "interpretation": "Best aggregate in Table 1, not best on every submetric. Authors rerun DriveLaW/DriveVLA-W0; other baseline scores come from papers or the leaderboard.",
+      "evidenceIds": [
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "Training-component ablation",
+      "setting": "NAVSIMv2 navtest; shared C×6 architecture and evaluation.",
+      "metric": "EPDMS / DAC (%) ↑",
+      "value": "83.1/93.4 → 87.7/95.6 → 90.1/98.6 → 91.0/98.8",
+      "comparison": "Successively enable future-video supervision, DAC regularization and final fine-tuning.",
+      "interpretation": "Video supervision adds 4.6 EPDMS points in this sequence. The ordered ablation does not estimate every interaction between components.",
+      "evidenceIds": [
+        "e12"
+      ]
+    },
+    {
+      "task": "Causal mask and denoising steps",
+      "setting": "NAVSIMv2 navtest; C×6 variants trained with matched architecture and training settings except mask.",
+      "metric": "EPDMS (%) ↑",
+      "value": "Masked 2/5/10 steps: 91.0/90.9/90.8",
+      "comparison": "Unmasked 2/5/10 steps: 87.3/87.9/88.2.",
+      "interpretation": "Extra refinement helps the unmasked variant but does not improve the masked one; no seed-level uncertainty is supplied.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Trajectory-output latency",
+      "setting": "Single H20; batch 1; bf16 where supported; 30 samples after 5 warm-ups; starts from preprocessed inputs.",
+      "metric": "Latency mean ± standard deviation (ms) ↓",
+      "value": "341.6 ± 2.1",
+      "comparison": "Unmasked SV-WAM: 848.0 ± 1.8; DriveVLA-W0: 514.9 ± 3.8.",
+      "interpretation": "Excludes optional video rendering and future-video VAE decoding. This is not raw-sensor-to-actuator latency; H800 video-output timings use a different endpoint.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Zero-shot nuScenes planning",
+      "setting": "Validation split, no target-domain adaptation; average over 1/2/3 s open-loop metrics.",
+      "metric": "Average L2 (m) ↓ / collision rate (%) ↓",
+      "value": "0.89 / 0.16",
+      "comparison": "Zero-shot DriveVLA-W0: 1.43/0.77; PWM: 3.99/0.36. Fine-tuned rows are a separate protocol.",
+      "interpretation": "The authors treat this as a transfer sanity check because ego-state shortcuts affect these metrics, not as proof of interactive driving safety.",
+      "evidenceIds": [
+        "e11",
+        "e19"
+      ]
+    },
+    {
+      "task": "Additional NAVSIM settings",
+      "setting": "NAVSIMv1 navtest and NAVSIMv2 two-stage navhard with human penalty; distinct metrics/protocols.",
+      "metric": "PDMS / EPDMS (%) ↑",
+      "value": "v1: 90.2; v2 navhard: 36.1",
+      "comparison": "v1 SafeDrive: 91.6; navhard EponaV2: 36.1 and RAP: 39.6.",
+      "interpretation": "The headline navtest advantage does not establish dominance across benchmark settings.",
+      "evidenceIds": [
+        "e15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify model size as an onboard deployment constraint. Failure examples include ambiguous turns, rain-obscured signals, and overly conservative acceleration followed by a rear-end collision. Real-vehicle closed-loop evaluation is future work.",
+      "kind": "source",
+      "evidenceIds": [
+        "e18",
+        "e19"
+      ]
+    },
+    {
+      "text": "Figure 7's caption and surrounding prose emphasize front-left and rear as strongest, but its displayed values give front greater weight than rear in every row. Attention is evidence of access, not a causal attribution of driving success.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "text": "Planning tables lack repeated-training uncertainty, and sequential component ablations leave interactions unresolved. Cross-method comparisons also differ in camera coverage and baseline provenance.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e12",
+        "e13"
+      ]
+    },
+    {
+      "text": "Figure 3 sketches history as −H:0, whereas Equation (2) indexes H frames as −H+1:0. The implementation explicitly uses four history frames; the schematic indexing should not be used to infer a different input count.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e08"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs NAVSIM/OpenScene data and drivable maps, the specified Wan backbone/VAE, source-only normalization statistics, and differentiable tracker parity. The appendix specifies a 0.1 s rollout grid, 60 poses, LQR horizon 10, and a 0.5 m signed-distance grid over x=[−20,80] m, y=[−40,40] m.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e08"
+      ]
+    },
+    {
+      "text": "Preserve unclipped fixed-range action normalization versus clipped ego-state normalization. Verify controller equivalence and boundary gradients before large-scale training. The implementation section does not pin PyTorch/CUDA versions or provide every tracker coefficient, so compatibility and exact parity remain reproduction questions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e06",
+        "e08"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    },
+    "reasoning": {
+      "text": "The recorded catalog is unassigned, so there is no existing quadrant judgment to endorse. Architecture evidence supports a One Model assessment: shared DiT blocks jointly predict action and future-video velocities. The mechanism is joint prediction with an action-centered dependency, not inverse dynamics. Future prediction supervises training; deployed control uses the learned action marginal without future rollout. This is an editorial assessment, not a catalog change.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e07",
+        "e08"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does correct future-video supervision outperform temporally shuffled supervision under matched training compute?",
+    "Would removing rear or lateral views causally worsen lane-change performance despite their nonzero attention?",
+    "How much of the DAC gain survives imperfect maps and tracker mismatch?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block and left-margin arXiv stamp",
+      "detail": "Exact title and 15-author byline match the supplied catalog; the artifact prints arXiv:2609.03602v1 [cs.CV], 3 Sep 2026, and five affiliations."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Introduction",
+      "detail": "The paper motivates retaining six-camera observations while shifting future-video generation to training supervision."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Input Tokenization, Eqs. (1)–(5); p. 10, Inputs and Outputs, Eqs. (20)–(22); pp. 11–12, Data Processing and Zero-Shot Protocol",
+      "detail": "Camera ordering, causal VAE, state/action representations, resizing/cropping and normalization are specified; twelve action increments are accumulated in SE(2), with eight used for 4 s evaluation."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Action-Centered Causal Mask, Eqs. (7)–(10); p. 4, Figures 3–4 and captions",
+      "detail": "The prefix cannot read action/future-video tokens; action queries cannot read future-video keys/values; future-video queries can read actions. Equation (8) gives the action-centered factorization."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Eqs. (6), (9)–(10); p. 4, Eq. (11); p. 5, Eq. (17)",
+      "detail": "Flow training matches action and future-video velocities, combining their squared errors with the compliance regularizer."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Drivable Area Compliance Regularization, Eqs. (12)–(17); p. 10, Drivable Area Regularization Details",
+      "detail": "Positive-inside signed distances at four footprint corners feed softplus and log-mean-exp penalties. The PyTorch LQR/bicycle rollout preserves gradients; configuration includes 60 poses at 0.1 s, horizon 10, margin 0.2, beta 0.2, rho 0.1 and the stated grid."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Efficient Action-Only Inference, Eqs. (18)–(19); pp. 10–11, Inference",
+      "detail": "Deployment caches prefix keys/values and runs two action denoising steps without future-video tokens. The authors report trajectory identity up to numerical precision with/without the optional branch."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Implementation Details; p. 10, Architecture and Training, Eq. (23)",
+      "detail": "Frozen causal VAE, trainable approximately 5B/30-block DiT, full training/fine-tuning schedule, 16 H800 hardware, equal flow-loss weights and flow-shift coefficient 5.0 are specified."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Benchmarks and Metrics; p. 11, NAVSIM Overview and Eq. (25); p. 12, nuScenes Metrics",
+      "detail": "NAVSIMv2 uses pseudo-simulation and EPDMS safety gates; navtest has 12,146 scenarios and navhard 450. nuScenes uses open-loop L2/collision metrics."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, EPDMS and component columns; p. 5, NAVSIMv2 Main Results; p. 6, Surround-View Coverage",
+      "detail": "The six-view score is 91.0, versus 89.3/90.5 for controlled one/three-view variants. Table caption specifies human penalty, camera/LiDAR notation and percentages; prose distinguishes rerun baselines from borrowed results."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 2, zero-shot rows; pp. 11–12, nuScenes Zero-Shot Protocol and Metrics",
+      "detail": "SV-WAM validation averages are 0.89 m L2 and 0.16% collision, with no target normalization or adaptation; DriveVLA-W0/PWM zero-shot rows differ from the fine-tuned block."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 3 and Training Components discussion; p. 5, Ablation Studies",
+      "detail": "Sequential video/DAC/fine-tuning additions yield EPDMS 83.1, 87.7, 90.1, 91.0 and DAC 93.4, 95.6, 98.6, 98.8 under common C×6 architecture."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 4; p. 6, Action-Centered Causal Mask and Inference Steps",
+      "detail": "Masked scores at 2/5/10 steps are 91.0/90.9/90.8; unmasked scores are 87.3/87.9/88.2. Authors describe matched training except mask; no repeated-training uncertainty is tabulated."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 5, caption and Efficiency Analysis; p. 12, Inference-Efficiency Details; p. 14, Table 11 and caption",
+      "detail": "H20 timing uses batch 1, 30 measured samples after five warm-ups and preprocessed-input-to-trajectory scope: 341.6±2.1 ms masked, 848.0±1.8 ms unmasked. Optional future-video decoding is excluded; H800 Table 11 instead includes decoded video in its joint path."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Tables 6–7; pp. 11–12, NAVSIMv1 and navhard protocols/results",
+      "detail": "SV-WAM scores 90.2 PDMS on v1 and 36.1 EPDMS on navhard. SafeDrive reaches 91.6 on v1; RAP reaches 39.6 on navhard, where EponaV2 ties SV-WAM."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Tables 9–10; p. 12, Additional Ablations",
+      "detail": "Action-token counts 8/12/16 give 90.4/91.0/90.5 EPDMS. DAC weights 0.01/0.05/0.1 give 91.0/91.0/90.5; fine-tuning batches 320/640/1280 give 90.4/91.0/90.9."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Figure 7 heatmap and caption; pp. 12–13, Surround-View Attention Analysis",
+      "detail": "The displayed eight action rows average attention over 30 blocks. Front values are 0.20–0.23, rear 0.17–0.18, and front-left 0.21–0.26. Caption/prose emphasize front-left and rear; front exceeds rear in every displayed row."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Failure Cases; p. 23, Figure 16 and caption",
+      "detail": "Three illustrated failures concern wrong-branch left turns, rain-obscured traffic signals, and SV-WAM's conservative acceleration/rear-end collision while both displayed baselines succeed."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Limitations and Future Work; p. 12, nuScenes (full)",
+      "detail": "Authors identify the approximately 5B backbone as large for onboard platforms, propose real-vehicle testing, and explicitly caution that open-loop nuScenes results are sensitive to ego-status shortcuts."
+    }
+  ]
+}

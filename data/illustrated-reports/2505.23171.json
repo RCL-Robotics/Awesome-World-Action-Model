@@ -1,0 +1,275 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2505.23171",
+  "shortTitle": "RoboTransfer",
+  "thesis": "RoboTransfer turns recorded geometry into appearance-diverse multi-view training videos, improving a separate imitation policy while leaving physical fidelity and evaluation uncertainty unresolved.",
+  "standfirst": "A manipulation demonstration contains both a useful motion and an incidental visual setting. RoboTransfer tries to reuse the former while changing the latter. Its diffusion model receives synchronized geometry sequences, a background reference and separate object references, then generates camera views together. The resulting videos augment the observations used to train ACT; they are not action plans executed by the generator. This reading follows the supplied January 2026 arXiv v2 from condition construction to physical policy evaluation. The most useful evidence is the combination of component ablations and real-robot results, provided the visual metrics, task success rates and unresolved protocol details remain distinct.",
+  "evidenceIds": [
+    "e01",
+    "e03",
+    "e05",
+    "e10",
+    "e11",
+    "e13",
+    "e16"
+  ],
+  "featuredResultTask": "Spoon pick-and-place under Diff-All",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2505.23171/architecture.png",
+      "width": 1371,
+      "height": 424,
+      "sourceSha256": "f2dac9480cae0cd703a96d901fdf81723da08e5eedf2fa4dfa36c3c91a945043",
+      "sourceUrl": "https://arxiv.org/pdf/2505.23171#page=3",
+      "crop": [
+        0.095,
+        0.073,
+        0.902,
+        0.266
+      ],
+      "alt": "Metric depth and normal videos and a background reference pass through VAE encoders into concatenated video latents. Object images pass through CLIP and cross-attention. A VAE decoder produces a joint multi-view video.",
+      "caption": "Spatial conditions and object appearance enter the video generator through different routes.",
+      "readingGuide": "Follow the two upper-left VAE routes into the first Cat node: geometry and background features join the video representation before the attention blocks. The lower route encodes individual object images with CLIP and supplies their concatenated features to cross-attention. Equation (5) on page 4 explains the top-center representation: synchronized views are placed side by side along width before VAE encoding. Thus ordinary spatial processing can exchange information across camera regions. The decoder arrow ends in generated RGB video. This schematic omits diffusion scheduling; Section 7.1 on page 10 specifies 30 EDM denoising steps at inference.",
+      "takeaway": "The architectural economy is to reuse a pretrained video model's spatial reasoning for multiple views, while giving geometry, background and objects different conditioning paths. Page 4 and Section 7.2 on page 10 support this reading; the paper does not add a dedicated cross-view module or an action-prediction head to this generator.",
+      "caution": "Shared attention and geometry conditioning encourage consistency; the arrows are not a proof of guaranteed 3D agreement. Section 9 on page 11 describes a separately trained ACT controller, so this diagram does not establish unified future-and-action prediction.",
+      "evidenceIds": [
+        "e03",
+        "e08",
+        "e14",
+        "e15"
+      ]
+    },
+    {
+      "id": "data-construction",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/2505.23171/data-construction.png",
+      "width": 1319,
+      "height": 805,
+      "sourceSha256": "f2dac9480cae0cd703a96d901fdf81723da08e5eedf2fa4dfa36c3c91a945043",
+      "sourceUrl": "https://arxiv.org/pdf/2505.23171#page=4",
+      "crop": [
+        0.094,
+        0.078,
+        0.482,
+        0.261
+      ],
+      "alt": "A demonstration branches into geometry estimation and keyframe-based appearance processing. Monocular and sensor depth feed alignment, normals use a separate path, and object segmentation supplies inpainted backgrounds and object features.",
+      "caption": "The preprocessing pipeline builds compatible geometry and appearance conditions from demonstrations.",
+      "readingGuide": "Read downward from the same demonstration at the top. On the left, predicted depth and sensor depth meet at Alignment, while monocular normals follow their own route. Section 8.2 on page 10 identifies dense Video Depth Anything predictions, sensor metric anchors and LOTUS normals; RGB-only data use MoGe. On the right, sampled keyframes feed object descriptions and segmentation. Masks support background inpainting and object-wise CLIP features. Sections 8.3 on pages 10–11 distinguish initial/final tabletop references from visibility-based selection in complex scenes. These steps explain how the generator obtains controls that the architecture figure assumes already exist.",
+      "takeaway": "Reference preparation is part of the mechanism. Removing objects from the background reduces conflicting appearance cues, while individual object embeddings let their appearance vary separately. The sensor contributes metric scale without forcing the generator to use its noisy depth image directly. These are proposed preprocessing advantages, tested indirectly by the following ablations.",
+      "caution": "Figure 13 on page 12 exposes an implementation ambiguity: Algorithm 1 fits metric depth but filters errors using unaligned predicted depth. Its two iterations and 80th-percentile rule are explicit; replacing that residual with a post-fit residual would be a reader-proposed change.",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e07",
+        "e10",
+        "e11",
+        "e18"
+      ]
+    },
+    {
+      "id": "geometry-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 5,
+      "asset": "report-assets/2505.23171/geometry-ablation.png",
+      "width": 1297,
+      "height": 411,
+      "sourceSha256": "f2dac9480cae0cd703a96d901fdf81723da08e5eedf2fa4dfa36c3c91a945043",
+      "sourceUrl": "https://arxiv.org/pdf/2505.23171#page=5",
+      "crop": [
+        0.12,
+        0.119,
+        0.883,
+        0.306
+      ],
+      "alt": "Three camera blocks compare raw sensor depth, predicted depth, metric predicted depth, and metric predicted depth plus normals across depth error, normal error, matched pixels and FVD. The full model leads wrist-view metrics but not every head-view metric.",
+      "caption": "Geometry conditioning improves the wrist views, with clear head-view exceptions.",
+      "readingGuide": "Compare rows within a camera block before moving between views. D.S. is sensor depth, D.P. is predicted depth, Metric D.P. adds scale alignment, and +N. adds normals. Lower arrows apply to depth errors, normal angular errors and FVD; higher matched-pixel counts indicate more correspondences with the head view. Section 4.1 on page 6 defines these metrics and omits head matched-pixel values. Section 7.1 on page 10 describes approximately 1.6k evaluation clips. The depth metrics are scale-invariant, so their improvement alone does not establish absolute metric calibration, even though the conditioning pipeline uses metric anchors.",
+      "takeaway": "For the left camera, replacing raw depth with metric predicted depth plus normals changes RMSE from 0.074 to 0.047, matched pixels from 142.90 to 202.03 and FVD from 218.51 to 107.43. The right-view trend agrees. The head camera differs: predicted depth alone has FVD 95.89, compared with 101.17 for the full condition set.",
+      "caution": "The table's caption and page 6 prose claim best performance across all metrics, but the head rows contradict that wording. Also, right-camera full-model RMSE is 0.058 here and 0.059 in Table 3. No uncertainty estimates resolve these differences.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "id": "appearance-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 5,
+      "asset": "report-assets/2505.23171/appearance-ablation.png",
+      "width": 1240,
+      "height": 458,
+      "sourceSha256": "f2dac9480cae0cd703a96d901fdf81723da08e5eedf2fa4dfa36c3c91a945043",
+      "sourceUrl": "https://arxiv.org/pdf/2505.23171#page=5",
+      "crop": [
+        0.135,
+        0.337,
+        0.865,
+        0.545
+      ],
+      "alt": "Background inpainting and object splitting are toggled independently in each camera block. Their combination raises background similarity in all views and object similarity in the head view, with wrist object-similarity cells left blank.",
+      "caption": "Clean backgrounds and object-wise features provide complementary appearance control.",
+      "readingGuide": "The two checkmark columns form a two-factor comparison. Within each camera block, the rows enable neither change, background inpainting alone, object splitting alone, or both. Sections 4.1 on pages 6–7 explain that the unsplit object condition uses a global image feature, whereas splitting encodes objects individually. BG. Sim. compares generated frames with a background reference using CLIP; Obj. Sim. compares segmented objects with their reference. Do not read the wrist-view dashes as zero similarity: page 6 says motion and occlusion make object tracking unreliable there. The table still reports geometry and video-quality proxies for those views.",
+      "takeaway": "The joint condition has the strongest reported head-view appearance similarities: background rises from 0.712 to 0.720 and object similarity from 0.847 to 0.858, with FVD falling from 108.65 to 101.17. This supports combining the two preprocessing choices, while keeping the magnitude and proxy nature of the gains visible.",
+      "caution": "Individual changes are not uniformly beneficial: left-view inpainting alone raises FVD from 117.25 to 119.65. CLIP similarity cannot establish precise shape, contact fidelity or successful action execution; wrist object fidelity also remains unmeasured by this metric.",
+      "evidenceIds": [
+        "e05",
+        "e07",
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "id": "policy-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 9,
+      "asset": "report-assets/2505.23171/policy-results.png",
+      "width": 1356,
+      "height": 404,
+      "sourceSha256": "f2dac9480cae0cd703a96d901fdf81723da08e5eedf2fa4dfa36c3c91a945043",
+      "sourceUrl": "https://arxiv.org/pdf/2505.23171#page=9",
+      "crop": [
+        0.183,
+        0.114,
+        0.821,
+        0.261
+      ],
+      "alt": "Real-robot success rates and Stage Scores for spoon pick-and-place and towel folding under object-only or combined shifts. Real plus object-and-background augmentation outperforms the other three data compositions in every reported column.",
+      "caption": "Appearance-diverse demonstrations improve a separately trained ACT policy on both physical tasks.",
+      "readingGuide": "Read each task's Diff-Obj and Diff-All columns separately: they test novel objects and joint object/environment changes. SR measures full success; Score measures progress through the four spoon phases or three towel phases described below the table. Compare Real only with Real + Obj Aug, then with Real + Obj&Bg Aug to assess the added background diversity. Section 5.1 on page 8 specifies the Cobot Magic setup and 100 demonstrations per task. Section 9 on page 11 clarifies that ACT is a separate policy, first pretrained on real data and then fine-tuned; Table 4 uses the selected 50/50 real/synthetic mixture.",
+      "takeaway": "For spoon Diff-All, joint augmentation raises success from 13.3% to 46.7% and Stage Score from 1.56 to 2.98. The success gain is 33.4 percentage points. Towel Diff-All also improves, from 12% to 28%, while Diff-Obj reaches 50.0%. These are executed robot-policy outcomes, unlike the preceding synthesis metrics.",
+      "caution": "Trial counts, seeds and uncertainty are absent, and equal total training exposure across baselines is not fully specified. Table 4 also disagrees with Figure 1 on towel Diff-All real-only/object-augmentation scores: 1.08/1.24 here versus 1.04/1.20 there.",
+      "evidenceIds": [
+        "e13",
+        "e14",
+        "e15",
+        "e16",
+        "e17",
+        "e20"
+      ]
+    },
+    {
+      "id": "synthetic-ratio",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 10",
+      "page": 9,
+      "asset": "report-assets/2505.23171/synthetic-ratio.png",
+      "width": 1312,
+      "height": 964,
+      "sourceSha256": "f2dac9480cae0cd703a96d901fdf81723da08e5eedf2fa4dfa36c3c91a945043",
+      "sourceUrl": "https://arxiv.org/pdf/2505.23171#page=9",
+      "crop": [
+        0.515,
+        0.276,
+        0.901,
+        0.495
+      ],
+      "alt": "A dual-axis plot shows spoon Diff-All success rate in blue and Stage Score in orange against synthetic-data proportion. Both peak at the sampled 50% ratio, decrease at the next point, and partly recover at 100%.",
+      "caption": "The best tested mixture balances synthetic visual diversity with real observations.",
+      "readingGuide": "Use the blue left axis for success rate and the orange right axis for Stage Score; the lines' vertical positions are not directly comparable. The horizontal axis is synthetic-data proportion. The paper's caption identifies zero synthetic as the real-only baseline, and Section 5.2 limits this experiment to spoon pick-and-place under Diff-All. The red arrow marks the tested 50/50 mixture, which the authors then select for Table 4. Read exact endpoint success rates from the accompanying prose rather than estimating intermediate values from pixels. The curve has no error bars and does not by itself explain the training schedule behind each point.",
+      "takeaway": "Reported success rises from 13.3% at zero synthetic to 46.7% at the midpoint; the all-synthetic point remains above baseline at 40.0%. Increasing synthetic proportion beyond the midpoint therefore does not monotonically improve this task. The experiment supports a useful mixture in this setup, rather than a general optimal ratio.",
+      "caution": "Page 11 specifies real-data pretraining before synthetic fine-tuning, but the source does not reconcile that recipe with the 'exclusively synthetic' wording here. The authors' contact/material-fidelity explanation is a hypothesis, not an isolated experimental cause.",
+      "evidenceIds": [
+        "e14",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "1. Keep the demonstrated trajectory, change its appearance",
+      "text": "Begin with a recorded manipulation and its synchronized camera streams. RoboTransfer constructs per-frame geometry rather than asking a text prompt to determine what the robot should do next. Metric depth specifies scene distances, normals add local orientation cues, and width concatenation places the views in one encoded representation. Background references enter through spatial features, whereas object images become global CLIP features supplied through cross-attention. The source's division of labor is therefore between scene structure and appearance. Reader interpretation: preserving demonstrated geometry makes the method attractive for augmenting observations associated with an existing behavior, but gives no evidence that it discovers a new successful behavior. The generated video's plausibility and the downstream policy's ability to execute remain separate questions, answered by different experiments.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e06",
+        "e13",
+        "e16"
+      ]
+    },
+    {
+      "heading": "2. Test compatibility before treating realism as control",
+      "text": "The appearance pipeline is designed to avoid giving the generator incompatible instructions. A background image that still contains the original objects can compete with a request to change those objects; inpainting removes that cue, while object-wise features separate their appearance conditions. Table 3 tests these choices directly. Table 2 asks a different question: whether cleaner, metric-aligned depth and normals improve consistency. Read both tables camera by camera, because a condition can help moving wrist views while failing to lead a static head-view metric. Reader interpretation: the two ablations support complementary controls, but neither alone proves physical correctness. The depth metrics are scale-invariant, correspondences depend on an image matcher, and object CLIP similarity is unavailable in the difficult wrist views. These boundaries matter before linking visual quality to action learning.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e09",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "heading": "3. Follow the handoff from generated observations to ACT",
+      "text": "The handoff to robotics occurs during policy training. The paper collects separate task demonstrations, generates new appearances from their geometry, and introduces synthetic data after real-data ACT pretraining. During deployment, ACT sees three RGB frames and the current state, predicts a two-second chunk, and executes all 100 actions before refreshing observations. RoboTransfer is not described as running inside that feedback loop. Table 4 therefore evaluates whether augmented training improves an imitation policy's response to visual shifts. It reports substantial gains, but Figure 10 shows that additional synthetic data is not uniformly helpful. Reader interpretation: a convincing reproduction should hold the policy schedule and data exposure fixed while varying augmentation, then repeat physical evaluations. Without those controls and trial uncertainty, the observed improvement is useful evidence but its reliability and cause remain incompletely established.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13",
+        "e14",
+        "e15",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Check whether the alignment filter removes noise or scale mismatch",
+      "text": "Reader-proposed check, not performed: start from known metric depth, create relative predictions with a controlled scale/shift, and inject sensor holes and outliers. Compare Algorithm 1 exactly as printed against an explicitly modified version that computes rejection errors after alignment, plus a no-rejection least-squares control. Keep the initial valid mask, two iterations and percentile threshold fixed. Measure recovered scale/shift and depth error on held-out valid pixels; then compare generated wrist-view RMSE and matched pixels with identical references and diffusion seeds. If the printed rule rejects good pixels merely because of scale mismatch, its purported robustness requires qualification. Report degenerate fits separately rather than silently repairing them.",
+      "evidenceIds": [
+        "e06",
+        "e09",
+        "e10",
+        "e18"
+      ]
+    },
+    {
+      "title": "Separate augmentation gains from policy training exposure",
+      "text": "Reader-proposed check, not performed: reproduce spoon Diff-All with the same 100 demonstrations and a fixed ACT checkpoint, then compare real-only continued training, domain randomization, object augmentation and joint object/background augmentation for identical update counts and observation budgets. Test multiple mixture ratios under that common schedule. Add a separately labeled synthetic-from-initialization arm to distinguish it from synthetic fine-tuning after real pretraining. Keep appearance references and evaluation scenes explicitly separated, repeat across seeds and physical trials, and report success counts, confidence intervals and Stage Scores. If the joint-augmentation advantage disappears under matched exposure, or the midpoint fails to outperform neighboring mixtures reliably, the proposed generalization mechanism or claimed optimum needs narrowing.",
+      "evidenceIds": [
+        "e13",
+        "e14",
+        "e15",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "notes": "Actually inspected the title/authors/version on PDF page 1; Table 1 and introduction on page 2; architecture and diffusion equations on page 3; construction diagram and Eq. (5) on page 4; Tables 2–3 on page 5; metrics and qualitative panels on pages 6–8; Table 4 and Figure 10 on page 9; generator/data details on page 10; platform, policy training, H20 hardware and deployment on page 11; Algorithms 1–2, descriptor template and discussion on page 12; reference-selection discussion on page 13. Checked architecture arrows against Section 3.2 and Eq. (5), and alignment operations against Section 8.2 and Figure 13. Every final crop was viewed and retains complete headers, axes and legends without body prose. Table 2's universal-best wording, the cross-table RMSE discrepancy, Figure 1 versus Table 4 scores and the alignment residual ambiguity are preserved. Pages 14–16 are bibliography-only and were read as text. Static PDF panels do not establish full-video inspection; external media, code and separately hosted supplements remain outside this pass."
+  }
+}

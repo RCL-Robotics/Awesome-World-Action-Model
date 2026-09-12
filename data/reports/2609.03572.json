@@ -1,0 +1,492 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.03572",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T11:11:44.323Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2609.03572",
+      "title": "Drive-HWM: Hierarchical World Models for Dynamic-Latent Guided Autonomous Driving",
+      "kind": "pdf",
+      "sha256": "ff512e1c019e01c4dbff651ef0a06903aca2c16b8b123ed3c44acf0caeceaef9",
+      "wordCount": 11411,
+      "accessedAt": "2026-09-10T10:24:22.324282+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "identityVerified": true,
+    "sectionsRead": [
+      "Abstract; I. Introduction (pp. 1–2)",
+      "II. Related Work (pp. 2–3)",
+      "III.A. Problem Formulation and Framework Overview (pp. 3–4)",
+      "III.B. Slow World Model (pp. 4–5)",
+      "III.C. Fast World Model (pp. 5–6)",
+      "III.D. Training Objective (p. 7)",
+      "IV.A. Implementation Details (pp. 7–8)",
+      "IV.B. Quantitative Comparison (pp. 8–9)",
+      "IV.C. Qualitative Comparison (pp. 9–10)",
+      "IV.D. Ablation Study, including probing, failure analysis and user study (pp. 10–12)",
+      "V. Conclusion; VI. Acknowledgment (p. 12)",
+      "References and author biographies (pp. 12–14)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "The supplied artifact is arXiv:2609.03572v1 [cs.CV], dated 3 September 2026. Its title and eight-author byline match the catalog. No other edition was supplied for comparison.",
+      "Text extraction does not reconstruct figure images; this limitation was addressed by visually inspecting all 14 supplied PDF pages and every final crop.",
+      "Separate supplemental material availability has not been fully verified.",
+      "No separate supplement was supplied. Code and external cited works were not inspected; no experiments were reproduced."
+    ],
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 8)",
+      "Figures 4–5 (p. 10)",
+      "Figures 6–7 (p. 12)"
+    ],
+    "tablesReviewed": [
+      "Table I (p. 7)",
+      "Table II (p. 8)",
+      "Tables III–V (p. 9)",
+      "Tables VI–VIII (p. 11)"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "Drive-HWM couples a periodically refreshed predictor of future motion latents with an observation-grounded autoregressive driving policy. Optical flow supervises the slow branch; next-frame RGB tokens supervise the fast branch during training. NAVSIM tables report stronger aggregate driving scores, but conflicting prose and incomplete implementation details limit precise reproduction.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Long-horizon scene prediction and immediate action generation have different temporal requirements. The authors argue that a common rollout schedule either sacrifices anticipation or accumulates action errors; their hierarchy preserves future context while accepting new observations at every action step.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A slow-to-fast latent interface separates periodic multi-offset prediction from per-step action generation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05"
+      ]
+    },
+    {
+      "text": "Supervision is deliberately asymmetric: slow optical-flow prediction emphasizes displacement, while fast next-frame RGB prediction retains local appearance and semantics. Ablations favor this pairing.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e15",
+        "e18"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Single front-camera observations in the reported main comparison; observation/action history.",
+      "Text instruction shown in Figure 2; its construction is unspecified."
+    ],
+    "outputs": [
+      "Autoregressive driving action tokens; exact token-to-control decoding is unspecified.",
+      "Future Dynamic-Aware Latents (DALs), supervised through flow decoding.",
+      "Next-frame visual tokens as auxiliary training predictions."
+    ],
+    "steps": [
+      {
+        "name": "Encode the observed history",
+        "detail": "Observation and previous-action history form the context. Figure 2 additionally depicts an instruction. The fast branch tokenizes images with the Emu3 tokenizer and uses Emu3-8B contextual hidden states.",
+        "evidenceIds": [
+          "e03",
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "name": "Predict motion at several future offsets",
+        "detail": "At each slow update, all future flow fields are predicted from the same observed history, without recursively feeding predicted flow back. Targets are flows between consecutive future observations. The hidden representation before flow decoding becomes the DAL; raw flow is not the policy input.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Align and modulate",
+        "detail": "Select the DAL for the next transition from the most recent cached prediction. FiLM projects that latent into channel scales and shifts applied to normalized transformer hidden states, without appending extra input tokens.",
+        "evidenceIds": [
+          "e04",
+          "e06"
+        ]
+      },
+      {
+        "name": "Generate actions and supervise the transition",
+        "detail": "A driving-specific autoregressive expert predicts ordered action tokens. During training it also predicts next-frame visual tokens conditioned on those actions, current context and the DAL. No inverse-dynamics action recovery or candidate-search procedure is specified.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\tau(t)=N\\left\\lfloor\\frac{t}{N}\\right\\rfloor,\\qquad q_t^s=\\hat d^s_{t+1\\mid\\tau(t)}",
+        "explanation": "Equation (11): t is the fast timestep, N the slow-update interval, and tau the latest slow update. The predicted DAL selected as q corresponds to the next transition. The default horizon K and interval N are both eight steps.",
+        "evidenceIds": [
+          "e04",
+          "e08"
+        ]
+      },
+      {
+        "expression": "F_{\\tau+k}=\\operatorname{Flow}(o_{\\tau+k-1},o_{\\tau+k}),\\qquad \\hat F_{\\tau+k\\mid\\tau}=D_{\\mathrm{flow}}(\\hat d^s_{\\tau+k\\mid\\tau})",
+        "explanation": "Equations (7)–(8): o denotes observations, k a future offset, Flow the target-generating estimator, and D_flow the lightweight decoder of a predicted DAL. Flow channels represent horizontal and vertical displacement. The estimator is not named.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "expression": "\\widetilde H_t^{(l)}=(1+\\gamma_t^{(l)})\\odot\\operatorname{LN}(H_t^{(l)})+\\beta_t^{(l)}",
+        "explanation": "Equation (18): H is the backbone hidden state at layer l; LN is layer normalization and the product is elementwise. A FiLM projection of the aligned DAL supplies scale gamma and shift beta.",
+        "evidenceIds": [
+          "e06"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Jointly pretrain backbone, slow model and fast model on nuPlan for 10K steps with the full objective; fine-tune the complete model on NAVSIM for 6K steps using action loss. Settings: 256×144 images, eight NVIDIA A100 GPUs, batch size 48, AdamW, initial learning rate 2×10⁻⁴ and cosine scheduling.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08"
+        ]
+      },
+      {
+        "text": "The detailed formulation combines weighted multi-offset flow regression with action-token and next-image-token negative log-likelihoods. Fast steps receive predicted slow latents during training. Section III.D switches to generic latent-distance notation without fully specifying its relationship to these concrete losses or numerical loss weights.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e06",
+          "e07"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Refresh the slow prediction every eight steps and temporally index its cache between updates. The fast model incorporates current observations each step and decodes action tokens. Future image generation may be omitted: it is auxiliary supervision, whereas the predicted DAL remains an inference-time input.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07",
+          "e08"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "NAVSIM v1 driving",
+      "setting": "Single front camera; Table I comparison. Exact evaluation split and sample count are unspecified.",
+      "metric": "PDMS ↑",
+      "value": "93.8, table-reported",
+      "comparison": "DriveVLA-W0‡: 93.0; human reference: 94.8. Reader-computed improvement over the baseline: 0.8 points.",
+      "interpretation": "Best listed learned-policy aggregate, below the human reference. Section IV.B instead states 93.3. The ‡ baseline uses best-of-6; equivalent selection for Drive-HWM is not documented.",
+      "evidenceIds": [
+        "e09",
+        "e11",
+        "e08"
+      ]
+    },
+    {
+      "task": "NAVSIM v2 driving",
+      "setting": "Extended NAVSIM evaluation; exact split unspecified.",
+      "metric": "EPDMS ↑",
+      "value": "86.4, table-reported",
+      "comparison": "DriveVLA-W0: 86.1; DiffusionDrive: 84.5.",
+      "interpretation": "The table supports a 0.3-point advantage over DriveVLA-W0. Prose instead reports 86.2. These results do not establish physical vehicle deployment.",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e08"
+      ]
+    },
+    {
+      "task": "Inference efficiency",
+      "setting": "Single NVIDIA H200, batch size 1, slow interval 8.",
+      "metric": "Latency in milliseconds ↓",
+      "value": "Fast 81.6; slow 25.6; average 84.8; update-step peak 107.2.",
+      "comparison": "DriveVLA-W0: 117.8; fast-only: 81.6.",
+      "interpretation": "Average latency is fast latency plus slow latency divided by the interval. Savings versus the baseline are about 28%; peak latency and extra memory remain relevant.",
+      "evidenceIds": [
+        "e12",
+        "e21"
+      ]
+    },
+    {
+      "task": "Hierarchy and prediction horizon",
+      "setting": "Table IV component/horizon ablation.",
+      "metric": "PDMS ↑",
+      "value": "Full model K=8: 93.8; K=4: 93.0; K=12: 93.2.",
+      "comparison": "Fast-only: 93.0; slow-only: 90.2.",
+      "interpretation": "Eight steps perform best among tested horizons. The altered update schedule and slow-only action interface are unspecified; prose uses a conflicting full-model score of 93.3.",
+      "evidenceIds": [
+        "e13",
+        "e11"
+      ]
+    },
+    {
+      "task": "Slow prediction target",
+      "setting": "Figure 4; authors hold other configurations fixed.",
+      "metric": "PDMS ↑",
+      "value": "Optical flow: 93.8",
+      "comparison": "BEV: 92.8; depth: 93.0; RGB: 92.2.",
+      "interpretation": "Supports flow supervision in this setup; no uncertainty or repeated-run statistics establish the reliability of small differences.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "Fast auxiliary target",
+      "setting": "Table VIII; all variants retain action supervision.",
+      "metric": "PDMS ↑",
+      "value": "Next-frame RGB: 93.8",
+      "comparison": "No auxiliary target: 93.1; next-flow: 93.5; next-depth: 93.6.",
+      "interpretation": "The preferred fast target differs from the slow target. Auxiliary training gains do not require image decoding during driving.",
+      "evidenceIds": [
+        "e18",
+        "e06"
+      ]
+    },
+    {
+      "task": "Motion representation probing",
+      "setting": "Table VI; frozen slow models with lightweight linear probes. Probe label definitions and splits are unspecified.",
+      "metric": "Future Ego Motion / Motion Consistency probing accuracy ↑",
+      "value": "Optical-flow latent: 83.7 / 76.1",
+      "comparison": "RGB latent: 76.8 / 69.4.",
+      "interpretation": "Supports more linearly accessible motion information in the flow latent; this is not a driving score or a calibrated forecast-error measure.",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "task": "Slow-to-fast conditioning",
+      "setting": "Table VII; authors vary conditioning while keeping other model configurations unchanged.",
+      "metric": "PDMS ↑",
+      "value": "FiLM: 93.8, table-reported",
+      "comparison": "Concatenation: 92.5; cross-attention: 93.0; gated cross-attention: 93.1; AdaLN: 93.3.",
+      "interpretation": "FiLM leads this ablation, but its prose instead reports 93.3. No repeated-run statistics establish the reliability of the margin.",
+      "evidenceIds": [
+        "e17",
+        "e11"
+      ]
+    },
+    {
+      "task": "Human preference",
+      "setting": "20 raters, 50 paired scenarios, Drive-HWM versus DriveVLA-W0.",
+      "metric": "Preference share",
+      "value": "68% Drive-HWM; 21% baseline; 11% no preference.",
+      "comparison": "Ratings use a 1–5 Likert scale across four criteria.",
+      "interpretation": "Perceived behavior quality is not an objective collision rate; scenario selection and statistical uncertainty are not detailed.",
+      "evidenceIds": [
+        "e20"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors acknowledge computational/memory overhead and missing explicit multimodal-future or uncertainty modeling. Their Y-intersection example shows insufficient yielding and a potential collision in generated observations conditioned on a predicted trajectory, not an observed physical crash.",
+      "kind": "source",
+      "evidenceIds": [
+        "e19",
+        "e21"
+      ]
+    },
+    {
+      "text": "Tables and prose repeatedly disagree: v1 DAC is 99.0 in Table I versus 98.4 in prose; Tables IV/VII list NC 99.6, DAC 99.0 and PDMS 93.8 where prose uses 99.5, 98.4 and 93.3. Table values are preserved, not certified as corrected results.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e11",
+        "e13",
+        "e17"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs nuPlan/NAVSIM preprocessing, checkpoints, flow targets, action vocabulary/decoder, context length, timestep duration, FiLM layers, loss weights and evaluation splits. These are not fully specified; tokenizer freezing is also unreported. Table V names V-JEPA; Figure 2 and reference [55] name VL-JEPA. Its Qwen2.5-VL row cites a Qwen3-VL reference. Checkpoint identity needs clarification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e08",
+        "e14"
+      ]
+    },
+    {
+      "text": "Reader-proposed priorities are a compute-matched DAL alignment intervention and a factorial slow/fast target comparison. Both should use fixed scenes, documented decoding, multiple seeds and uncertainty estimates before interpreting marginal score differences.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e13",
+        "e15",
+        "e16",
+        "e18"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    },
+    "reasoning": {
+      "text": "The catalog is entirely unassigned. Architecture evidence suggests a hierarchical system with two predictive components, not a single undifferentiated world-action model. The fast component jointly learns actions and action-conditioned future visuals; the slow predictor supplies motion latents. This is neither inverse dynamics nor proof that image generation is required for control. No quadrant is treated as an existing assignment.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e06"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "Does correctly timed DAL information matter beyond generic extra representation capacity?",
+    "How should latent refresh respond to unexpected motion or an uncertain future?",
+    "Would the target asymmetry persist under matched compute and fully specified decoding?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, complete byline, affiliation footnote and arXiv margin stamp",
+      "detail": "Title and all eight authors match the supplied identity; stamp reads arXiv:2609.03572v1 [cs.CV], 3 Sep 2026. Title-page affiliations include Beihang University, Shanghai Jiao Tong University, Dim12 AI, GigaAI, National University of Singapore and TeleAI."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract, I. Introduction, Figure 1 and II. Related Work",
+      "detail": "The motivation distinguishes extended scene anticipation from immediate observation-grounded action generation and contrasts the slow–fast hierarchy with action-only and common-rollout models."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, III.A, Eqs. (1)–(4)",
+      "detail": "Context encodes observations and prior actions. Slow predictions update every N steps over K offsets; the fast model conditions on history and the next-state-aligned prediction."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, III.B, Eqs. (5)–(13)",
+      "detail": "Future consecutive-frame optical flows supervise parallel multi-offset predictions; a lightweight decoder reads DALs. The aligned latent is passed to the fast model. Weighted robust flow loss can use validity masks, but estimator, weights and penalty settings are not concretely supplied."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and caption; pp. 5–6, Eqs. (15), (20)–(24)",
+      "detail": "The diagram labels the slow backbone VL-JEPA and the fast backbone Emu3 8B, with a DAL-to-FiLM arrow and different update schedules. It labels action input A_t/output A_{t+1}, whereas the detailed fast equations use previous actions as input and A_t as output."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, III.C, Eqs. (14)–(26)",
+      "detail": "Emu3 visual tokens and contextual hidden states feed FiLM modulation and an AR expert. Action-token likelihood is followed by action-conditioned next-frame-token likelihood. Next-frame generation is explicitly optional at inference; exact action encoding and FiLM layer selection are unspecified."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 7, III.D, Eqs. (27)–(28) and following paragraph",
+      "detail": "The generic latent-distance formulation supplements action loss with slow and fast predictive terms. Predicted slow latents, shared over N fast steps, are used during training and cached at inference; numerical predictive-loss weights and the precise connection to token losses are not given."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, IV.A, Datasets and evaluation; Training details",
+      "detail": "nuPlan pretraining and NAVSIM fine-tuning are described; NAVSIM v1/v2 metric formulas and named metrics are provided. Training uses N=K=8, 10K full-objective pretraining steps, 6K action-loss fine-tuning steps, 256×144 input, eight A100s, batch 48, AdamW with initial learning rate 2×10⁻⁴ and cosine schedule. Evaluation splits/sample counts are not specified."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table I, Drive-HWM, DriveVLA-W0‡ and Human rows, Sensors and †/‡ footnotes",
+      "detail": "Drive-HWM uses one front camera and reports NC 99.6, DAC 99.0, TTC 98.5, comfort 100.0, EP 89.0, PDMS 93.8. DriveVLA-W0‡ reports PDMS 93.0; Human reports 94.8. The ‡ footnote specifies best-of-N with N=6 for marked AR variants; Drive-HWM has no such marker."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table II, Drive-HWM, DriveVLA-W0 and DiffusionDrive rows",
+      "detail": "Drive-HWM reports EPDMS 86.4 versus 86.1 and 84.5 respectively. Its component values are NC 98.9, DAC 99.5, DDC 99.4, TLC 99.9, EP 88.5, TTC 98.7, LK 96.5, HC 98.3 and EC 87.5."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 8, IV.B; p. 9, Computational Efficiency; p. 10, IV.D(a); p. 11, IV.D(e), compared with Tables I–IV and VII",
+      "detail": "Prose states v1 PDMS 93.3 and DAC 98.4, v2 EPDMS 86.2 and EP 88.1, conflicting with tables. Hierarchy and FiLM prose use 99.5/98.4/93.3 for NC/DAC/PDMS instead of tabulated 99.6/99.0/93.8. The paper does not reconcile these differences."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table III and Computational Efficiency paragraph",
+      "detail": "Single-H200 batch-one latency: Drive-HWM slow 25.6 ms, fast 81.6 ms, peak 107.2 ms, average 84.8 ms with N=8; DriveVLA-W0 117.8 ms; fast-only 81.6 ms. Average is T_f+T_s/N; Table III lists Drive-HWM PDMS 93.8, although prose says 93.3."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table IV and footnote; p. 10, IV.D(a)",
+      "detail": "Fast-only, slow-only and full K=4/8/12 PDMS values are 93.0, 90.2, 93.0/93.8/93.2. The paper does not explain how slow-only produces actions or how the update interval changes with horizon."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table V; p. 10, IV.D(b); p. 14, references [55] and [57]",
+      "detail": "The slow-backbone table holds Emu3 fixed and labels the best row V-JEPA; the fast-backbone table holds V-JEPA fixed and labels the best row Emu3. Reference [55] is titled VL-JEPA. The Qwen2.5-VL row points to [57], titled Qwen3-VL technical report."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 10, IV.D(c), Figure 4 including axes/legend, and Figure 5",
+      "detail": "Figure 4 reports slow-target NC/DAC/PDMS: BEV 99.0/98.0/92.8, depth 99.3/98.2/93.0, RGB 98.3/97.3/92.2, optical flow 99.6/99.0/93.8. Other configurations are stated to remain unchanged. The score axis spans 90–100; Figure 5 provides qualitative representations without a calibrated flow-error evaluation."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table VI and IV.D(d)",
+      "detail": "Frozen slow-model latents are evaluated using lightweight linear probes for Future Ego Motion and Motion Consistency. Flow scores 83.7/76.1 and RGB 76.8/69.4; probe targets, splits and detailed accuracy definitions are not specified."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table VII and IV.D(e)",
+      "detail": "Conditioning PDMS: concatenation 92.5, cross-attention 93.0, gated cross-attention 93.1, AdaLN 93.3, FiLM 93.8. The table gives FiLM NC/DAC 99.6/99.0; surrounding prose gives conflicting values."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Table VIII, caption and IV.D(f)",
+      "detail": "All variants use action supervision. No auxiliary target, next-flow, next-depth and next-RGB yield PDMS 93.1, 93.5, 93.6 and 93.8. RGB gives NC/DAC 99.6/99.0. The authors attribute the preference to richer local semantic and appearance information."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, IV.D(g), Figure 6 and caption",
+      "detail": "An unsignalized Y-intersection example compares actual future observations and generated observations conditioned on ground-truth or predicted trajectories. The latter fails to yield sufficiently, with an approaching vehicle entering the path and a potential collision at V_{t+4}."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 12, IV.D(h), Figure 7 and caption",
+      "detail": "Twenty raters compare 50 scenario pairs on a 1–5 Likert scale. Preferences are 68% Drive-HWM, 21% DriveVLA-W0, 11% no preference; criteria are safety, comfort, human-likeness and route correctness. Selection/randomization details and statistical uncertainty are not reported."
+    },
+    {
+      "id": "e21",
+      "sourceId": "primary",
+      "location": "PDF p. 12, V. Conclusion, final paragraph",
+      "detail": "The authors identify additional computation and memory, propose compression/asynchronous inference as future work, and acknowledge no explicit multimodal-future or predictive-uncertainty modeling."
+    }
+  ]
+}

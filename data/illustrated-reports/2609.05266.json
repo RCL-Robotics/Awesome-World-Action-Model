@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.05266",
+  "shortTitle": "TacPAC",
+  "thesis": "TacPAC turns a cached prediction of expected contact into a reference for fast tactile action correction, while keeping the expensive prediction fixed until the next chunk.",
+  "standfirst": "A robot can predict how grasping should feel and still fail when actual contact departs from that expectation. TacPAC connects these two moments. Its base model predicts future camera and tactile views while generating a plan; a second-stage tactile expert then reads incoming touch against cached states from that plan and corrects actions still awaiting execution. The reported gain is substantial on five physical tasks, but the most informative comparison is internal: blocking direct access to predicted tactile states lowers average success from 64% to 47%. This reading follows the prediction, the cache, the timing constraint and the experiments that test their connection.",
+  "evidenceIds": [
+    "e-problem",
+    "e-base",
+    "e-cache",
+    "e-corrector",
+    "e-ablation"
+  ],
+  "featuredResultTask": "Five-task contact-rich manipulation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2609.05266/architecture.png",
+      "width": 1412,
+      "height": 539,
+      "sourceSha256": "bd5bba44569f4706ff03c33c0be4cdde42d4e7e8d86fee07c0aefbefac10e17b",
+      "sourceUrl": "https://arxiv.org/pdf/2609.05266#page=4",
+      "crop": [
+        0.085,
+        0.068,
+        0.915,
+        0.313
+      ],
+      "alt": "Three expert blocks show future visual/tactile prediction, planned actions, and a tactile expert whose delta corrects the plan through a tactile–action key/value cache.",
+      "caption": "A finished predictive plan supplies the attention states used for later tactile correction.",
+      "readingGuide": "Start at the bottom left: current camera and tactile views enter the video branch, while noise enters action generation. The upper left shows the predicted future views; the center shows the planned action. The cache across the stage boundary stores tactile and action keys/values after an additional clean pass. On the right, a newly arriving tactile image drives the tactile expert, and the leftward Correct arrow indicates a delta added to the planned actions. Stage 1 trains the video/action experts; Stage 2 freezes them and trains the corrector. Section 3.1 specifies asymmetric attention: action queries can read video tokens, while video queries cannot read action tokens.",
+      "takeaway": "The architectural contribution is a reusable connection between prediction and feedback. The corrector receives the expected tactile contact and the plan that depended on it, while avoiding a fresh video-generation pass for every tactile frame. The delta is learned through attention, without explicitly subtracting a predicted tactile image from an observed one.",
+      "caution": "The shared-attention strip is schematic, not a symmetric attention mask. The right-to-left correction arrow revises the action suffix; it does not refresh the cached prediction or retrain the frozen base during execution.",
+      "evidenceIds": [
+        "e-base",
+        "e-cache",
+        "e-corrector",
+        "e-training"
+      ]
+    },
+    {
+      "id": "asynchronous-correction",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 5,
+      "asset": "report-assets/2609.05266/asynchronous-correction.png",
+      "width": 1336,
+      "height": 361,
+      "sourceSha256": "bd5bba44569f4706ff03c33c0be4cdde42d4e7e8d86fee07c0aefbefac10e17b",
+      "sourceUrl": "https://arxiv.org/pdf/2609.05266#page=5",
+      "crop": [
+        0.087,
+        0.068,
+        0.48,
+        0.15
+      ],
+      "alt": "A chunk timeline is split into blue executed actions before m, orange actions executing until m+d, and yellow actions that can be corrected through horizon H.",
+      "caption": "Feedback is indexed when it is observed, but its residual is applied only where execution has not overtaken it.",
+      "readingGuide": "Read the axis as action positions, not flow-matching time. At m, a tactile image starts a correction computation. Blue steps have already executed. Orange steps in the interval from m to m+d continue while that computation runs; they keep their latest committed values. Yellow steps at and after m+d receive the new residual, through the end of the horizon H. Algorithm 1 confirms the writeback inequality i≥m+d. The expert still conditions on the original observation offset m, because that is the pairing used during training. Each new residual modifies the original planned suffix and replaces its previous correction.",
+      "takeaway": "This design lets the robot continue executing while a new correction is computed. It also prevents a late result from rewriting commands already sent to the arm. The paper's implementation uses 48 actions at 30 Hz, making each complete chunk cover 1.6 seconds of commanded motion.",
+      "caution": "The colored lengths illustrate the rule, not measured delay frequencies. The source leaves the recent latency-window length and integer conversion details unspecified, so the figure alone cannot establish deadline behavior on another inference device.",
+      "evidenceIds": [
+        "e-inference",
+        "e-corrector",
+        "e-config"
+      ]
+    },
+    {
+      "id": "task-results",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 4",
+      "page": 6,
+      "asset": "report-assets/2609.05266/task-results.png",
+      "width": 1411,
+      "height": 358,
+      "sourceSha256": "bd5bba44569f4706ff03c33c0be4cdde42d4e7e8d86fee07c0aefbefac10e17b",
+      "sourceUrl": "https://arxiv.org/pdf/2609.05266#page=6",
+      "crop": [
+        0.086,
+        0.063,
+        0.916,
+        0.226
+      ],
+      "alt": "Grouped success-rate bars compare seven methods on plug, fruit, chip, bottle and card tasks, with a final average group; TacPAC scores 80, 65, 90, 40, 45 and 64 percent.",
+      "caption": "TacPAC leads the external baselines on each task, with performance still uneven across the suite.",
+      "readingGuide": "Use the top legend to track each method across task groups; the shaded rightmost group is the five-task average. TacPAC is the blue bar, reaching 80% for plug insertion, 65% for fruit transfer, 90% for chip transfer, 40% for bottle uprighting and 45% for card insertion. Each task uses 20 trials per method. Appendix D defines success more strictly than simply making contact: all three fruits must be transferred without visible damage, the chip must remain intact, and the released bottle must stay upright. The insertion tasks require the plug or card to be seated in its target interface.",
+      "takeaway": "The average is 64%, compared with 48% for T-Rex and 45% for Dream-Tac. Gains over the strongest baseline for each task range from five percentage points on chip transfer to fifteen on plug and fruit. Bottle and card remain below half of trials despite leading their external comparisons.",
+      "caution": "No success confidence intervals or repeated-training variation are shown. All methods share the task protocol, but their observation modalities and recommended training hyperparameters differ; these bars therefore compare systems rather than isolating the tactile-cache mechanism.",
+      "evidenceIds": [
+        "e-main",
+        "e-protocol",
+        "e-tasks"
+      ]
+    },
+    {
+      "id": "tactile-pathway-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "asset": "report-assets/2609.05266/tactile-pathway-ablation.png",
+      "width": 1190,
+      "height": 255,
+      "sourceSha256": "bd5bba44569f4706ff03c33c0be4cdde42d4e7e8d86fee07c0aefbefac10e17b",
+      "sourceUrl": "https://arxiv.org/pdf/2609.05266#page=6",
+      "crop": [
+        0.15,
+        0.315,
+        0.85,
+        0.431
+      ],
+      "alt": "Five ablation rows mark prediction, correction and cache pathways and list task success rates; the Average column reads 22, 37, 33, 47 and 64 percent.",
+      "caption": "Direct access to cached tactile predictions accounts for the cleanest internal performance contrast.",
+      "readingGuide": "Read each row's pathway flags before comparing its success rate. A dash means there is no corrector; the Cache flag concerns direct tactile-cache access, not removal of every cached action state. Prediction only preserves the tactile-predictive base but removes execution-time correction. Without tactile prediction, the base loses tactile input and targets, while the expert still receives current touch. Without tactile cache keeps tactile-conditioned planning and correction but blocks direct attention to predicted tactile keys. The final two rows are therefore the key comparison. Blue shading identifies best cells and green second-best cells; notice the shared best bottle result.",
+      "takeaway": "Restoring direct tactile-cache access changes average success from 47% to 64%, with the base model, current input, corrector and parameter count held constant. Prediction alone reaches 37%, versus the vision-only 22%, so its 15-point improvement is about a third of the full 42-point gain. Prediction and feedback are complementary in this experiment.",
+      "caution": "Removing prediction also changes base inputs and targets, so that contrast is less selective. Bottle success ties at 40% with and without tactile cache. Figure 1 labels the full gain '42%'; Table 1 establishes 42 percentage points, not a 42% relative increase.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-overview-notation"
+      ]
+    },
+    {
+      "id": "inference-efficiency",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "asset": "report-assets/2609.05266/inference-efficiency.png",
+      "width": 1340,
+      "height": 308,
+      "sourceSha256": "bd5bba44569f4706ff03c33c0be4cdde42d4e7e8d86fee07c0aefbefac10e17b",
+      "sourceUrl": "https://arxiv.org/pdf/2609.05266#page=7",
+      "crop": [
+        0.52,
+        0.106,
+        0.914,
+        0.176
+      ],
+      "alt": "Three rows report generation at 628.6 milliseconds, clean-cache prefill at 62.6 milliseconds and tactile correction at 30.4 milliseconds, alongside their corresponding rates.",
+      "caption": "Cached single-pass correction has a much smaller latency than regenerating a chunk.",
+      "readingGuide": "Read the stage labels as separate computational jobs. Chunk generation performs ten flow steps and takes 628.6 ms. Prefill adds one clean pass at 62.6 ms, paid once for a new chunk. Tactile correction reuses that cache and takes 30.4 ms per pass. The adjacent rates correspond to these average latencies; 32.90 Hz belongs to correction, not complete planning. Section 3.3 says execution starts before prefill finishes, and Appendix B sets the command rate at 30 Hz. These details explain why the controller needs both a fast correction path and an explicit rule for commands already in flight.",
+      "takeaway": "The reported 20.7-fold latency reduction compares correction with chunk generation. Execution traces add a more directly relevant observation: only 1.6% of correction calls allow the robot to advance by at least one control step during computation. The system can therefore revise most of the unfinished chunk in the reported setup.",
+      "caution": "Average latency does not provide tail latency, sensor-to-command latency or end-to-end task throughput. Training uses eight H100 GPUs, but the source does not explicitly identify the inference hardware. The claim of no correction-induced jerks lacks a numerical jerk measure.",
+      "evidenceIds": [
+        "e-efficiency",
+        "e-inference",
+        "e-config"
+      ]
+    },
+    {
+      "id": "contact-phase-diagnostic",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 5",
+      "page": 7,
+      "asset": "report-assets/2609.05266/contact-phase-diagnostic.png",
+      "width": 1343,
+      "height": 880,
+      "sourceSha256": "bd5bba44569f4706ff03c33c0be4cdde42d4e7e8d86fee07c0aefbefac10e17b",
+      "sourceUrl": "https://arxiv.org/pdf/2609.05266#page=7",
+      "crop": [
+        0.086,
+        0.065,
+        0.481,
+        0.265
+      ],
+      "alt": "Two panels compare tactile change and frame share across four execution phases for five tasks; orange contact-transition bars are tall in relative activity but short in duration.",
+      "caption": "Brief contact transitions carry a disproportionate share of tactile-image change.",
+      "readingGuide": "Compare the orange contact-transition bars between panels. Panel (a) normalizes tactile-image change by each episode's mean, shown as the dashed line at one. Panel (b) reports what fraction of frames belongs to each phase. Thus a tall orange bar above and a short one below identify concentrated activity, not high task success. Appendix E computes change from mean absolute pixel differences across the two tactile views, removes differences into and out of codec keyframes, and normalizes within episodes before averaging. Phase labels come from measured gripper width rather than tactile images. The appendix uses episodes as the unit for means and standard errors.",
+      "takeaway": "The contact-transition phase has the highest relative tactile activity on every task while occupying little of each episode. The accompanying text reports 4.9% of frames containing 18.6% of total change. A five-frame-lag check retains a similar concentration, supporting the motivation to react during execution rather than waiting for the next plan.",
+      "caution": "Pixel change is not prediction error, task relevance or measured force. Compression attenuates small changes. Width-derived phases miss object–environment contact and include some early contact in approach. The figure motivates the correction mechanism but does not establish why a future-prediction objective underweights useful events.",
+      "evidenceIds": [
+        "e-diagnostic"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Keep flow time separate from execution time",
+      "kind": "source",
+      "text": "TacPAC uses two different notions of progress. Flow time tau describes how a noisy latent or action sample is converted into a clean prediction; it does not describe how far the robot has moved. During base generation, the first visual–tactile observation stays clean while future observations and actions are generated together. The asymmetric mask allows action queries to read the predicted observations without feeding noisy action tokens back into video prediction. Physical execution begins after the planned chunk is returned. The model then makes an extra clean pass at tau=0 to obtain the cache. Later tactile frames are indexed by execution offset m, not by a diffusion or flow timestep. This distinction explains how the corrector can run once per incoming frame while the costly generative schedule runs only once per chunk.",
+      "evidenceIds": [
+        "e-base",
+        "e-cache",
+        "e-inference"
+      ]
+    },
+    {
+      "heading": "Train a residual for the plan the robot will actually receive",
+      "kind": "source",
+      "text": "Stage 2 constructs the object the corrector will encounter at deployment: a plan generated by the frozen base and its clean per-layer cache. It does not substitute a perfect demonstrated plan. At a sampled offset, however, the executed prefix is filled with demonstrated actions, because those actions produced the recorded tactile image. The remaining entries keep their predicted values. The tactile expert learns the residual needed to bring that suffix toward demonstrated actions, and four offsets reuse the same plan and prefill. Initializing from the trained action expert provides compatible attention geometry; zero-initializing the output head initially leaves the plan unchanged. At runtime, each new residual again refers to the original plan, while the prefix records actual commands. This replacement rule avoids accumulating previous residuals on the unfinished suffix.",
+      "evidenceIds": [
+        "e-training",
+        "e-config",
+        "e-corrector"
+      ]
+    },
+    {
+      "heading": "Separate mechanism evidence from the story told by the diagnostic",
+      "kind": "analysis",
+      "text": "The activity plot and the ablation answer different questions. Figure 5 shows when tactile pixels change under the paper's width-based phase definitions. It does not measure whether the video predictor misrepresents those changes or whether they receive too little training gradient. Table 1 instead tests the controller's access to expected contact. The strongest contrast keeps the tactile-predictive base and current tactile input while withholding only direct cached tactile keys. Its 47%-to-64% average change is evidence that this access matters. My interpretation is that the two results form a plausible, incomplete causal argument: activity concentration motivates timely feedback, and the cache ablation supports conditioning that feedback on predictions. Neither establishes calibrated contact prediction, universal benefit on every task, or robustness to badly mismatched caches.",
+      "evidenceIds": [
+        "e-diagnostic",
+        "e-ablation",
+        "e-base"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test whether the cached expectation must match the current plan",
+      "text": "Reader-proposed, not performed: reproduce the full and blocked-tactile-cache variants with the same frozen base, demonstrations, training budget, tactile images and action-cache access. Add a controlled evaluation condition that supplies tactile cache states from a different episode of the same task while leaving the active plan and action states unchanged. Use identical reset distributions on plug insertion and fragile-chip transfer, multiple training seeds, and report success intervals and failure types. Correctly paired tactile states should outperform both blocking and mismatching if plan-specific anticipated contact is essential. Equal performance would weaken that interpretation; a mismatch-induced drop alone would also need the blocked-cache control to distinguish lost information from disruptive inputs.",
+      "evidenceIds": [
+        "e-cache",
+        "e-corrector",
+        "e-ablation",
+        "e-protocol",
+        "e-tasks"
+      ]
+    },
+    {
+      "title": "Measure when correction latency erases the benefit",
+      "text": "Reader-proposed, not performed: hold trained weights, action horizon, sensors and 30 Hz command rate fixed, then inject controlled correction delays ranging from zero to several action steps. Keep observation offset m tied to capture time and enforce writeback only from m+d; compare with the prediction-only controller under the same task resets. Log capture, completion and command timestamps, fraction of the suffix still editable, latency tails, and task success, including between-chunk planning time. The falsifiable expectation is that correction gains shrink as fewer relevant actions remain editable. Any write to an already executed command would falsify the intended queue implementation rather than the learned prediction mechanism.",
+      "evidenceIds": [
+        "e-inference",
+        "e-efficiency",
+        "e-config",
+        "e-ablation",
+        "e-protocol"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "notes": "Inspected the title/author/version block, Figures 1–11, Tables 1–3, Algorithm 1, method and training equations, implementation details, evaluation accounting, task criteria and diagnostic protocol on the declared PDF pages. All six final original crops were individually viewed; labels, axes, legends and table headers remain readable. Figure 2's correction arrow was checked against Eqs. (2)–(3), and Figure 3's boundaries against Algorithm 1 and the inference text. The shared-attention schematic does not display the asymmetric mask described on p. 3. Figure 1's '42%' annotation is interpreted as 42 percentage points using Table 1. Appendix rollout frames and activity traces are explicitly from separate episodes. References on pp. 8–9 were read in the complete text but were not rendered. No external videos, code, datasets or separate supplements were inspected."
+  }
+}

@@ -1,0 +1,439 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2505.19017",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T12:41:20.685Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2505.19017",
+      "title": "WorldEval: World Model as Real-World Robot Policies Evaluator",
+      "kind": "pdf",
+      "sha256": "9ba537bf8a9bae5223465c26858d1c55489253e107b6dca53015f0370d30a043",
+      "wordCount": 8985,
+      "accessedAt": "2026-09-10T10:26:40.653319+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; Sections 1–2 (Introduction and Related Work)",
+      "Sections 3.1–3.3 (formulation, Policy2Vec, verifier)",
+      "Sections 4.1–4.3 (paired evaluation, real-to-sim, ablations)",
+      "Section 5 and References",
+      "Appendices A–D, including all tables and figure captions"
+    ],
+    "omissions": [
+      "Reviewed arXiv:2505.19017v1 dated 25 May 2025, marked Preprint, Under review. Title and all five authors match the catalog; no revision or edition difference was observed. Other versions were not supplied or compared.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "The extraction limitation was addressed by inspecting the supplied PDF: all ten figures, all three tables and supporting method/result/appendix pages were visually reviewed.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Supplemental videos, project website and code were not inspected; no experiments were reproduced. References were read as bibliography, not independently verified sources."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 4)",
+      "Figure 3 (p. 6)",
+      "Figure 4 (p. 7)",
+      "Figures 5–6 (p. 8)",
+      "Figure 7 (p. 9)",
+      "Figure 8 (p. 18)",
+      "Figure 9 (p. 19)",
+      "Figure 10 (p. 20)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–2 (p. 7)",
+      "Table 3 (p. 17)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "WorldEval estimates robot-policy rankings by turning internal policy embeddings into generated manipulation videos and judging their outcomes. Policy2Vec conditions a separately adapted WAN 2.1 simulator; Gemini-2.0 supplies success labels. Paired experiments support relative-ranking usefulness on the tested tabletop setup, while imperfect action fidelity, checkpoint-distribution dependence and inconsistent source reporting limit stronger conclusions.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "Real-robot evaluation becomes costly as policies, checkpoints and tasks multiply. WorldEval asks whether a video simulator can preserve their relative performance. Its stated target is a useful ranking proxy, without requiring exact trajectory replication or replacing physical evaluation.",
+    "kind": "source",
+    "evidenceIds": [
+      "goal"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Policy2Vec reuses policy-internal action representations to condition video generation, avoiding a separately trained external action encoder.",
+      "kind": "source",
+      "evidenceIds": [
+        "architecture"
+      ]
+    },
+    {
+      "text": "An automated video-verification pipeline is compared with paired real trials and a RoboTwin-based real-to-sim evaluator.",
+      "kind": "source",
+      "evidenceIds": [
+        "verifier",
+        "paired",
+        "simulation"
+      ]
+    },
+    {
+      "text": "Checkpoint, distribution-shift, encoding and frequency diagnostics probe when generated behavior reflects policy differences.",
+      "kind": "source",
+      "evidenceIds": [
+        "encoding",
+        "checkpoints",
+        "shift",
+        "frequency"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Initial camera observation and language instruction",
+      "Latent action embedding extracted from the evaluated policy"
+    ],
+    "outputs": [
+      "Generated robot video",
+      "Video-based success judgment and aggregate policy ranking; optionally FID"
+    ],
+    "steps": [
+      {
+        "name": "Extract policy representations",
+        "detail": "Read latent features before the action decoder emits its final action sequence. The same observation and instruction can produce different embeddings for different policies. The paper does not specify exact extraction layers or dimensions for every evaluated architecture.",
+        "evidenceIds": [
+          "architecture"
+        ]
+      },
+      {
+        "name": "Condition the video simulator",
+        "detail": "Project the embedding to the required dimension, multiply by learnable alpha, and add it to the language embedding. Feed this fused condition and the initial image into WAN 2.1's DiT-based image-to-video model. Figure 2 shows separate image and language pathways.",
+        "evidenceIds": [
+          "architecture"
+        ]
+      },
+      {
+        "name": "Judge generated outcomes",
+        "detail": "Ask Gemini-2.0 a task-specific binary completion question about the generated video, then compare aggregate success with real evaluation. This is predicted visual behavior followed by classification; the pipeline does not decode generated frames into robot commands.",
+        "evidenceIds": [
+          "verifier",
+          "goal",
+          "architecture"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Cache policy latents with observations and instructions; the policy network is unnecessary during simulator fine-tuning. Train the projection and lightly adapt DiT linear layers with LoRA. The source gives no explicit optimization-loss equation or complete module-freezing list.",
+        "kind": "source",
+        "evidenceIds": [
+          "architecture"
+        ]
+      },
+      {
+        "text": "The simulator uses 1,400 real trajectories, sampled three times into 81-frame, 480×480 clips; learning rate 1e-4, batch size 8, LoRA alpha/rank 16 and 30 epochs. Appendix C reports eight H800 GPUs and approximately 11 hours.",
+        "kind": "source",
+        "evidenceIds": [
+          "training"
+        ]
+      },
+      {
+        "text": "For policy fine-tuning, the paper lists 100 Bussing Table trajectories and 50 each for Place Cup, Handover Block and Strike Block. Their overlap with simulator-training data is unspecified. Collect Toy is described as unseen. Appendix B says final-checkpoint latents train the video model, an important conditioning-distribution constraint.",
+        "kind": "source",
+        "evidenceIds": [
+          "setup",
+          "training",
+          "checkpoints"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Extract a candidate policy's latent, synthesize a video using 50 diffusion steps, and obtain a task-success judgment. The paper does not document an iterative generated-frame feedback loop, denoising guidance settings, or video-generation latency.",
+        "kind": "source",
+        "evidenceIds": [
+          "architecture",
+          "verifier",
+          "training"
+        ]
+      },
+      {
+        "text": "Evaluate on an AgileX bimanual robot with a top RealSense 457 camera and 14-dimensional state/action spaces. The source reports 40 rollouts per task and over 1,000 real trials, but does not fully itemize all policy/checkpoint/task trial allocations.",
+        "kind": "source",
+        "evidenceIds": [
+          "setup"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "C_T:S\\to\\{0,1\\},\\qquad T:S\\to\\{0,1\\}",
+        "explanation": "Section 3.3 defines C_T as the success classifier approximating ground-truth task-success function T; S denotes image states and the outputs are binary success indicators. Gemini-2.0 implements video-based judgments in practice. No source-defined training-loss formula is supplied.",
+        "evidenceIds": [
+          "verifier"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Policy ranking versus real-to-sim on three RoboTwin tasks",
+      "setting": "Real-trained policies; Place Cup, Strike Block and Handover Block; paired real/proxy evaluation.",
+      "metric": "Mean Maximum Rank Violation (lower better); Pearson r (higher better)",
+      "value": "WorldEval averages: MMRV 0.044; r 0.942.",
+      "comparison": "Real-to-sim averages: MMRV 0.261; r 0.411.",
+      "interpretation": "Table 1 favors WorldEval under this comparator. It is not a direct SIMPLER benchmark: Appendix C transforms simulated observations using visual models and MidJourney.",
+      "evidenceIds": [
+        "simulation",
+        "metrics",
+        "setup"
+      ]
+    },
+    {
+      "task": "Cross-policy correlation across five tasks",
+      "setting": "Figure 4: pi0, DexVLA, Diffusion Policy and OpenVLA, real versus generated success.",
+      "metric": "Pearson r",
+      "value": "Bussing Table 0.935; Collect Toy 0.885; Place Cup 0.958; Handover Block 0.980; Strike Block 0.887.",
+      "comparison": "Each panel compares four policies against their real success; no uncertainty intervals are shown.",
+      "interpretation": "Correlation supports relative comparisons but does not imply calibrated success probabilities. Strike Block MMRV is inconsistent: Figure 4 prints 0.000, Table 1 prints 0.133.",
+      "evidenceIds": [
+        "paired",
+        "simulation",
+        "metrics"
+      ]
+    },
+    {
+      "task": "Action-encoding ablation",
+      "setting": "Table 2, reported across five tasks.",
+      "metric": "Pearson r / MMRV / FID",
+      "value": "Policy2Vec: 0.939 / 0.192 / 61.33.",
+      "comparison": "VQVAE: -0.862 / 0.292 / 71.79; one-hot: -0.333 / 0.416 / 75.91.",
+      "interpretation": "All three metrics favor Policy2Vec. Reader arithmetic gives MMRV reductions 0.100 and 0.224; Section 4.3 prints 2.24 for the latter. This table's aggregation is not reconciled with Figure 4.",
+      "evidenceIds": [
+        "encoding",
+        "paired"
+      ]
+    },
+    {
+      "task": "Checkpoint diagnostic for brown-bowl placement",
+      "setting": "Table 3, pi0 Task A within Bussing Table; final-checkpoint latents train the simulator.",
+      "metric": "FID and reported Succ. fraction",
+      "value": "5k: 81.62 and 0.725; final 60k: 74.65 and 0.925.",
+      "comparison": "Diffusion Policy has zero success at all listed checkpoints and nonmonotonic Task A FID.",
+      "interpretation": "Selected improvements do not establish a general scaling law. Table 3 has no separate real/proxy success columns or uncertainty estimates.",
+      "evidenceIds": [
+        "checkpoints"
+      ]
+    },
+    {
+      "task": "Evaluation under unseen backgrounds",
+      "setting": "Appendix B: office, living room and kitchen; cup placement, striking and handover.",
+      "metric": "MMRV; Pearson r",
+      "value": "0.047; 0.927.",
+      "comparison": "Laboratory MMRV 0.044.",
+      "interpretation": "Reported correlation remains high. The prose calls 0.047 lower than 0.044; numerically it is slightly higher and worse under the stated metric. Per-environment breakdowns are absent.",
+      "evidenceIds": [
+        "shift",
+        "metrics"
+      ]
+    },
+    {
+      "task": "FID as a lightweight performance proxy",
+      "setting": "Figure 7, cross-policy comparisons within each task.",
+      "metric": "Absolute Pearson correlation |r| between FID and real success",
+      "value": "Place Cup 0.999; Handover Block 0.993; Bussing Table 0.495.",
+      "comparison": "Collect Toy 0.760; Strike Block 0.805.",
+      "interpretation": "The plotted relationship is negative: higher real success generally accompanies lower FID. FID is less informative for complex table bussing and does not itself certify task completion.",
+      "evidenceIds": [
+        "fid"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors acknowledge hallucinations, object deformation, arm ghosting and incomplete latent-action fidelity, especially for weak policies or novel scenes. Appendix A's action-only description conflicts with Section 3.2's explicit language/image conditioning.",
+      "kind": "source",
+      "evidenceIds": [
+        "limitations"
+      ]
+    },
+    {
+      "text": "The unsafe DexVLA example produces mosaic video, but no threshold, recall or false-alarm analysis establishes a dependable safety detector. Generation failure can reflect simulator distribution shift as well as hazardous behavior.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "safety",
+        "limitations",
+        "checkpoints"
+      ]
+    },
+    {
+      "text": "Figure 10 labels the upper/lower rows 50/10 Hz; Appendix D reverses them. Static frames cannot verify the claimed temporal smoothness. Equal trajectory counts also leave duration and frame-count matching unspecified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "frequency"
+      ]
+    },
+    {
+      "text": "Final-checkpoint latent training can favor familiar embedding distributions. High correlations over four policies, without uncertainty bars or independent verifier-accuracy measurements, leave ranking robustness and error attribution unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "checkpoints",
+        "paired",
+        "verifier"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction requires policy checkpoints and exact latent-extraction hooks, aligned videos, the adapted WAN model, and fixed verifier prompts. The source omits a full split manifest, per-policy feature dimensions, detailed FID computation, complete success rubrics and seeds; these must remain unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "training",
+        "verifier",
+        "fid",
+        "setup"
+      ]
+    },
+    {
+      "text": "Reader-proposed checks should hold observations, prompts, training data and generation budgets fixed when perturbing policy latents, and independently audit generated-video judgments against human labels. Checkpoint-held-out evaluation would test whether ranking survives unfamiliar latent distributions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "encoding",
+        "checkpoints",
+        "verifier"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The recorded taxonomy is entirely unassigned. Architecture evidence shows a robot policy, a separate video simulator and a success verifier. This is an action-conditioned evaluation system, without joint prediction of executable actions and futures or inverse-dynamics action extraction. It therefore does not establish a One Model world-action policy classification; an evaluation-focused placement is a reader suggestion.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "goal",
+        "verifier"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "Would rankings survive simulator training on disjoint policy checkpoints?",
+    "How much ranking error originates in generation versus the success verifier?",
+    "Can action fidelity be measured independently of task completion and image quality?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author block, affiliations, arXiv margin and footnotes",
+      "detail": "The title and five authors match the catalog. The artifact identifies arXiv:2505.19017v1, 25 May 2025, and is marked Preprint, Under review. Affiliations are Midea Group and East China Normal University; Yaxuan Li and Yichen Zhu share equal contribution."
+    },
+    {
+      "id": "goal",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 1 opening motivation; p. 4, Section 3.1",
+      "detail": "The introduction motivates an evaluator by the difficulty of physical testing across tasks and checkpoints. The objective is correlation of relative policy performance between real evaluations and a world simulator, explicitly without requiring one-to-one behavioral replication or replacing real evaluations."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 1 Policy2Vec rationale; pp. 4–5, Figure 2 and Section 3.2",
+      "detail": "Policy2Vec extracts internal action embeddings, projects them, scales them by learnable alpha and adds them to language embeddings conditioning WAN 2.1. Initial images also condition generation. Cached policy embeddings permit simulator fine-tuning without the policy network; projection and DiT linear layers are adapted using LoRA on a 14B image-to-video model."
+    },
+    {
+      "id": "verifier",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.3",
+      "detail": "The classifier C_T approximates the binary task-success function T over image states S. Gemini-2.0 judges generated videos using task questions; an apple-on-plate yes/no question is illustrative."
+    },
+    {
+      "id": "setup",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 3 and robot/task setup; p. 20, Appendix C task descriptions",
+      "detail": "An AgileX ALOHA-style bimanual robot uses two 6-DoF arms, a top RealSense 457 camera, 14-dimensional state/action spaces and 50 Hz teleoperation. Bussing Table uses 100 policy-training trajectories; Place Cup, Handover Block and Strike Block use 50 each. Collect Toy is described as unseen. The paper reports 40 rollouts per task and over 1,000 real-world trials. Appendix C describes randomized object positions and task instructions."
+    },
+    {
+      "id": "training",
+      "sourceId": "primary",
+      "location": "PDF p. 6, implementation details; pp. 18–19, Appendix C implementation details",
+      "detail": "WAN 2.1 14B is adapted with 1,400 trajectories, three samples per trajectory, 81-frame 480×480 clips, learning rate 1e-4, batch size 8, LoRA alpha/rank 16 and 30 epochs. Training uses eight H800 GPUs with data parallelism for approximately 11 hours; video generation uses 50 diffusion steps."
+    },
+    {
+      "id": "metrics",
+      "sourceId": "primary",
+      "location": "PDF p. 7, evaluation-metric bullets",
+      "detail": "Pearson r measures linear association of real and proxy performance; higher is better. MMRV measures severity of pairwise ranking violations; lower is better. Its detailed definition is referred to SIMPLER rather than provided here."
+    },
+    {
+      "id": "paired",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 4, task headers, axes and policy legend; Section 4.1",
+      "detail": "Figure 4 plots real versus generated success for pi0, DexVLA, Diffusion Policy and OpenVLA. Pearson r is 0.935, 0.885, 0.958, 0.980 and 0.887 for Bussing Table, Collect Toy, Place Cup, Handover Block and Strike Block. Its Strike Block header prints MMRV=0.000, whereas Table 1 prints 0.133. The sloped gray lines are not equality references; their construction is not specified in the caption or text. In Collect Toy, pi0 has higher real success but lower generated success than DexVLA."
+    },
+    {
+      "id": "simulation",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, all rows and Avg. column; pp. 7–8, Section 4.2; p. 19, Appendix C Evaluation on Robotwin",
+      "detail": "Table 1 reports average WorldEval MMRV/r of 0.044/0.942 versus real-to-sim 0.261/0.411 across Place Cup, Strike Block and Handover Block. The comparator uses RoboTwin with real-trained policies; a direct SIMPLER comparison was infeasible. Appendix C says simulation observations are transformed via sim-to-real visual models and the MidJourney API before policy inference."
+    },
+    {
+      "id": "encoding",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2, all encoding rows; p. 9, Section 4.3 encoding comparison",
+      "detail": "Policy2Vec reports r=0.939, MMRV=0.192, FID=61.33; VQVAE reports -0.862/0.292/71.79; one-hot reports -0.333/0.416/75.91. The caption specifies five tasks. Section 4.3 describes vector quantization and threshold-based one-hot encoding, but says the one-hot MMRV reduction is 2.24; subtraction of the table values gives 0.224."
+    },
+    {
+      "id": "qualitative",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 5 and caption; p. 9, Section 4.3 action fidelity; pp. 18–19, Figures 8–9",
+      "detail": "Figure 5 pairs real and generated pi0 examples, with Bussing Table, Place Cup and Handover Block labeled successes and Collect Toy and Strike Block labeled failures. Appendix figures supply additional success and failure examples. Section 4.3 describes Collect Toy as a novel-task generalization example."
+    },
+    {
+      "id": "safety",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 6; p. 9, Section 4.3 safety detector paragraph",
+      "detail": "One hazardous DexVLA example raises both arms while its corresponding generated video becomes a mosaic. Poorly learned latent features are offered as a hypothesis; the presented evidence does not supply a safety-detector operating threshold, false-positive rate or recall."
+    },
+    {
+      "id": "fid",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 7 task headers and axes, Section 4.3 FID paragraph; p. 10, continuation",
+      "detail": "Figure 7 labels absolute correlations |r| of 0.495 for Bussing Table, 0.760 for Collect Toy, 0.999 for Place Cup, 0.993 for Handover Block and 0.805 for Strike Block. The plotted trend is negative: higher real success generally accompanies lower FID. The text limits FID's utility especially for complex table bussing."
+    },
+    {
+      "id": "checkpoints",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Appendix B policy-checkpoint paragraph and Table 3, all rows",
+      "detail": "The video model is fine-tuned on latent actions from final policy checkpoints. Table 3 defines A/B/C as brown bowl/green plate/brown mug placement. For pi0 Task A, 5k to final 60k changes FID 81.62 to 74.65 and Succ. 0.725 to 0.925. Diffusion Policy reports zero success throughout; Task A FID changes 83.60, 80.99, 82.96. The table supplies a single Succ. column per task, not separate real/proxy columns."
+    },
+    {
+      "id": "shift",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Appendix B distribution-shift paragraphs",
+      "detail": "Policies trained in a laboratory are evaluated in an office, living room and kitchen on cup placement, block striking and block handover. The text reports MMRV=0.047 and Pearson r=0.927, comparing with laboratory MMRV=0.044. Its wording calls 0.047 lower than 0.044, contrary to those printed numbers."
+    },
+    {
+      "id": "limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 17, Appendix A; PDF p. 5, Section 3.2 for conditioning contrast",
+      "detail": "The authors acknowledge hallucinations, object deformation/disappearance, overexposure, arm ghosting, incomplete action fidelity and difficulties in substantially novel scenarios. Appendix A says control exclusively uses action outputs and proposes adding language; Section 3.2 already includes language and an initial frame, leaving inconsistent descriptions."
+    },
+    {
+      "id": "frequency",
+      "sourceId": "primary",
+      "location": "PDF p. 20, Figure 10, row/frame labels, and Appendix D final paragraph",
+      "detail": "Figure 10 labels its upper row 50 Hz and lower row 10 Hz, with real/generated samples at frames 20, 30 and 40. Appendix D reverses the row order in prose. It describes separate policies trained on equal trajectory counts, evaluated by one WorldEval model, and claims smoother generated behavior for 50 Hz."
+    }
+  ]
+}

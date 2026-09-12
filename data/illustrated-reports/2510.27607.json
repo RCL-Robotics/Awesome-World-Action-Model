@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2510.27607",
+  "shortTitle": "DUST",
+  "thesis": "DUST lets action and future-vision streams exchange information while retaining separate denoising dynamics, improving manipulation with an optional latency cost for extra vision refinement.",
+  "standfirst": "When a robot reaches for a cup, its action and the scene that follows are tightly related, yet their representations look very different. DUST trains a policy to predict both: compact motor commands and a semantic embedding of the future image. Its central choice is to share attention while keeping other transformations and noise levels separate. This reading follows the architecture into its training objective, then asks which measured gains come from learning with future-state targets and which require generating those targets at deployment. The evidence includes simulated manipulation, a real Franka arm and ablations that reveal both useful interactions and important limits.",
+  "evidenceIds": [
+    "identity",
+    "setup",
+    "architecture",
+    "training",
+    "real-results",
+    "ablations",
+    "zero-vision"
+  ],
+  "featuredResultTask": "Franka Research 3 seven-task manipulation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 4,
+      "asset": "report-assets/2510.27607/architecture.png",
+      "width": 1241,
+      "height": 555,
+      "sourceSha256": "52a74b858657a79765359575d93442f1f8b947dca3b8997f9cfc4a1556b3455a",
+      "sourceUrl": "https://arxiv.org/pdf/2510.27607#page=4",
+      "crop": [
+        0.12,
+        0.081,
+        0.85,
+        0.333
+      ],
+      "alt": "DUST diagram: instruction and current image enter a VLM; robot state/actions and future-image features enter MMDiT, followed by separate action and vision DiTs and decoders.",
+      "caption": "A frozen semantic conditioner feeds a predictor with two interacting output streams.",
+      "readingGuide": "Begin at the lower left: the instruction and current observation supply the VLM's semantic context. Follow its rightward arrows into the diffusion network. The lower-right paths represent robot state plus actions and the encoded future observation; MMDiT exchanges information before the paths finish in separate action and vision DiTs. Section 4.1 supplies the stream-routing details that the simplified drawing omits. During training, actions and future embeddings are independently corrupted targets. During ordinary inference, both predicted quantities start as noise. The clean future image pictured here is therefore a training target illustration, not an extra sensor input that the deployed policy can access.",
+      "takeaway": "The world model is part of action generation: its predicted representation participates in the same diffusion process as the action chunk. The vision decoder outputs future embeddings, so this architecture does not require generating photorealistic RGB images before choosing motor commands.",
+      "caution": "The diagram does not specify the closed-loop action execution schedule or establish physical prediction accuracy. Its generic future-image pathway should be read alongside the embedding definition and training/inference distinction in Sections 3–4.",
+      "evidenceIds": [
+        "setup",
+        "architecture",
+        "tokens",
+        "training",
+        "sampling"
+      ]
+    },
+    {
+      "id": "modality-block",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 5",
+      "page": 15,
+      "asset": "report-assets/2510.27607/modality-block.png",
+      "width": 1377,
+      "height": 815,
+      "sourceSha256": "52a74b858657a79765359575d93442f1f8b947dca3b8997f9cfc4a1556b3455a",
+      "sourceUrl": "https://arxiv.org/pdf/2510.27607#page=15",
+      "crop": [
+        0.22,
+        0.243,
+        0.76,
+        0.49
+      ],
+      "alt": "Modified MMDiT block with green action and yellow vision tokens, separate timestep inputs to each AdaLN path, shared attention and separate feed-forward layers.",
+      "caption": "Separate clocks condition separate transformations around a shared attention layer.",
+      "readingGuide": "Read downward from the two token rows. The left timestep, labeled tau_a in this drawing, enters the action AdaLN layers; the right tau_o enters the vision AdaLN layers. Attention spans both modalities, while feed-forward transformations remain separate. These arrows agree with Section 4.1 and the Appendix A.3 description: shared attention does not imply a shared noise level or a single feed-forward pathway. Independent time conditioning lets the same block process combinations such as almost-clean visual features with very noisy actions. The actual corruption convention must come from the equations: zero is noise and one is clean data.",
+      "takeaway": "DUST separates two decisions that are often coupled: where modalities exchange information and how far each has progressed through denoising. That separation is necessary for its proposed asynchronous inference, and the architecture/noise ablation tests whether it also matters during training.",
+      "caution": "Section 4.2's illustrative inverse-dynamics example reverses the endpoints used by the explicit interpolation on p. 5. The crop is faithful; this guide follows the equations and preserves that unresolved prose discrepancy.",
+      "evidenceIds": [
+        "block",
+        "architecture",
+        "training",
+        "notation",
+        "sampling",
+        "ablations"
+      ]
+    },
+    {
+      "id": "robocasa-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 6,
+      "asset": "report-assets/2510.27607/robocasa-results.png",
+      "width": 1362,
+      "height": 407,
+      "sourceSha256": "52a74b858657a79765359575d93442f1f8b947dca3b8997f9cfc4a1556b3455a",
+      "sourceUrl": "https://arxiv.org/pdf/2510.27607#page=6",
+      "crop": [
+        0.089,
+        0.082,
+        0.89,
+        0.267
+      ],
+      "alt": "RoboCasa success table with 100, 300 and 1,000 demonstrations; DUST averages 50.1, 58.5 and 66.3 percent, above the corresponding adapted FLARE results.",
+      "caption": "DUST improves reported RoboCasa averages at all three demonstration budgets.",
+      "readingGuide": "Read each demonstration budget as its own comparison. PnP covers pick-and-place, OP/CL opening and closing, and Other the remaining tasks; green cells mark the reported averages. Compare the final three rows first because they share the GR00T-based frozen-backbone setup. The dagger identifies results reproduced by the paper's authors, including an adapted FLARE implementation with the same SigLIP-2 target as DUST. The upper rows provide wider context but do not all share that implementation. Dashes mean unreported results, not zero success. Increasing demonstrations also changes training duration, so cross-budget improvements are not a controlled test of data volume alone.",
+      "takeaway": "At 100 demonstrations per task, DUST reports 50.1% against 44.6% for adapted FLARE and 41.7% for GR00T-N1.5. The respective gains are 5.5 and 8.4 percentage points. The FLARE gap narrows to 1.7 points at 1,000 demonstrations, despite a higher absolute DUST score.",
+      "caution": "The p. 7 prose's 18% GR00T improvement does not match these cells. Simulation trial counts and uncertainty are not supplied; the table supports reported point estimates, not statistical significance.",
+      "evidenceIds": [
+        "robocasa",
+        "baselines",
+        "training-config",
+        "simulation-prose"
+      ]
+    },
+    {
+      "id": "real-world-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 6,
+      "asset": "report-assets/2510.27607/real-world-results.png",
+      "width": 1428,
+      "height": 686,
+      "sourceSha256": "52a74b858657a79765359575d93442f1f8b947dca3b8997f9cfc4a1556b3455a",
+      "sourceUrl": "https://arxiv.org/pdf/2510.27607#page=6",
+      "crop": [
+        0.467,
+        0.275,
+        0.887,
+        0.431
+      ],
+      "alt": "Real Franka task table showing four pick-and-place columns, cord insertion, eraser use, brush use and averages; DUST's average is 59.9.",
+      "caption": "The real-robot gain spans seven tasks, with task-specific partial-credit scoring.",
+      "readingGuide": "Start with the task columns, then the highlighted average. The first four tasks move objects between different source–destination pairs; Cord requires insertion; Eraser and Brush test tool use. All models train with 60 demonstrations per task. Appendix A.5 describes 24 evaluations for each task under predetermined configurations. These entries need careful metric interpretation: partial placements can earn half credit, erasing earns half or full credit at stated removal thresholds, and brushing earns one-sixth per bolt collected. Cord insertion alone has no partial score. The dagger again denotes the paper authors' reimplementation of FLARE, not a reproduction performed for this reading.",
+      "takeaway": "DUST has the highest reported score in every task column and averages 59.9%, compared with 49.5% for adapted FLARE. Nevertheless, its insertion score is only 29.2%, and the fourth pick-and-place task reaches 45.8%. The improvement coexists with substantial remaining failures.",
+      "caution": "The average mixes binary and partial-credit tasks and should not be called an unqualified episode-success rate. This small tabletop suite has no reported uncertainty; Appendix A.11 also documents a grasp failure under occlusion.",
+      "evidenceIds": [
+        "real-results",
+        "real-scoring",
+        "baselines",
+        "failure"
+      ]
+    },
+    {
+      "id": "vision-scaling",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 6",
+      "page": 8,
+      "asset": "report-assets/2510.27607/vision-scaling.png",
+      "width": 1215,
+      "height": 240,
+      "sourceSha256": "52a74b858657a79765359575d93442f1f8b947dca3b8997f9cfc4a1556b3455a",
+      "sourceUrl": "https://arxiv.org/pdf/2510.27607#page=8",
+      "crop": [
+        0.128,
+        0.116,
+        0.843,
+        0.225
+      ],
+      "alt": "Asynchronous sampling table: vision steps increase from 4 to 64 while action steps stay at 4; GR-1 average peaks at 47.1 with 32 vision steps.",
+      "caption": "More vision denoising helps selectively while the action-update budget stays fixed.",
+      "readingGuide": "The left column is N_o, the number of vision denoising steps, not the number of action updates. Section 5.3 fixes N_A at four throughout. Compare rows within each benchmark and training budget, using the green average columns as a summary and the task-category columns to see uneven changes. Figure 3 explains the intended schedule: vision updates at every fine step, actions every q steps, where N_o=qN_A. Appendix Table 11 is the relevant control because it increases both step counts together and reports deterioration. This table measures task outcomes; consult Figure 4 separately for hardware-specific latency.",
+      "takeaway": "GR-1 improves from 42.0% at four vision steps to 47.1% at 32, then falls to 45.0% at 64. RoboCasa with 1,000 demonstrations rises from 66.3% to 69.7% at 64 steps. Figure 4 reports 24.6 ms for four-step DUST and 246.1 ms for 64-step DUST on the stated GPU/compiler setup.",
+      "caution": "More computation is not uniformly beneficial. Equation (5)'s modulo condition is written using the action clock, leaving indexing ambiguous relative to the global-step description; an implementation must resolve that discrepancy.",
+      "evidenceIds": [
+        "scaling",
+        "sampling",
+        "synchronous",
+        "latency"
+      ]
+    },
+    {
+      "id": "component-ablations",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 7",
+      "page": 8,
+      "asset": "report-assets/2510.27607/component-ablations.png",
+      "width": 1231,
+      "height": 209,
+      "sourceSha256": "52a74b858657a79765359575d93442f1f8b947dca3b8997f9cfc4a1556b3455a",
+      "sourceUrl": "https://arxiv.org/pdf/2510.27607#page=8",
+      "crop": [
+        0.126,
+        0.264,
+        0.85,
+        0.359
+      ],
+      "alt": "Three ablation panels compare architecture and noise sampling, MMDiT depth, and world-model loss weight on RoboCasa with 100 demonstrations per task.",
+      "caption": "The strongest ablation result combines separate processing with independently sampled noise.",
+      "readingGuide": "Panel (a) is the central comparison: move between DiT and MMDiT while holding the noise scheme fixed, then compare joint and decoupled noise within an architecture. MMDiT with joint noise barely changes the baseline average, but MMDiT with decoupled noise reaches the shaded 50.1 row. Panel (b) varies the number of shared MMDiT layers while keeping total path depth at 16, trading shared processing against modality specialization. Panel (c) varies lambda_WM, the relative world-model loss weight. All panels use RoboCasa with 100 demonstrations per task; the shading identifies the chosen configuration rather than an uncertainty interval.",
+      "takeaway": "With decoupled noise, replacing DiT by MMDiT raises average success from 42.5% to 50.1%. With MMDiT, replacing joint noise by decoupled noise raises it from 38.2% to 50.1%. The two choices interact: separate pathways alone do not reproduce the full gain.",
+      "caution": "These are point estimates from one benchmark regime. Depth changes also change the allocation of specialized layers; the paper does not establish a parameter-matched, multi-seed optimum or that every weight outside the tested range fails.",
+      "evidenceIds": [
+        "ablations",
+        "architecture",
+        "training"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "1. Predict the consequence in a representation useful for action",
+      "kind": "source",
+      "text": "At environment time t, DUST receives an instruction, a current image and proprioception. The policy target is the chunk A_t, while its paired world target is the embedding of the observation at t+k, after the chunk. Eagle-2 supplies semantic conditioning; SigLIP-2 supplies the future visual target. This pairing ties policy learning to an observed consequence without requiring pixel reconstruction. The future image in Figure 2 belongs to the supervised training example. At deployment it is unavailable: the action and future-feature streams begin from noise and are refined together. Their coupling is therefore inside the learned sampler, rather than a second environment observation or an external trajectory-search procedure. The paper reports robot execution separately through benchmark task scores.",
+      "evidenceIds": [
+        "setup",
+        "architecture",
+        "tokens",
+        "sampling",
+        "real-results"
+      ]
+    },
+    {
+      "heading": "2. Independent corruption creates different conditional prediction problems",
+      "kind": "analysis",
+      "text": "Consider two training examples with identical underlying actions and future state but different corruption levels. If the future embedding is nearly clean and the action is noisy, action reconstruction can use information about the desired consequence. Reversing which modality is cleaner encourages prediction of consequences from actions. This is the authors' forward/inverse-dynamics interpretation of decoupled noising. The explicit equations make tau=1 clean, despite the reversed example in Section 4.2. Figure 5 shows why separate timestep inputs matter: each pathway must know its own corruption level even while attending to the other. My interpretation of Table 7 is that architecture and corruption work together. However, the dependency diagnostic demonstrates sensitivity to future-state information; it does not establish causal identification independently of the training distribution.",
+      "evidenceIds": [
+        "training",
+        "notation",
+        "block",
+        "ablations",
+        "dependency"
+      ]
+    },
+    {
+      "heading": "3. Separate a useful training target from expensive deployment refinement",
+      "kind": "analysis",
+      "text": "Training with future states and generating them at deployment are distinct sources of benefit. Table 13 exposes the distinction: disabling vision denoising lowers RoboCasa's average from 50.1% to 47.9%, but the latter still exceeds the reported GR00T and adapted FLARE baselines. Thus the learned policy retains a substantial benefit without explicit vision refinement. For additional test-time computation, Table 6 holds action updates fixed and spends more steps on vision. Table 11's synchronous control instead worsens results when both modalities receive more steps. My reading is that compute allocation matters more than a blanket recommendation to increase solver steps. The GR-1 reversal at 64 steps and measured latency growth make this an operating-point decision, not an unconditional scaling law.",
+      "evidenceIds": [
+        "zero-vision",
+        "robocasa",
+        "scaling",
+        "synchronous",
+        "latency"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Match capacity and compute in the architecture–noise factorial",
+      "text": "Reader-proposed check, not performed: train the four Table 7(a) variants on identical RoboCasa 100-demo subsets, with frozen Eagle-2 conditioning and the same future target, optimizer and update budget. Match trainable parameter counts where feasible and report any residual difference. Use multiple training seeds and paired evaluation configurations, then report average and per-task success with uncertainty. The discriminating observation is whether MMDiT's advantage remains larger under decoupled than joint noise after these controls. If the interaction disappears, the original table would not isolate the proposed architecture–corruption mechanism from capacity or optimization effects.",
+      "evidenceIds": [
+        "ablations",
+        "architecture",
+        "tokens",
+        "training-config"
+      ]
+    },
+    {
+      "title": "Measure what vision refinement buys at an equal inference budget",
+      "text": "Reader-proposed check, not performed: hold a trained checkpoint, initial noise seeds and evaluation configurations fixed. Compare zero vision steps, four-step joint sampling, asynchronous N_A=4 with N_o=16/32/64, and synchronous N_A=N_o at the same global step counts. First resolve the Equation (5) clock indexing and explicitly define zero-step token handling. Measure actual end-to-end policy latency on the same GPU and compiler setup, task success and future-feature error where ground truth is available. A falsifiable result is that asynchronous sampling improves the success–latency tradeoff over the synchronous control; failure to do so would weaken the claimed benefit of modality-specific inference allocation.",
+      "evidenceIds": [
+        "sampling",
+        "scaling",
+        "synchronous",
+        "zero-vision",
+        "latency",
+        "setup"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22
+    ],
+    "notes": "All seven supplied text chunks were read individually, including references and Appendix A.1–A.11. Original PDF pages 1–9 and 14–22 were rendered and visually inspected: identity, Figures 1–7, Tables 1–13, implementation/training/evaluation details, rollout stills and failure analysis. Every one of the six final original crops was viewed. Figures 2 and 5 were cross-checked against Sections 4.1–4.2 and A.3; Figure 3 was checked against Section 4.3 and Equation (5). The noise-endpoint prose conflict and ambiguous sampling guard are disclosed. Table captions that carry reproduced-result notes are retained. Reference-only pages 10–13 were read as text; external supplemental videos, code and earlier versions were outside the supplied scope."
+  }
+}

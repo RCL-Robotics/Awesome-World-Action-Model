@@ -1,0 +1,276 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2604.27792",
+  "shortTitle": "Motubrain",
+  "thesis": "Motubrain learns aligned video and robot actions, then limits repeated visual computation to make chunked control practical, although its autoregressive mask specification is inconsistent.",
+  "standfirst": "Motubrain asks how a video-generation prior can become a usable robot controller. Its answer combines language, video and action streams, an end-effector representation shared across embodiments, and separate adaptation for whole-window or autoregressive prediction. Deployment then changes the computational schedule: actions continue denoising after the video state is frozen, while a controller executes overlapping chunks. This reading follows that information flow before comparing simulation success, world-prediction quality and household-task scores. The results are promising within their reported settings, but neither a high video score nor a retry-weighted task score alone proves reliable autonomous execution. One attention-mask discrepancy also matters directly for reproduction.",
+  "evidenceIds": [
+    "e03-architecture",
+    "e06-action-loss",
+    "e07-posttraining",
+    "e08-inference",
+    "e10-execution",
+    "e15-worldarena-results",
+    "e16-realworld",
+    "e19-mask-discrepancy"
+  ],
+  "featuredResultTask": "RoboTwin 2.0 multitask manipulation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 3,
+      "asset": "report-assets/2604.27792/architecture.png",
+      "width": 1326,
+      "height": 847,
+      "sourceSha256": "2cb24d1e54d43ab7fe63de2fbd50d3db0f3a8fa72c643a379abcb4d4e1d68edf",
+      "sourceUrl": "https://arxiv.org/pdf/2604.27792#page=3",
+      "crop": [
+        0.11,
+        0.095,
+        0.89,
+        0.48
+      ],
+      "alt": "Three parallel language, video and action streams with encoders, modality blocks and a shared middle multimodal-attention bridge; video and action have separate timestep inputs.",
+      "caption": "Language conditions a coupled video/action generator through a shared middle attention bridge.",
+      "readingGuide": "Read upward from the instruction, video and action encoders. Each modality first enters its own blocks, then contributes queries, keys and values to the middle multimodal self-attention region. The arrows from the two timestep inputs belong to video and action separately. Section 2.1 specifies that full video–action interaction occupies the middle 50% of layers, with decoupled bottom and top quarters. Language remains a conditioning stream without an output head. The video input combines an observed first latent frame with noisy future latents; the action stream receives noisy action tokens. Their learned outputs are flow velocities used during denoising.",
+      "takeaway": "The architecture supports a unified-model reading because modalities exchange representations inside the backbone. It can select policy, forward world prediction, video generation, inverse dynamics or joint prediction by conditioning different variables. The presence of separate modality blocks therefore does not imply a sequential video-generator/IDM pipeline.",
+      "caution": "This is an architectural overview, not the exact mask for every operating mode. Figure 2 and Section 2.3 must also be consulted; their AR dependency discrepancy is described in the next visual.",
+      "evidenceIds": [
+        "e03-architecture",
+        "e04-modes",
+        "e07-posttraining",
+        "e19-mask-discrepancy"
+      ]
+    },
+    {
+      "id": "attention-masks",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/2604.27792/attention-masks.png",
+      "width": 1551,
+      "height": 638,
+      "sourceSha256": "2cb24d1e54d43ab7fe63de2fbd50d3db0f3a8fa72c643a379abcb4d4e1d68edf",
+      "sourceUrl": "https://arxiv.org/pdf/2604.27792#page=5",
+      "crop": [
+        0.135,
+        0.508,
+        0.865,
+        0.74
+      ],
+      "alt": "Four query-by-key attention matrices for video pretraining, joint pretraining, non-autoregressive post-training and autoregressive post-training; colored cells permit attention and white cells block it.",
+      "caption": "Query–key orientation reveals both the intended V2A shortcut and an unresolved AR inconsistency.",
+      "readingGuide": "Rows are queries and columns are keys. Colored cells allow access; white cells prohibit it. L denotes language, Vc conditioned video, V video, and A action; the AR panel separates clean V0 from noisy Vn tokens by chunk. Panel (b) allows every displayed modality pair. In panel (c), action queries read video and language, while video queries cannot read action keys. This agrees with the prose's V2A description. However, panel (d) colors the Vn1/A1, Vn2/A2 and Vn3/A3 intersections: noisy-video queries can read same-chunk action keys. That directly conflicts with Section 2.3's prohibition in both modes.",
+      "takeaway": "The Non-AR mask explains why fixed visual-language context can be cached while actions continue to change. AR temporal ordering supplies past observed visual context without clean past actions. The crop supports these distinctions, but does not resolve which AR mask produced the reported policy results.",
+      "caution": "The figure is preserved unchanged. Its caption describes causal AR attention, while Section 2.3 also claims V2A in AR. Those statements do not repair the visible same-chunk video-to-action access; the implementation remains unverified.",
+      "evidenceIds": [
+        "e06-action-loss",
+        "e07-posttraining",
+        "e08-inference",
+        "e19-mask-discrepancy"
+      ]
+    },
+    {
+      "id": "inference-speed",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 8,
+      "asset": "report-assets/2604.27792/inference-speed.png",
+      "width": 1190,
+      "height": 295,
+      "sourceSha256": "2cb24d1e54d43ab7fe63de2fbd50d3db0f3a8fa72c643a379abcb4d4e1d68edf",
+      "sourceUrl": "https://arxiv.org/pdf/2604.27792#page=8",
+      "crop": [
+        0.15,
+        0.137,
+        0.85,
+        0.271
+      ],
+      "alt": "Cumulative Non-AR optimization table listing steps, per-step time, end-to-end latency, inference frequency and speedup from baseline through V2A-style inference.",
+      "caption": "Latency falls cumulatively from 4.90 seconds to 0.09 seconds.",
+      "readingGuide": "Read this table from top to bottom as an accumulating stack: each row retains all preceding optimizations. Noise sampling reduces denoising steps from 50 to 30, compilation reduces repeated-forward overhead, and FP8 reduces eligible linear-layer cost. DiT caching then skips sufficiently redundant velocity evaluations. The last row adds V2A-style inference. Its step cell says '30(action-only)', but Equation (9) describes a joint prefix followed by an action-only suffix; the table does not specify the prefix length. Compare the end-to-end latency column for the complete call, and avoid multiplying the already cumulative speedup values together.",
+      "takeaway": "The final configuration reports 0.09 seconds, 11.11 inference calls per second and 54.4× speedup over the baseline. Most of the displayed late-stage latency reduction comes after caching and V2A are added. These measurements support a deployment-efficiency claim for this Non-AR setup, rather than a universal hardware-independent speed.",
+      "caution": "The paper does not name the timing GPU or provide per-row success results and uncertainty. Its essentially lossless claim is prose evidence. Inference frequency also differs from the separately timed robot control loop.",
+      "evidenceIds": [
+        "e07-posttraining",
+        "e08-inference",
+        "e09-speed",
+        "e10-execution"
+      ]
+    },
+    {
+      "id": "robotwin-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 9,
+      "asset": "report-assets/2604.27792/robotwin-results.png",
+      "width": 1224,
+      "height": 1033,
+      "sourceSha256": "2cb24d1e54d43ab7fe63de2fbd50d3db0f3a8fa72c643a379abcb4d4e1d68edf",
+      "sourceUrl": "https://arxiv.org/pdf/2604.27792#page=9",
+      "crop": [
+        0.26,
+        0.491,
+        0.74,
+        0.804
+      ],
+      "alt": "Clean and randomized RoboTwin average success rates for VLA and world-model baselines, followed by Motubrain variants with and without pretraining, HBridge and autoregressive operation.",
+      "caption": "The aggregate benchmark result and the most informative method ablations share one table.",
+      "readingGuide": "First compare the Clean and Randomized columns within each row: they describe evaluation settings, not two independent training datasets. Section 3.1 reports training with both clean and randomized demonstrations. Then inspect the bottom variants before attributing the final score to a mechanism. Full Motubrain reaches 95.8/96.1; removing pretraining gives 91.5/91.3, while pretrained Non-AR gives 91.9/92.3. The row labeled 'w/o Pretrain, HBridge' is a restricted variant, so it cannot establish the H-bridge contribution in the full pretrained model. Section 2.3 also changes temporal context and masking between AR and Non-AR.",
+      "takeaway": "Using displayed values, pretraining accompanies gains of 4.3 clean and 4.8 randomized percentage points over the corresponding full-model no-pretraining row. The full configuration also exceeds pretrained Non-AR by 3.9/3.8 points. These are useful package-level ablations, alongside the highest aggregate scores in this comparison.",
+      "caution": "Prior pretraining and compute are not equalized across all named baselines, and uncertainty is absent. The aggregate hides failures: Table 4 reports Hanging Mug at 55/43, below Fast-WAM's 58/62.",
+      "evidenceIds": [
+        "e05-pretraining",
+        "e07-posttraining",
+        "e11-robotwin",
+        "e12-task-breakdown"
+      ]
+    },
+    {
+      "id": "worldarena-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 5",
+      "page": 13,
+      "asset": "report-assets/2604.27792/worldarena-results.png",
+      "width": 1436,
+      "height": 779,
+      "sourceSha256": "2cb24d1e54d43ab7fe63de2fbd50d3db0f3a8fa72c643a379abcb4d4e1d68edf",
+      "sourceUrl": "https://arxiv.org/pdf/2604.27792#page=13",
+      "crop": [
+        0.16,
+        0.15,
+        0.836,
+        0.433
+      ],
+      "alt": "Six-model WorldArena table grouping 16 normalized metrics into visual quality, motion, consistency, physics, 3D accuracy and controllability, with overall EWMScore at the bottom.",
+      "caption": "A strong motion profile coexists with weaker action-following and photometric scores.",
+      "readingGuide": "Start at the bottom EWMScore row, then inspect the component rows instead of treating the average as uniform superiority. The caption defines EWMScore as the arithmetic mean of 16 normalized metrics, scaled to 100; individual rows remain on their normalized scale. Motubrain leads all three displayed Motion Quality rows, but other models lead Image Quality, Photometric Consistency, Interaction Quality and Action Following. For this evaluation, the source uses action-conditioned forward dynamics, high-resolution training on the entire 2,500-trajectory release, and benchmark submission results. This table is a selected comparison, not the complete leaderboard screenshot shown in Figure 5.",
+      "takeaway": "Motubrain scores 63.77 versus ABot-PW's 62.63 in this table. Its Dynamic Degree, Flow Score and Motion Smoothness are 0.5148, 0.4911 and 0.8566. Figure 5 separately shows FlowWAM-FiveAges at 63.71, so the nearest depicted leaderboard margin is only 0.06 points.",
+      "caution": "Action Following is 0.0203 versus Wan2.6's 0.0992. A favorable aggregate therefore does not establish uniformly stronger controllability, nor does a cross-benchmark policy result prove that these video metrics cause better robot execution.",
+      "evidenceIds": [
+        "e14-worldarena",
+        "e15-worldarena-results",
+        "e11-robotwin"
+      ]
+    },
+    {
+      "id": "flower-arrangement",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 8",
+      "page": 15,
+      "asset": "report-assets/2604.27792/flower-arrangement.png",
+      "width": 1436,
+      "height": 445,
+      "sourceSha256": "2cb24d1e54d43ab7fe63de2fbd50d3db0f3a8fa72c643a379abcb4d4e1d68edf",
+      "sourceUrl": "https://arxiv.org/pdf/2604.27792#page=15",
+      "crop": [
+        0.16,
+        0.665,
+        0.836,
+        0.827
+      ],
+      "alt": "Ten Flower Arrangement subtasks with ten possible points each; scores decline for later flower grasping and insertion before recovering for watering and delivery steps.",
+      "caption": "Per-step scores identify where long-horizon flower manipulation remains fragile.",
+      "readingGuide": "Read 'Total Scores' as the maximum contribution of a step and 'Our Scores' as its achieved contribution under the retry-weighted metric. Every flower-task step has ten possible points. Section 3.3.1 assigns full credit to first-attempt completion, then 80%, 50% or zero after one, two, or at least three retries. The evaluation uses ten consecutive trials after training on 100 successful task-specific trajectories, with mean execution time 138 seconds. Compare the repeated grasp/insertion sequence: the third branch's grasp and insertion receive 5.6 and 5.8 points, while the later watering and placement steps fare better.",
+      "takeaway": "The ten displayed contributions sum to the reported 83.30 out of 100. This supports a detailed partial-completion account: later flower grasping and insertion are weaker than several subsequent subtasks. It does not mean that 83.30% of episodes completed perfectly, or that every scored step succeeded without retries.",
+      "caution": "Tables 6–8 contain no matched baseline or confidence intervals. The crop preserves row 9's original hand wording; the paper does not clarify it. Printed demonstration stills do not supply the missing trial-level execution record.",
+      "evidenceIds": [
+        "e16-realworld",
+        "e17-realworld-tables",
+        "e18-generalization"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Make the action target portable before learning control",
+      "kind": "source",
+      "text": "Motubrain's shared action space begins with a reference frame, not a universal joint vector. For each conditioned image, the current end-effector state anchors the predicted chunk. Equation (4) subtracts the reference position, composes target rotation with the inverse reference rotation, and leaves the gripper state unchanged. Raw quaternion poses become targets with 6D rotations, producing ten dimensions per end effector. Only the gripper is normalized, so reproducing the physical coordinate scales matters. This representation is paired with a visual interface that independently encodes camera views and offsets their spatial positions before token concatenation. The two choices address different heterogeneity: action coordinates align control targets, while positional offsets distinguish views. Neither alone guarantees transfer; the paper still adapts the pretrained model using target-embodiment trajectories.",
+      "evidenceIds": [
+        "e04-modes",
+        "e05-pretraining",
+        "e06-action-loss",
+        "e16-realworld"
+      ]
+    },
+    {
+      "heading": "Separate learned coupling from the inference schedule",
+      "kind": "analysis",
+      "text": "The two pretraining stages do not update the same parameters. First the video branch adapts to embodied observations; then the action branch learns while video weights remain frozen. Yet stage 2 still includes both video and action losses, because cross-modal attention couples predictions. At deployment, the intended V2A dependency creates a different opportunity: if visual-language states no longer depend on evolving action tokens, they can be computed once after a joint denoising prefix and reused. This is the causal rationale for the cached suffix, rather than evidence that future visual learning was unnecessary. That inference is secure for the displayed Non-AR mask. The AR panel permits reciprocal same-chunk access, however, so the same rationale cannot be transferred to AR without resolving the conflict with the prose.",
+      "evidenceIds": [
+        "e05-pretraining",
+        "e06-action-loss",
+        "e07-posttraining",
+        "e08-inference",
+        "e19-mask-discrepancy"
+      ]
+    },
+    {
+      "heading": "Close the loop, then choose the right success measure",
+      "kind": "analysis",
+      "text": "A fast action generator still needs a rule for replacing actions already in flight. Motubrain estimates how many controller steps will elapse during remote inference, freezes that prefix of the next chunk to the old remaining actions, and progressively releases the overlap. The maximum recent delay provides a conservative estimate when latency varies. My interpretation is that this trades immediate replanning freedom for boundary continuity; the paper does not isolate that tradeoff experimentally. Evaluation must then distinguish the model's several roles. RoboTwin reports task success, WorldArena summarizes video prediction metrics, and the real-world tables score individual subtasks with retry penalties. Flower Arrangement's 83.30 therefore has a different meaning from randomized RoboTwin's 96.1%. A reproduction should keep these definitions separate and record both corrections and complete episode outcomes.",
+      "evidenceIds": [
+        "e10-execution",
+        "e11-robotwin",
+        "e14-worldarena",
+        "e15-worldarena-results",
+        "e16-realworld",
+        "e17-realworld-tables"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test the V2A dependency before measuring the cached suffix",
+      "text": "Reader-proposed check, not performed: hold language, observations, video latents and noise seeds fixed, then perturb only action tokens and compare video outputs under the Non-AR and AR masks. The specified V2A model should have no video dependence on that perturbation; Figure 2(d)'s mask may violate this. Resolve and document the mask first. For a verified V2A checkpoint, compare cached versus freshly recomputed fixed-context keys/values with identical prefix and action steps, then sweep prefix length against full joint denoising. Report output error, latency and paired RoboTwin success intervals with hardware and resolution fixed. Dependence on action tokens or substantial success loss would challenge the stated caching or essentially lossless-acceleration rationale.",
+      "evidenceIds": [
+        "e07-posttraining",
+        "e08-inference",
+        "e09-speed",
+        "e11-robotwin",
+        "e19-mask-discrepancy"
+      ]
+    },
+    {
+      "title": "Isolate chunk fusion under a replayed latency schedule",
+      "text": "Reader-proposed check, not performed: use the same checkpoint, initial scenes, observation rate, smoothing and controller rate in three execution conditions: direct chunk switching, frozen-prefix-only constraints, and the full frozen-prefix plus decaying-overlap rule. Replay identical fixed and variable inference/communication delays, using the same recent-delay queue policy in the constrained conditions. Measure boundary velocity jumps, command discontinuities, episode success and time to respond to a scene perturbation. The proposed mechanism predicts smoother boundaries with maintained success, but excessive stale-action commitment could delay recovery. Record that tradeoff instead of evaluating only mean latency; begin in simulation before attempting equivalent robot trials.",
+      "evidenceIds": [
+        "e08-inference",
+        "e10-execution",
+        "e11-robotwin",
+        "e18-generalization"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18
+    ],
+    "notes": "Visually inspected the title/version and contributor pages, all method/equation and deployment pages, Figures 1–6, and Tables 1–8. Every page supporting retained method, numerical, evaluation or reproduction claims is included. Figures 3–4 were read as Non-AR scaling plots, Figure 5 as the PDF's historical leaderboard snapshot, and Figure 6 only as printed still sequences. The six final original crops were individually viewed with headers, legends and relevant cells intact. Figure 2(d)'s AR query/key discrepancy and Table 2's unspecified joint-prefix length are explicitly preserved. Reference-only pp. 19–21 were read in the complete text; external references, repository and linked videos were not inspected."
+  }
+}

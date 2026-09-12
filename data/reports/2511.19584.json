@@ -1,0 +1,463 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2511.19584",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "coverage": {
+    "scope": "full-paper",
+    "identityVerified": true,
+    "appendix": "reviewed",
+    "sectionsRead": [
+      "Abstract and Sections 1–2: motivation and MMBench",
+      "Section 3: architecture, objectives and demonstration use",
+      "Section 4: experiments, ablations, transfer, open-loop control, visual RL and costs",
+      "Sections 5–6: related work and future directions",
+      "Acknowledgments, statements and references",
+      "Appendix A: all ten task domains",
+      "Appendix B: language instructions",
+      "Appendix C: demonstrations",
+      "Appendix D: baselines",
+      "Appendix E: planning",
+      "Appendix F: implementation and hyperparameters",
+      "Appendix G: open-loop control",
+      "Appendix H: additional comparisons",
+      "Appendix I: per-task results",
+      "Appendix J: loss curves"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Identity/version: the title and three authors match the catalog. The inspected title page identifies arXiv:2511.19584v2 [cs.LG], 2 December 2025; the catalog submission date is 24 November 2025. This report covers v2; v1 was not supplied for comparison. Hao Su and Xiaolong Wang are marked as equal advisers.",
+      "All 11 chunks were read individually, covering all 43 PDF pages. Visual inspection covered PDF pages 1–12 and 22–43, including all numbered figures and tables; references and the appendix contents page were read as text.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This acquisition limitation was addressed by inspecting the supplied PDF pages and all six final crops.",
+      "Separate supplemental material availability has not been fully verified.",
+      "External code, checkpoints, demonstrations and videos were not inspected; no experiments were reproduced."
+    ],
+    "figuresReviewed": [
+      "Figures 1–10, PDF pp. 1–9",
+      "Figure 11, PDF p. 29",
+      "Figures 12–15, PDF pp. 33–35",
+      "Figures 16–25, PDF pp. 36–42",
+      "Figure 26, PDF p. 43"
+    ],
+    "tablesReviewed": [
+      "Tables 1–3, PDF p. 9",
+      "Table 4, PDF p. 22",
+      "Table 5, PDF p. 27",
+      "Table 6, PDF p. 31",
+      "Table 7, PDF p. 32",
+      "Table 8, PDF p. 33",
+      "Table 9, PDF p. 35"
+    ]
+  },
+  "synopsis": "Newt extends TD-MPC2 into a language-conditioned agent that learns latent dynamics from demonstrations and online interaction across MMBench. Its practical recipe pretrains the world model and policy prior, retains action supervision, and uses the model to plan. It improves over the evaluated multitask baselines, but specialist policies remain stronger and long open-loop execution is uneven. The evidence concerns simulated, predominantly state-based control.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "Can one agent improve through online RL across 200 tasks and ten domains despite incompatible embodiments, reward scales and horizons? MMBench supplies instructions, demonstrations and optional images, with 20 additional held-out tasks. Its score combines domain-specific success criteria and normalized returns; 0.44 is not a universal 44% success rate.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "MMBench combines 159 existing tasks, 22 new variants in existing domains and 19 MiniArcade training tasks. The full MiniArcade suite has 22 tasks, so release size differs from the training subset.",
+      "kind": "source",
+      "evidenceIds": [
+        "e02",
+        "e03"
+      ]
+    },
+    {
+      "text": "Newt combines decoder-free prediction, language conditioning, model-based pretraining and persistent action supervision, supported by asynchronous interaction and distributed updates.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e07"
+      ]
+    },
+    {
+      "text": "The advance is shared multitask learning and adaptation, rather than superiority to specialists or demonstrated physical robot deployment.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e13",
+        "e18"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Masked 128-dimensional state vectors and embodiment/task instructions",
+      "Optional 224×224 RGB observations",
+      "Replay subsequences of observations, actions, rewards and successor observations"
+    ],
+    "outputs": [
+      "Predicted successor latents, rewards and action values",
+      "A stochastic policy prior and a planned continuous action sequence; normally only its first action is executed"
+    ],
+    "steps": [
+      {
+        "name": "Encode the task and observation",
+        "detail": "Frozen CLIP-ViT/B text features and optional frozen DINOv2/B image features have 512 and 768 dimensions. Concatenating these with state inputs feeds an MLP encoder. The default latent has 512 dimensions, normalized in simplices of dimension eight. No frame stacking is used.",
+        "evidenceIds": [
+          "e02",
+          "e04"
+        ]
+      },
+      {
+        "name": "Predict action-conditioned consequences",
+        "detail": "Separate MLPs implement dynamics d, reward R, value ensemble Q and policy prior p, conditioned on language. Dynamics predict embeddings rather than pixels. Reward/value learning uses log-space cross-entropy regression; TD targets use an EMA Q ensemble and a random-subset minimum.",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "name": "Search for actions",
+        "detail": "A CEM/MPPI-style search fits a diagonal Gaussian over action sequences to valuable latent rollouts, including policy-prior candidates. Defaults are horizon 3, six iterations, population 512, 24 policy samples and 64 elites.",
+        "evidenceIds": [
+          "e09"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "There are 4,020 demonstrations, 10–40 per task, from specialist TD-MPC2 agents. Episodes failing success criteria or returning more than 25% below the task median are rejected. Appendix C specifies 5M expert-training steps, except 10M for Atari; the main baseline description omits this exception.",
+        "kind": "source",
+        "evidenceIds": [
+          "e08",
+          "e11"
+        ]
+      },
+      {
+        "text": "Pretrain all learnable components for 200,000 iterations, disabling only the policy objective’s Q-maximization term. Online updates sample demonstration/interaction buffers 50:50 and retain BC on replay actions. Initial planning favors the pretrained policy; Appendix E specifies annealing from 2M to 12M steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07",
+          "e09"
+        ]
+      },
+      {
+        "text": "Defaults are approximately 20M learnable parameters, 100M total online steps, 10M replay capacity, batch 1,024 and update-to-data ratio 0.075. Adam rates are 3×10⁻⁴, or 1×10⁻⁴ for the encoder. Table 7 gives loss coefficients omitted from the schematic equations, including BC weight 10.",
+        "kind": "source",
+        "evidenceIds": [
+          "e10",
+          "e11"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Closed-loop control replans after each observation using a shifted previous search distribution. Open-loop evaluation executes the full sequence without feedback or replanning. The prior proposes actions; model-based search selects the behavior executed in the simulator.",
+        "kind": "source",
+        "evidenceIds": [
+          "e09"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}(\\theta)=\\mathbb{E}_{\\tau\\sim\\mathcal{B}}\\left[\\sum_{t=0}^{H}\\lambda^t\\left(\\left\\|z_t^{\\prime}-\\operatorname{sg}\\!\\left(h(s_{\\mathrm{state},t}^{\\prime},x_t^{\\prime},g)\\right)\\right\\|_2^2+\\ell_{\\mathrm{CE}}(\\hat r_t,r_t)+\\ell_{\\mathrm{CE}}(\\hat q_t,q_t)\\right)\\right]",
+        "explanation": "Equation (2): θ denotes parameters; τ is a subsequence from replay B, H the rollout horizon and λ temporal weighting. z′ is the predicted successor latent; h encodes successor state s′state, optional image embedding x′ and language embedding g. sg stops target gradients. Cross-entropy ℓCE compares predicted reward/value with reward r and one-step TD target q.",
+        "evidenceIds": [
+          "e04",
+          "e05"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_p(\\theta)=\\mathbb{E}_{\\tau\\sim\\mathcal{B}}\\left[\\sum_{t=0}^{H}\\lambda^t\\left(\\|p(z_t,g)-a_t\\|_2^2-Q(z_t,p(z_t,g),g)-\\mathcal{H}(p(\\cdot\\mid z_t,g))\\right)\\right]",
+        "explanation": "Equation (3): prior p learns from replay actions a, action value Q and entropy ℋ. Starting from the encoded initial observation, replay actions advance latent states. BC therefore supervises latent rollouts and distills previously planned actions. Pretraining disables the negative-Q term; actual weights are specified in Table 7.",
+        "evidenceIds": [
+          "e06",
+          "e07",
+          "e10"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "MMBench state-based multitask control",
+      "setting": "200 training tasks; default Newt; 100M total online steps plus demonstrations.",
+      "metric": "Average normalized score, higher is better",
+      "value": "0.438; Table 9 rounds this to 0.44.",
+      "comparison": "Figure 7 and Section 4.1 show higher overall performance than multitask PPO, FastTD3 and TD-MPC2. Specialist populations score 0.65 at 100M total steps and 0.80 at Table 9’s labeled 1B budget.",
+      "interpretation": "Shared control trails specialists. Equal online steps do not equalize demonstration-generation cost or total model capacity.",
+      "evidenceIds": [
+        "e11",
+        "e15",
+        "e18",
+        "e03"
+      ]
+    },
+    {
+      "task": "Language conditioning ablation",
+      "setting": "Full 200-task set; default-size agent; 100M total steps.",
+      "metric": "Average normalized score",
+      "value": "0.371 without language → 0.438 with CLIP language.",
+      "comparison": "Task-ID conditioning performs similarly on training tasks; removing demonstration components also reduces performance.",
+      "interpretation": "Task differentiation helps, without establishing compositional language understanding.",
+      "evidenceIds": [
+        "e12",
+        "e14"
+      ]
+    },
+    {
+      "task": "Adaptation to 20 unseen tasks and embodiments",
+      "setting": "Individual online finetuning without demonstrations; unseen instructions; five seeds in Figure 9.",
+      "metric": "Average normalized score",
+      "value": "Text reports 0.192 zero-shot and 0.868 after 100k steps.",
+      "comparison": "Prose gives scratch scores 0.013 initially and 0.480 at 100k, but Figure 9’s scratch endpoint is visibly around 0.6. Its exact final value is unresolved.",
+      "interpretation": "Both presentations favor finetuning; a precise gain is not consistently established.",
+      "evidenceIds": [
+        "e13"
+      ]
+    },
+    {
+      "task": "Open-loop control on eight selected tasks",
+      "setting": "No feedback during 24- or 48-step plans, versus training horizon 3.",
+      "metric": "Fraction of corresponding closed-loop performance",
+      "value": "Final averages: 0.24 for four 48-step tasks; 0.60 for four 24-step tasks. Pick Screwdriver and Push Green each retain 0.83 at step 24.",
+      "comparison": "Walker Walk retains 0.25 and Assault 0.08 at step 48.",
+      "interpretation": "Table 8 does not support broadly matching closed-loop control in most tasks. These are performance ratios, not success rates.",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "task": "Adding RGB observations",
+      "setting": "State-based Newt receives RGB and 30M additional finetuning steps.",
+      "metric": "Average normalized score and absolute score change",
+      "value": "0.438 → 0.442 overall (+0.004).",
+      "comparison": "RoboDesk: 0.500 (+0.125); Meta-World: 0.572 (+0.069); DMControl: 0.471 (−0.029).",
+      "interpretation": "Gains coexist with regressions. An explicitly matched continued-state baseline is absent, so extra training is a potential confound.",
+      "evidenceIds": [
+        "e15"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Training largely uses privileged state inputs in simulation. Atari uses raw RAM and shortened episodes, limiting transfer. One fixed instruction per training task restricts language diversity.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e20"
+      ]
+    },
+    {
+      "text": "Table 1 exposes instruction sensitivity: unseen-object pushing succeeds at 0.3% versus 21.0% with the noun “cube”; picking reverses the trend, 10.5% versus 0%. The pushing difference is 20.7 percentage points, although the prose writes “20.7%”.",
+      "kind": "source",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "text": "Main comparison/ablation plots omit seed counts and uncertainty comparable to Figure 9. Table 7’s “Architecture (5M)” heading conflicts with its 20M caption and dimensions matching Table 6’s 20M column. These discrepancies remain explicit.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e12",
+        "e13"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs modified task wrappers, masks, score transforms, filtered demonstrations and frozen backbone versions. Appendix A gives domain overviews rather than every task specification; complete per-task normalization constants and a full named held-out split are not enumerated in the PDF.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e04",
+        "e08",
+        "e13"
+      ]
+    },
+    {
+      "text": "Table 3 estimates 4.6 days for state training on two RTX 5090 GPUs, with AMD EPYC 9354 and at least 128 GB RAM; demonstrations occupy 32 GB. These are expected costs, not independently reproduced timings. Expert generation adds an estimated 1,300 GPU-hours.",
+      "kind": "source",
+      "evidenceIds": [
+        "e16",
+        "e08"
+      ]
+    },
+    {
+      "text": "Proposed checks compare planning with direct-prior actions from identical checkpoints, then RGB finetuning with equal-step state-only continuation. Report absolute returns, normalization and uncertainty to separate feedback dependence and modality effects.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e15",
+        "e17",
+        "e19"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The catalog is unassigned, so no substantive label can be supported or contradicted. Architecture evidence supports action-conditioned latent dynamics used by an explicit planner, with distinct policy-prior and prediction/value MLPs. This is neither inverse dynamics nor joint future-video/action generation. One multitask agent alone does not establish a “One Model” classification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06",
+        "e09"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "How much of the specialist gap reflects task interference versus unequal data and total parameter capacity?",
+    "Can language augmentation improve unseen-object transfer without weakening task differentiation?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/byline/affiliation and arXiv margin",
+      "detail": "Exact observed title; Nicklas Hansen, Hao Su and Xiaolong Wang; University of California San Diego; v2 dated 2 December 2025; Su and Wang share equal advising."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 2–4, Figure 2 and Sections 2–2.3",
+      "detail": "200 training tasks, ten domains, 20 test tasks; 159 existing plus 22 variants and 19 MiniArcade training tasks; language, state/RGB modes, masks and asynchronous wrappers."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF pp. 22–25, Appendix A, Table 4 and Sections A.1–A.10",
+      "detail": "Domain-specific success/return normalization, task modifications and episode lengths; 22 released MiniArcade tasks, 19 for training; Atari uses RAM, continuous-action conversion and 1,000-step episodes. Appendix A does not detail every task."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 6 and Eq. (1); pp. 30–31, Appendix F architecture and normalization",
+      "detail": "Frozen CLIP and DINOv2 feed concatenative MLPs; separate encoder/dynamics/reward/value/prior components; default 512-dimensional latent and size-eight simplices; no frame stacking. Stop-gradient markers are on future observation-encoding branches."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Eq. (2) and following paragraphs",
+      "detail": "Joint self-prediction/reward/TD-value learning; stopped-gradient successor encodings, log-space discrete regression, EMA target ensemble and random-subset minimum."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Eq. (3) and surrounding paragraphs",
+      "detail": "Prior objective combines BC over latent rollouts, Q maximization and entropy; replay actions advance latents and supply action supervision, including planner-action distillation."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.2, items (1)–(4); p. 28, Appendix D, Model-based pretraining",
+      "detail": "All learned components pretrain with policy Q term disabled; 200,000 iterations; 50:50 demo/online sampling; retained BC and constrained planning; distributed training and compilation."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 27, Appendix C and Table 5",
+      "detail": "4,020 demonstrations, 10–40 per task; expert training 5M steps, Atari 10M; filtering by success or >25% below median return; estimated 1,300 GPU-hours to train experts."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 29, Appendix E and Figure 11; p. 32, Table 7, Planning",
+      "detail": "Diagonal-Gaussian CEM/MPPI-like search, elite value weighting, prior rollouts, shifted warm starts and closed/open-loop execution; constraint anneals 2M–12M; H=3, six iterations, population 512, 24 prior samples, 64 elites."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF pp. 31–32, Eq. (4), Tables 6–7",
+      "detail": "Default architecture; episode-length discount heuristic; 10M replay, batch 1024, update/data 0.075, Adam rates, temporal weight 0.5 and BC coefficient 10. Table 7 caption says 20M despite internal Architecture (5M) heading."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 7 and Baselines; p. 8, Section 4.1, Benchmarking algorithms; pp. 27–28, Appendix D",
+      "detail": "100M total-step state evaluation; Newt leads aggregate multitask comparisons but has weak domains. Baselines differ in demonstrations, conditioning or architecture. Main text labels specialists 5M steps each; main curves omit comparable seed/uncertainty details."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 8 and Section 4.1 items (1)–(2); p. 9, continuation and item (3)",
+      "detail": "Ablations vary size, batch, language/task ID and demonstration uses; 0.371 without language versus 0.438 with language; task IDs match training performance; combined demonstration uses perform best."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Figure 9; p. 9, Task transfer",
+      "detail": "20 unseen tasks/embodiments, individual finetuning without demos, unseen instructions and five seeds. Prose gives 0.192/0.013 initially and 0.868/0.480 at 100k; scratch curve visibly ends around 0.6. Complete named held-out split is not enumerated."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 1 and Task transfer; p. 11, Language understanding",
+      "detail": "100 trials per task on ten unseen manipulation tasks; pushing 0.3% unseen noun versus 21.0% cube, picking 10.5% versus 0%. Text identifies six pushing tasks. One fixed instruction per training task."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 2; p. 10, Visual observations",
+      "detail": "RGB added to state agent for 30M steps. Overall 0.438/0.442; RoboDesk 0.500 (+0.125), Meta-World 0.572 (+0.069), MiniArcade 0.437 (−0.004), DMControl 0.471 (−0.029). No explicit equal-step continued-state control."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 3; p. 10, Training cost",
+      "detail": "Expected 100M-step costs include 4.6 days on two RTX 5090 GPUs for state; AMD EPYC 9354, ≥128 GB RAM and 32 GB demonstration storage."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Open-loop control and Figure 10; p. 33, Appendix G, Figure 12 and Table 8",
+      "detail": "Eight-task 24/48-step no-feedback test; final means 0.60/0.24 respectively. Pick Screwdriver and Push Green 0.83 at 24; Walker Walk 0.25 and Assault 0.08 at 48. Prose claims near-closed-loop performance in most tasks and notes drift, deceleration and stochasticity failures."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 35, Table 9, Total row and caption; p. 27, Appendix C",
+      "detail": "Newt 0.31 at 20M and 0.44 at 100M; specialist population 0.38 at 20M, 0.65 at 100M, 0.80 at labeled 1B. Table uses 5M per expert; Appendix C specifies Atari 10M. Budgets retained as labeled."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 34, Figure 14 and caption",
+      "detail": "Planning versus direct learned prior generally favors MPC, but MuJoCo favors the prior; curves motivate checkpoint-controlled evaluation."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Section 6, Visual RL, Language understanding, Neural architectures and Learning strategies",
+      "detail": "Authors identify visual resource costs, limited language variation, simple MLP dynamics and heterogeneous learning rates as limitations/opportunities."
+    }
+  ],
+  "generatedAt": "2026-09-10T12:16:37.331Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2511.19584",
+      "title": "Learning Massively Multitask World Models for Continuous Control",
+      "kind": "pdf",
+      "sha256": "16a6cbcf6b731783cda269e7fb0ffcf289093f88c5f0b5c82125644ffde11423",
+      "wordCount": 17554,
+      "accessedAt": "2026-09-10T10:25:59.776460+00:00"
+    }
+  ]
+}

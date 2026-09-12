@@ -1,0 +1,298 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.07398",
+  "shortTitle": "OpenWAM",
+  "thesis": "OpenWAM-α couples a video prior and dedicated action generator through joint denoising, improving embodied transfer while retaining pronounced weaknesses under visual disturbance.",
+  "standfirst": "A world–action model needs a usable connection between predicted change and executable control. OpenWAM studies that connection by separating the video backbone, latent representation, action capacity, attention mask, denoising schedule and pretraining mixture. Its final model, OpenWAM-α, combines a pretrained video transformer with a separate action transformer, then adapts the resulting checkpoint to simulation and physical tasks. Read the following evidence in three stages: how information crosses the streams, why pretraining changes transfer, and where the resulting policy succeeds or fails. The controlled 600-hour study and the final 6,369-hour model answer different questions; neither should be mistaken for zero-shot robot deployment.",
+  "evidenceIds": [
+    "problem",
+    "composition",
+    "alpha",
+    "transfer",
+    "mixture",
+    "simulation-protocol",
+    "single-arm",
+    "libero-plus"
+  ],
+  "featuredResultTask": "Single-arm physical manipulation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 12",
+      "page": 17,
+      "asset": "report-assets/2609.07398/architecture.png",
+      "width": 1447,
+      "height": 1058,
+      "sourceSha256": "09606aafdd27a377b669331c2d11ad87c11dbba31066689c8d48d9fd2f28151b",
+      "sourceUrl": "https://arxiv.org/pdf/2609.07398#page=17",
+      "crop": [
+        0.115,
+        0.355,
+        0.889,
+        0.792
+      ],
+      "alt": "Four panels show separate video and action generators sharing attention, a five-source pretraining mixture, a joint timestep plane, and an 80-dimensional action layout.",
+      "caption": "Two learned streams exchange features while retaining their own parameters and noise levels.",
+      "readingGuide": "Start with panel (a), following the encoded video and action inputs upward through their respective generators. Each side has its own timestep conditioning and feed-forward blocks; the central attention block permits interaction. Language and proprioception enter both sides through cross-attention. Read the miniature mask by query rows and key columns: the observed-frame row stays isolated from noisy future/action tokens, while future and action rows communicate. Panel (b) distinguishes robot supervision from human video without robot actions. Panel (d) places heterogeneous embodiments into fixed action slots. Panel (c) illustrates independent training coordinates and a shared inference diagonal, but its sample density needs the caution below.",
+      "takeaway": "OpenWAM-α is a coupled dual-backbone policy: a 5B video DiT and a dedicated 1B ActionDiT communicate at all 30 layers. The world branch supplies features during action refinement. Physical control uses the resulting action chunk; decoding a displayable video is unnecessary in the serving path.",
+      "caution": "Panel (c) clusters samples near high τ, but the text defines t=0 as noise and samples t=1−f₅(u), favoring low t. No τ-to-t mapping is given. Preserve this schematic ambiguity; use the written formula when specifying training.",
+      "evidenceIds": [
+        "alpha",
+        "mask",
+        "mixture",
+        "action-space",
+        "alpha-sampling",
+        "flow",
+        "alpha-serving"
+      ]
+    },
+    {
+      "id": "visibility-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 14,
+      "asset": "report-assets/2609.07398/visibility-ablation.png",
+      "width": 1117,
+      "height": 507,
+      "sourceSha256": "09606aafdd27a377b669331c2d11ad87c11dbba31066689c8d48d9fd2f28151b",
+      "sourceUrl": "https://arxiv.org/pdf/2609.07398#page=14",
+      "crop": [
+        0.622,
+        0.187,
+        0.885,
+        0.279
+      ],
+      "alt": "Four attention-mask variants compared on clean and randomized RoboTwin2.0-Full success, with an average column.",
+      "caption": "Allowing actions to read future-world features produces the major gain in this mask study.",
+      "readingGuide": "Compare the Average column first, then check that the ordering broadly survives both Clean and Randomized columns. RoboTwin2.0-Full trains on both kinds of scenes, so these are in-distribution evaluation conditions. The rows change which future streams can read each other. Video Sees Action sends action information into video prediction; Action Sees Video gives actions access to future-world features. Mutual permits both directions. The source’s companion mask diagram still lets actions read the observed frame in the Isolated case. Thus the meaningful comparison concerns communication with the predicted future, rather than whether the policy can see its present observation.",
+      "takeaway": "Action Sees Video reaches 92.39% average success, compared with 87.41% for Isolated and 87.63% for Video Sees Action. Mutual reaches 92.15%. Within this experiment, enabling world-to-action access explains the large performance separation; enabling only the reverse path does not produce a comparable improvement.",
+      "caution": "This table precedes embodied pretraining and does not report uncertainty. The 0.24-percentage-point one-way advantage is small; Figure 11 revisits the comparison after pretraining and reverses its direction.",
+      "evidenceIds": [
+        "mask",
+        "study-protocol",
+        "pretrained-mask"
+      ]
+    },
+    {
+      "id": "denoising",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 9",
+      "page": 14,
+      "asset": "report-assets/2609.07398/denoising.png",
+      "width": 1275,
+      "height": 699,
+      "sourceSha256": "09606aafdd27a377b669331c2d11ad87c11dbba31066689c8d48d9fd2f28151b",
+      "sourceUrl": "https://arxiv.org/pdf/2609.07398#page=14",
+      "crop": [
+        0.383,
+        0.396,
+        0.883,
+        0.608
+      ],
+      "alt": "Two plots place action denoising against video denoising; synchronized diagonals are labeled 93.0 and leading schedules have lower reported scores.",
+      "caption": "The tested policy benefits from keeping video and action denoising synchronized.",
+      "readingGuide": "The horizontal coordinate is video progress and the vertical coordinate is action progress; both run from zero for noise to one for clean data. Above the diagonal, actions are cleaner than video; below it, video leads. The left plot uses the variance-shift family, with the number before each slash identifying its shift parameter. The right uses a linear offset that delays one stream. Numbers after the slash are the reported task scores, not coordinates or denoising steps. Training samples both noise levels independently under a mutual mask, so the comparison changes the inference trajectory without restricting training to a single diagonal.",
+      "takeaway": "The synchronized trajectory is labeled 93.0, above every displayed alternative; leading schedules span 88.5–92.3. This supports synchronized joint refinement for the tested model. It does not support a requirement to finish a video plan before generating actions, nor establish that the world stream can simply be removed.",
+      "caution": "Figure 9 does not explicitly identify the clean/randomized aggregation of its score or provide error bars. Denoising synchronization is separate from synchronous versus asynchronous action-buffer serving; the plot does not test those execution modes.",
+      "evidenceIds": [
+        "schedule-study",
+        "deployment",
+        "flow"
+      ]
+    },
+    {
+      "id": "pretraining-transfer",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 10",
+      "page": 15,
+      "asset": "report-assets/2609.07398/pretraining-transfer.png",
+      "width": 1257,
+      "height": 557,
+      "sourceSha256": "09606aafdd27a377b669331c2d11ad87c11dbba31066689c8d48d9fd2f28151b",
+      "sourceUrl": "https://arxiv.org/pdf/2609.07398#page=15",
+      "crop": [
+        0.392,
+        0.542,
+        0.885,
+        0.711
+      ],
+      "alt": "Paired bar charts compare clean ID and randomized OOD success for scratch, robot-only, sequential ego-to-robot, and joint ego-plus-robot pretraining; the ID axis is broken.",
+      "caption": "The controlled pretraining benefit is much larger under scene shift than on clean scenes.",
+      "readingGuide": "Read the left panel as clean-scene evaluation after clean-only fine-tuning, and the right as evaluation in randomized scenes absent from that fine-tuning set. The four configurations share downstream optimization and inference. Pretraining variants receive 600 hours: robot-only uses all robot data, while sequential and joint mixtures use 350 hours of EgoDex and 250 hours of RoboCOIN. The numbers above bars are absolute success and gains from the scratch baseline. Notice the broken left axis between 5 and 85: apparent bar-height differences cannot be compared directly across panels. These experiments use a smaller, different mixture from final OpenWAM-α pretraining.",
+      "takeaway": "Joint pretraining raises OOD success from 14.50% to 26.62%, a gain of 12.12 percentage points, while ID moves from 87.00% to 87.68%. Sequential mixing nearly matches the OOD result at 26.50%. Mixed data support transfer here; the evidence for a decisive advantage of one-stage ordering is much weaker.",
+      "caution": "No uncertainty is displayed. Figure 11’s separately matched mask comparison implies 26.42 for mutual OOD success, whereas this plot reports 26.62 for co-training. The source does not reconcile those values; retain each in its own comparison.",
+      "evidenceIds": [
+        "transfer",
+        "study-protocol",
+        "pretrained-mask",
+        "mixture"
+      ]
+    },
+    {
+      "id": "visual-robustness",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 5",
+      "page": 22,
+      "asset": "report-assets/2609.07398/visual-robustness.png",
+      "width": 1446,
+      "height": 656,
+      "sourceSha256": "09606aafdd27a377b669331c2d11ad87c11dbba31066689c8d48d9fd2f28151b",
+      "sourceUrl": "https://arxiv.org/pdf/2609.07398#page=22",
+      "crop": [
+        0.114,
+        0.105,
+        0.887,
+        0.376
+      ],
+      "alt": "LIBERO-Plus success rates grouped by VLA and WAM, with camera, robot, language, light, background, noise, layout and average columns.",
+      "caption": "High task-fitting performance does not guarantee robustness to camera and noise changes.",
+      "readingGuide": "Find OpenWAM-α in the bottom row and follow it across perturbation types before considering the average. Camera and Noise are particularly low at 33.8 and 39.8, while Light reaches 97.0; the failure is therefore uneven across disturbances. The model uses its LIBERO checkpoint without further LIBERO-Plus fine-tuning. Rows above include both VLA and WAM systems, so stronger WAM entries matter when assessing whether the weakness characterizes every world–action model. Bold and underline indicate the source’s best and second-best values. They do not denote statistical significance or evidence that the competing models were trained with matched data.",
+      "takeaway": "OpenWAM-α averages 69.2%, below Qwen-RobotManip’s 89.0% and ImageWAM’s 83.1%. The table establishes a concrete visual-robustness limitation despite the model’s successes elsewhere. The authors connect it to limited single-arm pretraining coverage and pixel-video prediction, but these are explanations to test rather than isolated causal findings.",
+      "caution": "Different methods vary in data, architecture and training. This leaderboard cannot by itself attribute the gap to pixel latents or establish that one model family generalizes better under all distribution shifts.",
+      "evidenceIds": [
+        "libero-plus",
+        "sft",
+        "limitations"
+      ]
+    },
+    {
+      "id": "physical-success",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 6",
+      "page": 25,
+      "asset": "report-assets/2609.07398/physical-success.png",
+      "width": 1710,
+      "height": 223,
+      "sourceSha256": "09606aafdd27a377b669331c2d11ad87c11dbba31066689c8d48d9fd2f28151b",
+      "sourceUrl": "https://arxiv.org/pdf/2609.07398#page=25",
+      "crop": [
+        0.114,
+        0.664,
+        0.888,
+        0.742
+      ],
+      "alt": "Three policies evaluated on six physical single-arm tasks, with exact successes out of 20 per task and an aggregate out of 120.",
+      "caption": "Physical trials support an aggregate gain, with task-specific exceptions visible in the counts.",
+      "readingGuide": "Each cell gives a count and a percentage, so begin with the denominators. Every task has 20 evaluation trials after fine-tuning from 100 task-specific demonstrations. The six equally sized tasks make the aggregate success count directly interpretable. Drawer tasks require both placing the object and closing the upper drawer; stacking requires a stable stack, and hanging requires the object to remain on the shelf. Follow the OpenWAM-α row across tasks: both drawer tasks are 20/20, but Stack Ring is 12/20. The latter is below LingBot-VA’s 15/20, showing why the overall average should not replace task-level inspection.",
+      "takeaway": "OpenWAM-α records 99 successes out of 120 trials, or 82.5%, versus 93/120 (77.5%) for LingBot-VA and 66/120 (55.0%) for π0.5. This is evidence from executed physical actions after task adaptation. It supports a five-percentage-point aggregate lead over LingBot-VA within the reported setup.",
+      "caution": "Only 20 trials support each task estimate, and confidence intervals are absent. The fixed task scenes and task-specific demonstrations limit claims about broad deployment generalization or zero-shot transfer to new robots.",
+      "evidenceIds": [
+        "single-arm",
+        "sft",
+        "alpha-serving"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Separate capacity from the route through which information travels",
+      "kind": "analysis",
+      "text": "A joint objective does not guarantee that action prediction can use future-world features. OpenWAM makes this distinction testable by separating the parameter layout from the attention mask. Table 1 compares shared-backbone, dual-backbone and tri-system architectures; the selected dual joint-attention design scores 92.36% versus 85.50% for the shared vanilla design, while tri-system reaches 92.60%. These comparisons change capacity and structure, so they do not isolate information flow by themselves. Table 2 then changes visibility within the selected design. Figure 8 clarifies that even isolated actions retain access to the observed frame, while the major improvement appears when they can read the future stream. Reader interpretation: the evidence favors dedicated action processing plus useful future features, rather than treating joint training or total parameter count alone as the mechanism.",
+      "evidenceIds": [
+        "composition",
+        "capacity",
+        "mask",
+        "study-protocol"
+      ]
+    },
+    {
+      "heading": "Follow the noise convention through training, refinement and execution",
+      "kind": "source",
+      "text": "The source defines clean data at t=1 and Gaussian noise at t=0. During training, video and action receive independently sampled timesteps; their velocity targets are clean data minus sampled noise. The validity mask restricts action supervision to real embodiment coordinates, and human videos contribute no robot-action loss. At inference, both streams traverse the same warped ten-step grid. Each joint forward pass refines actions using the current video features while the observed latent stays clamped. This is different from the infrastructure’s IDM variant, which generates video and then infers actions in a second stage. It is also different from asynchronous serving: α’s reported evaluations wait for a new chunk when their buffer empties. Pixel video decoding is skipped, but video-stream computation still participates in action refinement.",
+      "evidenceIds": [
+        "flow",
+        "alpha-sampling",
+        "alpha",
+        "action-space",
+        "mixture",
+        "composition",
+        "alpha-serving",
+        "deployment"
+      ]
+    },
+    {
+      "heading": "Distinguish scene transfer, model scale and embodiment adaptation",
+      "kind": "analysis",
+      "text": "The controlled transfer experiment asks whether embodied pretraining helps beyond the downstream clean-scene distribution. Its 600-hour mixtures and identical fine-tuning make the larger OOD gain informative, but do not imply that all kinds of shift become easy. Final α uses a different 6,369-hour mixture and benchmark-specific adaptation; its Clean2Random randomized success rises to 48.7%, while LIBERO-Plus still exposes major camera/noise weaknesses. Physical experiments answer another question: can the pretrained model adapt into executable policies? The dexterous platform was absent from pretraining, yet it receives task fine-tuning before testing. Reader interpretation: these results support useful initialization and transfer under the reported adaptation procedures. They do not establish zero-shot embodiment control, uniform OOD robustness, or a causal explanation of every advantage over differently trained competitors.",
+      "evidenceIds": [
+        "transfer",
+        "mixture",
+        "sft",
+        "simulation-results",
+        "libero-plus",
+        "dexterous",
+        "limitations"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test whether pretraining reliably changes the preferred mask",
+      "text": "Reader-proposed experiment: compare action-sees-video and mutual masks both without embodied pretraining and after the same 350-hour EgoDex/250-hour RoboCOIN mixture. Hold the video/action backbones, optimization budget, clean-only RoboTwin fine-tuning and synchronized denoising fixed; use matched evaluation scenes and multiple independent training seeds. Report clean and randomized success separately with trial counts and uncertainty. A stable positive mutual-minus-one-way difference after pretraining, but not before, would support the claimed reversal. A difference fluctuating around zero would weaken it. First reconcile the Figure 10/11 OOD values rather than choosing whichever reference score is easier to match.",
+      "evidenceIds": [
+        "mask",
+        "pretrained-mask",
+        "transfer",
+        "study-protocol",
+        "alpha-sampling"
+      ]
+    },
+    {
+      "title": "Separate data diversity from visual representation in robustness",
+      "text": "Reader-proposed experiment: cross two visual encoders, Wan2.2-VAE and DINOv3 with a 48-D S-VAE, with two equal-frame single-arm mixtures differing in scene/camera diversity. Follow the representation study’s random video-backbone initialization and matched fourfold temporal compression so native pretrained-weight compatibility does not confound the encoder comparison. Keep action capacity, mask, optimization budget and LIBERO fine-tuning fixed; evaluate clean LIBERO and every LIBERO-Plus perturbation using the same seeds and trials. A semantic-encoder improvement concentrated in Camera/Noise at comparable clean success would support the representation hypothesis. Gains driven mainly by diverse data across both encoders would favor the coverage explanation; this would be a mechanism test, not an exact α reproduction.",
+      "evidenceIds": [
+        "representation",
+        "libero-plus",
+        "mixture",
+        "sft",
+        "study-protocol",
+        "limitations"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      3,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      22,
+      23,
+      25,
+      26,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43
+    ],
+    "notes": "Read the complete supplied 43-page text, including Appendices A–D and bibliography. Visually inspected the title/author page, Figures 1–12 and 15, Figures 17–21, and Tables 1–20 on the declared pages. Every final crop was inspected; all numerical, method, configuration and protocol evidence retained in this bundle is covered by these pages. Figure 12’s timestep-density ambiguity and the Figure 10/11 numerical mismatch are disclosed. Figures 13, 14 and 16 were read as extracted text/captions; their original page images were not inspected, and retained benchmark values were checked in original tables instead. Separate supplements, external documentation, code and continuous rollout videos were not inspected."
+  }
+}

@@ -1,0 +1,450 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.03557",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T13:53:27.755Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2609.03557",
+      "title": "Building Pretraining Data for World Models: An Unreal Engine-Based Pipeline for Action-Conditioned Video Generation",
+      "kind": "pdf",
+      "sha256": "d38d35cee66e97863bf102ba0919fe596c97f936f77dbfeb8087e991babd3cd7",
+      "wordCount": 7581,
+      "accessedAt": "2026-09-10T10:27:56.221225+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1 Introduction",
+      "2 Related Work (2.1–2.2)",
+      "3 Data Generation Overview (3.1–3.2)",
+      "4 Assets and Dataset Curation (4.1–4.3)",
+      "5 System Architecture (5.1–5.3)",
+      "6 Trajectory Generation (6.1–6.3)",
+      "7 Offline Rendering (7.1–7.2)",
+      "8 Reliability and Operations (8.1–8.4)",
+      "9 Limitations and Discussion",
+      "10 Conclusion",
+      "References",
+      "Appendix A Key Configuration Parameters",
+      "Appendix B Directory Conventions",
+      "Appendix C Common Troubleshooting Procedure",
+      "Appendix D Representative Production Failure Cases"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "All five supplied text chunks and all 16 PDF pages were read. The extraction does not reconstruct figure images; the retained PDF supplied the inspected original Figures 1–5 and Tables 1–2.",
+      "Separate supplemental material availability has not been fully verified; no separate supplement was supplied.",
+      "Identity note: the observed title and all six authors match the catalog. PDF p. 1 shows arXiv:2609.03557v1 dated 3 September 2026 and an internal report date of September 4, 2026. These distinct date labels are preserved; no other edition was supplied or compared.",
+      "No code, asset collection, generated video files, external project page or referenced paper was inspected. The static viewer figure was inspected, not an interactive viewer or complete video. No experiments were reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1, p. 4",
+      "Figure 2, p. 5",
+      "Figure 3, p. 6",
+      "Figure 4, p. 7",
+      "Figure 5, p. 11"
+    ],
+    "tablesReviewed": [
+      "Table 1, p. 6",
+      "Table 2, p. 16"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "This paper documents the Unreal Engine synthetic-data component used in EchoWM: simulate character motion once, record controls and states, then replay the trajectory for high-quality multi-view rendering. Its contribution is a production system combining scene curation, cache locality and failure recovery. Reported video volume establishes production scale; downstream learning utility remains untested here. [e-scope, e-workflow, e-scale, e-limits]",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Interactive video models need controls aligned with visual transitions. Ordinary video rarely supplies the actions that caused those transitions. Unreal Engine exposes controls and geometry, but real-time physics and offline Movie Render Queue (MRQ) evaluation have different execution requirements. Heterogeneous assets also introduce collision, loading and rendering failures.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-scope",
+      "e-workflow",
+      "e-assets"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A trajectory representation connects physics execution to replay, producing synchronized views with frame-level actions, character transforms and camera states.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-sample",
+        "e-workflow",
+        "e-render"
+      ]
+    },
+    {
+      "text": "Persistent scene pools, local process scheduling and asynchronous upload support production across 25 nodes with eight RTX 5090 GPUs each.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-scheduling",
+        "e-scale",
+        "e-recovery"
+      ]
+    },
+    {
+      "text": "Scene screening and case-specific failure diagnostics document data-quality and reliability problems, without establishing an optimal training-data distribution.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-filter",
+        "e-failures",
+        "e-limits"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Fab scenes and enabled levels; calibrated character models and animations [e-assets]",
+      "Sampled directional controls, spawn locations and camera configurations [e-sample, e-actions, e-cameras]"
+    ],
+    "outputs": [
+      "Five synchronized videos per standard trajectory and a tiled inspection preview [e-sample, e-viewer]",
+      "Frame-level actions, character/camera states and execution metadata [e-workflow, e-viewer]"
+    ],
+    "steps": [
+      {
+        "name": "Screen and calibrate assets",
+        "detail": "Inventory actual asset directories; exclude incomplete sublevels, showcases and problematic large partitioned worlds. Configure character animations, scale, collision and locomotion. Manually inspect five 10-second 540p renderability clips per candidate level, then evaluate twenty 10-second 540p clips for visual quality. Score individual views, excluding the tiled preview.",
+        "evidenceIds": [
+          "e-assets",
+          "e-filter"
+        ]
+      },
+      {
+        "name": "Preserve scene-cache locality",
+        "detail": "Persistently bind each node to a scene pool and reshuffle between passes. The allocator assigns pools; node schedulers manage slots, retries and cleanup. Copy scenes into active slot projects and share characters locally. Multiple processes may share a GPU, with concurrency tuned empirically.",
+        "evidenceIds": [
+          "e-scheduling"
+        ]
+      },
+      {
+        "name": "Execute and record motion",
+        "detail": "Stage I uses a per-frame callback state machine in Play In Editor (PIE), returning control so physics advances. Spawn candidates fall until stable contact. Hold sampled actions for random durations and orient toward points of interest. Persistent movement input with negligible displacement triggers escape rotation, then respawning if needed.",
+        "evidenceIds": [
+          "e-stage1",
+          "e-actions"
+        ]
+      },
+      {
+        "name": "Compute cameras after motion",
+        "detail": "Construct back, left, right, elevated top-down and first-person views from the fixed character trajectory. External cameras ray-cast toward desired offsets and move inward before obstacles. Distance contracts quickly and expands slowly to reduce popping. These corrections do not change character motion.",
+        "evidenceIds": [
+          "e-cameras"
+        ]
+      },
+      {
+        "name": "Replay for offline rendering",
+        "detail": "A fresh process reconstructs translation, rotation and explicit scale tracks; observed engine capsule height determines mesh vertical offset. Remove auto-playing cinematic actors and adjust texture residency before MRQ. Encode rendered image sequences into per-view videos, then delete raw images. Actions and character physics are not rerun.",
+        "evidenceIds": [
+          "e-render",
+          "e-viewer"
+        ]
+      },
+      {
+        "name": "Recover completed outputs",
+        "detail": "Append-only markers communicate completion. Interrupted instances retain trajectories only when completion markers and expected videos both exist. Upload waits for a quiet period; local output is deleted only after successful transfer. Failure snapshots and external monitoring support diagnosis. The visual inspector is separate from automatic acceptance.",
+        "evidenceIds": [
+          "e-recovery",
+          "e-viewer"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "No predictive architecture, training objective, optimization schedule or downstream train/test split is introduced. A pretrained image-quality model supplies aesthetic scores for curation; this does not establish world-model training or joint action/video learning in this report.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-scope",
+          "e-filter",
+          "e-limits"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "There is no learned inference-time controller. Sampled controls execute in engine physics; their recorded consequences are rendered afterward. This is synthetic data generation, not demonstrated robot execution or learned planning.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-stage1",
+          "e-actions",
+          "e-render"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\{\\mathrm{W},\\mathrm{A},\\mathrm{S},\\mathrm{D},\\mathrm{WA},\\mathrm{WD},\\mathrm{SA},\\mathrm{SD},\\mathrm{IDLE}\\}",
+        "explanation": "Equation (1) enumerates nine states: directional keys, diagonal combinations and idle. Directions in the main pipeline are character-relative; turning guidance is described separately.",
+        "evidenceIds": [
+          "e-sample",
+          "e-actions",
+          "e-limits"
+        ]
+      },
+      {
+        "expression": "\\mathrm{aes}>5.5,\\qquad 25<\\mathrm{lum}<140",
+        "explanation": "Equation (2) requires both strict inequalities: aes is the pretrained aesthetic score; lum measures average brightness. A level qualifies only when more than 25% of sampled outputs pass. These empirical thresholds lack downstream calibration.",
+        "evidenceIds": [
+          "e-filter",
+          "e-limits"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Production of action-conditioned multi-view video",
+      "setting": "Production inventory: 429 retained levels from 2,384 purchased packs, 40 humanoid characters and five views; no benchmark split.",
+      "metric": "Reported produced video duration by resolution",
+      "value": "2,691 h at 1080p; 6,076 h at 720p.",
+      "comparison": "No competing pipeline baseline. Figures 2–3 and the conclusion use approximately 2,700 h and 6,000 h.",
+      "interpretation": "Production totals, not prediction accuracy. View aggregation and unique physical-trajectory hours are not explicitly defined; avoid inferring unique trajectory counts or a pack-to-level retention percentage.",
+      "evidenceIds": [
+        "e-scale",
+        "e-workflow",
+        "e-diversity",
+        "e-limits"
+      ]
+    },
+    {
+      "task": "Five-view production throughput",
+      "setting": "Production cluster: 25 nodes, each with eight RTX 5090 GPUs.",
+      "metric": "Five-view production throughput",
+      "value": "33 min / node-hour.",
+      "comparison": "No baseline, resolution-specific timing breakdown, sampling window or uncertainty is supplied.",
+      "interpretation": "Preserve the table unit. Whether minutes aggregate camera streams or denote synchronized sequence duration is not clarified; per-GPU and total-cluster cost conversions would require assumptions.",
+      "evidenceIds": [
+        "e-scale"
+      ]
+    },
+    {
+      "task": "Repeated-scene rendering with persistent pools",
+      "setting": "Repeated visits reuse scene-specific caches; cold starts can exceed ten minutes.",
+      "metric": "Per-scene rendering time relative to cold start",
+      "value": "Author-reported production observation: less than half of cold-start time.",
+      "comparison": "Repeated warm scenes versus cold starts; no controlled ablation table or timing distribution.",
+      "interpretation": "Supports locality operationally, while leaving workload comparability and separate scheduling/cache effects unresolved.",
+      "evidenceIds": [
+        "e-scheduling"
+      ]
+    },
+    {
+      "task": "Locomotion action coverage",
+      "setting": "Current generated action distribution across nine states.",
+      "metric": "Combined diagonal, backward and lateral action share",
+      "value": "46.6%.",
+      "comparison": "No per-state histogram or alternative-policy evaluation.",
+      "interpretation": "Substantial non-forward locomotion is present; this does not establish balanced actions, spatial coverage or generalization.",
+      "evidenceIds": [
+        "e-scale",
+        "e-diversity"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Perceptual filtering may remove structurally useful scenes. The authors leave controlled downstream calibration outside scope; visual quality alone does not establish dynamics-learning utility.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-limits"
+      ]
+    },
+    {
+      "text": "The repertoire omits jumping, running, crawling, attacking and complex interactions. A newer single-camera, camera-coordinate implementation is discussed as an extension; it should not replace the main character-centric five-view system in interpreting this report.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-limits"
+      ]
+    },
+    {
+      "text": "Engine physics and screened synthetic assets do not establish real-world transfer. Action holding, guidance and recovery shape trajectories; the marginal action share cannot isolate their consequences.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-actions",
+        "e-limits"
+      ]
+    },
+    {
+      "text": "Table 2 supplies case-specific diagnoses without failure frequencies or controlled before/after measurements. Similar symptoms can have different causes.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-failures"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs usable Unreal scenes, calibrated character animations/collision, PIE automation, MRQ replay, local storage and scheduling. Appendices A–B list configuration groups and storage conventions. The reported cluster is production infrastructure, not a demonstrated minimum.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-assets",
+        "e-stage1",
+        "e-render",
+        "e-config",
+        "e-scale"
+      ]
+    },
+    {
+      "text": "The source does not specify an Unreal/software version, exact asset inventory or redistribution terms, complete action/holding distributions, recovery thresholds, camera smoothing constants, MRQ sample counts or final concurrency settings. Appendix A lists parameters rather than a complete configuration. A public dataset split and access/license protocol are not established.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-assets",
+        "e-actions",
+        "e-cameras",
+        "e-render",
+        "e-config",
+        "e-scope"
+      ]
+    },
+    {
+      "text": "Reader-proposed checks: compare replay transforms with recorded states under rendering-setting changes, then compare matched-size filtered and renderable-only training corpora on held-out scenes. These experiments are not reported results.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-render",
+        "e-filter",
+        "e-limits"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "not-applicable",
+    "reasoning": {
+      "text": "The catalog snapshot is unassigned. This work supplies upstream data infrastructure without a proposed learned world-action architecture. PIE and MRQ are execution stages, not evidence for One Model/Multiple Models or joint prediction/inverse-dynamics quadrants. Its use in EchoWM does not transfer that system’s classification to this paper.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-scope",
+        "e-workflow"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "How does perceptual filtering affect dynamics prediction when scene and action coverage are controlled? [e-filter, e-limits]",
+    "Which replay invariants guarantee that rendered transitions retain recorded control semantics? [e-render, e-actions]"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author/affiliation block, arXiv margin and report date",
+      "detail": "Title: Building Pretraining Data for World Models: An Unreal Engine-Based Pipeline for Action-Conditioned Video Generation. Authors: Haoyu Wang; Songchun Zhang; Haoran Li; Haoyang Huang; Zeyue Xue; Nan Duan. Affiliations: Joy Future Academy, JD; Tsinghua University; The Hong Kong University of Science and Technology. Margin: arXiv:2609.03557v1, 3 Sep 2026; internal date: September 4, 2026."
+    },
+    {
+      "id": "e-scope",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract, Section 1 and Section 2.2; p. 13, Section 10",
+      "detail": "The paper addresses controls missing from ordinary video and describes the Unreal synthetic-data component used in EchoWM. It explicitly focuses on infrastructure rather than a new world-model architecture or demonstrated downstream improvement."
+    },
+    {
+      "id": "e-sample",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section 3.1, Equation (1), Figure 1 and caption",
+      "detail": "A standard trajectory has 1,800 frames over 60 seconds, five synchronized views and nine discrete actions. Figure 1 samples different scenes: top/bottom rows are top-down/back views, center four images first-person, and side images left/right views."
+    },
+    {
+      "id": "e-workflow",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.2 and Figure 2",
+      "detail": "Stage I runs physics in PIE and records trajectories. Stage II uses a new process to replay states and render through MRQ without resampling actions or another physics run determining motion. Figure 2 links curation, scheduling, both stages and output management; its totals are rounded."
+    },
+    {
+      "id": "e-assets",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 4.1",
+      "detail": "Fab assets are stored centrally and staged locally. Inventory excludes incomplete sublevels, showcases and failure-prone partitioned worlds. Character configuration includes animations, collision, scale, orientation, speed and locomotion. For non-humanoid extensions, actual visual height can differ from clamped collision size."
+    },
+    {
+      "id": "e-filter",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.2 and Equation (2); p. 5, Figure 2 scoring/eligibility blocks",
+      "detail": "Manual screening uses five 10-second 540p clips per candidate; quality screening uses twenty such clips per renderable level. Individual views pass when aes > 5.5 and 25 < lum < 140; level pass rate must exceed 25%. Tiled previews are excluded. Aesthetic scoring uses a pretrained image-quality model."
+    },
+    {
+      "id": "e-scale",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, all Statistic/Value rows",
+      "detail": "Reported: 2,384 packs; 429 levels; 40 humanoid characters; five views; nine actions; 1,800 frames/60 seconds; 25 nodes with eight RTX 5090 GPUs/node; 2,691 h at 1080p; 6,076 h at 720p; 33 min/node-hour five-view throughput; 46.6% diagonal + backward + lateral actions. Timing protocol and uncertainty are not provided."
+    },
+    {
+      "id": "e-diversity",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 3 inner/outer rings and center; p. 7, Section 4.3",
+      "detail": "Scene shares: Historical & Fantasy 29.4%, Nature & Landscape 21.7%, Sci-Fi & Futuristic 21.7%, Urban & Architecture 19.1%, Other 8.2%. Center labels round the video hours. Section 4.3 reports 46.6% combined diagonal/backward/lateral actions."
+    },
+    {
+      "id": "e-scheduling",
+      "sourceId": "primary",
+      "location": "PDF pp. 7–8, Figure 4 and Sections 5.1–5.3",
+      "detail": "Central assignment is coarse-grained; nodes manage slots locally. Persistent pools reuse caches: cold starts can exceed ten minutes, and reported repeated-scene time is below half of cold-start time. Concurrency is empirically tuned; scenes are copied into slot projects and virtual displays are isolated."
+    },
+    {
+      "id": "e-stage1",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 6.1, callback and state-machine sequence; p. 9, character preparation/spawning",
+      "detail": "Stage I uses nonblocking per-frame callbacks to apply controls and read resulting transforms. Starts/anchors or large objects guide spawn candidates, which fall to stable contact or are resampled after failing to settle."
+    },
+    {
+      "id": "e-actions",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 6.2",
+      "detail": "Actions are sampled from a predefined distribution and held for random durations. Point-of-interest guidance adjusts facing without changing sampling probabilities. Persistent negligible displacement under movement input triggers escape rotation and eventually respawn. Numeric distributions/recovery settings are not supplied."
+    },
+    {
+      "id": "e-cameras",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 6.3",
+      "detail": "Five camera trajectories are computed after character motion is fixed. External offsets follow character orientation. Ray-based occlusion correction contracts camera distance quickly and expands slowly without affecting character motion."
+    },
+    {
+      "id": "e-render",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Sections 7.1–7.2; p. 11, texture-residency continuation and encoding",
+      "detail": "The authors report unresolved aliasing in their SceneCapture setup and choose MRQ supersampling. Replay writes translation, rotation and scale, uses observed capsule height for mesh offsets, removes cinematic actors and adjusts texture residency. Image sequences are rendered without repeating character physics."
+    },
+    {
+      "id": "e-viewer",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Figure 5, caption, encoding paragraph and Section 8.1",
+      "detail": "Five videos and a tiled preview accompany action, pose and execution metadata. Figure 5 pairs video, action state and 3D trajectories for qualitative scrubbing; it shows W + A at frame 891. The viewer supports debugging, not automatic acceptance or recovery."
+    },
+    {
+      "id": "e-recovery",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Sections 8.2–8.4",
+      "detail": "Trajectory markers track progress; an instance marker follows normal shutdown. Partial recovery requires both a trajectory marker and expected videos. Upload waits for a quiet period and retains local files until transfer succeeds. Separate failure snapshots and external GPU/disk monitoring support recovery."
+    },
+    {
+      "id": "e-limits",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, Section 9; p. 13, Section 10",
+      "detail": "The authors discuss competing control, diversity, physical, visual and scale objectives. Empirical perceptual thresholds lack downstream calibration. The main character-relative scheme differs from a newer camera-relative single-camera extension. Richer actions are absent; downstream experiments remain outside scope. Conclusion totals are rounded."
+    },
+    {
+      "id": "e-config",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–15, Appendices A–C",
+      "detail": "Appendix A names rendering, character and scheduler parameters, including concurrency, resolution/frame count, retries and disk thresholds, without a full numeric configuration or software version. Appendix B documents storage conventions; Appendix C orders scheduler, engine, progress, GPU and snapshot diagnostics."
+    },
+    {
+      "id": "e-failures",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Appendix D introduction; p. 16, Table 2, Engine/Container/Hardware/Storage rows",
+      "detail": "Table 2 pairs symptoms, diagnostic signals, case-specific causes and mitigations: skeletal state, premature partition loading, cinematic camera takeover, animation root motion, container GPU mappings, memory limits, driver failures, cleanup and logging. Similar symptoms may have different causes; no failure frequencies are reported."
+    }
+  ]
+}

@@ -1,0 +1,480 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2604.01765",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T11:38:26.376Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2604.01765",
+      "title": "DriveDreamer-Policy: A Geometry-Grounded World-Action Model for Unified Generation and Planning",
+      "kind": "pdf",
+      "sha256": "3ff851e73e9a647a8cb8ffe764b6a58d8c9a2d845e54497e0f371a492cd63fd4",
+      "wordCount": 8245,
+      "accessedAt": "2026-09-10T10:25:10.988317+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract (p. 1)",
+      "1. Introduction (pp. 1–3)",
+      "2. Related Works, including 2.1 Driving World-Action Models and 2.2 Driving Vision-Language-Action Models (pp. 3–4)",
+      "3. Methodology: 3.1 Preliminaries; 3.2 DriveDreamer-Policy; 3.2.1 World Understanding; 3.2.2 World and Action Prediction (pp. 4–6)",
+      "3.3 Training Details (p. 6)",
+      "4.1 Experimental Setup (pp. 6–8)",
+      "4.2 Quantitative Results and world/depth ablation discussion (pp. 8–10)",
+      "4.3 Ablation Studies; 4.4 Qualitative Results (p. 11)",
+      "5. Conclusion (p. 11)",
+      "References (pp. 12–17)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "The preceding acquisition omission was addressed by visually inspecting PDF pages 1–11, including all four figures, all six tables and all three equations. References on pages 12–17 were read as supplied text.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity/version note: the title and all eleven authors match the catalog, allowing typographic World–Action/World-Action variation. The inspected title page identifies arXiv:2604.01765v1 [cs.CV], 2 Apr 2026, while its internal date is 2026-4-3. This report covers that supplied v1 artifact; no other revision was supplied or compared.",
+      "No appendix or dedicated limitations section appears in the supplied PDF.",
+      "The linked project website and code were not inspected; experiments were not reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2): model-family comparison",
+      "Figure 2 (p. 5): complete architecture and training/frozen markers",
+      "Figure 3 (p. 9): depth, future-frame and trajectory examples",
+      "Figure 4 (p. 10): qualitative planning ablations"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 7): Navsim v1 planning",
+      "Table 2 (p. 7): Navsim v2 planning",
+      "Table 3(a–b) (p. 7): video and depth generation",
+      "Table 4 (p. 8): world-learning ablation",
+      "Table 5 (p. 8): depth-learning ablation",
+      "Table 6 (p. 8): query-budget ablation"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "DriveDreamer-Policy trains a shared multimodal backbone with depth, video and trajectory generators. Ordered query embeddings transfer geometry and future-scene context into planning without requiring rendered depth or video at inference. Navsim scores and controlled modality ablations support useful joint supervision, while depth evaluation against a learned teacher and incomplete runtime details limit the conclusions.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "The authors argue that appearance-based world prediction can miss geometry relevant to occlusion, free space and collision avoidance. Their goal is to make geometric supervision useful to both future-video generation and driving trajectories through a compact shared representation.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e02"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A fixed-size query interface connects a multimodal LLM to three specialized generative experts, supporting planning-only and combined generation modes.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e08"
+      ]
+    },
+    {
+      "text": "Depth, video and action query groups follow a directed conditioning order; modality ablations test whether learning the two world outputs benefits planning.",
+      "kind": "source",
+      "evidenceIds": [
+        "e04",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Natural-language driving instruction",
+      "Synchronized multi-view RGB observations",
+      "Current action context, encoded into tokens"
+    ],
+    "outputs": [
+      "Current monocular depth maps",
+      "Action-conditioned future RGB video",
+      "Future trajectory states parameterized as position and heading"
+    ],
+    "steps": [
+      {
+        "name": "Encode context and read out queries",
+        "detail": "Text, visual patches and encoded current action enter the LLM alongside depth, video and action queries. Video queries attend to depth context; action queries attend to both world groups. This ordering operates within the backbone in one pass.",
+        "evidenceIds": [
+          "e04"
+        ]
+      },
+      {
+        "name": "Generate current depth",
+        "detail": "A pixel-space diffusion transformer concatenates noisy depth with the corresponding RGB image. Depth-query embeddings provide cross-attention keys/values. The output represents current geometry; downstream queries use its embeddings, not a mandatory rendered depth map.",
+        "evidenceIds": [
+          "e05",
+          "e06"
+        ]
+      },
+      {
+        "name": "Imagine future video",
+        "detail": "A VAE encodes the current image; noisy latents represent the future horizon. Video-query embeddings condition the video transformer through cross-attention, supplemented by concatenated CLIP image features. The VAE decodes predicted latents into frames.",
+        "evidenceIds": [
+          "e05",
+          "e07"
+        ]
+      },
+      {
+        "name": "Predict motion",
+        "detail": "A separate diffusion transformer converts a noise trajectory into states \\((x,y,\\cos\\theta,\\sin\\theta)\\), where position and heading describe each trajectory state. Action embeddings supply context. The source describes trajectory prediction, without a detailed actuator controller or candidate-rollout selection loop.",
+        "evidenceIds": [
+          "e08"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Initialization uses Qwen3-VL-2B, PPD for depth, and Wan-2.1-T2V-1.3B adapted to image-to-video generation. Depth/video training uses 144×256 resolution and a nine-frame video horizon. DA3 supplies depth labels; log-depth and per-map percentiles normalize them to [−0.5, 0.5].",
+        "kind": "source",
+        "evidenceIds": [
+          "e09"
+        ]
+      },
+      {
+        "text": "One-stage optimization uses 100k steps, batch size 32, eight NVIDIA H20 GPUs and AdamW with learning rate 10⁻⁵. Defaults are 64 depth, 64 video and 8 action queries; the action encoder is a two-layer MLP with layer normalization. No additional training dataset beyond Navsim is claimed, apart from initialized backbones.",
+        "kind": "source",
+        "evidenceIds": [
+          "e10"
+        ]
+      },
+      {
+        "text": "Figure 2 marks the vision encoder, tokenizer, CLIP and VAE with snowflakes, and the LLM, queries, action encoder and generators with flames. This qualifies Section 3.3's broad statement that all components are trained: a complete parameter-level freeze specification is absent.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e05",
+          "e09"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Sample noise and integrate the learned flow backward from time 1 to 0. Planning activates the action expert independently; depth/video experts can also run for imagination or generation. World-query context remains available to action queries without explicitly generating those world outputs.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e04",
+          "e08"
+        ]
+      },
+      {
+        "text": "The source states that normalized depth is inverted to metric or relative depth as needed, but does not specify percentile values or how inference-time scale parameters are obtained.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e09"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "x_t=(1-t)x_0+t x_1,\\qquad t\\sim\\mathcal{U}(0,1)",
+        "explanation": "Equation (1): x₀ is a data sample, x₁ a noise sample and t the sampled flow time; xₜ interpolates between them.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{FM}}=\\mathbb{E}_{x_0,x_1,t}\\!\\left[\\left\\|v_\\theta(x_t,t\\mid c)-(x_1-x_0)\\right\\|_2^2\\right]",
+        "explanation": "Equation (2) trains the time-dependent velocity field vθ, conditioned on c, against the path velocity x₁−x₀. Sampling follows the reverse time direction.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}=\\lambda_d\\mathcal{L}_d+\\lambda_v\\mathcal{L}_v+\\lambda_a\\mathcal{L}_a",
+        "explanation": "Equation (3) combines depth, video and trajectory losses. The depth weight λd is 0.1; the remaining weights default to 1.0.",
+        "evidenceIds": [
+          "e09"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Navsim v1 trajectory planning",
+      "setting": "navtrain/navtest: reported 100k/12k samples at 2 Hz; v1 navtest, three-camera model. Baselines are their officially reported results.",
+      "metric": "PDMS ↑",
+      "value": "89.2",
+      "comparison": "AutoVLA 89.1; WoTE 88.3; PWM 88.1; human reference 94.8.",
+      "interpretation": "Highest listed learned-model aggregate, only 0.1 score point above AutoVLA. Sensor configurations differ; the human reference remains higher.",
+      "evidenceIds": [
+        "e11",
+        "e12",
+        "e10"
+      ]
+    },
+    {
+      "task": "Navsim v2 trajectory planning",
+      "setting": "Navsim v2 EPDMS evaluated on navtest, following the comparison protocol stated in Section 4.1.",
+      "metric": "EPDMS ↑",
+      "value": "88.7",
+      "comparison": "DriveVLA-W0 86.1; DiffusionDrive 84.5.",
+      "interpretation": "A 2.6-score-point aggregate gain over DriveVLA-W0. Table 2 lists no competing world-model-based row and does not show dominance on every component.",
+      "evidenceIds": [
+        "e11",
+        "e13"
+      ]
+    },
+    {
+      "task": "Future front-camera video generation",
+      "setting": "Navsim recorded future RGB targets; only the front view is compared because PWM supports single-view generation.",
+      "metric": "LPIPS ↓ / PSNR ↑ / FVD ↓",
+      "value": "0.20 / 21.05 / 53.59",
+      "comparison": "PWM: 0.23 / 21.57 / 85.95.",
+      "interpretation": "FVD improves by 32.36 and LPIPS improves, but PSNR decreases by 0.52. These generation metrics do not measure executed driving safety.",
+      "evidenceIds": [
+        "e14"
+      ]
+    },
+    {
+      "task": "Current-depth generation",
+      "setting": "Navsim dense DA3 targets; comparison with zero-shot and Navsim-fine-tuned PPD.",
+      "metric": "AbsRel ↓ / δ₁ ↑ / δ₂ ↑ / δ₃ ↑",
+      "value": "8.1 / 92.8 / 98.6 / 99.5 (as printed; scaling not specified)",
+      "comparison": "Fine-tuned PPD: 9.3 / 91.4 / 98.3 / 99.5; zero-shot PPD: 18.5 / 80.4 / 94.0 / 97.2.",
+      "interpretation": "Better agreement with the teacher targets, including lower AbsRel than fine-tuned PPD. This does not independently validate metric depth against physical measurements.",
+      "evidenceIds": [
+        "e15"
+      ]
+    },
+    {
+      "task": "World supervision for planning",
+      "setting": "Four modality variants under identical training budgets, Table 4.",
+      "metric": "PDMS ↑",
+      "value": "Action-only 88.0; depth+action 88.5; video+action 88.9; full 89.2.",
+      "comparison": "Full model gains 1.2 score points over action-only and 0.3 over video+action.",
+      "interpretation": "Both supervision sources help in this comparison; no uncertainty estimates establish the reliability of the smaller increment.",
+      "evidenceIds": [
+        "e16"
+      ]
+    },
+    {
+      "task": "Depth supervision for video",
+      "setting": "Matched data and compute; compare video-only against depth joint learning plus depth-to-video query conditioning.",
+      "metric": "LPIPS ↓ / PSNR ↑ / FVD ↓",
+      "value": "With depth: 0.20 / 21.05 / 53.59",
+      "comparison": "Without depth: 0.22 / 19.89 / 65.82.",
+      "interpretation": "All three metrics improve within this ablation, but the experiment changes both supervision and conditioning.",
+      "evidenceIds": [
+        "e17"
+      ]
+    },
+    {
+      "task": "Query-budget sensitivity",
+      "setting": "Compare 32/32/4 depth/video/action queries with 64/64/8.",
+      "metric": "PDMS ↑ / FVD ↓ / depth AbsRel ↓",
+      "value": "64/64/8: 89.2 / 53.59 / 8.1",
+      "comparison": "32/32/4: 88.9 / 57.97 / 9.7.",
+      "interpretation": "Increasing all query groups together helps these metrics; per-group effects and measured latency costs remain unresolved.",
+      "evidenceIds": [
+        "e18"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Navsim evaluation uses real-log-derived benchmark data; the authors call it closed-loop planning. The supplied experiments do not establish physical vehicle deployment, reactive-traffic performance, or rare-event robustness beyond the reported benchmark and selected examples.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e11",
+        "e20"
+      ]
+    },
+    {
+      "text": "The same DA3 teacher provides training and evaluation depth targets. Improved agreement can reflect teacher imitation; Table 3 does not print depth scaling or exact δ thresholds. No independent geometric calibration is reported.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e15"
+      ]
+    },
+    {
+      "text": "Tables provide point estimates without seed variation or confidence intervals. Table 5 does not isolate the causal mask, and Table 6 changes all query groups simultaneously. The qualitative scenes illustrate the authors' interpretation without quantifying failure frequency.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e16",
+        "e17",
+        "e18",
+        "e20"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reproduction needs Navsim split definitions, initialized backbones and DA3 targets plus the published resolution, loss weights and optimizer budget. Exact depth percentiles, flow solver and sampling steps, action horizon/context encoding, and a complete freeze list need clarification; hardware count alone gives no measured runtime.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e05",
+        "e08",
+        "e09",
+        "e10",
+        "e11"
+      ]
+    },
+    {
+      "text": "Reader-proposed checks should separate depth supervision from the directed query connections, and compare planning-only with full generation using identical action noise. Neither experiment is reported as completed here.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e08",
+        "e16",
+        "e17"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    },
+    "reasoning": {
+      "text": "Every supplied catalog category is Not assigned, so there is no positive classification to confirm. Architecture evidence supports an integrated world–action system with a shared LLM and three separate generative experts, joint world/action learning and ordered query conditioning. Action prediction does not require inverse dynamics on a rendered future. A One Model judgment needs an explicit rule for this modular architecture; joint training alone cannot settle it.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e08",
+        "e09"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "How much of the planning gain comes from depth supervision versus access to depth-query embeddings?",
+    "Does lower DA3-relative error correspond to better measured distance estimates in safety-critical scenes?",
+    "What accuracy/latency frontier emerges when query groups and sampling steps are varied independently?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title block, author/affiliation lines, internal date and arXiv margin stamp",
+      "detail": "The title and eleven named authors match the catalog. Affiliations are GigaAI, University of Toronto and CUHK MMLab. The artifact is stamped arXiv:2604.01765v1, 2 Apr 2026, and internally dated 2026-4-3."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract and Section 1; p. 2, Figure 1 and caption",
+      "detail": "The authors motivate explicit depth as geometric grounding for appearance prediction and planning, and introduce a shared LLM with depth, video and action experts."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 3.1, Equations (1)–(2) and inference paragraph",
+      "detail": "Linear data-to-noise interpolation defines target velocity x₁−x₀ and squared velocity regression; inference integrates backward from t=1 to t=0. No numerical solver or step count is specified here."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Sections 3.2 and 3.2.1, Input Processing and Embeddings Generation",
+      "detail": "Instructions, image patches and current-action tokens enter the LLM with learned depth/video/action queries. Video queries attend to depth context and action queries to both world groups in a single pass; modular inference modes are described."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 2, caption and surrounding method text; p. 6, Section 3.3",
+      "detail": "Figure 2 shows three separately conditioned diffusion transformers, training-only noisy depth supervision, VAE/CLIP video conditioning and frozen/trainable pictograms. Snowflakes appear on tokenizer, vision encoder, CLIP and VAEs; the prose broadly describes training all components."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2.2, Depth Generator",
+      "detail": "The pixel-space depth model concatenates noisy depth and RGB, uses flow matching, and cross-attends to depth-query embeddings. Those embeddings provide upstream context without requiring generated depth as an input to later experts."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.2.2, Video Generator; p. 5, Figure 2",
+      "detail": "Current RGB is VAE encoded; future noisy latents are conditioned on world-video queries through cross-attention, with CLIP image features concatenated to the conditioning representation."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.2.2, Action Generator",
+      "detail": "A standalone diffusion transformer conditions noisy trajectories on action embeddings and predicts position/heading states (x,y,cosθ,sinθ). The action expert can run independently of explicit depth/video generation."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 3.3, Depth Normalization, Model Initialization and Adaptation, Equation (3)",
+      "detail": "Log-depth per-map percentile normalization targets [−0.5,0.5]. Backbones are Qwen3-VL-2B, PPD and Wan-2.1-T2V-1.3B; depth/video resolution is 144×256 and video horizon nine frames. DA3 provides depth labels; the depth loss weight is 0.1 and others default to 1.0."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 4.1 continuation, Baselines and Implementation Details",
+      "detail": "Baselines use their official reported Navsim performance. Training uses a two-layer normalized action MLP, 100k steps, batch 32, eight NVIDIA H20 GPUs, AdamW at 10⁻⁵ and 64/64/8 queries, with Navsim data and initialized backbones."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 4.1, Datasets and Planning Metrics",
+      "detail": "The paper reports 100k navtrain and 12k navtest samples at 2 Hz, PDMS for v1 and EPDMS for v2, evaluating v2 on navtest. It describes Navsim as real-log-derived and calls its planning evaluation closed-loop."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, Sensors and PDMS columns, Human/AutoVLA/WoTE/PWM/Ours rows",
+      "detail": "PDMS is 89.2 for the three-camera model, 89.1 for AutoVLA, 88.3 for WoTE, 88.1 for PWM and 94.8 for human. Sensors vary across methods; the imitation-learning asterisk applies to Recogdrive."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2, EPDMS and component columns",
+      "detail": "EPDMS is 88.7 for Ours, 86.1 for DriveVLA-W0 and 84.5 for DiffusionDrive. Ours has DDC 99.5, TLC 99.9, LK 97.6 and EC 79.4; ARTEMIS has EC 89.1. The world-model-based block contains only Ours."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3(a) and World Generation Metrics; p. 9, World Performance Comparison",
+      "detail": "Front-view comparison gives LPIPS/PSNR/FVD 0.20/21.05/53.59 versus PWM 0.23/21.57/85.95. Recorded RGB frames are targets; front-only evaluation accommodates PWM's single-view generation."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3(b) and World Generation Metrics; p. 9, depth comparison paragraph",
+      "detail": "Depth targets are DA3 outputs. AbsRel/δ₁/δ₂/δ₃ are 8.1/92.8/98.6/99.5 for Ours, 9.3/91.4/98.3/99.5 for fine-tuned PPD and 18.5/80.4/94.0/97.2 for PPD. The table does not state scaling or exact δ thresholds."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4; pp. 9–10, Ablations on World Learning for Planning",
+      "detail": "Under stated identical budgets, action-only, depth+action, video+action and full training yield PDMS 88.0, 88.5, 88.9 and 89.2. Full NC/DAC/TTC/C/EP are 98.4/97.1/95.1/100.0/83.5. No uncertainty is tabulated."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 5; p. 10, Ablations on Depth Learning for Video Generation",
+      "detail": "Without/with depth learning, LPIPS is 0.22/0.20, PSNR 19.89/21.05 and FVD 65.82/53.59. The description states matched data/compute and adds both joint depth learning and causal depth-to-video query conditioning."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 6; p. 11, Section 4.3",
+      "detail": "Query counts increase together from 32/32/4 to 64/64/8. PDMS improves 88.9 to 89.2, FVD 57.97 to 53.59 and depth AbsRel 9.7 to 8.1; LPIPS remains 0.20. No runtime measurement accompanies the table."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 3 and caption; p. 11, Section 4.4, first paragraph",
+      "detail": "Two selected examples show left/front/right generated depth, first/last video frames and human/predicted trajectories. Depth visualization is truncated below 80 m; the authors interpret the scenes as spatially stable and useful for planning."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Figure 4 and caption; p. 11, Section 4.4, second paragraph",
+      "detail": "Three scenarios compare action-only, depth-action, video-action and full variants. Green is human and red predicted trajectory. The caption interprets rows as slower collision avoidance, maneuver correction and closer expert alignment; no failure-rate statistic accompanies these scenes."
+    }
+  ]
+}

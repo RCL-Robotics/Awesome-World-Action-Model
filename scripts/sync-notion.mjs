@@ -2,7 +2,7 @@
 import { open, mkdir, unlink } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
-import { PUBLIC_FIELDS, atomicWriteFiles, coverage, guardDecrease, mapNotionPage, migrateLegacyCatalog, planCatalogUpdate, readJson, sortPapers, validatePapers } from './lib/data.mjs';
+import { PUBLIC_FIELDS, applyClassificationOverrides, atomicWriteFiles, coverage, guardDecrease, mapNotionPage, mergeCatalogPapers, migrateLegacyCatalog, planCatalogUpdate, readJson, sortPapers, validateClassificationOverrides, validatePapers } from './lib/data.mjs';
 import { createNotionReader, queryAllPages, validateSourceId } from './lib/notion.mjs';
 import { privateSnapshotPath } from './lib/paths.mjs';
 
@@ -22,6 +22,7 @@ Usage: node scripts/sync-notion.mjs [options]
 Default authentication: NOTION_API_TOKEN. Source: NOTION_DATA_SOURCE_ID.
 Use a read-only Notion integration with access only to the intended database.
 NOTION_API_VERSION may override the default supported API version.
+Optional data/local-papers.json is preserved and merged; Notion wins matching IDs.
 After an accepted sync, run npm run generate:readme and review the Git diff.
 `;
 
@@ -68,6 +69,19 @@ async function main() {
     let previousMeta;
     try { previousMeta = await readJson(metaPath); }
     catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error; }
+    let localPapers = [];
+    try { localPapers = await readJson(resolve(ROOT, 'data/local-papers.json')); }
+    catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      if (previousMeta?.source === 'Notion + arXiv discovery') throw new Error('Missing data/local-papers.json for a mixed-source catalog; restore the local overlay before syncing.');
+    }
+    validatePapers(localPapers, { allowEmpty: true });
+    let classificationOverrides;
+    try { classificationOverrides = validateClassificationOverrides(await readJson(resolve(ROOT, 'data/classification-overrides.json'))); }
+    catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      if (previous.some(paper => paper.majorCategory === 'WAM Components')) throw new Error('Missing data/classification-overrides.json; restore the category reviews before syncing.');
+    }
     let snapshot;
     if (options.input) {
       const input = await readJson(resolve(options.input));
@@ -80,10 +94,17 @@ async function main() {
       const results = await queryAllPages(reader, source);
       snapshot = { fetchedAt: new Date().toISOString(), results, has_more: false };
     }
-    const papers = sortPapers(snapshot.results.map(mapNotionPage));
-    validatePapers(papers, { allowEmpty });
+    const notionPapers = sortPapers(snapshot.results.map(mapNotionPage));
+    validatePapers(notionPapers, { allowEmpty });
+    // The merged count must not hide a truncated Notion export. Records whose
+    // IDs are absent from the overlay provide a known Notion-only baseline.
+    const localIds = new Set(localPapers.map(paper => paper.id));
+    guardDecrease(previous.filter(paper => !localIds.has(paper.id)).length, notionPapers.length, { allowEmpty, allowLargeDecrease });
+    const merged = mergeCatalogPapers(notionPapers, localPapers);
+    const papers = classificationOverrides ? applyClassificationOverrides(merged.papers, classificationOverrides) : merged.papers;
+    const source = merged.source;
     guardDecrease(previous.length, papers.length, { allowEmpty, allowLargeDecrease });
-    const update = planCatalogUpdate(papers, previous, previousMeta, snapshot.fetchedAt ?? new Date().toISOString());
+    const update = planCatalogUpdate(papers, previous, previousMeta, snapshot.fetchedAt ?? new Date().toISOString(), source);
     const changed = update.changed || needsSchemaMigration;
     const meta = update.meta;
     const summary = coverage(papers);

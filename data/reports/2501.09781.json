@@ -1,0 +1,457 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2501.09781",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T13:01:14.186Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2501.09781",
+      "title": "VideoWorld: Exploring Knowledge Learning from Unlabeled Videos",
+      "kind": "pdf",
+      "sha256": "74aadabe364d6b57eb3eb8b589d13465d8bf25ccebf9589977f85d5bda3b5604",
+      "wordCount": 10217,
+      "accessedAt": "2026-09-10T10:26:57.287778+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract",
+      "1. Introduction",
+      "2. Related Work (2.1–2.3)",
+      "3. VideoWorld (3.1–3.2)",
+      "4. Video-GoBench (4.1–4.2)",
+      "5. Experiment (5.1–5.7)",
+      "6. Conclusion",
+      "References",
+      "Supplementary Material A. Implementation Details, Table A.1 and Algorithm 1",
+      "Supplementary Material B. Details on Video-GoBench"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity/version: the inspected title page identifies arXiv:2501.09781v2 [cs.CV], 5 March 2025. Title and all seven authors match the catalog. The catalog submission date is 16 January 2025; this report reviews the supplied v2, not an independently inspected first version. Changes between versions are not established.",
+      "Acquisition caveat: Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout. This was addressed by inspecting original PDF pages 1–10 and 14–15, including all scientific figures and tables; reference-only pages 11–13 were read as text.",
+      "Separate supplemental material availability has not been fully verified. The supplementary material embedded on PDF pages 14–15 was supplied and read; no separate supplement was supplied.",
+      "Code, project pages, datasets and external videos were not inspected; no experiments were reproduced. The abstract claims an open-source release, but its availability was not independently verified."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 2)",
+      "Figure 3 (p. 4)",
+      "Figure 4 (p. 5)",
+      "Figure 5 (p. 6)",
+      "Figure 6 (p. 9)",
+      "Figures 7–9 (p. 10)",
+      "Figure A.1 (p. 14)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–3 (p. 7)",
+      "Tables 4–5 (p. 8)",
+      "Table A.1 (p. 14)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "VideoWorld predicts compact multi-step dynamics codes alongside video frames, then converts predictions into task operations. On rendered 9×9 Go and simulated robot tasks, this representation substantially improves over video-only prediction. Expert-curated training data, language conditioning and a separately supervised robot action decoder qualify the broader claim of learning solely from unlabeled videos.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Can next-token prediction over visual demonstrations acquire rules and useful decisions? Video preserves board patterns and scene appearance but spends many tokens describing a small change. The paper asks whether compressing that change improves learning while retaining visual context.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-motivation",
+      "e-generator",
+      "e-ldm"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A Latent Dynamics Model (LDM) learns discrete summaries of progressively longer visual changes and supplies extra prediction targets to an autoregressive video transformer.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-ldm"
+      ]
+    },
+    {
+      "text": "Video-GoBench provides rendered game data and legality, oracle-move and tournament evaluations; CALVIN and RLBench extend the test to simulated manipulation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-data",
+        "e-eval",
+        "e-robot-eval"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Observation-frame history; future clips during LDM training",
+      "Robot task instruction labels; limited action-labeled data for the separate IDM"
+    ],
+    "outputs": [
+      "Predicted next frame and H latent dynamics codes",
+      "Task operations; seven robot control signals after inverse-dynamics decoding"
+    ],
+    "steps": [
+      {
+        "name": "Encode appearance",
+        "detail": "A customized MAGVIT-v2 encoder-decoder with finite scalar quantization (FSQ) converts frames into discrete tokens. A Llama-style transformer predicts tokens. For Go and CALVIN, spatial compression yields 4×4 tokens per frame.",
+        "evidenceIds": [
+          "e-generator",
+          "e-training"
+        ]
+      },
+      {
+        "name": "Compress future change",
+        "detail": "For the current frame and H successors, a causal encoder without temporal downsampling produces unquantized features. Each query attends through its associated future step; FSQ quantizes the query output. A causal decoder reconstructs future frames from the initial feature and codes. Short clips receive replication padding.",
+        "evidenceIds": [
+          "e-ldm"
+        ]
+      },
+      {
+        "name": "Predict both representations",
+        "detail": "Interleave image tokens and dynamics codes in one autoregressive sequence. The transformer vocabulary combines distinct image and dynamics codebooks. These codes summarize future changes rather than directly specifying robot actuator labels.",
+        "evidenceIds": [
+          "e-ldm",
+          "e-robot-mapping"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Train LDM with reconstruction L2 loss and the transformer with next-token cross-entropy. The transformer starts randomly initialized; its image encoder is reconstruction-trained on the target dataset and frozen. Table A.1 lists 100,000 LDM and 1,000,000 transformer iterations, with no augmentation.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-training"
+        ]
+      },
+      {
+        "text": "The separately trained inverse dynamics model (IDM) uses action labels. For robotics, ResNet-18 encodes the predicted image and MLPs process latent codes into seven control outputs. Appendix A specifies mean squared error, AdamW at 1e-4, and one million IDM steps.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-robot-mapping"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Generate H dynamics codes and the next image from history, with an instruction condition for robotics. Feed predictions to the IDM, execute its action in the simulator, append the resulting observation, and predict again. Appendix A calls execution open-loop but describes fresh feedback after each action.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-robot-mapping",
+          "e-robot-eval"
+        ]
+      },
+      {
+        "text": "Analysis: this is an observation-feedback cycle at the action boundary. Imagined multi-step codes guide prediction; they are not an executed H-step action trajectory or explicit search over candidate plans.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-ldm",
+          "e-robot-mapping"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\rho(x_{t+1}\\mid x_{1:t})",
+        "explanation": "Section 3.1 defines video generator rho as the conditional next-frame distribution. x denotes an observation frame and t the time index; x_{1:t} is observed history.",
+        "evidenceIds": [
+          "e-generator"
+        ]
+      },
+      {
+        "expression": "\\pi\\!\\left(\\cdot\\mid x_t,\\hat{x}_{t+1},\\{\\hat{z}_t^h\\}_{h=1}^{H}\\right)",
+        "explanation": "Section 3.2 conditions action mapping pi on the current frame, predicted next frame and predicted dynamics codes. h indexes future spans and H is their count; hats indicate predictions.",
+        "evidenceIds": [
+          "e-robot-mapping",
+          "e-ldm"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Video-GoBench 9×9 Go",
+      "setting": "300M model; 56,000 test boards from 1,000 matches after removing openings. Eight-agent tournament: 400 games per pair, 11,200 total; KataGo-9d anchored at Elo 2700.",
+      "metric": "Tournament Elo; legal rate; Action-Value; best-action accuracy",
+      "value": "2317 ±25; 99.7%; 83.7%; 88.1%.",
+      "comparison": "Video-only 300M: 1998 ±38, 99.6%, 59.7%, 58.9%. State-based 300M: 2308 ±21 Elo. KataGo-5d: 2253 ±20 Elo.",
+      "interpretation": "Strong gain over video-only prediction. Action-Value is an oracle-value ratio, not win rate. The 5-dan description concerns calibrated agents, not a human professional tournament credential; reported Elo uncertainty is not training-seed variance.",
+      "evidenceIds": [
+        "e-data",
+        "e-eval",
+        "e-go-results"
+      ]
+    },
+    {
+      "task": "CALVIN push, drawer and light manipulation",
+      "setting": "300M models; ABCD→D split, instruction conditioning and randomized object placement; Section 5.2 reports sampling 500 tasks.",
+      "metric": "Success rate (%), ordered Push / Open-Close / Turn on-off",
+      "value": "VideoWorld: 56.2 / 75.4 / 72.1; with 30k extra trajectories: 72.7 / 91.0 / 93.8.",
+      "comparison": "Video-only: 17.3 / 24.1 / 19.2; action-supervised transformer oracle: 75.4 / 95.3 / 96.2.",
+      "interpretation": "Extra agent-generated demonstrations narrow the oracle gap but change the data budget. These are individual simulated task groups, not five-task chain scores. No uncertainty is reported.",
+      "evidenceIds": [
+        "e-robot-eval",
+        "e-calvin-results"
+      ]
+    },
+    {
+      "task": "Joint CALVIN and RLBench manipulation",
+      "setting": "Joint LDM and transformer training on both environments, including 20k RLBench trajectories; environment-specific IDMs.",
+      "metric": "Success rate (%), CALVIN Push / Open-Close / Turn on-off; RLBench Microwave / Fridge",
+      "value": "56.0 / 74.8 / 74.5; 67.1 / 62.5.",
+      "comparison": "Oracle: 61.3 / 79.5 / 78.0; 72.1 / 69.0. Video-only: 6.5 / 13.0 / 15.6; 12.0 / 10.9.",
+      "interpretation": "Shows learning across two training environments, not zero-shot transfer to an unseen one. No uncertainty is reported.",
+      "evidenceIds": [
+        "e-joint",
+        "e-robot-eval"
+      ]
+    },
+    {
+      "task": "Go dynamics horizon and code intervention",
+      "setting": "50M models; Table 4a horizon sweep and Table 4c inference-time random-code replacements.",
+      "metric": "Action-Value / best-action accuracy (%)",
+      "value": "H=1: 70.3 / 77.0; H=5: 73.9 / 80.9. Replacing code 1: 46.2 / 42.1; code 3: 72.1 / 80.6.",
+      "comparison": "Video-only: 47.5 / 44.3; unmodified codes: 73.9 / 80.9.",
+      "interpretation": "Longer summaries help; early-code corruption is especially damaging. Random replacement also introduces distribution shift, so it does not alone establish human-like planning.",
+      "evidenceIds": [
+        "e-horizon",
+        "e-intervention"
+      ]
+    },
+    {
+      "task": "Go prediction-target ablation",
+      "setting": "50M models; code-only training removes next-frame cross-entropy and retrains an IDM using only codes.",
+      "metric": "Action-Value / best-action accuracy (%)",
+      "value": "Code-only: 73.0 / 78.6; code plus video: 73.9 / 80.9.",
+      "comparison": "Video-only: 47.5 / 44.3.",
+      "interpretation": "Most improvement accompanies code prediction. The smaller joint-prediction gain is not an isolated loss ablation because the downstream IDM also changes.",
+      "evidenceIds": [
+        "e-targets"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The generator avoids direct action supervision, but robot tasks use instructions and labeled IDM actions. Human Go moves are relabeled by KataGo: Table 4e improves from 34.6% to 71.5% Action-Value after relabeling. Training quality therefore depends on expert-generated decisions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-robot-mapping",
+        "e-robot-eval",
+        "e-data-quality"
+      ]
+    },
+    {
+      "text": "Evidence is restricted to 9×9 Go and simulated manipulation. UMAP clusters and selected tactics are suggestive probes, not independent proofs of reasoning. Appendix B finds no training-board overlap by move 30 in 400 games; this addresses exact-board reuse, not every form of memorization.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-data",
+        "e-probes",
+        "e-overlap",
+        "e-conclusion"
+      ]
+    },
+    {
+      "text": "Source inconsistencies remain: Section 4.1 gives 7.8M human plus 3.2M self-play games while calling the total 10M; Table 4e instead gives 6.8M human. CALVIN uses H=10 in Table 4b/Section 5.6 but H=9 in Figure 6, while Section 5.1 lists frame length 10.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-data",
+        "e-data-quality",
+        "e-horizon",
+        "e-probes",
+        "e-training"
+      ]
+    },
+    {
+      "text": "The authors report failed Go convergence beyond five-step compression and degradation with an oversized codebook. They identify video generation quality and real-world generalization as remaining challenges.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-horizon",
+        "e-codebook",
+        "e-conclusion"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Budget and configuration need reconciliation: Section 5.1 reports roughly four Go days and two CALVIN days on eight A100 GPUs, batches 256/32 and learning rate 3e-4. Table A.1 instead gives transformer rate 3e-5 and LDM rate 5.4e-5, with 30k warmup iterations.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-training"
+      ]
+    },
+    {
+      "text": "Algorithm 1 is not executable specification: line 6 returns f[:0], an empty Python slice, and zero-based line 11 uses f[:(1+h)], inconsistent with the prose query spanning the current frame through future step h. Figure 3 agrees with the prose mask. Implementation indexing requires resolution.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-algorithm",
+        "e-ldm"
+      ]
+    },
+    {
+      "text": "The text does not quantify the small labeled IDM dataset, fully specify Go move extraction or decoding settings, or name simulator software versions. Appendix A lists the current frame as an IDM input but details only predicted-frame and latent-code feature branches.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-robot-mapping",
+        "e-training",
+        "e-generator"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The recorded classification is unassigned, so no existing quadrant can be confirmed. Architecture evidence supports a video generator plus a separately trained inverse-dynamics action module. Joint prediction of frames and latent change codes does not make the complete control system one model jointly emitting executable actions.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-ldm",
+        "e-robot-mapping",
+        "e-joint"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "Would longer dynamics horizons still help after matching token budget and testing only nonoverlapping late-game boards?",
+    "How much of the code-plus-video gain remains with a fixed code-only action decoder?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/byline, affiliation block and arXiv margin",
+      "detail": "The exact title and seven catalog authors are printed with Beijing Jiaotong University and ByteDance Seed; the margin identifies arXiv:2501.09781v2, 5 March 2025."
+    },
+    {
+      "id": "e-motivation",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1; p. 2, Figure 2 and caption",
+      "detail": "The paper asks about rules, reasoning and planning learned from video, motivating compact visual-change representations. Figure 2 contrasts state, video and video-with-LDM learning curves."
+    },
+    {
+      "id": "e-generator",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1; p. 4, paragraph immediately below Figure 3",
+      "detail": "The source defines conditional frame generation and action mapping, using a customized MAGVIT-v2/FSQ tokenizer and Llama-style autoregressive transformer."
+    },
+    {
+      "id": "e-ldm",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 3.2, Latent Dynamics Model and Auto-regressive Transformer; p. 4, Figure 3",
+      "detail": "Queries summarize successively longer feature prefixes; features remain unquantized until FSQ on query outputs. The decoder reconstructs from the initial feature and codes; the transformer combines image and dynamics vocabularies. Figure 3 masks steps beyond each query span."
+    },
+    {
+      "id": "e-robot-mapping",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 3.2, Mapping to Task Operation; p. 14, Appendix A, Robotics action execution and Inverse dynamics model",
+      "detail": "An independently trained, action-labeled IDM maps predictions to actions. The robot implementation uses ResNet-18, MLPs and pooling for XYZ displacement, Euler angles and gripper control. A simulator observation is appended after each action, despite the open-loop wording."
+    },
+    {
+      "id": "e-training",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 5.1; p. 14, Table A.1 and Appendix A",
+      "detail": "Section 5.1 specifies frozen reconstruction-trained encoding, 4×4 spatial tokens, 64,000-code defaults, frame lengths, batches and eight-A100 timing. Its 3e-4 learning rate differs from Table A.1 transformer rate 3e-5; the appendix gives LDM 5.4e-5, losses, iterations, warmup and no augmentation."
+    },
+    {
+      "id": "e-data",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1",
+      "detail": "Video-GoBench is rendered 9×9 Go, approximately 400M unique training boards, and 56,000 test boards after opening removal. The stated 10M games conflict with the listed 3.2M self-play plus 7.8M human components; human moves are relabeled by KataGo."
+    },
+    {
+      "id": "e-eval",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.2, all four metric definitions",
+      "detail": "Legality and action accuracy use test boards; Action-Value divides the selected move value by the oracle value on tournament positions. BayesElo uses eight agents, 400 games per pair, a stated default confidence of 0.5 and a 2700 anchor for KataGo-9d."
+    },
+    {
+      "id": "e-robot-eval",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 5.1; p. 7, Section 5.2",
+      "detail": "The CALVIN split is ABCD→D. Instructions condition generation; tasks are push, drawer and light for CALVIN and microwave/fridge for RLBench. Object positions are randomized and the source reports sampling 500 tasks."
+    },
+    {
+      "id": "e-go-results",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, rows 1–8, all metric columns",
+      "detail": "VideoWorld 300M reports 2317 ±25 Elo, 99.7% legality, 83.7% Action-Value and 88.1% accuracy; video-only 300M reports 1998 ±38, 99.6%, 59.7% and 58.9%. State-based 300M is 2308 ±21 and KataGo-5d is 2253 ±20 Elo. VideoWorld rows are marked without search."
+    },
+    {
+      "id": "e-calvin-results",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 2 and its footnotes; p. 8, Section 5.4, Results on CALVIN",
+      "detail": "VideoWorld has 56.2/75.4/72.1% success and reaches 72.7/91.0/93.8% with 30k extra agent-generated trajectories, compared with oracle 75.4/95.3/96.2%. All table models have 300M parameters; daggers denote added 10k/30k trajectories."
+    },
+    {
+      "id": "e-joint",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 3; p. 8, Section 5.4, Generalization across multiple environments; p. 14, Appendix A, RLBench evaluation",
+      "detail": "Joint training uses CALVIN and 20k RLBench trajectories; LDM and transformer share combined data, but each environment trains its own IDM. Table 3 reports five task rates for oracle, video-only and VideoWorld."
+    },
+    {
+      "id": "e-horizon",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4a–b; p. 9, Section 5.6, Horizon length",
+      "detail": "At 50M, Go H=1 gives 70.3/77.0 and H=5 gives 73.9/80.9 Action-Value/accuracy; CALVIN H=10 gives 50.3/71.1/69.7% success. The authors report Go convergence failure beyond five steps."
+    },
+    {
+      "id": "e-intervention",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4c; p. 9, Section 5.5, LDM generates causally interrelated codes",
+      "detail": "Random replacement of the first Go code lowers Action-Value/accuracy from 73.9/80.9 to 46.2/42.1; replacing code 3 gives 72.1/80.6. The authors attribute stronger early-code effects to causal dependence."
+    },
+    {
+      "id": "e-codebook",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4d; p. 9, Section 5.6, Latent codebook size",
+      "detail": "The 64,000-entry codebook gives the best listed performance; 262,144 entries degrade Go and CALVIN. The text attributes overly large vocabularies to convergence difficulty."
+    },
+    {
+      "id": "e-data-quality",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 4e and dagger footnote; pp. 9–10, Section 5.6, Data quality",
+      "detail": "Table 4e lists 6.8M human and 3.2M KataGo records, totaling 10M. Original versus relabeled human data yield 34.6/34.8 versus 71.5/75.7% Action-Value/accuracy. Its human count differs from Section 4.1."
+    },
+    {
+      "id": "e-targets",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 5, all rows; p. 10, Section 5.6, Latent code prediction only",
+      "detail": "At 50M, code-only gives Go 73.0/78.6 and CALVIN 47.2/70.0/65.1, versus joint code/video 73.9/80.9 and 50.3/71.1/69.7. The source removes frame cross-entropy and retrains a code-only IDM."
+    },
+    {
+      "id": "e-probes",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 4 and caption; p. 6, Figure 5 and caption; p. 9, Figure 6, caption and Section 5.5",
+      "detail": "Training-code UMAPs and predicted-code visualizations probe temporal structure. Figure 6 shows nine predicted codes colored by task, green training predictions and yellow actual simulator control; the text explicitly sets H=9 for this figure."
+    },
+    {
+      "id": "e-algorithm",
+      "sourceId": "primary",
+      "location": "PDF p. 15, Algorithm 1, lines 6, 9–13 and 26–33; pp. 4–5, Section 3.2",
+      "detail": "Printed pseudocode returns f[:0] and uses range(H) with prefix f[:(1+h)], whereas prose describes query h accessing the current frame through future step h. Quantization precedes reconstruction and MSE training."
+    },
+    {
+      "id": "e-overlap",
+      "sourceId": "primary",
+      "location": "PDF p. 14, Figure A.1; p. 15, Appendix B, Board state count and Board state repetition rate",
+      "detail": "The appendix examines 400 games against KataGo-9d and reports training-board overlap reaching zero by move 30. The training distribution is concentrated in the first 100 moves."
+    },
+    {
+      "id": "e-conclusion",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 5.7, Figures 7–9 and Section 6",
+      "detail": "The paper illustrates selected Go tactics and simulator task executions, and identifies visual generation quality and generalization as challenges for real-world use."
+    }
+  ]
+}

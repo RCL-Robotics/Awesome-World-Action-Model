@@ -2,11 +2,21 @@
 
 The repository remains private. GitHub Pages is off and the deployment workflow is disabled. Use local preview only. Public release requires explicit approval from the repository owner; syncing data or merging a PR does not publish the website.
 
-The **Awesome-World-Action-Model** database in Notion is the editorial source. The exporter writes `data/papers.json` and `data/meta.json`; the website and generated README use the same catalog.
+The **Awesome-World-Action-Model** database in Notion is the editorial source. Reviewed arXiv additions can also be retained in `data/local-papers.json`. The exporter merges both into `data/papers.json` and `data/meta.json`; the website and generated README use the same catalog.
+
+## Reviewed local additions
+
+The 85-paper reading batch integrated on 2026-09-11 adds 85 full-paper reports and illustrated editions with 497 original figure/table crops. Its entries are retained in `data/local-papers.json` so a later Notion export preserves papers that have not yet been added to Notion.
+
+Local titles, authors and affiliations come from the reviewed original title blocks. Contribution summaries are the accepted reports' synopses; they are not paper abstracts. Missing abstracts and unassigned classifications remain unfilled. The original reading-time classification snapshots and report evidence are preserved. These entries appear under **Not assigned** in the research map until classification is recorded.
+
+The overlay uses the same 25 public fields and validation as the main catalog. During synchronization, a Notion record with the same ID takes precedence, allowing later editorial updates without duplicate entries. The sync reads but never rewrites the local overlay. Metadata identifies catalogs with local-only entries as `Notion + arXiv discovery`. A missing overlay for an existing mixed-source catalog is an error; restore the file before syncing. Empty-export and large-decrease guards still apply.
+
+To add another reviewed local batch, validate its bibliographic records, merge its accepted reports and illustrated metadata by ID, copy only the referenced public visual assets, and extend the reading index. Keep source PDFs, worker logs and private audit records outside the repository. Do not overwrite accepted reports or regenerate their reading-time snapshots as part of a catalog merge.
 
 ## Sources and missing information
 
-Synchronization reads the entire Notion data source by default, including arXiv, DOI, publisher, PDF, and other recorded research sources. It does not write to Notion, reclassify entries, or exclude records because an abstract, classification, or submission date is missing.
+Synchronization reads the entire Notion data source by default, including arXiv, DOI, publisher, PDF, and other recorded research sources. It does not write to Notion, infer classifications, or exclude records because an abstract, classification, or submission date is missing. Explicit component-category reviews are applied after the source merge.
 
 The 2026-09-07 taxonomy snapshot contains 479 entries, all with a major category. Of these, 180 have non-arXiv sources, 305 lack the original `Primary Category` and abstract, and 191 lack `Submitted Date`. An absent original research topic does not mean the new major category, subcategories, or quadrant are missing. These counts describe that snapshot; current totals are calculated from the exported data.
 
@@ -30,7 +40,7 @@ The catalog has 25 explicit fields: the original 19 bibliographic and research f
 
 Entries with missing information remain in the collection. Validation still checks URLs, duplicate identities, recorded field formats, empty exports, and unexpectedly large decreases.
 
-Taxonomy definitions and English display labels are shared in `src/lib/taxonomy.mjs`. The website and README use `taxonomyLabel()` for presentation; stored Notion values remain unchanged. Update the shared module when introducing a valid source label rather than maintaining separate definitions in pages or scripts.
+Taxonomy definitions and English display labels are shared in `src/lib/taxonomy.mjs`. The website and README use `taxonomyLabel()` for presentation; source labels remain unchanged except for explicit component-category reviews. Update the shared module when introducing a valid source label rather than maintaining separate definitions in pages or scripts.
 
 ## Notion field mapping
 
@@ -72,7 +82,23 @@ The quadrant view crosses **architecture × prediction paradigm**: One Model or 
 
 The research map provides `mode=major` (default), `mode=quadrants`, and `mode=topics`. The library combines major-category, subcategory, and quadrant filters. `Uncategorized` applies only to the original Primary Category, not to the overall taxonomy status.
 
-Synchronization displays the classifications already recorded in Notion. To correct them, review the research source, update the relevant Notion property, export again, and inspect the diff and local preview.
+Synchronization displays the recorded Notion classifications with the explicit local component reviews described below. Other corrections should be recorded in Notion before exporting. Inspect the diff and local preview after either kind of change.
+
+## WAM component category reviews
+
+The 2026-09-11 review examined all 139 Foundational work entries and moved 80 into WAM Components, leaving 59 in Foundational work. All 564 catalog records and the 85 unassigned local additions were retained.
+
+**WAM Components** collects reusable parts of a world-action-model stack. Its seven component areas are visual encoders and representations; language and vision-language backbones; generative modeling and tokenizers; video and world prediction backbones; spatial perception and geometry; action representations and policies; and training and inference methods. This is a contribution-role category: it does not assert that every component paper implements a complete WAM, or that every backbone has been validated in every WAM system.
+
+**Foundational work** retains theory, planning, surveys, classic complete model-based RL systems, and works whose component role is not established by the available reading. The component review does not force complete systems or uncertain records into this category simply to reduce the foundation count.
+
+`data/classification-overrides.json` stores versioned, explicit component placements by stable paper ID. Each entry names one component area and gives an English rationale, evidence IDs from the existing reading report, and that report's SHA-256 at review time. The hash identifies the reviewed edition; it is not a claim that a later report edition has been reviewed. Keep private paths and source retrieval logs out of this public manifest.
+
+The exporter first merges Notion with `data/local-papers.json`, then applies these placements to existing matching papers. Only `majorCategory` and `subcategories` change. The reviewed primary component area comes first; other source subcategories remain unless they duplicate its English label. Component-area filter counts include retained cross-role tags, so the areas can overlap. Bibliography, original research topics, architecture, prediction paradigm, quadrant, and source review status stay intact. A review never restores a paper absent from both sources. The catalog source in `meta.json` continues to describe its bibliographic inputs.
+
+Placements remain authoritative until explicitly edited or retired. To retire one, update Notion to the intended category and remove its manifest entry before the next export. A missing manifest with existing component entries aborts synchronization to prevent an accidental rollback. The importer never writes to Notion or to the review manifest. `validate:data` checks that the catalog reflects the saved placements; the normal sync or `applyClassificationOverrides` from `scripts/lib/data.mjs` applies them.
+
+Paper detail pages show the current category and its review rationale. Reading reports retain their historical taxonomy snapshots and display the current major category when it differs. Do not rewrite source evidence or reading snapshots just to make the old classification agree with the catalog.
 
 ## Local preview
 
@@ -161,7 +187,7 @@ There is currently no public site. PR checks only validate and build. The future
 
 ## Repository paths and future domains
 
-`astro.config.mjs` retains `site: https://beat-in-our-hearts.github.io` and `base: /Awesome-World-Action-Model`. These build settings do not enable hosting. Keep the base path's capitalization consistent with the repository name.
+`astro.config.mjs` retains `site: https://rcl-robotics.github.io` and `base: /Awesome-World-Action-Model`. These build settings do not enable hosting. Keep the base path's capitalization consistent with the repository name.
 
 For a future approved rename, fork, or domain change, update `site`, `base`, and external project links before building. A site at a custom domain's root normally uses `/` as its base. Verify detail pages and assets against the resulting paths. [Astro GitHub Pages configuration](https://docs.astro.build/en/guides/deploy/github/)
 

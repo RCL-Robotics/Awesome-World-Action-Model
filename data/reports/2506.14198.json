@@ -1,0 +1,481 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2506.14198",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T18:19:13.762Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2506.14198v1",
+      "title": "AMPLIFY: Actionless Motion Priors for Robot Learning from Videos",
+      "kind": "pdf",
+      "sha256": "d6c5e8c54cbaf2fb25cc8ce6b5e4a564ff9ee883f5e9eab4e11895eb8870fc60",
+      "wordCount": 14609,
+      "accessedAt": "2026-09-10T10:26:23.324240+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, abstract and Sections 1–5 (pp. 1–9)",
+      "Acknowledgments and References (pp. 9–16)",
+      "Appendix A: Notation; B: Three-stage decomposition and Algorithm 1 (pp. 17–18)",
+      "Appendix C.1–C.4: Extended related work (pp. 18–19)",
+      "Appendix D.1–D.5: Tasks, setup, metrics, preprocessing and training (pp. 19–24)",
+      "Appendix E: All ablation discussions and tables (pp. 24–27)",
+      "Appendix F.1–F.3: Scaling, detailed results and qualitative panels (pp. 27–32)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Poppler layout text is faithfully retained without manual repairs. Mathematical symbols, table ordering, figure labels and ligatures require inspection against the original PDF; successful extraction is not scientific reading.",
+      "Separate supplemental material availability has not been fully verified.",
+      "All ten supplied text chunks were read individually. All scientific figures and tables were also visually inspected; references on pp. 10–16 were read as text only.",
+      "This report concerns the supplied arXiv v1, dated 17 June 2025. Title and authors match the catalog; no later revision or venue edition was supplied or compared. AMPLIFY appears in small capitals, which extraction splits as A MPLIFY.",
+      "External project material and code were not inspected; no experiments were reproduced. The v1 acknowledgments contain template text rather than verified funding credits."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 3)",
+      "Figure 3 (p. 5)",
+      "Figure 4 (p. 7)",
+      "Figures 5–6 (p. 20)",
+      "Figure 7 (p. 21)",
+      "Figures 8–11 (pp. 29–32)"
+    ],
+    "tablesReviewed": [
+      "Tables 1–3 (p. 6)",
+      "Table 4 (p. 7)",
+      "Tables 5–6 (p. 8)",
+      "Table 7 (p. 17)",
+      "Table 8 (p. 18)",
+      "Table 9 (p. 22)",
+      "Table 10 (p. 24)",
+      "Tables 11–13 (p. 26)",
+      "Tables 14–15 (p. 27)",
+      "Tables 16–17 (p. 28)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "AMPLIFY learns a compact vocabulary of visual motion from point tracks, predicts that motion from an image and task instruction, and translates it into robot actions through a separate inverse model. Its strongest evidence concerns scarce target-task action labels, including transfer where target-task videos remain available. Better track prediction and physical task completion are evaluated separately.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Action-free videos show how tasks unfold but omit robot commands. AMPLIFY asks whether visual motion can become a reusable reference for a robot trained with limited action labels. Goal-associated videos and robot interaction data have different roles; an expert demonstration can supply both.",
+    "kind": "source",
+    "evidenceIds": [
+      "problem",
+      "decomposition"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The central representation compresses tracked velocities into discrete FSQ tokens, with local displacement classification supplying motion-focused supervision.",
+      "kind": "source",
+      "evidenceIds": [
+        "tokenizer"
+      ]
+    },
+    {
+      "text": "Separately trained forward and inverse dynamics permit independent use of videos and robot actions. The same motion interface also conditions AVDC video prediction.",
+      "kind": "source",
+      "evidenceIds": [
+        "decomposition",
+        "video"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Training: goal-associated RGB videos; robot RGB observations, proprioception and action sequences.",
+      "Deployment: current RGB image(s), robot proprioception and task instruction."
+    ],
+    "outputs": [
+      "Autoregressively predicted latent motion tokens.",
+      "An action-chunk distribution and temporally ensembled commands; decoded tracks are used for evaluation, not policy execution."
+    ],
+    "steps": [
+      {
+        "name": "Build motion targets",
+        "detail": "Initialize 400 grid points in each frame, track each window with CoTracker, normalize coordinates and difference them into velocities. The default horizon is 16 frames, described as 0.8 seconds. Reinitialization avoids reliance on future-dependent point selection but increases offline tracking cost.",
+        "evidenceIds": [
+          "preprocessing"
+        ]
+      },
+      {
+        "name": "Compress local displacement",
+        "detail": "A causal transformer encoder and FSQ form a 16-token motion sequence. An unmasked decoder reconstructs 225 displacement classes in a 15×15 local window per point and timestep. Multiple camera views share one code sequence when available.",
+        "evidenceIds": [
+          "tokenizer"
+        ]
+      },
+      {
+        "name": "Predict the reference",
+        "detail": "A frozen ResNet-18 supplies 49 image tokens per view; a T5 summary supplies language. An autoregressive transformer predicts motion codes with unmasked conditioning and causally masked motion tokens. The target is future motion conditioned on a goal, without a candidate robot action input.",
+        "evidenceIds": [
+          "forward"
+        ]
+      },
+      {
+        "name": "Translate motion into commands",
+        "detail": "Learned queries cross-attend to image, proprioception and motion tokens. The inverse model receives no goal directly. Its default Gaussian head predicts action chunks, bypassing track reconstruction; real-world comparisons substitute a diffusion head.",
+        "evidenceIds": [
+          "inverse",
+          "human-transfer"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Train the tokenizer by reconstruction, freeze it for forward-model cross-entropy, then freeze both upstream modules for inverse learning. The inverse decoder can use observed-motion codes, but the authors fine-tune it on predicted codes to accommodate prediction errors.",
+        "kind": "source",
+        "evidenceIds": [
+          "tokenizer",
+          "forward",
+          "inverse"
+        ]
+      },
+      {
+        "text": "LIBERO training uses approximately 50k/25k/75k accumulated steps for tokenizer/forward/inverse modules. Reported training uses one RTX 6000 or L40S, AdamW at 1e−4 and effective batch size 256; module sizes are 31M/70M/57M parameters.",
+        "kind": "source",
+        "evidenceIds": [
+          "training"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "At each timestep, predict a fresh motion sequence from the current observation and task, decode an action chunk with current proprioception, and temporally ensemble overlapping chunks using the same discount as training. This provides observation feedback without online trajectory search or full video synthesis in the robot-control path.",
+        "kind": "source",
+        "evidenceIds": [
+          "inverse",
+          "architecture"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{AE}}(\\theta)=\\operatorname{CE}\\!\\left(D_\\theta\\!\\left(h(E_\\theta(u_t))\\right),\\omega_t\\right),\\qquad \\omega_t=\\Omega(u_t)",
+        "explanation": "Equation (1): u_t denotes point velocities; Eθ encodes them, h is FSQ quantization, and Dθ predicts local-window class distributions. Ω maps observed displacements to target classes ω_t; CE is cross-entropy. This trains a motion representation rather than image reconstruction.",
+        "evidenceIds": [
+          "tokenizer"
+        ]
+      },
+      {
+        "expression": "\\mathcal{L}_{\\mathrm{inv}}=-\\sum_{\\tau=t}^{t+T-1}\\gamma^{\\tau-t}\\log p(a_\\tau\\mid\\mu_{\\tau-t},\\sigma_{\\tau-t})",
+        "explanation": "Equation (3): T is the action horizon, aτ the demonstrated action, and μ and σ the predicted Gaussian mean and standard deviation. Discount γ downweights later actions; the reported setting is 0.99. The standard deviation is obtained by exponentiating the head's log-standard-deviation output.",
+        "evidenceIds": [
+          "inverse",
+          "training"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "LIBERO transfer without target-task action labels",
+      "setting": "Forward model: all-suite videos. Inverse model: LIBERO-90 actions only. Target evaluation uses ten rollouts per task, 20 Hz and a 500-step limit.",
+      "metric": "Executed-task success rate",
+      "value": "Long/Object/Spatial/Goal: 0.52/0.80/0.69/0.41; mean 60.5%.",
+      "comparison": "QueST: 0.07/0.00/0.01/0.01; Diffusion Policy: all 0.00.",
+      "interpretation": "Strong transfer from target videos and off-task actions. Target tasks are unseen in action training, not unseen in all modalities.",
+      "evidenceIds": [
+        "task-transfer",
+        "libero-protocol"
+      ]
+    },
+    {
+      "task": "Future point-track prediction",
+      "setting": "LIBERO, BridgeData v2 and Something-Something v2; uniform initial grids and CoTracker reference tracks. Exact held-out trajectory membership is not specified.",
+      "metric": "Normalized-coordinate MSE, pixel accuracy and reported ΔAUC",
+      "value": "LIBERO: MSE 0.006, pixel accuracy 0.629, ΔAUC 0.913. BridgeData/SSv2 ΔAUC: 0.968/0.725.",
+      "comparison": "ATM LIBERO: 0.022/0.250/0.767. Track2Act BridgeData/SSv2: 0.770/0.700; Seer BridgeData: 0.914.",
+      "interpretation": "Lower prediction error supports the representation; comparison inputs differ and tracker agreement does not measure physical correctness.",
+      "evidenceIds": [
+        "prediction",
+        "metrics"
+      ]
+    },
+    {
+      "task": "LIBERO-Long with two action demonstrations per task",
+      "setting": "All demonstration videos train forward dynamics; two action-labeled demos per task train inverse dynamics. Standard LIBERO rollout protocol.",
+      "metric": "Success rate",
+      "value": "0.55",
+      "comparison": "ATM 0.16; inverse-only AMPLIFY 0.00.",
+      "interpretation": "Motion conditioning helps this severe low-action-data setting. Table 16 does not establish uniform superiority across every suite and data budget.",
+      "evidenceIds": [
+        "few-shot",
+        "libero-protocol"
+      ]
+    },
+    {
+      "task": "Full-data LIBERO behavior cloning",
+      "setting": "Forward and inverse models trained using the demonstration dataset; standard LIBERO evaluation.",
+      "metric": "Success rate",
+      "value": "Long 0.75; Object 0.93; Spatial 0.73.",
+      "comparison": "BAKU Long 0.86; inverse-only AMPLIFY Object 0.64 and Spatial 0.83.",
+      "interpretation": "Benefits depend on task and data availability; full-data control is not uniformly improved.",
+      "evidenceIds": [
+        "in-distribution",
+        "libero-protocol"
+      ]
+    },
+    {
+      "task": "UR5 learning with human videos",
+      "setting": "Three tasks; human+robot videos for forward dynamics, 5/10/all robot demos for inverse dynamics. Matched diffusion heads; ten 90-second rollouts per task/setting.",
+      "metric": "Full task success",
+      "value": "Table 4 average 0.58; full-data Stack Cups 1.0.",
+      "comparison": "Diffusion Policy average 0.42; full-data Stack Cups 0.5.",
+      "interpretation": "Physical execution improves on average. Table 17's 0.59/0.49 averages also include partial success and are a different aggregate.",
+      "evidenceIds": [
+        "human-transfer",
+        "real-protocol"
+      ]
+    },
+    {
+      "task": "LIBERO-Long representation and horizon ablations",
+      "setting": "Appendix E's component ablations, with standard task evaluation for the inverse model.",
+      "metric": "Tokenizer ΔAUC; forward pixel accuracy; policy success",
+      "value": "Local classification ΔAUC 0.919. At horizons 4/8/16: pixel accuracy 0.757/0.678/0.613; policy success 0.36/0.64/0.75.",
+      "comparison": "MSE tokenizer ΔAUC 0.883.",
+      "interpretation": "Longer references can aid control while becoming harder to predict. Output/loss changes and separate horizon sweeps do not isolate one causal mechanism.",
+      "evidenceIds": [
+        "tokenizer-ablation",
+        "horizon-ablation",
+        "libero-protocol"
+      ]
+    },
+    {
+      "task": "BridgeData conditional video prediction",
+      "setting": "AVDC with observed-motion codes during training and predicted codes during generation.",
+      "metric": "PSNR, LPIPS, SSIM as printed",
+      "value": "16.40, 0.19, 0.59",
+      "comparison": "AVDC alone: 15.93, 0.16, 0.56.",
+      "interpretation": "PSNR and SSIM increase. Table 6's upward LPIPS arrow conflicts with its distance definition; the claimed improvement on all metrics remains unresolved.",
+      "evidenceIds": [
+        "video"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Two-dimensional tracks can correspond to multiple robot actions. The authors restrict the setting to deterministic dynamics; online exploration and larger foundation backbones remain proposals.",
+      "kind": "source",
+      "evidenceIds": [
+        "limitations"
+      ]
+    },
+    {
+      "text": "Track targets inherit CoTracker errors. Reported ΔAUC normalization is internally inconsistent: the formula sums ten thresholds but divides only by horizon despite a stated [0,1] range. Numbers are preserved without silently repairing the metric.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "metrics"
+      ]
+    },
+    {
+      "text": "Tables provide no uncertainty across training runs. Real-world trials are small and use fixed cameras. Human-video benefits are not isolated from introducing the motion-conditioned pipeline itself by a matched robot-video-only ablation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "real-protocol",
+        "human-transfer",
+        "horizon-ablation"
+      ]
+    },
+    {
+      "text": "Video scaling is non-monotonic. Table 14's 50-video/two-action result is 0.55, whereas Table 16's Object/two-demo result is 0.73; their configuration difference is unexplained, so they should not be merged.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "scaling"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Preserve time normalization: BridgeData uses four frames interpolated to sixteen; human recordings use eight frames. Reproduce task-specific robot/human counts and distinguish partial from full success. The primary text supplies hardware and broad hyperparameters, but not exact trajectory splits, software versions or a complete tokenizer configuration.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "preprocessing",
+        "real-protocol",
+        "training",
+        "tokenizer"
+      ]
+    },
+    {
+      "text": "Resolve implementation ambiguities before comparing results: Eq. (2) omits explicit FSQ quantization in its target notation; Table 10 lists eight forward layers while Table 12 highlights four. Record these choices and metric normalization explicitly, then repeat paired data splits and training seeds.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "forward",
+        "training",
+        "horizon-ablation",
+        "metrics"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The supplied taxonomy is wholly unassigned, so no existing quadrant can be confirmed. Architecture evidence supports separate forward and inverse models linked by latent future-motion tokens. This is inverse-dynamics control with inference-time motion prediction, not one network jointly predicting world states and actions, nor merely an auxiliary training loss.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "forward",
+        "inverse"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "Does useful motion conditioning require target-task videos, or can the prior transfer when those videos are also withheld?",
+    "How much of the horizon benefit comes from motion context versus longer action chunks and temporal ensembling?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, byline, affiliation footnotes and arXiv margin stamp",
+      "detail": "The title and six authors match the supplied catalog: Jeremy A. Collins, Loránd Cheng, Kunal Aneja, Albert Wilcox, Benjamin Joffe and Animesh Garg. Collins and Cheng share equal contribution. Affiliations are Georgia Tech and Georgia Tech Research Institute. The stamp identifies arXiv:2506.14198v1, 17 Jun 2025."
+    },
+    {
+      "id": "problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–3, Abstract, Section 1 and Section 2 problem setup",
+      "detail": "The work addresses expensive action-labeled demonstrations by separating motion prediction from action inference. Its inputs are goal-associated videos and robot observations, proprioception and actions."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2 and caption; pp. 4–5, Sections 2.2–2.5",
+      "detail": "Figure 2 separates FSQ motion tokenization, autoregressive latent prediction and a cross-attention action head. The tokenizer reconstructs local displacements; the policy consumes latent tokens without reconstructing tracks."
+    },
+    {
+      "id": "preprocessing",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 2.1; p. 23, Appendix D.4",
+      "detail": "CoTracker tracks a newly initialized 20×20 grid for each window. Tracks are normalized to [−1,1] and differenced. The default is 16 frames/0.8 seconds; BridgeData's four frames at 5 Hz are interpolated to 16 by cubic spline, and human recordings use eight frames. Reinitialization costs T times more preprocessing than tracking one grid through a video."
+    },
+    {
+      "id": "tokenizer",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section 2.2 and Eq. (1); p. 25, Motion Tokenization; p. 26, Table 11",
+      "detail": "A causal transformer encoder and FSQ produce discrete motion codes; an unmasked decoder cross-attends from learned point encodings. Cross-entropy supervises local displacement classes. The reported choices include W=15, a 2048-entry implicit codebook and 16 latent tokens; multiview tracks are tokenized together."
+    },
+    {
+      "id": "forward",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 2.3 and Eq. (2); p. 25, Forward Dynamics",
+      "detail": "ResNet-18 supplies 49 spatial tokens per image and T5 supplies a task summary. Conditioning tokens are unmasked, motion tokens causal. The tokenizer remains frozen during code prediction; ResNet is also frozen. Equation (2) writes Eθ(u_t) inside stop-gradient although the prose specifies discrete code targets."
+    },
+    {
+      "id": "inverse",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Sections 2.4–2.5 and Eq. (3)",
+      "detail": "A goal-independent transformer decodes image, proprioception and motion tokens to action chunks. The default Gaussian head uses temporally discounted NLL. In practice the action decoder is fine-tuned on predicted tokens with the tokenizer and forward model frozen. Temporal ensembling combines successive chunks at inference."
+    },
+    {
+      "id": "decomposition",
+      "sourceId": "primary",
+      "location": "PDF pp. 17–18, Appendix B, Algorithm 1 and Table 8",
+      "detail": "Goal-directed action-free videos train forward dynamics; robot interaction data trains inverse dynamics. Expert demonstrations can enter both sets. Undirected interaction is an architectural possibility, not a reported online exploration experiment."
+    },
+    {
+      "id": "prediction",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Section 3.1 and Table 2; p. 27, Table 15",
+      "detail": "Aggregate LIBERO MSE/ΔAUC/pixel accuracy are 0.006/0.913/0.629 for AMPLIFY and 0.022/0.767/0.250 for ATM. BridgeData ΔAUC is 0.968 versus Track2Act 0.770 and Seer 0.914; Something-Something v2 is 0.725 versus Track2Act 0.700. Track2Act uses goal images; Seer predicts videos before tracking."
+    },
+    {
+      "id": "metrics",
+      "sourceId": "primary",
+      "location": "PDF pp. 22–23, Appendix D.3, Track Prediction Metrics",
+      "detail": "CoTracker outputs serve as ground truth and all methods use uniformly spaced initial queries. Track2Act numbers are taken from its paper. MSE uses normalized coordinates; pixel accuracy is exact pixel agreement. ΔAUC is described as normalized threshold accuracy over distances 1–10, but the printed double sum divides only by horizon, leaving threshold normalization unresolved."
+    },
+    {
+      "id": "libero-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 19, Appendix D.1",
+      "detail": "LIBERO contains 130 tasks with 50 demonstrations each. Evaluation uses 128×128 images, normalized axis-angle actions at 20 Hz, at most 500 steps, and ten rollout seeds per task except LIBERO-90, which uses one rollout per task."
+    },
+    {
+      "id": "in-distribution",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 3; p. 7, In-Distribution Performance",
+      "detail": "Full AMPLIFY obtains 0.75/0.88/0.93/0.73/0.92 on Long/90/Object/Spatial/Goal. BAKU reports 0.86/0.90 on Long/90; AMPLIFY inverse-only gives 0.76/0.83/0.64/0.83/0.92. Video pretraining is not uniformly superior with full action data."
+    },
+    {
+      "id": "few-shot",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 4 and Few-Shot Learning; p. 28, Table 16",
+      "detail": "Forward dynamics uses all videos while inverse dynamics uses 2, 5 or 10 action demonstrations per task. On Long with two demos, AMPLIFY/ATM/inverse-only give 0.55/0.16/0.00. Table 16 has no ATM LIBERO-90 values; AMPLIFY trails ATM on Goal with ten demos, 0.75 versus 0.77."
+    },
+    {
+      "id": "task-transfer",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table 1, Generalization row; p. 8, Table 5 and Generalization paragraph",
+      "detail": "Forward dynamics uses observations from all LIBERO suites, but inverse dynamics and BC baselines use action data only from LIBERO-90. Target Long/Object/Spatial/Goal success is 0.52/0.80/0.69/0.41, averaging 60.5%. QueST gives 0.07/0.00/0.01/0.01 and Diffusion Policy all zeros."
+    },
+    {
+      "id": "human-transfer",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Cross-Embodiment Transfer and Table 4; p. 28, Table 17",
+      "detail": "Human plus robot videos train forward dynamics, and robot actions train inverse dynamics. Both AMPLIFY and the baseline use a diffusion action head. Table 4's full-success average is 0.58 versus 0.42; Table 17 adds partial metrics and reports 0.59 versus 0.49. Full-data Stack Cups success is 1.0 versus 0.5; five-demo box-opening partial success is 0.1 versus 0.5."
+    },
+    {
+      "id": "real-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 19–22, Appendix D.2, Figures 6–7 and Table 9",
+      "detail": "The UR5 uses three static RGB cameras, no wrist camera, 60 Hz images downsampled to 20 Hz and resized to 224×224; outputs are absolute normalized end-effector positions. Place Cube/Stack Cups/Open Box & Place Eggplant have 24/13/15 robot and 48/59/30 human demos. Each task evaluation uses ten rollouts, with a 90-second limit and separate partial/full criteria."
+    },
+    {
+      "id": "video",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 3.3 and Table 6; p. 23, Appendix D.3; p. 24, Video Prediction",
+      "detail": "BridgeData AVDC+AMPLIFY reports PSNR/LPIPS/SSIM 16.40/0.19/0.59 against 15.93/0.16/0.56. Table 6 marks LPIPS upward, but D.3 defines a squared feature distance. Motion and text tokens are concatenated before AVDC's Perceiver resampler; training uses tokenizer codes and inference refreshes predicted codes every T steps."
+    },
+    {
+      "id": "training",
+      "sourceId": "primary",
+      "location": "PDF p. 24, Appendix D.5 and Table 10",
+      "detail": "Tokenizer/forward/inverse modules have 31M/70M/57M parameters and LIBERO uses approximately 50k/25k/75k gradient steps. Each accumulated step spans four backward passes. Training uses one RTX 6000 or L40S, AdamW at 1e−4, effective batch size 256, hidden width 768 and action discount 0.99. Table 10 gives eight forward layers."
+    },
+    {
+      "id": "tokenizer-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 24, Appendix E setup; p. 25, Motion Tokenization; p. 26, Table 11",
+      "detail": "Ablations use LIBERO-Long. Causal/per-timestep/full attention reconstruction ΔAUC is 0.919/0.877/0.918. Local-window classification gives 0.919 versus MSE 0.883. The change modifies output representation and loss together; no uncertainty is reported."
+    },
+    {
+      "id": "horizon-ablation",
+      "sourceId": "primary",
+      "location": "PDF pp. 25–27, Appendix E; p. 26, Tables 12–13",
+      "detail": "At horizons 4/8/16, forward pixel accuracy is 0.757/0.678/0.613 and inverse-policy success is 0.36/0.64/0.75. Gaussian/diffusion/flow heads yield 0.74/0.74/0.73. These are separate factor sweeps, without error bars. Table 12 bolds four forward layers; Table 10 lists eight as the default."
+    },
+    {
+      "id": "scaling",
+      "sourceId": "primary",
+      "location": "PDF p. 27, Appendix F.1 and Table 14; p. 28, Table 16",
+      "detail": "With two action trajectories in the LIBERO-Object scaling experiment, success at 0/2/5/10/50 videos is 0.00/0.12/0.34/0.23/0.55. The authors explicitly caution about non-monotonicity and insufficient investigation. Table 16 separately reports 0.73 for Object with two action demonstrations; the difference from Table 14 is not explained."
+    },
+    {
+      "id": "limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Section 5",
+      "detail": "Authors identify ambiguity from 2D tracks and restriction to deterministic dynamics. Training inverse dynamics from online exploration and using a larger VLM/video backbone are future work."
+    },
+    {
+      "id": "qualitative",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Figure 3; p. 28, Appendix F.3; pp. 29–32, Figures 8–11",
+      "detail": "Qualitative panels show robot/human/BridgeData track predictions and AVDC videos. Yellow denotes current points and red future points; stationary points are suppressed. Video panels have no paired baseline or ground-truth comparison labels."
+    }
+  ]
+}

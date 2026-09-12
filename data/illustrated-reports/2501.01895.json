@@ -1,0 +1,267 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2501.01895",
+  "shortTitle": "EnerVerse",
+  "thesis": "EnerVerse transfers a sparse-memory, multi-view video prior into fast action-chunk prediction, while leaving the causal contribution of its geometry and data-refinement components incompletely isolated.",
+  "standfirst": "A robot can benefit from learning how a scene evolves without rendering an entire imagined movie before every movement. EnerVerse develops that idea through three connected components: a camera-aware video generator, an offline data-refinement loop using 4D Gaussian Splatting, and a diffusion policy conditioned on video-backbone features. Read the diagrams as different information flows, then use the tables to separate visual prediction from executed manipulation. The strongest LIBERO configuration uses depth-rendered auxiliary views, and the physical experiment uses a graded placement score. This reading concerns the supplied November 2025 v3 paper, including its unresolved architecture inconsistencies.",
+  "evidenceIds": [
+    "e01",
+    "e02",
+    "e03",
+    "e04",
+    "e05",
+    "e10",
+    "e15",
+    "e16",
+    "e22"
+  ],
+  "featuredResultTask": "LIBERO four-suite manipulation",
+  "visuals": [
+    {
+      "id": "chunk-generator",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2501.01895/chunk-generator.png",
+      "width": 1382,
+      "height": 643,
+      "sourceSha256": "5e4fc79197ea60b1401fe2cc4734dcdbad39cf7a6fbc207fbff10888f40604bf",
+      "sourceUrl": "https://arxiv.org/pdf/2501.01895#page=3",
+      "crop": [
+        0.18,
+        0.09,
+        0.83,
+        0.324
+      ],
+      "alt": "Figure 2 shows randomly selected training frames, iterative prediction of latent chunks using retained observations and predictions, and ray-map-conditioned spatial and temporal diffusion blocks. Colored legends distinguish observed, predicted, noise and EOS latents.",
+      "caption": "Sparse history carries information between chunks; ray maps supply camera context within each chunk.",
+      "readingGuide": "Start at the dashed training/inference divider on the left. Training combines selected clean history with noisy targets. Below it, brown observation latents and green noise latents enter the generator; orange predictions emerge. Follow the blue feedback path from P4 into the next chunk alongside O2: generated content can become subsequent context. The black EOS token marks video termination. On the right, each camera or rendered view supplies latents and a ray-direction map, combined at the circled C. Spatial and temporal attention then process them. Section 2.2 and Appendix G assign cross-view processing to spatial attention and time processing to temporal attention.",
+      "takeaway": "The design separates temporal extension from camera-aware representation learning. Chunk reuse enables continued generation, while sparse context changes what history the model must use. Ray conditioning allows the backbone to distinguish viewpoints; its learned multi-view prior can subsequently serve a policy receiving only one RGB camera.",
+      "caution": "The diagram labels predicted noise, but Section 2.1 specifies implemented v-prediction. Its sketch is not a full training specification. The introduction's temporal camera-fusion wording is also less precise than Section 2.2 and Appendix G.",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e14"
+      ]
+    },
+    {
+      "id": "data-flywheel",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/2501.01895/data-flywheel.png",
+      "width": 1262,
+      "height": 478,
+      "sourceSha256": "5e4fc79197ea60b1401fe2cc4734dcdbad39cf7a6fbc207fbff10888f40604bf",
+      "sourceUrl": "https://arxiv.org/pdf/2501.01895#page=4",
+      "crop": [
+        0.206,
+        0.456,
+        0.8,
+        0.63
+      ],
+      "alt": "Observed and rendered camera images plus a toast-removal instruction feed a multi-view generator. Generated videos pass to 4D Gaussian Splatting and view rendering; dashed arrows return rendered images through an Add Noise and Replace step.",
+      "caption": "EnerVerse-D alternates generative completion with an explicit reconstruction-and-rendering loop.",
+      "readingGuide": "Follow the upper path from camera observations and rendered inputs into the multi-view generator, then across generated videos to 4DGS optimization. The lower dashed path runs from view rendering back toward the generator inputs through Add Noise and Replace. Section 2.2 clarifies what the arrows compress: complete observed-view sequences remain clean, missing target views undergo diffusion, and their union with camera poses supports reconstruction. The renders then become inputs for another refinement round. As episodes accumulate, they can fine-tune the generator. This is an offline process for building multi-view data, separate from the action-head computation used during robot control.",
+      "takeaway": "Reconstruction provides a shared geometric representation across views, while diffusion supplies missing appearance and motion content. Appendix I reports 40% fewer assessed hallucinations with 4DGS refinement over 50 generated arrange-workpieces episodes. That finding concerns generated-view quality; it does not measure a corresponding improvement in robot task success.",
+      "caution": "The two-expert assessment lacks raw counts, a detailed rubric and uncertainty. Figure 14 contrasts Only 4DGS with EnerVerse-D, whereas the quantitative text contrasts generation with and without 4DGS refinement; these baselines must remain distinct.",
+      "evidenceIds": [
+        "e04",
+        "e24"
+      ]
+    },
+    {
+      "id": "action-head",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 12",
+      "page": 19,
+      "asset": "report-assets/2501.01895/action-head.png",
+      "width": 1148,
+      "height": 910,
+      "sourceSha256": "5e4fc79197ea60b1401fe2cc4734dcdbad39cf7a6fbc207fbff10888f40604bf",
+      "sourceUrl": "https://arxiv.org/pdf/2501.01895#page=19",
+      "crop": [
+        0.27,
+        0.089,
+        0.72,
+        0.365
+      ],
+      "alt": "A UNet feature tensor flows downward through pooling and an MLP into a DiT block stack. Noisy actions enter from the left, and a linear layer outputs predicted actions on the right. The figure labels the DiT as 14 blocks with inner dimension 1152.",
+      "caption": "The action branch consumes pooled video features and denoises actions through its own head.",
+      "readingGuide": "Read the vertical arrow before the horizontal one. The video diffusion model provides a tensor indexed by batch, channel, view, time, height and width; pooling produces a temporal conditioning sequence, and an MLP projects it for the action head. Noisy actions enter the DiT from the left, then a linear layer maps the head output into action space. Section 2.3 adds the crucial scheduling detail absent from this static drawing: visual conditioning E is computed at the first video-denoising step and cached for the action-denoising iterations. The deployed policy therefore uses internal features without requiring a fully decoded future movie.",
+      "takeaway": "The architecture explains how video representation learning can support a comparatively short control path. The paper reports approximately 280 ms per eight-action chunk on an RTX 4090 in the abstract, and approximately 300 ms in Appendix F. These are author-reported timings, with incompletely aligned measurement descriptions.",
+      "caution": "Preserve the visible 14-block label: Appendix G prose instead says 18 blocks. Main-text features come from the middle block, while Appendix G says before it. Neither the exact tap nor head depth is resolved by this diagram.",
+      "evidenceIds": [
+        "e05",
+        "e21",
+        "e22"
+      ]
+    },
+    {
+      "id": "libero-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 2",
+      "page": 7,
+      "asset": "report-assets/2501.01895/libero-results.png",
+      "width": 1345,
+      "height": 552,
+      "sourceSha256": "5e4fc79197ea60b1401fe2cc4734dcdbad39cf7a6fbc207fbff10888f40604bf",
+      "sourceUrl": "https://arxiv.org/pdf/2501.01895#page=7",
+      "crop": [
+        0.182,
+        0.642,
+        0.815,
+        0.843
+      ],
+      "alt": "LIBERO success table comparing six baseline rows and three EnerVerse input configurations across Spatial, Object, Goal, Long and average columns. EnerVerse averages are 84.1, 85.5 and 88.5 as rendered views are added.",
+      "caption": "Read the visual-input column before comparing success scores.",
+      "readingGuide": "The four suite columns report distinct manipulation settings; the final column averages them. S-RGB means a static RGB camera and G-RGB a gripper camera. The lower two EnerVerse rows start from static RGB-D and render auxiliary RGB views, so they have depth information unavailable to the single-RGB row. The surrounding protocol fine-tunes a separate policy per suite and evaluates fifty rollouts per task over three seeds. First compare the single-RGB EnerVerse row against RGB-only baselines. Then compare its own three configurations to see how the reported benefit of additional rendered views varies across suites rather than treating the average as universal.",
+      "takeaway": "Single-RGB EnerVerse averages 84.1 versus OpenVLA's 76.5. Adding two rendered views raises the reported average to 88.5 and Long to 80.0. However, Spatial is 91.2 in that configuration versus 92.1 for single RGB and 93.0 with one render: additional views do not improve every column monotonically.",
+      "caution": "These rows mix sensing modalities and pretrained systems; they do not isolate geometry alone. Single-RGB EnerVerse trails Octo on Goal and MAIL on Long. The table reports seed averages without standard deviations or confidence intervals.",
+      "evidenceIds": [
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "id": "sparse-memory",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 4",
+      "page": 9,
+      "asset": "report-assets/2501.01895/sparse-memory.png",
+      "width": 1270,
+      "height": 212,
+      "sourceSha256": "5e4fc79197ea60b1401fe2cc4734dcdbad39cf7a6fbc207fbff10888f40604bf",
+      "sourceUrl": "https://arxiv.org/pdf/2501.01895#page=9",
+      "crop": [
+        0.285,
+        0.088,
+        0.712,
+        0.143
+      ],
+      "alt": "A one-row ablation table reports LIBERO-Long-SV scores of 30.8 without sparse memory and 73 with sparse memory.",
+      "caption": "The largest component-level gap concerns sparse memory on long tasks.",
+      "readingGuide": "This compact table fixes the task label to LIBERO-Long-SV, the single-view long-task setting, and changes the sparse-memory condition across two columns. Read w/o Sparse Memory literally; it does not by itself mean a policy with no history. Section 2.1 describes sparsely sampled clean context rather than consecutive frames, and Figure 7 separately contrasts consecutive and sparse context for video generation. That video example helps explain the intended robustness mechanism, while this table supplies executed-policy evidence. Keep the two outcomes separate: generation collapse in selected frames and aggregate manipulation performance are related observations, not interchangeable measurements of the same quantity.",
+      "takeaway": "Success increases from 30.8 to 73.0, a calculated gain of 42.2 percentage points. The result makes sparse context a high-priority component to reproduce before pursuing the entire data engine. It supports the authors' implementation on LIBERO-Long, rather than proving a general optimal memory-sampling strategy.",
+      "caution": "The comparison does not separately match retained-frame count, temporal coverage and corruption, and it supplies no uncertainty interval. It cannot distinguish useful long-range information from the regularization effects of dropping or corrupting frames.",
+      "evidenceIds": [
+        "e02",
+        "e12"
+      ]
+    },
+    {
+      "id": "block-placement",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 7",
+      "page": 16,
+      "asset": "report-assets/2501.01895/block-placement.png",
+      "width": 1105,
+      "height": 627,
+      "sourceSha256": "5e4fc79197ea60b1401fe2cc4734dcdbad39cf7a6fbc207fbff10888f40604bf",
+      "sourceUrl": "https://arxiv.org/pdf/2501.01895#page=16",
+      "crop": [
+        0.238,
+        0.087,
+        0.758,
+        0.315
+      ],
+      "alt": "Nine target-compartment rows and two model averages show grasp, placement, instruction following and composite success. EnerVerse averages 0.67 composite success versus OpenVLA's 0.61, but has lower instruction following, 0.78 versus 0.96.",
+      "caption": "Physical placement separates successful handling from reaching the instructed compartment.",
+      "readingGuide": "Each numbered row is an instructed row-and-column compartment, with five executions per target. Appendix A defines Grasp and Instruction Following as binary factors, while Place can receive half credit when the block collides with foam. Success is the product of these factors, averaged over trials; it is not necessarily binary. Inspect the last two target rows before the averages: positions (3,2) and (3,3) retain perfect grasp and placement scores but receive zero instruction-following and success scores. The bottom two rows compare overall averages. Do not multiply their already-averaged factors to reconstruct the mean trial-level product.",
+      "takeaway": "EnerVerse improves the reported mean grasp and placement scores to 1.0 and 0.89, versus OpenVLA's 0.89 and 0.61. Its composite success is 0.67 versus 0.61, despite lower instruction following, 0.78 versus 0.96. The result shows a concrete tradeoff between handling precision and selecting the instructed destination.",
+      "caution": "The authors hypothesize workspace-boundary difficulty for the failed destinations; the table alone does not establish that cause. This is a small, graded physical evaluation without uncertainty estimates or enough training/setup detail to guarantee a matched reproduction.",
+      "evidenceIds": [
+        "e15",
+        "e16"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Separate temporal memory from geometric conditioning",
+      "text": "EnerVerse addresses two different ambiguities. A single image can hide which stage of a manipulation has already occurred; sparse history provides temporal evidence. A single viewpoint can hide geometry; camera-aware multi-view pretraining supplies another source of structure. Figure 2 combines these mechanisms, but its branches should not be read as one undifferentiated improvement. The sparse-memory comparison concerns LIBERO-Long, whereas Table 6 compares a DynamiCrafter policy with the multi-view-pretrained variant on LIBERO-Spatial, reporting 79.0 and 92.1 with the same S-RGB input label. Reader interpretation: these results motivate separate temporal and geometric hypotheses. They do not completely isolate those hypotheses because the models and pretraining differ. The strongest test would hold the remaining architecture, data exposure and optimization fixed while varying one mechanism.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e02",
+        "e03",
+        "e12",
+        "e14"
+      ]
+    },
+    {
+      "heading": "Trace what is transferred from video learning into action inference",
+      "text": "First learn video dynamics from heterogeneous embodied data, then adapt generation to the target domain, and finally optimize the policy with action trajectories. This sequence matters: Table 8 reports 93.2 on LIBERO-Object with generation adaptation and 85 without it, while Table 5 favors two-stage fine-tuning over one-stage co-training on LIBERO-Spatial. At deployment, the transferred capability enters through cached features E. The action head denoises its own chunk while E stays fixed across those denoising iterations; it does not need to decode the full future video. Reader interpretation: the policy can exploit features trained to predict futures without executing an explicit search through rendered futures. Attention maps over memory and future-space feature positions are consistent with information use, but they cannot establish that a particular imagined trajectory caused a successful action.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e05",
+        "e06",
+        "e13",
+        "e18",
+        "e19"
+      ]
+    },
+    {
+      "heading": "Keep each performance claim attached to its measurement",
+      "text": "The experimental narrative contains several distinct endpoints. RT-1 PSNR and FVD measure generated-video quality, and expert ratings include a consistency score that is lower for EnerVerse. LIBERO measures simulated manipulation under separate suite-specific policies and several camera-input configurations. CALVIN measures sequential completion after training on other scenes, retaining memory across task transitions; its average sequence length of 3.00 is competitive but below the highest listed value. Physical block placement uses a product with partial placement credit, so its 0.67 score should not be relabeled as a binary success rate. Finally, the data-engine assessment reports a relative hallucination reduction in generated views. Reader interpretation: evidence of better rendering can motivate a control experiment, but it does not fill in an unreported control result. Each endpoint answers a narrower question than the phrase embodied future space might suggest.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e10",
+        "e11",
+        "e15",
+        "e16",
+        "e24"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Test whether temporal coverage explains the sparse-memory gain",
+      "text": "Reader-proposed experiment, not performed: on single-RGB LIBERO-Long, use one common initialization, target-video adaptation recipe, action head, chunk horizon and training budget. Compare recent consecutive context against uniformly spaced and randomly sparse context with the same retained-frame count; separately vary temporal span and corruption so these factors are not conflated. Evaluate matched initial states using the paper's fifty rollouts per task and three seeds, and report paired success differences with uncertainty. If the gain disappears when frame count and corruption are matched, the claim that long-range temporal coverage explains Table 4 would weaken; a persistent advantage under those controls would support it. Resolve and report the source's head-depth and feature-tap ambiguities before this comparison.",
+      "evidenceIds": [
+        "e02",
+        "e09",
+        "e12",
+        "e22"
+      ]
+    },
+    {
+      "title": "Connect 4DGS refinement to an independently measured control benefit",
+      "text": "Reader-proposed experiment, not performed: start from the same observed arrange-workpieces episodes, prompts and target camera poses. Compare direct missing-view generation with generation plus the 4DGS/render/re-noise loop; add a generation-only control matched for refinement compute. Use the same initial noise where applicable, blind the reviewers, define hallucination events in advance and publish counts, disagreement and uncertainty. Then adapt otherwise identical policies using equal numbers of episodes from each condition and evaluate held-out executed tasks with fixed sensing and demonstrations. Fewer hallucinations without improved task success would confirm a visual benefit while weakening an assumed control benefit. Gains in both outcomes, beyond the compute-matched control, would support the proposed role of geometric refinement.",
+      "evidenceIds": [
+        "e04",
+        "e06",
+        "e24"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21
+    ],
+    "notes": "Visually inspected the title/byline/version page, all fourteen figures, all ten tables, and all method, training, evaluation and appendix pages supporting retained claims and proposed checks. Six original crops were individually viewed; the data-flywheel crop was extended and viewed again to retain its complete lower rendered frames. Figure 2 arrows, legends and attention order were checked against Sections 2.1–2.2 and Appendix G; Figure 3's return path was checked against its pipeline description. Figure 12's 14-versus-18 block discrepancy and feature-tap ambiguity remain explicit. Reference pages 11–14 were read in the complete text chunks but not rendered. Separate supplemental videos and external code were not inspected; static paper panels do not establish full-video viewing."
+  }
+}

@@ -1,0 +1,490 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2512.24766",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T11:58:00.496Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2512.24766",
+      "title": "Dream2Flow: Bridging Video Generation and Open-World Manipulation with 3D Object Flow",
+      "kind": "pdf",
+      "sha256": "873040c1844b4e34f493b1dff8ac4eb16948b23b2fd220adfba2f5dfcb05daad",
+      "wordCount": 10514,
+      "accessedAt": "2026-09-10T10:25:36.510392+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "PDF p. 1: title, byline, abstract",
+      "PDF pp. 1–2: I. Introduction",
+      "PDF pp. 2–3: II. Related Works, A–C",
+      "PDF pp. 3–4: III. Method, A–C",
+      "PDF pp. 4–7: IV. Experiments, A–F",
+      "PDF p. 7: V. Conclusion and Acknowledgments",
+      "PDF pp. 7–9: References",
+      "PDF pp. 10–13: Appendix A–J, including prompts, dynamics, planning, grasp selection, filtering, case studies, SAC rewards and limitations"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction-only figure limitation was addressed by inspecting the original PDF pages and every final crop. Bibliography-only pages 8–9 were read as text, not rendered.",
+      "No separate supplements, external project videos or code were inspected; no experiments were reproduced.",
+      "Identity/version: the inspected title page is arXiv:2512.24766v1, 31 December 2025, matching the supplied title and complete five-author list. No revision or edition discrepancy was observed; no other version was supplied."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8",
+      "Figure 9",
+      "Figure 10",
+      "Figure 11",
+      "Figure 12"
+    ],
+    "tablesReviewed": [
+      "Table I",
+      "Table II",
+      "Table III",
+      "Table IV",
+      "Table V"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "Dream2Flow converts generated human-interaction videos into 3D object trajectories, then uses domain-specific optimization or reinforcement learning to make a robot realize them. Its central benefit is an object-level interface across embodiments; its reliability still depends on video geometry, tracking, contact assumptions and the downstream controller.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "A plausible human demonstration in pixel space does not specify executable robot actions. The paper asks whether reconstructed object motion can express the task while a separate controller handles the robot’s kinematics and dynamics.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-framing",
+      "e-flow"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A modular video-to-control pipeline turns desired object motion into tracking targets for pushing and grasped manipulation, or rewards for simulated policy learning.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-architecture",
+        "e-control"
+      ]
+    },
+    {
+      "text": "The authors argue that this interface supports open-world manipulation without task-specific demonstrations. This claim should not be read as eliminating dynamics training or reinforcement learning.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-framing",
+        "e-particle",
+        "e-sac"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Task instruction and initial RGB-D observation with known camera intrinsics/extrinsics",
+      "A robot-free initial image for video generation; Push-T additionally uses a goal image"
+    ],
+    "outputs": [
+      "Visible 3D object-point trajectories in robot coordinates",
+      "Push primitives, optimized robot trajectories, or a separately trained door-opening policy"
+    ],
+    "steps": [
+      {
+        "name": "Imagine the object motion",
+        "detail": "Generate video from the initial RGB image and instruction. Real prompts specify one hand and a still camera; these requirements support grasp selection and the fixed-camera depth assumption.",
+        "evidenceIds": [
+          "e-flow",
+          "e-prompts"
+        ]
+      },
+      {
+        "name": "Recover calibrated flow",
+        "detail": "SpatialTrackerV2 estimates video depths; a global scale and shift align the first depth to measured RGB-D. Grounding DINO localizes the object, SAM 2 masks it, and CoTracker3 tracks sampled points and visibility. Camera geometry lifts valid tracks into 3D.",
+        "evidenceIds": [
+          "e-flow"
+        ]
+      },
+      {
+        "name": "Plan pushes with feedback",
+        "detail": "Random shooting evaluates contact-making push primitives through learned particle dynamics. After each executed push, tracking updates the object points. The next target lies 20 reference timesteps beyond the closest current shape, capped at the video end.",
+        "evidenceIds": [
+          "e-control",
+          "e-pushplan"
+        ]
+      },
+      {
+        "name": "Select contact and optimize grasped motion",
+        "detail": "AnyGrasp candidates are matched to HaMer’s generated thumb location within 2 cm, with a movable-part fallback. Motion-based filtering and propagated SAM 2 masks reject inappropriate tracks. Rigid-grasp dynamics move grasped points with the end-effector while leaving other points unchanged.",
+        "evidenceIds": [
+          "e-grasp",
+          "e-filter",
+          "e-control"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The video/perception components are used off the shelf. Push-T separately trains a small Point Transformer V3 with MLP projections on 500 random-push transitions. Its particle features contain position, RGB, normals and push parameters; training correspondences use simulator object poses.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-framing",
+          "e-particle"
+        ]
+      },
+      {
+        "text": "Door-opening SAC policies learn from generated-flow rewards in simulation. Training uses 5000 iterations, or 10000 for GR1, with episode horizon 500. Current particles are computed from the simulator’s door angle, not online visual tracking.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-sac"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Real execution optimizes joint configurations using flow error plus reachability, smoothness and manipulability costs; B-spline end-effector poses feed PyBullet IK and a Deoxys joint-impedance controller. Unlike Push-T, this description does not specify online flow replanning during execution.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-realplan",
+          "e-pushplan"
+        ]
+      },
+      {
+        "text": "In the RL branch, reference flow supplies the training reward and the learned policy supplies actions. This is distinct from calling the video generator as an action-conditioned simulator at every control step.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-control",
+          "e-sac"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\min_{\\{u_t\\in\\mathcal U\\}}\\sum_{t=0}^{H-1}\\left[\\lambda_{\\mathrm{task}}(\\hat x_t^{\\mathrm{obj}},\\tilde P_t)+\\lambda_{\\mathrm{control}}(\\hat x_t,u_t)\\right],\\quad \\hat x_{t+1}=f(\\hat x_t,u_t),\\quad \\hat x_0=x_0",
+        "explanation": "Actions u in action space U produce predicted states through dynamics f over horizon H. State contains object points and robot state; the time-aligned reference is P-tilde. The two lambda terms are cost functions: point tracking and control feasibility.",
+        "evidenceIds": [
+          "e-flow"
+        ]
+      },
+      {
+        "expression": "\\lambda_{\\mathrm{task}}(\\hat x_t^{\\mathrm{obj}},\\tilde P_t)=\\sum_{i=1}^{n}\\left\\|\\hat x_t^{\\mathrm{obj}}[i]-\\tilde P_t[i]\\right\\|_2^2",
+        "explanation": "The task cost sums squared distances between n predicted object points and corresponding target points. Visibility and part filtering determine which reconstructed points remain usable.",
+        "evidenceIds": [
+          "e-flow",
+          "e-filter"
+        ]
+      },
+      {
+        "expression": "R_{\\mathrm{flow}}=r_{\\mathrm{particle}}+r_{\\mathrm{ee}},\\qquad r_{\\mathrm{particle}}=0.75\\frac{t^\\star}{t_{\\mathrm{end}}},\\qquad r_{\\mathrm{ee}}=0.25\\left(1-\\tanh\\left(10\\|ee_{\\mathrm{door}}-\\bar x\\|_2\\right)\\right)",
+        "explanation": "The closest reference index t-star measures progress toward final index t-end. The reaching term attracts the end-effector position ee-door toward mean object position x-bar in the door frame. This rewards trajectory progress, not simply negative tracking distance.",
+        "evidenceIds": [
+          "e-sac"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Open Oven",
+      "setting": "Real robot; Veo 3; ten randomized oven placements facing the robot.",
+      "metric": "Success count; opening at least 60 degrees",
+      "value": "Dream2Flow 8/10",
+      "comparison": "Adapted AVDC 0/10; adapted RIGVID 6/10",
+      "interpretation": "The strongest real-task separation from AVDC; only two additional successes over RIGVID.",
+      "evidenceIds": [
+        "e-tasks",
+        "e-real"
+      ]
+    },
+    {
+      "task": "Put Bread in Bowl",
+      "setting": "Real robot; Veo 3; ten trials with randomized fake-bread and bowl positions.",
+      "metric": "Success count; bread finishes inside bowl",
+      "value": "Dream2Flow 8/10",
+      "comparison": "Adapted AVDC 7/10; adapted RIGVID 6/10",
+      "interpretation": "A modest advantage in this small sample.",
+      "evidenceIds": [
+        "e-tasks",
+        "e-real"
+      ]
+    },
+    {
+      "task": "Cover Bowl",
+      "setting": "Real robot; Veo 3; ten trials with randomized folded scarf position/orientation.",
+      "metric": "Success count; at least 25% of bowl top covered",
+      "value": "Dream2Flow 3/10",
+      "comparison": "Adapted AVDC 2/10; adapted RIGVID 1/10",
+      "interpretation": "Deformable manipulation remains unreliable despite the relative improvement.",
+      "evidenceIds": [
+        "e-tasks",
+        "e-real"
+      ]
+    },
+    {
+      "task": "Push-T dynamics ablation",
+      "setting": "OmniGibson; Wan2.1 with start/goal images; ten initial states × ten random-shooting seeds.",
+      "metric": "Success count; within 2 cm translation and 15 degrees rotation",
+      "value": "Particle dynamics 52/100",
+      "comparison": "Pose dynamics 12/100; translation-only heuristic 17/100",
+      "interpretation": "Controller dynamics matter even with the same flow guidance; learned models share training data, but inputs/architectures differ.",
+      "evidenceIds": [
+        "e-tasks",
+        "e-dynamics",
+        "e-particle"
+      ]
+    },
+    {
+      "task": "Open Door reward comparison",
+      "setting": "Robosuite; 100 random door positions per embodiment; separately trained SAC policies.",
+      "metric": "Success count; rotate handle and open door at least 17 degrees before timeout",
+      "value": "Flow reward: Franka 100/100, floating-base Spot 100/100, right-arm GR1 94/100",
+      "comparison": "Object-state reward: 99/100, 99/100, 96/100, respectively",
+      "interpretation": "Comparable observed performance, with simulator-state assistance and no physical deployment established by this table.",
+      "evidenceIds": [
+        "e-tasks",
+        "e-door",
+        "e-sac"
+      ]
+    },
+    {
+      "task": "Video-generator comparison",
+      "setting": "Push-T uses goal-image conditioning; real Open Oven uses ten trials per generator.",
+      "metric": "Downstream task success counts",
+      "value": "Wan2.1: Push-T 52/100, oven 2/10; Kling 2.1: 31/100, 4/10; Veo 3: oven 8/10",
+      "comparison": "Veo 3 Push-T is unreported because end-frame conditioning was unavailable.",
+      "interpretation": "Generator ordering depends on domain; the missing cell is not a failure rate.",
+      "evidenceIds": [
+        "e-tasks",
+        "e-generators"
+      ]
+    },
+    {
+      "task": "Real-world pipeline failure breakdown",
+      "setting": "The authors’ combined set of 60 real-world Dream2Flow trials.",
+      "metric": "Stage-specific counts and completed executions",
+      "value": "40 successes; 12 video failures, 4 flow-extraction failures, 4 execution failures",
+      "comparison": "Figure 7 divides video failures into 6 morphing and 6 hallucination cases.",
+      "interpretation": "Video generation is the largest recorded failure category; this pooled count is separate from the three ten-trial task rows.",
+      "evidenceIds": [
+        "e-failures"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Rigid-grasp real-world dynamics restrict contact changes and deformation. Single-view occlusions can destroy tracks. Obtaining flow takes 3–11 minutes, mainly due to video generation.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-limits"
+      ]
+    },
+    {
+      "text": "Table I evaluates adapted baseline interfaces, not untouched original systems. Ten-trial real tasks and five-trial robustness variants provide limited precision; reported counts lack confidence intervals or multi-training-seed statistics.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-real",
+        "e-robustness",
+        "e-door"
+      ]
+    },
+    {
+      "text": "Chair, drawer, pasta and can demonstrations are qualitative case studies. They support task breadth but do not establish repeated-trial generalization rates.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-wild"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reconstruct calibrated RGB-D geometry and pinned video/perception components. Push-T uses four virtual cameras and 1.5 cm point-cloud downsampling; real planning uses task/reachability/smoothness/manipulability weights 10/100/1/0.01.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-flow",
+        "e-particle",
+        "e-realplan"
+      ]
+    },
+    {
+      "text": "SAC’s recipe includes learning rate 3e-4, batch 256 and two 256-unit hidden layers. Missing details include the particle-model optimizer/loss schedule and held-out split, random-shooting sample count, maximum pushes, and a complete compute/software-version specification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-particle",
+        "e-pushplan",
+        "e-sac"
+      ]
+    },
+    {
+      "text": "Proposed checks should hold generated targets fixed when comparing dynamics and separately replace simulator-derived door particles with visual tracks. Measure executed success alongside rotation error or reward-progress error to test each mechanism.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-dynamics",
+        "e-pushplan",
+        "e-sac"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    },
+    "reasoning": {
+      "text": "The recorded taxonomy is entirely unassigned, so there is no substantive label to confirm. Architecture evidence supports a modular video-generation, perception and control pipeline, not a single model jointly predicting future video and actions. Action recovery uses forward-dynamics optimization or RL; calling it a learned inverse-dynamics network would misdescribe the implementation.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-flow",
+        "e-control",
+        "e-sac"
+      ]
+    }
+  },
+  "discussionQuestions": [
+    "How much of particle dynamics’ advantage remains after matching model capacity, inputs and planning compute?",
+    "Can visually estimated door particles preserve the reward comparison without simulator joint-angle access?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, byline, affiliation, arXiv margin and advising footnote",
+      "detail": "The exact observed title and all five catalog authors match. The artifact identifies arXiv:2512.24766v1, 31 December 2025, Stanford University; Li Fei-Fei and Ruohan Zhang share advising credit."
+    },
+    {
+      "id": "e-framing",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section I",
+      "detail": "Generated human interactions supply desired object motion; reconstructing and tracking that motion separates task specification from embodiment-dependent action realization."
+    },
+    {
+      "id": "e-flow",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Sections III-A and III-B, unnumbered optimization and depth-calibration equations",
+      "detail": "RGB-D and calibrated camera geometry anchor masked video point tracks in robot coordinates. SpatialTrackerV2 estimates depth, Grounding DINO and SAM 2 select objects, and CoTracker3 supplies tracks and visibility. The task cost sums squared point-target distances."
+    },
+    {
+      "id": "e-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 and caption",
+      "detail": "Instruction and initial observation feed video generation; a mask selects tracks, video depth and 2D tracks reconstruct 3D object flow, and a separate robot policy realizes the flow."
+    },
+    {
+      "id": "e-control",
+      "sourceId": "primary",
+      "location": "PDF pp. 3–4, Section III-C, all three domain paragraphs",
+      "detail": "Push-T uses random shooting with learned particle dynamics; real manipulation uses grasp selection, rigid-grasp dynamics and optimization; simulated door opening trains SAC policies with an object-flow reward."
+    },
+    {
+      "id": "e-tasks",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Sections IV-A and IV-B; p. 5, Section IV-B continuation",
+      "detail": "Task success definitions are 2 cm/15 degrees for Push-T, bread inside the bowl, oven opening of at least 60 degrees, scarf covering at least 25% of bowl top, and door opening of at least 17 degrees after handle rotation. Push-T uses ten initial states and ten random-shooting seeds each; real tasks use Veo 3 and ten trials each."
+    },
+    {
+      "id": "e-real",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table I, all rows/columns, and Section IV-C",
+      "detail": "Bread success is AVDC 7/10, RIGVID 6/10, Dream2Flow 8/10; oven 0/10, 6/10, 8/10; cover bowl 2/10, 1/10, 3/10. AVDC is modified to use video depths and initial-frame transforms; RIGVID is adapted to fit rigid transforms to the extracted 3D points instead of using a 6D pose tracker."
+    },
+    {
+      "id": "e-door",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section IV-D, Table II, and Figure 6/caption",
+      "detail": "Across 100 randomized door positions per embodiment, object-state reward yields Franka 99/100, Spot 99/100 and GR1 96/100; flow reward yields 100/100, 100/100 and 94/100. Rollouts illustrate different strategies with a floating-base Spot and right-arm GR1."
+    },
+    {
+      "id": "e-generators",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table III and Section IV-E; p. 7, Section IV-E continuation; p. 10, Appendix A",
+      "detail": "Wan2.1/Kling 2.1 achieve 52/100 and 31/100 on Push-T; Wan2.1/Kling 2.1/Veo 3 achieve 2/10, 4/10 and 8/10 on Open Oven. Veo 3 lacks a Push-T result because it did not support end-frame conditioning at evaluation time. The text reports morphing, camera motion and incorrect articulation."
+    },
+    {
+      "id": "e-dynamics",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table IV and Section IV-F",
+      "detail": "Push-T success is pose dynamics 12/100, translation-only heuristic 17/100 and particle dynamics 52/100. Learned pose and particle models use the same data; authors attribute failures to inadequate modeling of required rotation."
+    },
+    {
+      "id": "e-failures",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Figure 7/caption; p. 5, Section IV-B failure paragraph",
+      "detail": "Figure 7 partitions 60 trials into 12 video failures (six morphing, six hallucination), four later flow-extraction failures, four execution failures and 40 successes. Section IV-B attributes tracking failures to rotation/out-of-view motion and execution failures to bowl covering; its phrase about half the video failures is less clear than the diagram."
+    },
+    {
+      "id": "e-prompts",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Appendix A and Figure 8",
+      "detail": "Real prompts request one hand and a still camera; cloth prompts additionally constrain motion. Push-T supplies start and goal images. Door prompts omit the hand. Kling adds relevance 0.7 and a negative prompt for fast motion, morphing and camera motion."
+    },
+    {
+      "id": "e-particle",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11, Appendix B and Figure 9",
+      "detail": "A small Point Transformer V3 with input/output MLPs maps 14-dimensional particle features to displacement. Four virtual RGB-D cameras supply a cropped point cloud, downsampled at 1.5 cm. Training uses 500 random-push transitions and simulator object poses for particle correspondence; optimizer, loss details and held-out split are not specified here."
+    },
+    {
+      "id": "e-pushplan",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Appendix C",
+      "detail": "After every push, online tracking and depth update object points. Nearest-neighbor matching links tracked particles to scene particles. Random shooting targets reference time min(t-star + L, t-end), with L=20; sample count r and maximum push count are left unspecified."
+    },
+    {
+      "id": "e-grasp",
+      "sourceId": "primary",
+      "location": "PDF p. 11, Appendix D and Figure 10",
+      "detail": "AnyGrasp proposes up to 40 top-down grasps from two coordinate frames. HaMer thumb proximity within 2 cm selects an early contact; if unavailable, selection falls back to proximity to the movable-part points."
+    },
+    {
+      "id": "e-filter",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Appendix E",
+      "detail": "Points moving at least one pixel per timestep on average define the movable part. SAM 2 uses positive movable and negative stationary point prompts, invalidating tracks outside the propagated part mask."
+    },
+    {
+      "id": "e-realplan",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix F, Eqs. (1)–(2) and execution paragraph",
+      "detail": "Real planning optimizes seven joint angles with reachability, pose smoothness and manipulability weights 100, 1 and 0.01, and task weight 10. End-effector poses are fit by a B-spline and sampled using 1 cm and/or 20-degree separation, then executed through PyBullet IK and Deoxys joint impedance on a Franka."
+    },
+    {
+      "id": "e-wild",
+      "sourceId": "primary",
+      "location": "PDF p. 12, Appendix G and Figure 11",
+      "detail": "Qualitative rollouts cover chair pulling, opening a partially open drawer, sweeping four pasta pieces and recycling a can. Success criteria are provided, but no repeated-trial quantitative table accompanies these case studies."
+    },
+    {
+      "id": "e-sac",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13, Appendix H, Table V and Eqs. (3)–(7)",
+      "detail": "SAC uses learning rate 3e-4, discount 0.99, batch 256, replay capacity 1e6, target update rate 0.005, two 256-unit hidden layers, 5000 iterations and horizon 500; GR1 uses 10000 iterations. Flow reward combines weighted reference progress and reaching. Object particles are transformed from door joint angle rather than visually tracked; the door angle is included in state."
+    },
+    {
+      "id": "e-limits",
+      "sourceId": "primary",
+      "location": "PDF p. 13, Appendices I–J and Figure 12",
+      "detail": "Authors identify rigid-grasp restrictions, heavy single-view occlusion and 3–11 minutes to obtain flow, mainly spent on video generation. Figure 12 illustrates bread morphing into crackers and hallucination of another bowl."
+    },
+    {
+      "id": "e-robustness",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section IV-B and Figures 4–5",
+      "detail": "Robustness testing uses five additional trials for each of six instance/background/viewpoint variants. The authors report a decline for the large-bread case; same-scene task changes are illustrated qualitatively. No formal significance test is reported."
+    }
+  ]
+}

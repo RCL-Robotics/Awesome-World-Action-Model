@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2604.16484",
+  "shortTitle": "DexWorldModel",
+  "thesis": "CLWM uses predicted semantic features to guide actions and speculative computation, while its strong manipulation results leave memory fidelity, latency–accuracy tradeoffs, and several implementation details unresolved.",
+  "standfirst": "A robot can start computing its next movement before its current movement ends if it can anticipate the next observation. DexWorldModel builds this idea around DINOv3 features: predict a semantic future, then infer the actions that reach it. A shared transformer backbone performs both stages, while separate persistent and working memories keep real experience apart from imagined context. EmbodiChain supplies synthetic adaptation trajectories through domain expansion and online streaming. Read the architecture alongside the data ablations: the paper reports strong execution success, but those experiments do not separately establish every architectural explanation offered for it.",
+  "evidenceIds": [
+    "e04",
+    "e05",
+    "e07",
+    "e09",
+    "e10",
+    "e13",
+    "e15",
+    "e16",
+    "e17"
+  ],
+  "featuredResultTask": "RoboTwin bimanual manipulation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 1",
+      "page": 4,
+      "asset": "report-assets/2604.16484/architecture.png",
+      "width": 1326,
+      "height": 715,
+      "sourceSha256": "a3d97b33e611a6fc0379ee64253cacb441ec90261ea2103075785de595aa0f88",
+      "sourceUrl": "https://arxiv.org/pdf/2604.16484#page=4",
+      "crop": [
+        0.11,
+        0.09,
+        0.89,
+        0.415
+      ],
+      "alt": "CLWM diagram showing frozen DINOv3 and language encoders, historical latent features and actions, video and action model blocks, and shared TTT memory.",
+      "caption": "Predict a semantic future, then condition the action generator on it.",
+      "readingGuide": "Begin at the bottom: the task prompt, historical latent features, and historical actions supply context. The upper-left DINOv3 path shows how camera images enter the feature space, and snowflakes mark the frozen DINOv3 and language components. Follow the feature branch to predicted future features, then read the action branch as the next stage described in the caption. The broad TTT bar provides historical context to both. Although the drawing separates video and action blocks, Equation (7) on page 5 specifies a shared transformer core with distinct modality projections and flow-time embeddings. The colored feature maps illustrate the representation, without providing a numerical prediction-quality measure.",
+      "takeaway": "The architecture places future prediction directly in the deployed control path: action generation conditions on predicted semantics. This supports a unified shared-core model with sequential video-feature and action generation. It also explains why the predicted observation can later serve as a temporary input while physical execution is still underway.",
+      "caution": "The update label says s = 0, but the flow interpolation on pages 4–5 reaches data at s = 1. Section 3.3 also finishes at 1. The original label is preserved; its timing convention remains unresolved.",
+      "evidenceIds": [
+        "e03",
+        "e04",
+        "e05",
+        "e08",
+        "e09"
+      ]
+    },
+    {
+      "id": "dual-memory",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 6,
+      "asset": "report-assets/2604.16484/dual-memory.png",
+      "width": 1309,
+      "height": 572,
+      "sourceSha256": "a3d97b33e611a6fc0379ee64253cacb441ec90261ea2103075785de595aa0f88",
+      "sourceUrl": "https://arxiv.org/pdf/2604.16484#page=6",
+      "crop": [
+        0.12,
+        0.09,
+        0.89,
+        0.35
+      ],
+      "alt": "Comparison of KV-cache attention with a gated TTT layer, followed by a long-term-memory update, forked working memory, feature generation, and action generation.",
+      "caption": "Persistent memory receives observed experience; a temporary copy receives predicted experience.",
+      "readingGuide": "Read panels (a) and (b) as a change in how historical context is retained. Panel (b) still contains an attention block; the proposed replacement concerns the accumulating KV cache. In panel (c), observed features and actions feed long-term memory, and the dashed fork arrow creates working memory. A generated feature updates that working branch before action generation. Equations (14)–(16) on page 7 specify observed history as the new feature together with the previously executed action, then a clone and predicted-feature update. Thus the diagram's coarse time labels should not be read as permission to put an unexecuted action into persistent history.",
+      "takeaway": "The intended boundary is between observed and speculative information. Both memories have fixed-size weights, which removes growth in stored historical tokens as an episode lengthens. The source reports a flat memory footprint over a 2,000-step episode, but this figure itself depicts the design rather than a measured memory curve.",
+      "caution": "The figure and caption mark completed samples s = 0, conflicting with the equations and SAI's s = 1 endpoint. Constant storage also does not demonstrate faithful recall over arbitrary horizons; the reported efficiency test does not measure forgetting.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09",
+        "e14"
+      ]
+    },
+    {
+      "id": "robotwin",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 13,
+      "asset": "report-assets/2604.16484/robotwin.png",
+      "width": 1378,
+      "height": 2469,
+      "sourceSha256": "a3d97b33e611a6fc0379ee64253cacb441ec90261ea2103075785de595aa0f88",
+      "sourceUrl": "https://arxiv.org/pdf/2604.16484#page=13",
+      "crop": [
+        0.23,
+        0.105,
+        0.77,
+        0.853
+      ],
+      "alt": "Full RoboTwin success-rate table comparing π0.5, X-VLA, Motus, LingBot-VA, and CLWM across tasks, including the reported average row.",
+      "caption": "CLWM leads the reported average, with substantial task-level variation.",
+      "readingGuide": "Start with the bottom Average row, then compare individual task rows rather than treating the aggregate as uniform reliability. Ours is CLWM, and every cell is a success percentage. Page 14 states that the comparison fine-tunes all models on 25,000 synthetic trajectories for 40,000 iterations at learning rate 1e-5. Hanging Mug and Turn Switch are useful counterweights to the many near-ceiling rows: they remain difficult for CLWM. The full table is retained so readers can inspect both wins and exceptions. Its boldface is source formatting, not evidence of statistical significance; in Turn Switch, Motus's numerical score exceeds Ours despite Ours being bold.",
+      "takeaway": "The reported averages are 94.00% for CLWM and 91.55% for LingBot-VA, a difference of 2.45 percentage points. CLWM nevertheless scores only 40% on Hanging Mug and 65% on Turn Switch; Motus scores 78% on the latter. The evidence supports a higher reported aggregate rather than universal task superiority.",
+      "caution": "The paper does not specify rollout counts, exact evaluation splits, or uncertainty for this table. The separate three-task ablations use different data budgets, so their success rates should not be substituted into this benchmark comparison.",
+      "evidenceIds": [
+        "e13",
+        "e15",
+        "e16"
+      ]
+    },
+    {
+      "id": "domain-expansion",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 14,
+      "asset": "report-assets/2604.16484/domain-expansion.png",
+      "width": 1036,
+      "height": 228,
+      "sourceSha256": "a3d97b33e611a6fc0379ee64253cacb441ec90261ea2103075785de595aa0f88",
+      "sourceUrl": "https://arxiv.org/pdf/2604.16484#page=14",
+      "crop": [
+        0.195,
+        0.698,
+        0.805,
+        0.802
+      ],
+      "alt": "Four cumulative data-generation configurations with separate in-distribution and out-of-distribution success columns: 64/25, 75/42, 81/56, and 95/82 percent.",
+      "caption": "Success improves as visual, physical, and reachable-motion diversity are added.",
+      "readingGuide": "Read downward as cumulative additions, beginning with object-position and orientation randomization. The next rows add visual augmentation, physics-grounded generation, and reachability-aware sampling. Compare ID with OOD within each row, then follow each column down. The surrounding protocol fixes 2,000 synthesized trajectories per task across Hanging Mug, Turn Switch, and Stack Bowls. OOD covers unseen objects, novel textures, extreme lighting, and unfamiliar layouts. Section 4 explains the last addition in task-space terms: feasible interactions are selected for diversity in approach direction, contact geometry, and outcomes. The table summarizes three tasks and does not show separate scores for each.",
+      "takeaway": "The full pipeline reports 95% ID and 82% OOD success, compared with 64% and 25% for spatial randomization alone. The final reachability addition raises the preceding configuration from 81% to 95% ID and from 56% to 82% OOD. These are sizeable improvements under the stated fixed trajectory budget.",
+      "caution": "This cumulative design does not independently remove each module or estimate interactions. Aggregate OOD success also does not separate sensitivity to lighting, object identity, and layout, and the table supplies no evaluation counts or error bars.",
+      "evidenceIds": [
+        "e10",
+        "e15"
+      ]
+    },
+    {
+      "id": "streaming",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 15,
+      "asset": "report-assets/2604.16484/streaming.png",
+      "width": 1036,
+      "height": 246,
+      "sourceSha256": "a3d97b33e611a6fc0379ee64253cacb441ec90261ea2103075785de595aa0f88",
+      "sourceUrl": "https://arxiv.org/pdf/2604.16484#page=15",
+      "crop": [
+        0.195,
+        0.33,
+        0.805,
+        0.442
+      ],
+      "alt": "Static training and three ODS replay caps compared on Hanging Mug, Turn Switch, and Stack Bowls; the lowest replay cap reports 96%, 98%, and 98%.",
+      "caption": "Fresh-data turnover matters more here than merely using a streaming buffer.",
+      "readingGuide": "Each ODS subscript is the maximum number of times a trajectory may be sampled before eviction, not a dataset size or task count. All rows use 5,000 optimizer iterations with batch size 64. The static baseline repeatedly samples 1,500 demonstrations, averaging approximately 213 uses per trajectory under the paper's accounting. ODS213 therefore tests streaming with slow turnover; it performs similarly to the static row. Read down each task column as the cap falls to 50 and then 10. Section 4.3 describes asynchronous generation and bounded reuse, but the table does not report how many distinct trajectories were actually generated or consumed.",
+      "takeaway": "At the cap of 10, Hanging Mug rises from the static baseline's 62% to 96%, while Turn Switch rises from 85% to 98% and Stack Bowls from 88% to 98%. The high-reuse streaming condition does not improve over static training. The supported pattern concerns turnover under this optimization budget.",
+      "caution": "More turnover also means access to more unique data. Without an offline comparison matched for unique trajectories and generation compute, the table cannot isolate online timing from dataset diversity or establish the schematic Efficiency Law as a measured scaling relation.",
+      "evidenceIds": [
+        "e11",
+        "e16"
+      ]
+    },
+    {
+      "id": "physical-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 4",
+      "page": 15,
+      "asset": "report-assets/2604.16484/physical-results.png",
+      "width": 1570,
+      "height": 219,
+      "sourceSha256": "a3d97b33e611a6fc0379ee64253cacb441ec90261ea2103075785de595aa0f88",
+      "sourceUrl": "https://arxiv.org/pdf/2604.16484#page=15",
+      "crop": [
+        0.115,
+        0.748,
+        0.885,
+        0.831
+      ],
+      "alt": "Physical CobotMagic results for four manipulation tasks comparing π0, GR00T N1.5, Sim2Real-VLA, and CLWM; CLWM reports 95%, 90%, 80%, and 65%.",
+      "caption": "Reported physical execution succeeds without target-task real-data adaptation.",
+      "readingGuide": "Read across the CLWM row in the task order shown: water pouring, table rearrangement, hand-over and place, then pan open and place. Read vertically against Sim2Real-VLA first, because the source assigns those two methods identical synthetic budgets and the same EmbodiChain domain-expansion and streaming pipeline. The π0 and GR00T N1.5 rows instead use 50 real expert demonstrations per task, so the whole table does not share one data protocol. Also read Section 5.1 on page 12 before interpreting zero-shot: it describes public robot-data pretraining. The defensible distinction is simulation-only target adaptation, rather than an absence of robot-data pretraining.",
+      "takeaway": "CLWM reports 95%, 90%, 80%, and 65% success, compared with Sim2Real-VLA's 80%, 80%, 40%, and 35%. The taskwise differences are 15, 10, 40, and 30 percentage points. These values concern execution on the Agilex CobotMagic platform, providing a different kind of evidence from generated feature visualizations.",
+      "caution": "The caption claims success fractions with standard errors, yet the actual cells contain only percentages. Trial counts and the numerical synthetic budget are absent. Its blanket simulation-only caption also requires the training-protocol qualifications in the surrounding text.",
+      "evidenceIds": [
+        "e12",
+        "e17"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "A predicted feature becomes an action condition",
+      "kind": "source",
+      "text": "At an observation step, CLWM encodes the camera image with frozen DINOv3 and uses language plus historical context to generate the next semantic feature. This is a learned future under the task condition; it is not a measurement returned by the environment. A second flow process generates the action chunk conditioned on that predicted feature. The two processes share transformer blocks but have different projections and flow-time embeddings. This makes the feature forecast operationally important: errors can influence the action condition. Training regresses the velocity of a linear noise-to-data interpolation for each modality and perturbs historical features to expose the action model to imperfect context. Equation (9) specifies the historical perturbation; the separately written augmented future-feature condition in Equation (10) is less explicitly defined.",
+      "evidenceIds": [
+        "e04",
+        "e05",
+        "e06"
+      ]
+    },
+    {
+      "heading": "Speculate in a copy, then return to observed history",
+      "kind": "analysis",
+      "text": "The useful distinction in TTT is which information is allowed to persist. The long-term weights are updated from an actual observation and executed action; the working copy can absorb a predicted future without making it permanent. SAI extends this separation across computation and physical time. While a chunk executes, predicted features stand in for the unavailable next observation and support partial denoising. Once sensing arrives, calibrated context guides the remaining integration. The source's s = 0 completion labels conflict with its noise-to-data equations, so reproducing the exact handoff needs clarification. As reader analysis, the expected speed advantage depends on both overlap duration and forecast accuracy: a cheap handoff can still produce a poor action when the speculative state becomes wrong. The paper gives no matched latency–accuracy sweep.",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e09",
+        "e14"
+      ]
+    },
+    {
+      "heading": "Account for fresh trajectories, not only optimizer steps",
+      "kind": "analysis",
+      "text": "EmbodiChain first makes simulation experience more varied through assets, reachable interactions, recovery sequences, and temporally coherent appearance changes. ODS then controls how quickly that experience replaces previously consumed trajectories. These are different mechanisms: Table 2 changes the data-generation recipe at a fixed trajectory count, whereas Table 3 changes maximum replay at a fixed optimizer budget. The latter comparison strongly favors lower reuse, but the paper does not report the total unique trajectories or generation compute for each row. My interpretation is that fresh experience helps this system, while online delivery itself remains insufficiently isolated. The method still applies supervised losses to generated demonstrations; its analogy to online and offline reinforcement learning does not introduce a specified reward-optimization algorithm. A useful reproduction must log both data diversity and consumption cost.",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e15",
+        "e16"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Measure SAI's waiting-time and accuracy tradeoff",
+      "text": "Reader-proposed check: start from one fixed CLWM checkpoint and compare sequential inference with several SAI split points using the same initial noises, total solver evaluations, task episodes, and hardware. Introduce a controlled object displacement during action execution, with an unperturbed control. Record success, blocking latency, total computation, and speculative-versus-observed feature error. Over a 2,000-step run, also log memory footprint and failures. The useful-speedup claim would be weakened if waiting falls only by accepting lower success, or if calibration cannot recover after displacement. This check was not run.",
+      "evidenceIds": [
+        "e07",
+        "e09",
+        "e14"
+      ]
+    },
+    {
+      "title": "Separate streaming delivery from access to more unique data",
+      "text": "Reader-proposed check: reproduce the three-task, 5,000-iteration, batch-64 comparison while logging unique trajectory IDs and generation cost. Compare ODS10, the 1,500-demo static baseline, and an offline pool containing the same trajectories eventually consumed by ODS10. Match task mixture, augmentations, learner updates, and replay counts where possible; repeat with independent seeds and held-out evaluation episodes. If the matched offline pool reaches ODS10 performance, the gain is explained by fresh-data access without requiring online delivery. Report success uncertainty and total wall time rather than inferring a universal scaling law. This check was not run.",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e15",
+        "e16"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+    ],
+    "notes": "The title/author/version page and every method, training, evaluation, and compute page supporting retained claims were rendered and visually inspected. This includes Figures 1–7, Tables 1–4, the SAI diagram on page 8, compute details on page 12, and the protocol paragraphs around the cropped tables. All six final original crops were individually viewed. Figure 1–2 flow-time labels were checked against Equations (4)–(10), the memory-update text, and Section 3.3; the inconsistency is disclosed. Table 4's missing standard errors and mixed training protocols are preserved as limitations. References on pages 16–19 were read as text; reference-only pages 17–19 were not visually inspected. No separate supplement, execution video, code, or reproduced experiment was inspected."
+  }
+}

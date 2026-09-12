@@ -40,7 +40,9 @@ async function fixture(t, scopes = ['full-paper', 'full-paper', 'full-paper']) {
   const folder = await mkdtemp(join(tmpdir(), 'wam-runner-test-'));
   const repo = join(folder, 'repository'), work = join(folder, 'work'), control = join(folder, 'control');
   await mkdir(control, { recursive: true });
-  const files = ['scripts/reading/run-reports.mjs', 'scripts/lib/reports.mjs', 'scripts/lib/data.mjs', 'scripts/lib/paths.mjs', 'src/lib/classification-snapshot.mjs', 'src/lib/taxonomy.mjs', 'schemas/reading-report.schema.json', 'skills/wam-paper-reader/SKILL.md', 'skills/wam-paper-reader/references/report-guide.md'];
+  // reports.mjs imports the source validator, including its media/process
+  // dependencies, even when these fixtures exercise only the text reader.
+  const files = ['scripts/reading/run-reports.mjs', 'scripts/lib/reports.mjs', 'scripts/lib/openscene-original-evidence.mjs', 'scripts/lib/html-original-media.mjs', 'scripts/lib/openscene-process.mjs', 'scripts/lib/data.mjs', 'scripts/lib/paths.mjs', 'src/lib/classification-snapshot.mjs', 'src/lib/taxonomy.mjs', 'schemas/reading-report.schema.json', 'skills/wam-paper-reader/SKILL.md', 'skills/wam-paper-reader/references/report-guide.md'];
   for (const file of files) { await mkdir(dirname(join(repo, file)), { recursive: true }); await copyFile(join(repository, file), join(repo, file)); }
   const papers = scopes.map((_, index) => ({ id: `fixture-${index}`, title: `Fixture paper ${index}`, authors: 'Example Author', venue: null, paperUrl: `https://example.org/paper-${index}`, majorCategory: 'WAM', subcategories: [], architecture: 'One Model', predictionParadigm: 'IDM', quadrant: 'Q2 · One Model × IDM', classificationStatus: null }));
   await put(join(repo, 'data/papers.json'), papers); await put(join(repo, 'data/meta.json'), { updatedAt: '2026-09-07T00:00:00Z' });

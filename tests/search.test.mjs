@@ -10,6 +10,32 @@ test('search supports accents, multiword matching, abstracts and arXiv IDs', () 
   assert.deepEqual(filterPapers(collection, { query: 'tactile' }).map(p => p.id), ['2608.00001']);
   assert.equal(filterPapers(collection, { query: '2609.00001' })[0].title, 'Action transformer');
 });
+test('paper names ignore case, spaces, hyphens, full-width text and invisible copy artifacts', () => {
+  const records = [make('fast', { title: 'Fast-WAM: Efficient control' }), make('other', { title: 'Slow control' })];
+  for (const query of ['fastwam', 'FASTWAM', 'Fast WAM', '  fAsT\t\nWaM  ', 'Fast\u00a0WAM', 'Fast—WAM', 'Fast_WAM', 'ＦＡＳＴ ＷＡＭ', 'Fast\u200bWAM', 'Fast\u00adWAM']) {
+    assert.deepEqual(filterPapers(records, { query }).map(p => p.id), ['fast'], query);
+  }
+});
+test('compact queries match spaced names and author names in the source', () => {
+  const records = [make('spaced', { title: 'World Model', authors: 'José García' }), make('compact', { title: 'WorldModel', authors: 'Other Author' })];
+  for (const query of ['worldmodel', 'WORLD MODEL', 'world-model']) {
+    assert.deepEqual(filterPapers(records, { query, sort: 'title' }).map(p => p.id).sort(), ['compact', 'spaced']);
+  }
+  assert.deepEqual(filterPapers(records, { query: 'JOSEGARCIA' }).map(p => p.id), ['spaced']);
+  assert.deepEqual(filterPapers([make('copied', { title: 'Fast\u200b—\u00a0WAM' })], { query: 'fastwam' }).map(p => p.id), ['copied']);
+});
+test('keywords can match different fields without inventing compact names across fields', () => {
+  const records = [make('separate', { title: 'Inter', authors: 'Stellar' })];
+  assert.equal(filterPapers(records, { query: 'interstellar' }).length, 0);
+  assert.equal(filterPapers(records, { query: 'STELLAR inter' }).length, 1);
+  assert.equal(filterPapers(records, { query: 'stellar missingword' }).length, 0);
+  assert.equal(filterPapers(records, { query: ' \t\n\u00a0 ' }).length, 1);
+});
+test('normalized name searches still respect selected quadrants', () => {
+  const records = [make('fast', { title: 'Fast-WAM', quadrant: QUADRANTS[0] }), make('other', { title: 'Slow model', quadrant: QUADRANTS[3] })];
+  assert.equal(filterPapers(records, { query: 'FASTWAM', quadrant: QUADRANTS[3] }).length, 0);
+  assert.deepEqual(filterPapers(records, { query: 'FASTWAM' }).map(p => p.id), ['fast']);
+});
 test('primary, secondary, date and code constraints combine', () => {
   assert.equal(filterPapers(collection, { category: '3D/4D WAM', secondary: 'WAM + RL', month: '2026-09', code: true }).length, 1);
   assert.equal(filterPapers(collection, { category: 'Memory WAM', code: true }).length, 0);

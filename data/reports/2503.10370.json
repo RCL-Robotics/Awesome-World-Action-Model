@@ -1,0 +1,447 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2503.10370",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T12:57:24.568Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2503.10370",
+      "title": "LUMOS: Language-Conditioned Imitation Learning with World Models",
+      "kind": "pdf",
+      "sha256": "7f857a03bb3d46542ed3d7b2d3a45f45a4aa338873c718fa8a801a35cd497baf",
+      "wordCount": 8288,
+      "accessedAt": "2026-09-10T10:26:51.015408+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; I. Introduction (pp. 1–2)",
+      "II. Related Work (p. 2)",
+      "III. Problem Formulation (pp. 2–3)",
+      "IV. LUMOS: A. World Model Learning; B. Behavior Learning (pp. 3–5)",
+      "V. Experimental Results: A. Experiments in Simulation; B. Experiments in Real-World (pp. 5–6)",
+      "VI. Conclusion and Limitations (p. 6)",
+      "References (p. 7)",
+      "VII. Appendix A–E: world model, agent, baseline modifications, action framework, and data collection (pp. 8–9)"
+    ],
+    "omissions": [
+      "The inspected title page identifies arXiv:2503.10370v1 [cs.RO], 13 March 2025. Its title and all six authors match the catalog. No other revision or venue edition was supplied or compared; the catalog venue annotation is not independently established by this PDF.",
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction caveat was addressed by visually inspecting all nine original PDF pages, including every figure and table. Five original crops were also inspected.",
+      "External code, dataset downloads, project videos, and linked references were not inspected. No experiments were executed or reproduced."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 1)",
+      "Figure 2 (p. 3)",
+      "Figures 3–4 (p. 6)",
+      "Figures 5–6 (p. 9)"
+    ],
+    "tablesReviewed": [
+      "Table I (p. 5)",
+      "Table II (p. 6)",
+      "Tables III–IV (p. 8)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "LUMOS trains a language-guided manipulation policy by practicing inside a world model learned from offline robot play. Frozen recurrent dynamics support actor-critic learning with expert-latent matching rewards; hindsight plans and language alignment organize behavior. CALVIN and physical tabletop experiments support this combination, with modest gains over adapted HULC and larger component-ablation losses. Transfer means deployment after learning from that environment’s offline data, without online policy fine-tuning.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "Behavior cloning trains on demonstrated states but encounters its own action-induced states at deployment, allowing errors to compound. LUMOS asks whether a policy can practice corrective behavior offline, using learned dynamics instead of further robot interaction, while remaining steerable by sparse language annotations. Its reward is an intrinsic imitation signal; no observed extrinsic task reward is required.",
+    "kind": "source",
+    "evidenceIds": [
+      "e-problem",
+      "e-overview",
+      "e-reward"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "Combines a DreamerV2-style world model and DITTO latent-matching reward with HULC-inspired latent plans and language–trajectory contrastive alignment in two training stages.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-overview",
+        "e-rssm",
+        "e-plans",
+        "e-reward"
+      ]
+    },
+    {
+      "text": "The authors argue that multi-step practice reduces covariate shift and enables zero-shot real-robot deployment. The experiments support performance within the evaluated settings but do not directly measure distribution shift.",
+      "kind": "author-claim",
+      "evidenceIds": [
+        "e-problem",
+        "e-ablation",
+        "e-real-protocol",
+        "e-limitations"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Static-camera and gripper-camera RGB observations resized to 64 × 64; recorded actions for learning dynamics.",
+      "Training windows with a hindsight final-state goal or sparse language annotation; a language instruction at deployment."
+    ],
+    "outputs": [
+      "Seven-component relative end-effector action: three translations, three Euler-angle changes, and a gripper command.",
+      "Predicted latent trajectories during policy training; observation reconstructions for world-model learning and inspection."
+    ],
+    "steps": [
+      {
+        "name": "Learn an action-conditioned latent simulator",
+        "detail": "Separate camera CNNs encode the two views. Fused features feed an RSSM with recurrent state h and categorical stochastic state z. The observation-conditioned posterior trains the observation-free prior, while decoders reconstruct both views. Imagined rollouts replace posterior samples with prior samples.",
+        "evidenceIds": [
+          "e-rssm",
+          "e-wm-config"
+        ]
+      },
+      {
+        "name": "Infer goals and reusable plans",
+        "detail": "A recognition transformer sees the entire training trajectory. A proposal network sees the current state and goal. KL matching trains the proposal to approximate recognized behavior; categorical plans represent alternative ways to reach a goal. Contrastive alignment pairs latent trajectories with instructions using in-batch negatives.",
+        "evidenceIds": [
+          "e-plans",
+          "e-agent-config"
+        ]
+      },
+      {
+        "name": "Optimize behavior through frozen dynamics",
+        "detail": "The nonrecurrent actor receives current-state features, goal features, and a sampled plan, and outputs a tanh-transformed Gaussian action distribution. The critic learns bootstrapped returns. Actor gradients pass through imagined dynamics, but world-model parameters remain fixed. Actions affect subsequent latent states, which receive the imitation reward.",
+        "evidenceIds": [
+          "e-reward",
+          "e-objectives",
+          "e-agent-implementation"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Stage one minimizes reconstruction loss plus posterior–prior KL. The approximately 40-million-parameter world model uses 50-step sequences, batch size 50, and a 2048-dimensional latent state. Random RSSM resets with probability 0.01 compensate for scarce episode resets in long play streams.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-rssm",
+          "e-wm-config"
+        ]
+      },
+      {
+        "text": "Stage two samples windows of 20–32 steps, padded to 32, with batch size 512. The actor maximizes lambda-returns with plan-KL and contrastive terms weighted 0.1 and 3.0. Unannotated windows omit contrastive loss. Discount is 0.995 and lambda 0.95; critic targets are stopped and use a slowly updated network.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-objectives",
+          "e-agent-config",
+          "e-agent-implementation"
+        ]
+      },
+      {
+        "text": "Language goals use paraphrase-MiniLM-L3-v2 embeddings. The recognition transformer has two blocks and eight attention heads. The actor has eight 256-unit fully connected layers; the critic has eight 1024-unit layers.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-agent-config",
+          "e-agent-implementation"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Camera observations update the latent state. Language and current state condition the proposal; its sampled plan conditions the action decoder. The robot executes the action and supplies another observation. Full-trajectory recognition is a training privilege. The described deployment specifies no online trajectory-search optimizer.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-overview",
+          "e-plans",
+          "e-agent-implementation"
+        ]
+      },
+      {
+        "text": "Relative training actions are derived from successive recorded absolute commands. The physical gripper requires thresholding, but the appendix gives contradictory opening/closing signs, preventing unambiguous implementation from this text alone.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-actions",
+          "e-collection"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\begin{aligned}h_t&=f_\\phi(\\hat{s}_{t-1},a_{t-1}),\\\\z_t&\\sim q_\\phi(z_t\\mid h_t,x_t),\\\\\\hat{z}_t&\\sim p_\\phi(\\hat{z}_t\\mid h_t),\\qquad \\hat{s}_t=(h_t,z_t).\\end{aligned}",
+        "explanation": "Equation (1): x is the observation, a the action, h the deterministic recurrent state, z the posterior sample, and hat-z the prior sample. Phi parameterizes the world model. The combined state reconstructs observations; during imagination, the prior supplies the stochastic component without another image.",
+        "evidenceIds": [
+          "e-rssm"
+        ]
+      },
+      {
+        "expression": "r_t^{\\mathrm{int}}(s_t^E,s_t^\\pi)=\\frac{s_t^E\\cdot s_t^\\pi}{\\max(\\lVert s_t^E\\rVert,\\lVert s_t^\\pi\\rVert)^2}",
+        "explanation": "Equation (3) compares expert and policy latent states at step t through a norm-scaled inner product. Although the prose calls this state-action matching, the equation contains only states; actions influence future states through dynamics. It is not a direct supervised action-error loss.",
+        "evidenceIds": [
+          "e-reward"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "CALVIN D long-horizon instruction following",
+      "setting": "Six hours of environment-D play; 34 subtasks; 1% language annotations. Evaluation: 1,000 chains of up to five instructions, three seeds, and 64 × 64 two-camera inputs for every method.",
+      "metric": "Average completed chain length; five-instruction success rate (mean ± standard deviation).",
+      "value": "LUMOS: 2.34 ± 0.05 tasks; 21.1% ± 0.8 percentage points.",
+      "comparison": "HULC: 2.27 ± 0.05 tasks; 20.0% ± 1.5 percentage points.",
+      "interpretation": "Derived gains are 0.07 tasks and 1.1 percentage points. This is an adapted-resolution, same-environment comparison, without a reported significance test or cross-environment result.",
+      "evidenceIds": [
+        "e-calvin",
+        "e-baselines"
+      ]
+    },
+    {
+      "task": "CALVIN D component ablations",
+      "setting": "Table I protocol, three seeds: replace intrinsic-reward training with MSE behavior cloning, remove both plan networks, or omit alignment.",
+      "metric": "Average completed chain length (mean ± standard deviation).",
+      "value": "Full: 2.34 ± 0.05; No DITTO: 1.68 ± 0.02; No latent plan: 1.81 ± 0.01; No alignment: 2.05 ± 0.06.",
+      "comparison": "Every variant underperforms the full system.",
+      "interpretation": "No DITTO changes both the objective and rollout-learning mechanism; it does not isolate imagination horizon alone.",
+      "evidenceIds": [
+        "e-ablation",
+        "e-calvin"
+      ]
+    },
+    {
+      "task": "Real-world individual manipulation",
+      "setting": "Franka Panda tabletop; three hours of play, less than 1% language annotation (about 2,800 windows). Each underlying task receives 20 rollouts; vegetable rows aggregate separately tested carrot and eggplant tasks.",
+      "metric": "Table-reported average success over tasks.",
+      "value": "LUMOS: 67.68%; uncertainty not reported.",
+      "comparison": "HULC: 63.39%; derived difference 4.29 percentage points.",
+      "interpretation": "Superiority is not uniform: lifting the pan from the table is 65% versus HULC’s 75%. Neutral starts discourage inferring the task from initial pose.",
+      "evidenceIds": [
+        "e-real-data",
+        "e-real-protocol",
+        "e-real-table"
+      ]
+    },
+    {
+      "task": "Real-world five-instruction chains",
+      "setting": "20 unique chains of five instructions in the physical tabletop environment.",
+      "metric": "Average number of sequential tasks completed.",
+      "value": "LUMOS: 2.05; uncertainty not reported.",
+      "comparison": "HULC: 1.90.",
+      "interpretation": "Executed robot tasks yield a derived gain of 0.15 tasks after offline training; this does not establish transfer to unseen physical environments.",
+      "evidenceIds": [
+        "e-real-protocol",
+        "e-real-table"
+      ]
+    },
+    {
+      "task": "Real-world versus learned-world task outcomes",
+      "setting": "LUMOS action trajectories are also simulated in the learned world model beside Table II.",
+      "metric": "Table-reported average task success.",
+      "value": "World Model column: 75.89%.",
+      "comparison": "Physical LUMOS: 67.68%; derived gap 8.21 percentage points.",
+      "interpretation": "Model-space success is not another physical result. The authors attribute the gap to dynamics errors; exact model-space success adjudication is unspecified.",
+      "evidenceIds": [
+        "e-real-table",
+        "e-limitations"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors identify uncertain world-model quality and the compute cost of increasing image resolution as bottlenecks. Figure 3 illustrates held-out action-conditioned prediction beyond the training horizon, without a quantitative prediction-error metric or contact-accuracy test.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-limitations",
+        "e-rollout"
+      ]
+    },
+    {
+      "text": "Appendix D states −1 opens and +1 closes, then gives the opposite continuous threshold rule. Equation (7), with delta = 0.8, weights the posterior-gradient term more strongly despite motivating faster prior updates. Figure 2 feeds a plan to the critic, whereas Equation (4) and Appendix B list only state and goal. These inconsistencies remain unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-actions",
+        "e-wm-config",
+        "e-overview",
+        "e-reward",
+        "e-agent-implementation"
+      ]
+    },
+    {
+      "text": "Table I’s GCBC average length of 0.63 does not reconcile with its cumulative success rates under the chain-length interpretation: those rates sum to about 0.865. The original cells are retained, without inferring corrected results.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-calvin"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Match the two-view pipeline and altered baselines: 64 × 64 inputs, documented convolution changes, baseline-only random shifts, and identical evaluation chains. Real recordings are downsampled from 30 to 15 Hz; Figure 2 labels 30 Hz action execution and a 1 Hz proposal input path without fully resolving deployment timing.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-baselines",
+        "e-collection",
+        "e-overview"
+      ]
+    },
+    {
+      "text": "Architectures and optimizer settings are supplied, but GPU model/count, wall-clock training cost, total optimizer-update budget, and executable software versions are not. Gripper signs, KL balancing, and model-space task judging need clarification. The illustrated edition’s two reproduction checks are proposed, unperformed experiments.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-wm-config",
+        "e-agent-config",
+        "e-agent-implementation",
+        "e-actions",
+        "e-real-protocol",
+        "e-limitations"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The recorded fields are unassigned, leaving no substantive classification to confirm. Architecture evidence shows a separately trained, frozen action-conditioned world model plus a goal-conditioned actor-critic. This supports modular world-model-based control rather than a single joint future-and-action predictor or inverse-dynamics action extractor. Imagination trains the policy; deployment uses latent-state inference and plan proposal. This reader assessment leaves the snapshot unchanged.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-overview",
+        "e-rssm",
+        "e-reward",
+        "e-agent-implementation"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "Does longer imagined practice improve recovery with the world model, actor capacity, and training budget held fixed?",
+    "Which contact or object-identity errors best predict the gap between imagined and physically executed task success?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title, author line, affiliation footnote, and arXiv margin stamp",
+      "detail": "Title: LUMOS: Language-Conditioned Imitation Learning with World Models. Authors: Iman Nematollahi; Branton DeMoss; Akshay L Chandra; Nick Hawes; Wolfram Burgard; Ingmar Posner. Affiliations: University of Freiburg; University of Oxford; University of Technology Nuremberg. The artifact is arXiv:2503.10370v1 [cs.RO], 13 March 2025."
+    },
+    {
+      "id": "e-problem",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section I, Introduction and contributions",
+      "detail": "The paper motivates offline policy practice by behavior-cloning covariate shift and claims language-conditioned real-robot transfer without online learning. Latent matching comes from DITTO and latent planning builds on earlier imitation-learning methods."
+    },
+    {
+      "id": "e-overview",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2 and caption; Sections III–IV, opening paragraphs",
+      "detail": "World-model learning precedes policy learning. Hindsight state goals or language annotations condition training. Inference uses observed latent state, language goal, proposal plan, and action decoder. The graphic draws a sampled-plan arrow into the critic. It labels the action loop and plan-sampling current-state path 30 Hz, and the current-state input to plan proposal 1 Hz."
+    },
+    {
+      "id": "e-rssm",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section IV-A, Equation (1); p. 4, Equation (2) and following paragraph",
+      "detail": "Separate static/gripper camera encoders and decoders surround an action-conditioned DreamerV2 RSSM. Recurrent state and categorical posterior/prior components define latent state. Reconstruction and KL train the model; the prior replaces the observation-conditioned posterior for imagination."
+    },
+    {
+      "id": "e-plans",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV-B, Latent Plan Encoding and Semantic Alignment",
+      "detail": "Plan recognition sees the entire sequence; proposal conditions on initial state and goal. KL aligns categorical plans. Contrastive cosine alignment pairs language and latent trajectories with in-batch negatives."
+    },
+    {
+      "id": "e-reward",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Section IV-B, Reward, Equation (3), Action and value models, Equation (4)",
+      "detail": "Intrinsic reward is the expert/policy latent-state dot product divided by the squared maximum norm. The actor emits a tanh-transformed Gaussian; actor and critic optimize imitation returns in frozen world-model dynamics. The reward equation has no explicit action-error term."
+    },
+    {
+      "id": "e-objectives",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Equation (5) and Learning Objective; p. 5, Equation (6) and opening paragraph",
+      "detail": "The critic regresses stopped lambda-targets using a slowly updated target network. Actor learning differentiates through dynamics to maximize value and minimize plan KL and contrastive losses. Unannotated windows omit contrastive loss."
+    },
+    {
+      "id": "e-calvin",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section V-A and Table I, GCBC/HULC/LUMOS rows",
+      "detail": "Environment D supplies six hours of play and 34 subtasks, with 1% language annotation. All methods use 64 × 64 two-camera inputs, 1,000 chains and three seeds; parentheses denote SD. LUMOS/HULC average lengths are 2.34 (0.05)/2.27 (0.05), fifth-step rates 21.1% (0.8)/20.0% (1.5). GCBC cells are 56.7%, 20.9%, 7.3%, 1.6%, 0.04%, with average length 0.63 (0.4)."
+    },
+    {
+      "id": "e-ablation",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section V-A, ablation paragraphs and Table I bottom three rows",
+      "detail": "No DITTO replaces intrinsic-reward learning with MSE behavior cloning; No latent plan removes proposal and recognition; No alignment omits alignment. Average lengths (SD) are 1.68 (0.02), 1.81 (0.01), and 2.05 (0.06). Fifth-step success is 8.7%, 11.0%, and 17.2%, respectively."
+    },
+    {
+      "id": "e-real-data",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section V-B, opening paragraph",
+      "detail": "Physical experiments use a Franka Emika Panda and three hours of teleoperated tabletop play. Less than 1% is language annotated, described as approximately 2,800 random windows; the dataset contains over 22 tasks."
+    },
+    {
+      "id": "e-real-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section V-B, paragraph beginning We trained our language-conditioned policy",
+      "detail": "Each task receives 20 rollouts against HULC from neutral starts. Carrot and eggplant tasks are tested separately, then aggregated as vegetable rows. Picking the wrong vegetable is a failure. Chain evaluation uses 20 unique chains of five instructions."
+    },
+    {
+      "id": "e-real-table",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Table II, task rows and final two rows",
+      "detail": "LUMOS/HULC/World Model average success is 67.68%/63.39%/75.89%. Physical average chain length is 2.05/1.90, with a dash for World Model. Lifting the pan from the table is 65%/75%/70%; lifting it from the cabinet is 35%/35%/60%. No uncertainty is supplied."
+    },
+    {
+      "id": "e-rollout",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Figure 3 and caption; Section V-B first paragraph on p. 6",
+      "detail": "A held-out example uses five context images and predicts 195 steps given actions, despite training horizon 50. Only gripper-camera reconstructions are shown. Real/model frame pairs are qualitative evidence without a numerical prediction-error metric."
+    },
+    {
+      "id": "e-limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 6, final Section V-B paragraph and Section VI",
+      "detail": "The authors simulate LUMOS action trajectories in the learned model and attribute model/real outcome differences to dynamics inaccuracies. They identify difficulty assessing model quality a priori and the compute cost of higher-resolution modeling. Model-space success adjudication is not detailed."
+    },
+    {
+      "id": "e-wm-config",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Appendix A, Equation (7), and Table III",
+      "detail": "The approximately 40M-parameter world model has a 1024-dimensional recurrent state plus 32 categorical variables with 32 classes, giving latent size 2048. Batch/sequence lengths: 50/50; beta: 0.3; delta: 0.8; reset probability: 0.01; learning rate: 3e-4. Equation (7) places delta on KL(q || sg(p)), labeled posterior regularizer, while prose motivates faster prior updates. Hardware, runtime and total-update counts are absent."
+    },
+    {
+      "id": "e-agent-config",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Appendix B, Goal Encoder, Plan Recognition and Proposal, Equation (8), and Table IV",
+      "detail": "Language uses paraphrase-MiniLM-L3-v2. Recognition has two transformer blocks and eight heads; proposal has four 2048-unit fully connected layers. Batch: 512; windows: 20–32; plan KL scale: 0.1; contrastive scale: 3.0; delta: 0.8; discount: 0.995; lambda: 0.95; actor/critic learning rates: 2e-4/3e-4; slow critic interval: 100."
+    },
+    {
+      "id": "e-agent-implementation",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Appendix B continuation, Action Decoder and Critic, lambda-target equation and window sampling",
+      "detail": "Actor inputs concatenate current state, goal, and plan. Its eight 256-unit fully connected layers are nonrecurrent with about 1M parameters. The critic has eight 1024-unit layers and is described as conditioned on current and goal latent states. Lambda-return recursion bootstraps values with lambda 0.95. Sampled windows of 20–32 steps are padded to 32."
+    },
+    {
+      "id": "e-baselines",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section V-A resolution paragraph; p. 9, Appendix C",
+      "detail": "Baselines use 64 × 64 inputs. Convolution kernel/stride settings change from 8/4 to 4/2, 4/2 to 2/2, and 3/1 to 2/2. Baselines use 0–3-pixel shifts with bilinear interpolation; LUMOS uses no image augmentation. These are adaptations of original higher-resolution baseline settings."
+    },
+    {
+      "id": "e-actions",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Appendix D, 7-DoF Action Framework",
+      "detail": "Actions contain three relative translations, three Euler-angle changes relative to the robot base, and gripperAction. Motion components lie in [−1,1]. The discrete description gives −1 for open and +1 for close; the continuous threshold rule instead gives positive for open and nonpositive for close."
+    },
+    {
+      "id": "e-collection",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Appendix E, Data Collection Details; Figures 5–6 and captions",
+      "detail": "Three hours of Panda play use HTC VIVE Pro teleoperation. Cameras are Azure Kinect (static) and FRAMOS Industrial Depth D435e (gripper), recording 200 × 200 RGB. Proprioception and absolute commands are recorded. Training derives relative commands by differencing, resizes images to 64 × 64 and downsamples 30 Hz to 15 Hz. Figure 5 locates cameras and VR equipment."
+    }
+  ]
+}

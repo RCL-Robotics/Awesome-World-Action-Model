@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.05588",
+  "shortTitle": "GE-Act 2.0",
+  "thesis": "A one-step visual future makes separate video and action pretraining connectable, but useful co-training requires selecting futures compatible with the demonstrated action.",
+  "standfirst": "Imagine a demonstration that grasps an object from the left, while a generated future shows a successful right-side grasp. Both futures may be plausible, yet the left-grasp action is a poor label for the right-grasp video. GE-Act 2.0 builds its training method around this mismatch. A compact encoder feeds a visual planner, a separate inverse dynamics model reads the predicted transition, and KASO selects generated futures using that action model's response. The figures below connect this mechanism to controlled pickup experiments and broader data scaling. Read the execution and language results separately: contacting the requested object is easier than completing the manipulation.",
+  "evidenceIds": [
+    "architecture",
+    "validity-gap",
+    "kaso",
+    "robot-ablation",
+    "scaling",
+    "grounding-results"
+  ],
+  "featuredResultTask": "Real-robot zero-shot OOD atomic manipulation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/2609.05588/architecture.png",
+      "width": 1312,
+      "height": 458,
+      "sourceSha256": "4e6e98d3a1c30739e968afff7be63898de8bec0442c15a2ab63706d6498c0248",
+      "sourceUrl": "https://arxiv.org/pdf/2609.05588#page=5",
+      "crop": [
+        0.113,
+        0.087,
+        0.885,
+        0.295
+      ],
+      "alt": "Three camera views enter CoAE; the head image and instruction enter a VLM. A DiT predicts dense and sparse visual states in one denoising pass, then a separate IDM iteratively produces an action chunk.",
+      "caption": "A completed visual future connects the planner to the action model.",
+      "readingGuide": "Start at observation encoding in the lower-left panel: CoAE compresses the left, head, and right views. Above it, the head image and instruction enter the VLM; the yellow text-token path carries image-contextualized language into the SVP. The blue arrow marked one step traverses noise time 1 to endpoint 0 and outputs dense and sparse predicted visual states. Follow those states into the separate IDM, whose own denoising remains iterative. The caption and Eq. (15) additionally specify current visual latents as IDM inputs, although the diagram foregrounds the predicted-state branch. The dense/sparse distinction carries through to action prediction.",
+      "takeaway": "The visual future is an inference-time input to control. Appendix B specifies one SVP pass followed by five IDM Euler steps, with the first 30 dense actions executed before another prediction. Sparse actions supply longer-horizon training targets; they are not the executed controller output.",
+      "caution": "The diagram is an information-flow overview, not a latency measurement. It does not establish that one visual-generation pass meets a real-time deadline, and joint training does not make the SVP and IDM a shared backbone.",
+      "evidenceIds": [
+        "architecture",
+        "svp-conditioning",
+        "meanflow",
+        "idm",
+        "training-recipe"
+      ]
+    },
+    {
+      "id": "representation-probes",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 1",
+      "page": 7,
+      "asset": "report-assets/2609.05588/representation-probes.png",
+      "width": 1487,
+      "height": 261,
+      "sourceSha256": "4e6e98d3a1c30739e968afff7be63898de8bec0442c15a2ab63706d6498c0248",
+      "sourceUrl": "https://arxiv.org/pdf/2609.05588#page=7",
+      "crop": [
+        0.15,
+        0.151,
+        0.85,
+        0.246
+      ],
+      "alt": "Five frozen visual representations are compared by downsampling, channel width, pixel decodability, action mean absolute error, and caption-match error; the CoAE row is highlighted.",
+      "caption": "Compression preserves useful information, with different winners for action and caption probes.",
+      "readingGuide": "Read the two rightmost columns as separate tests, both lower-is-better. Action MAE comes from the same two-layer inverse-dynamics probe trained on 400 shelf-task samples and evaluated on 100 held-out samples. Caption matching instead uses a VLM-conditioned classifier over 5,000 GenieSim-Instruction episodes. The spatial column gives downsampling along each image axis: CoAE's 64×64 reduction yields 24 tokens per 256×384 frame, while the 16×16 teachers yield 384. The channel column matters too: CoAE and DC-AE have the same spatial compression but different latent widths. Pixel decoder indicates whether the representation retains a reconstruction route.",
+      "takeaway": "CoAE records action MAE 0.01673 and caption error 2.05%, compared with DC-AE's 0.02573 and 2.71%. DINOv3 recovers actions more accurately at 0.01273. CoAE therefore offers a compact, decodable compromise and the strongest caption score here, rather than uniformly dominating every representation.",
+      "caution": "This is a representation probe, not a robot-success ablation of each teacher. Channel widths and pretraining differ, caption matching retains VLM conditioning, and its held-out split is not specified. The results cannot isolate multi-teacher alignment alone.",
+      "evidenceIds": [
+        "coae",
+        "probes"
+      ]
+    },
+    {
+      "id": "kaso",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 7",
+      "page": 13,
+      "asset": "report-assets/2609.05588/kaso.png",
+      "width": 1643,
+      "height": 619,
+      "sourceSha256": "4e6e98d3a1c30739e968afff7be63898de8bec0442c15a2ab63706d6498c0248",
+      "sourceUrl": "https://arxiv.org/pdf/2609.05588#page=13",
+      "crop": [
+        0.113,
+        0.087,
+        0.886,
+        0.312
+      ],
+      "alt": "A candidate future pool is scored against a recorded-video IDM response. The selected generation noise is replayed, then a joint loss sends gradients through the IDM into the SVP.",
+      "caption": "Select without gradients; replay the selected future to train both modules.",
+      "readingGuide": "Follow Search & Select from independent generation noises to the candidate pool. The recorded future z enters the same active IDM probe and defines the reference response. All candidates share the probe's action noise and time, so differences in dense-token velocity reflect changed future conditioning. The checked response illustrates the lowest-energy choice; the implementation uses four candidates and keeps one. In Replay, the stored generation noise reconstructs exactly that future with gradients enabled. Fresh action noise and flow time are then sampled for training. Finally, the dashed arrows in Joint Update run backward through the IDM to the SVP; they are gradient flow, not an additional deployment stage.",
+      "takeaway": "KASO addresses incompatible supervision even when a predicted future looks plausible. It compares action-model responses rather than pixels, then preserves both recorded-data objectives alongside the selected-future action loss. The reference is what the current IDM reads from recorded video, so the method's notion of compatibility inherits that model's knowledge.",
+      "caution": "The replay panel labels time as discrete U{1,…,T}; Eq. (15) and Appendix B.4 use continuous flow time, with logit-normal IDM sampling. This notation discrepancy is unresolved; the explanation follows the equations and recipe. Candidate selection is training-only.",
+      "evidenceIds": [
+        "validity-gap",
+        "kaso",
+        "idm",
+        "training-recipe"
+      ]
+    },
+    {
+      "id": "robot-ablation",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 2",
+      "page": 15,
+      "asset": "report-assets/2609.05588/robot-ablation.png",
+      "width": 1530,
+      "height": 587,
+      "sourceSha256": "4e6e98d3a1c30739e968afff7be63898de8bec0442c15a2ab63706d6498c0248",
+      "sourceUrl": "https://arxiv.org/pdf/2609.05588#page=15",
+      "crop": [
+        0.2,
+        0.182,
+        0.8,
+        0.36
+      ],
+      "alt": "Two panels compare E2E, E2E+PT, and KASO. The upper panel reports four-object target following; the lower reports single-block and per-target pickup success with macro averages.",
+      "caption": "Equal target following can conceal different pickup reliability.",
+      "readingGuide": "Read panel (a) first: Follow Score means contacting the commanded object without contacting a distractor, even if lifting fails. Panel (b) requires the completed pickup. Every entry is a percentage, and the four-object macro average weights sponge, apple, mouse, and remote equally. The small-block column belongs to a separate single-object protocol, so it has no follow-score counterpart. All methods begin with the same 39,000-hour SVP and 32,000-hour IDM checkpoints, then use the same 300-hour alignment mixture, including 30 G2-90D hours. Compare E2E+PT with KASO to examine selective pairing while retaining both original training objectives.",
+      "takeaway": "E2E+PT and KASO both follow the correct target in 95% of four-object trials. Pickup macro success nevertheless rises from 22.5% to 37.5%, a 15-percentage-point gain. Single-block success rises from 12% to 40%. These observations support improved physical execution beyond the measured target-contact score.",
+      "caution": "The four-object experiment has ten trials per target and the block experiment has 25; no uncertainty intervals are given. These are reduced alignment-stage ablations atop full-scale pretraining, not the final model's performance or training from only 300 total hours.",
+      "evidenceIds": [
+        "robot-ablation"
+      ]
+    },
+    {
+      "id": "skill-scaling",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 10",
+      "page": 18,
+      "asset": "report-assets/2609.05588/skill-scaling.png",
+      "width": 1649,
+      "height": 924,
+      "sourceSha256": "4e6e98d3a1c30739e968afff7be63898de8bec0442c15a2ab63706d6498c0248",
+      "sourceUrl": "https://arxiv.org/pdf/2609.05588#page=18",
+      "crop": [
+        0.113,
+        0.087,
+        0.889,
+        0.423
+      ],
+      "alt": "Twenty small line plots show skill-group success versus four co-training data scales, with solid dark G1-OP curves and dashed light G2-90D curves. Many rise, while Zip stays at zero.",
+      "caption": "Scaling broadens the repertoire, but improvement varies sharply by skill.",
+      "readingGuide": "Each panel averages the tasks in one skill group. Follow solid circles for G1-OP and dashed squares for G2-90D across 0.3, 1.2, 5, and 30 thousand co-training hours on a logarithmic horizontal axis. Compare within a panel before comparing embodiments: their grippers and training shares differ. Wipe rises strongly, Straighten emerges late, and Zip remains flat at zero. The legend calls the embodiment shares proportions of the pretraining corpus; the caption and Figure 8 specify co-training instead. That distinction matters because G1-OP is 47.4% of SVP pretraining but 61.7% of co-training.",
+      "takeaway": "The curves support broad but incomplete scaling gains. Section 5.2.1 reports improvement in 19 of 20 G1-OP groups and 18 of 20 G2-90D groups. The corresponding suite success rises from 17.1% to 44.1% and from 13.4% to 31.1%; those exact aggregate values are in the accompanying text, not plotted as suite curves here.",
+      "caution": "All scales share pretrained starting components, but runs stop after one epoch or the compute limit. This is not a matched-compute causal experiment. G2-90D's own data also increases, so its improvement alone does not isolate cross-embodiment transfer.",
+      "evidenceIds": [
+        "data-mixtures",
+        "real-protocol",
+        "scaling"
+      ]
+    },
+    {
+      "id": "instruction-grounding",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 14",
+      "page": 22,
+      "asset": "report-assets/2609.05588/instruction-grounding.png",
+      "width": 1643,
+      "height": 652,
+      "sourceSha256": "4e6e98d3a1c30739e968afff7be63898de8bec0442c15a2ab63706d6498c0248",
+      "sourceUrl": "https://arxiv.org/pdf/2609.05588#page=22",
+      "crop": [
+        0.113,
+        0.087,
+        0.886,
+        0.324
+      ],
+      "alt": "Leftward purple bars show descriptor occurrence in training and natural language; paired blue Pick and orange Place bars distinguish target-contact Follow Score from complete-task success for six grounding dimensions.",
+      "caption": "Attribute grounding is strong; comparative and ordinal references expose weaknesses.",
+      "readingGuide": "Read horizontally by descriptor. Purple bars extend left on a reversed logarithmic axis and compare lexical occurrence in GE instructions with RefCOCOg expressions; they are not success rates. The middle and right panels use ordinary percentage axes for Pick and Place. Dark bars measure reaching only the requested referent, while pale bars require completion. Position covers direct left/right and near/far relations; Order combines middle and ordinal references. The final G1-OP checkpoint receives 59 instructions, each tested five times without adaptation. Appendix C.3 supplies the prompt-level results and the matching rules, including overlapping categories and the exception that size frequencies include simulation instructions.",
+      "takeaway": "Object, color, position, and shape reach at least 90% Follow Score for both primitives. Size drops to 82.5% for Pick and 65.7% for Place; Order falls to 13.3% and 26.7%. Across all 295 rollouts, 83.1% correct following becomes 72.9% complete-task success, exposing failures after the referent has been reached.",
+      "caution": "Frequency is observational and measured by lexical rules, not experimentally assigned. Descriptor categories overlap and differ in perceptual difficulty. Shape succeeds despite low frequency, so the plot cannot establish that increasing rare words alone will repair relational grounding.",
+      "evidenceIds": [
+        "grounding-results",
+        "descriptor-frequency"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Why the future interface needs both compression and grounding",
+      "kind": "source",
+      "text": "The SVP must predict enough visual change for an action model to infer motion, while keeping future generation tractable. CoAE makes that interface small: each camera frame becomes 24 tokens, but reconstruction and three frozen feature teachers encourage preservation of complementary information. Language takes a different route. A frozen VLM processes the current head image with the instruction, and a learned gate combines its text-span states across layers. The generator therefore receives scene-grounded language without passing all VLM image tokens into every cross-attention layer. Conditional MeanFlow then predicts dense near-term and sparse farther-future latents in one pass. The IDM reads those latents without receiving language directly. This separation explains why the planner can pretrain on action-free video and the IDM can pretrain on instruction-free robot trajectories.",
+      "evidenceIds": [
+        "coae",
+        "svp-conditioning",
+        "meanflow",
+        "architecture"
+      ]
+    },
+    {
+      "heading": "Why plausible video is not sufficient action supervision",
+      "kind": "analysis",
+      "text": "Consider two valid approaches to the same object. A recorded future and its action share the actual approach taken; a separately sampled future need not. The paper's validity-gap argument says that improving the future marginal does not repair this lost pairing. Retaining video and recorded-action objectives helps preserve modules, but the generated-future action branch can still teach the wrong correspondence. KASO uses a high-noise action probe so the IDM cannot mostly infer the answer from a nearly clean action input. It then asks which candidate produces an IDM response closest to the recorded future. The reader's interpretation is that this supplies a learned correspondence test, not a physical-validity oracle. Its limitations include poor IDM judgments and a candidate pool that fails to cover the demonstrated behavior; these are natural targets for controlled reproduction checks.",
+      "evidenceIds": [
+        "validity-gap",
+        "kaso",
+        "training-recipe"
+      ]
+    },
+    {
+      "heading": "How to connect the ablation to the scaling claim",
+      "kind": "analysis",
+      "text": "Table 2 asks a local mechanism question: given the same pretrained components and alignment mixture, does compatibility selection improve executed pickup? The equal follow scores and different pickup scores make that comparison informative. The large real-robot suite asks a broader question: how does the pretrained policy's repertoire change when co-training uses progressively larger nested datasets? These checkpoints receive no task-specific adaptation, yet their data and training exposure are not independently controlled. The reader should therefore treat the suite as evidence of practical scaling, while reserving causal claims about selection for the matched ablation. Simulation supplies another comparison layer after benchmark-specific in-distribution fine-tuning, rather than corroborating untouched real-world zero-shot deployment. Finally, the toy's seed-0 illustration explains a possible failure mechanism; its deterministic IDM and seed spread limit extrapolation to robot action diversity or later reinforcement learning.",
+      "evidenceIds": [
+        "robot-ablation",
+        "real-protocol",
+        "scaling",
+        "robotwin",
+        "geniesim",
+        "libero",
+        "toy"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does action compatibility outperform random selection under matched updates?",
+      "text": "Reader-proposed, not executed: initialize from identical SVP/IDM checkpoints and use the same 300-hour G2-90D ablation mixture, sample order, optimizer steps, and retained-loss weights. Generate four futures in every arm. Compare lowest-energy selection with selecting one uniformly at random and with E2E+PT averaging all four candidates. Keep selected-noise replay and single-sample deployment identical. Repeat training seeds and evaluate the same four targets and single block with more matched-reset trials. Report confidence intervals for contact-only Follow Score and completed-pick success separately. A selective-pairing explanation predicts better pickup for minimum-energy selection than random selection; equal performance would weaken that explanation.",
+      "evidenceIds": [
+        "kaso",
+        "training-recipe",
+        "robot-ablation"
+      ]
+    },
+    {
+      "title": "Does the high-noise probe actually detect behavioral mismatch?",
+      "text": "Reader-proposed, not executed: retain candidate pools and paired recorded futures for contexts with multiple valid targets or grasp approaches. Label whether each candidate matches the demonstrated behavior using an independent review, blinded to KASO scores; keep task-irrelevant appearance changes as controls. Compare dense-token energy rankings at the reported probe time 0.95 with a lower-noise probe, using shared action noise within each pool. Measure ranking agreement with those labels, selected-future compatibility, and subsequent pickup under otherwise matched training. Also verify that replay reproduces the scored candidate. The mechanism predicts that high-noise scoring better rejects wrong behavior while tolerating irrelevant appearance changes; failure would reveal limits of the active IDM as judge.",
+      "evidenceIds": [
+        "validity-gap",
+        "kaso",
+        "training-recipe",
+        "robot-ablation"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39
+    ],
+    "notes": "Visually inspected the title/byline and contributor credits, all Figures 1–15, Tables 1–10, Algorithm 1, and all supporting method, training, evaluation, and appendix pages listed here. Every final original crop was separately viewed at its returned dimensions. Figure 7's discrete replay-time notation and Figure 10's pretraining/co-training legend ambiguity are preserved and discussed. Bibliography-only pages 26–29 were read as text. The supplied PDF contains the reviewed evidence; external videos, code, datasets, and separate supplements were not inspected."
+  }
+}

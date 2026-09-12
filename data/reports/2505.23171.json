@@ -1,0 +1,471 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2505.23171",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T18:38:27.833Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2505.23171",
+      "title": "RoboTransfer: Controllable Geometry-Consistent Video Diffusion for Manipulation Policy Transfer",
+      "kind": "pdf",
+      "sha256": "f2dac9480cae0cd703a96d901fdf81723da08e5eedf2fa4dfa36c3c91a945043",
+      "wordCount": 8963,
+      "accessedAt": "2026-09-10T10:28:36.544617+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; Section 1 Introduction",
+      "Sections 2.1–2.2 Related Work",
+      "Sections 3.1–3.3 Methods, diffusion preliminaries, framework and dataset construction",
+      "Sections 4.1–4.4 Synthesis quantitative analysis, qualitative results and comparisons",
+      "Sections 5.1–5.2 Real Robot Experiments; Section 6 Conclusion",
+      "Supplementary Sections 7.1–7.2 RoboTransfer Implementation Details",
+      "Supplementary Sections 8.1–8.3 Dataset Construction Details",
+      "Supplementary Sections 9.1–9.3 Robot Policy Implementation, Training and Deployment",
+      "Supplementary Sections 10.1–10.3 Discussion; References [1]–[65]"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The inspected title page identifies arXiv:2505.23171v2 [cs.CV], 6 January 2026. Title and all ten authors match the catalog. The catalog's 29 May 2025 submission date describes an earlier point in the record; this report reviews the supplied v2, not an inspected v1 or a comparison of revisions.",
+      "All six supplied text chunks were read without truncation, covering all 16 PDF pages. PDF pages 1–13 and all final crops were visually inspected; bibliography-only pages 14–16 were read as text.",
+      "The acquisition omission that text extraction does not reconstruct figure images was addressed by inspecting the retained PDF; no external project videos were inspected.",
+      "Separate supplemental material availability has not been fully verified. The Supplementary Material embedded in this PDF was read in full; no additional supplement was supplied.",
+      "Code was not inspected and experiments were not reproduced. Linked project resources and cited papers were not independently accessed."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Figure 6",
+      "Figure 7",
+      "Figure 8",
+      "Figure 9",
+      "Figure 10",
+      "Figure 11",
+      "Figure 12",
+      "Figure 13 (Algorithms 1–2)",
+      "Figure 14"
+    ],
+    "tablesReviewed": [
+      "Table 1",
+      "Table 2",
+      "Table 3",
+      "Table 4"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "RoboTransfer augments robot demonstrations by changing their visual appearance while conditioning video diffusion on the demonstrated geometry. Jointly encoded camera views, metric depth, normals and separate background/object references support multi-view synthesis. A separately trained ACT policy benefits from the augmented observations on two physical manipulation tasks. This is evidence for offline data augmentation, with remaining uncertainty about statistical reliability and physical fidelity.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "Demonstrations are expensive, and visual changes can defeat imitation policies. Framewise augmentation can introduce temporal inconsistency, while independently generated camera views may disagree. The paper targets controlled changes to background and object appearance that preserve a demonstrated scene's geometry across moving wrist cameras and an overhead camera.",
+    "kind": "source",
+    "evidenceIds": [
+      "e02",
+      "e03",
+      "e13"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "The generator combines width-concatenated multi-view videos with spatial geometry/background conditioning and object-wise CLIP conditioning, reusing a pretrained video backbone without a dedicated cross-view module.",
+      "kind": "source",
+      "evidenceIds": [
+        "e03",
+        "e08"
+      ]
+    },
+    {
+      "text": "An automated decomposition pipeline supplies geometry and appearance references; synthesis ablations and physical ACT evaluations test different links between conditioning, visual diversity and downstream transfer.",
+      "kind": "source",
+      "evidenceIds": [
+        "e05",
+        "e10",
+        "e11",
+        "e16"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Synchronized multi-view demonstration videos and aligned per-frame depth/normal conditions",
+      "A background reference and object reference images",
+      "For the separate deployed ACT policy: three RGB views and current robot state"
+    ],
+    "outputs": [
+      "Appearance-controlled multi-view RGB videos for policy training",
+      "Separately, ACT produces 100 future states/actions per decision"
+    ],
+    "steps": [
+      {
+        "name": "Construct geometry",
+        "detail": "For RGB-D recordings, Video Depth Anything supplies dense relative depth, aligned to sensor depth through scale-and-shift fitting with outlier filtering. LOTUS estimates normals. For RGB-only data, the appendix uses MoGe for metric depth and normals. These are preprocessing conditions, not dynamics learned from candidate actions.",
+        "evidenceIds": [
+          "e05",
+          "e06",
+          "e18"
+        ]
+      },
+      {
+        "name": "Separate appearance references",
+        "detail": "Keyframes feed a VLM descriptor, Grounding DINO and SAM2. Masking and inpainting remove objects from background references. Individual object patches become CLIP embeddings. Standard tabletop references use initial/final frames; complex scenes select maximal object visibility and minimal object presence, respectively.",
+        "evidenceIds": [
+          "e05",
+          "e07"
+        ]
+      },
+      {
+        "name": "Generate views jointly",
+        "detail": "Concatenate synchronized videos along width before VAE encoding. VAE-encoded geometry and background conditions join noisy video latents through channel concatenation. Object embeddings are concatenated and supplied through cross-attention. Joint spatial modeling allows information exchange across camera regions; it does not impose a hard geometric constraint.",
+        "evidenceIds": [
+          "e03",
+          "e08"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "SVD fine-tuning uses a denoising reconstruction objective aggregated over noise levels. Approximately 24k training and 1.6k evaluation clips contain 30 frames at 10 Hz. Each view is resized to 640×384. AdamW uses learning rate 3×10^{-5}, global batch 8 and 70k steps. Frozen-module choices are not specified.",
+        "kind": "source",
+        "evidenceIds": [
+          "e04",
+          "e08"
+        ]
+      },
+      {
+        "text": "The dedicated corpus covers twelve tasks, described as 1,000 samples per task across ten object configurations; AgiBot-World adds diversity. Policy experiments exclude the generator's task dataset and collect 100 separate expert demonstrations per task. Synthetic policy observations use demonstration geometry and held-out appearance references.",
+        "kind": "source",
+        "evidenceIds": [
+          "e06",
+          "e07",
+          "e13"
+        ]
+      },
+      {
+        "text": "ACT is pretrained on real data for 100k steps with batch 512 and learning rate 10^{-4}, then fine-tuned for 50k steps at 10^{-5}. The policy appendix reports eight NVIDIA H20 GPUs, approximately 24 hours pretraining and 12 hours fine-tuning; these are policy-training costs, not a stated generator-training cost.",
+        "kind": "source",
+        "evidenceIds": [
+          "e14"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Offline video synthesis uses 30 EDM denoising steps with classifier-free guidance. Geometry trajectories are supplied from demonstrations or simulation; the generator neither selects new actions nor performs online planning. The source permits a clean captured background reference at inference.",
+        "kind": "source",
+        "evidenceIds": [
+          "e03",
+          "e08",
+          "e12",
+          "e19"
+        ]
+      },
+      {
+        "text": "ACT receives one RGB image per camera plus current state, then predicts 100 actions. All are executed at 50 Hz before fresh observations, giving a two-second open-loop chunk between feedback updates. Reported policy inference latency is 10 ms; this is not video-generation latency.",
+        "kind": "source",
+        "evidenceIds": [
+          "e14",
+          "e15"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "x_0=\\mathcal{E}([V_1,V_2,\\ldots,V_N])",
+        "explanation": "Equation (5): V_i are synchronized videos from N viewpoints; brackets mean width concatenation, and the VAE encoder E produces the joint clean latent x_0. This defines the representation enabling cross-view reasoning.",
+        "evidenceIds": [
+          "e03"
+        ]
+      },
+      {
+        "expression": "D_{\\mathrm{metric}}=s\\,D_{\\mathrm{pred}}+b",
+        "explanation": "Algorithm 1, line 5: predicted relative depth D_pred is transformed using fitted scale s and shift b into metric depth D_metric. Sensor depth supplies the fitting target. The algorithm's error-filtering ambiguity is preserved below.",
+        "evidenceIds": [
+          "e06",
+          "e18"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Spoon pick-and-place under Diff-All",
+      "setting": "Physical Cobot Magic; novel objects and environment; 100 task demonstrations; selected 50/50 real/synthetic mixture.",
+      "metric": "Success rate (%) and Stage Score",
+      "value": "Real + Obj&Bg Aug: 46.7%; 2.98",
+      "comparison": "Real only: 13.3%; 1.56. Domain Random Aug: 11.1%; 1.58. Real + Obj Aug: 22.2%; 2.04.",
+      "interpretation": "The success increase is 33.4 percentage points. Scores track four task phases; trial counts and uncertainty are unreported.",
+      "evidenceIds": [
+        "e13",
+        "e16",
+        "e17"
+      ]
+    },
+    {
+      "task": "Towel folding under object and combined shifts",
+      "setting": "Physical three-stage task; Diff-Obj changes objects, Diff-All changes objects and environment; selected 50/50 mixture.",
+      "metric": "Success rate (%) and Stage Score",
+      "value": "Real + Obj&Bg Aug: Diff-Obj 50.0%, 2.60; Diff-All 28%, 1.92.",
+      "comparison": "Real only: 16.7%, 1.81 and 12%, 1.08, respectively.",
+      "interpretation": "Both settings improve, but success remains limited under combined shifts. Table 4 supplies these values; Figure 1 differs on some towel scores.",
+      "evidenceIds": [
+        "e16",
+        "e17",
+        "e20"
+      ]
+    },
+    {
+      "task": "Geometry conditioning ablation",
+      "setting": "Synthesis evaluation corpus: approximately 1.6k clips; Table 2 compares conditions within each camera.",
+      "metric": "Depth RMSE, matched pixels and FVD",
+      "value": "Metric predicted depth + normals, left: 0.047, 202.03, 107.43; right: 0.058, 75.67, 220.12.",
+      "comparison": "Raw sensor depth, left: 0.074, 142.90, 218.51; right: 0.090, 40.70, 396.33.",
+      "interpretation": "Wrist-view metrics improve, but head-view predicted depth alone has lower RMSE (0.132 versus 0.133) and FVD (95.89 versus 101.17). The caption's universal-best claim overstates its table.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e10"
+      ]
+    },
+    {
+      "task": "Appearance conditioning ablation",
+      "setting": "Same synthesis evaluation; Table 3 crosses background inpainting and object splitting.",
+      "metric": "Head-view background/object CLIP similarity and FVD",
+      "value": "Both enabled: 0.720 / 0.858 / 101.17",
+      "comparison": "Neither enabled: 0.712 / 0.847 / 108.65.",
+      "interpretation": "Joint conditioning improves these proxy metrics. Wrist object similarity is omitted because tracking is unreliable; CLIP similarity does not establish manipulation success.",
+      "evidenceIds": [
+        "e08",
+        "e09",
+        "e11"
+      ]
+    },
+    {
+      "task": "Synthetic-data mixture for spoon Diff-All",
+      "setting": "Figure 10 varies synthetic proportion on the spoon task under combined shifts.",
+      "metric": "Success rate (%)",
+      "value": "50% synthetic: 46.7%; 100% synthetic: 40.0%",
+      "comparison": "0% synthetic: 13.3%.",
+      "interpretation": "The tested midpoint performs best. This does not establish a universal optimum or explain how the 100% condition relates to the real-pretraining recipe.",
+      "evidenceIds": [
+        "e14",
+        "e17"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Only two physical tasks are tested. Sim-to-real evidence is qualitative video synthesis, while policy augmentation uses real-demonstration geometry. External-generator comparisons are qualitative rather than matched quantitative policy benchmarks.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e12",
+        "e13",
+        "e16"
+      ]
+    },
+    {
+      "text": "The authors suggest excessive synthetic data loses contact/material fidelity; the ratio experiment does not isolate that cause. Geometry errors, image correspondences and CLIP similarity measure visual proxies rather than calibrated physical dynamics.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e09",
+        "e17"
+      ]
+    },
+    {
+      "text": "Reporting inconsistencies remain: Table 2's right full-model RMSE is 0.058 versus Table 3's 0.059; Figure 1 shows towel Diff-All scores 1.04/1.20 for real-only/object augmentation, versus Table 4's 1.08/1.24. These differences are unresolved.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e10",
+        "e11",
+        "e20"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs SVD, the geometry/segmentation/inpainting pipeline, synchronized demonstrations and ACT. Policy RGB is sampled at 10 Hz and resized to 640×360; state is downsampled to 50 Hz. Exact action-label alignment, generator train/evaluation trajectory separation, guidance strength and evaluation trial counts require clarification. The source promises code release without establishing availability.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e07",
+        "e08",
+        "e13",
+        "e16",
+        "e19"
+      ]
+    },
+    {
+      "text": "Algorithm 1 fits aligned depth but computes rejection errors from unaligned D_pred minus D_sensor, with two iterations and an 80th-percentile cutoff. Its epsilon is unspecified. This differs from filtering post-fit residuals and should be tested as written before assuming a correction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e18"
+      ]
+    },
+    {
+      "text": "Equations (1)–(2) leave u(sigma) undefined and use x_0 both in the clean-latent description and inside VAE encoding. The paper names ACT without giving its complete loss. These gaps prevent claiming an exact implementation from this text alone.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e04",
+        "e14"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "not-applicable",
+    "reasoning": {
+      "text": "The recorded taxonomy is entirely unassigned, so there is no positive quadrant claim to confirm. Architecturally, this is offline video augmentation followed by a separate ACT controller: neither joint future/action prediction nor inverse dynamics is demonstrated. A single diffusion backbone for multiple views does not make generator and policy a One Model system; the described method sits outside that action-prediction distinction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e03",
+        "e08",
+        "e13",
+        "e14",
+        "e15"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "Would the mixture advantage persist with matched update counts, explicit pretraining controls and repeated trials?",
+    "How much does correcting the alignment residual change wrist-view geometry and policy success?",
+    "Can visual correspondence metrics predict failures during contact-rich towel folding?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e01",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/byline, affiliations and left-margin arXiv stamp",
+      "detail": "Exact catalog title and ten authors are present. The stamp is arXiv:2505.23171v2 [cs.CV], 6 Jan 2026; affiliations are Horizon Robotics, GigaAI and CASIA."
+    },
+    {
+      "id": "e02",
+      "sourceId": "primary",
+      "location": "PDF p. 2, Section 1 and Table 1",
+      "detail": "Motivates costly demonstrations, sim-to-real gaps, temporal/multi-view consistency and control over background and object appearance; Table 1 is an author capability comparison."
+    },
+    {
+      "id": "e03",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 2; p. 4, Section 3.2 and Eq. (5)",
+      "detail": "Views concatenate along width before VAE encoding; geometry/background latents concatenate with noisy inputs, while object CLIP embeddings enter cross-attention. Output is video for downstream training."
+    },
+    {
+      "id": "e04",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 3.1, Eqs. (1)–(4)",
+      "detail": "Describes conditional squared-error denoising and noise-weighted aggregation. The displayed loss contains u(sigma) without an accompanying definition; x_0 is described as a clean latent yet appears within the encoder in Eq. (1)."
+    },
+    {
+      "id": "e05",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 3; p. 5, Section 3.3",
+      "detail": "Demonstrations supply depth/normal conditions and keyframes for VLM-assisted object segmentation, background inpainting and object CLIP features."
+    },
+    {
+      "id": "e06",
+      "sourceId": "primary",
+      "location": "PDF p. 10 (supplement p. 1), Sections 8.1–8.2",
+      "detail": "Twelve tasks, ten object configurations and 1,000 samples per task are described. Three RGB-D views support Video Depth Anything alignment to sensor depth and LOTUS normals; RGB-only data use MoGe. AgiBot-World adds diversity."
+    },
+    {
+      "id": "e07",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–11 (supplement pp. 1–2), Section 8.3; p. 13 (supplement p. 4), Section 10.3",
+      "detail": "Initial/final tabletop frames or visibility-based complex-scene selection supply references. Grounding DINO and SAM2 produce masks; inpainting cleans backgrounds; 224×224 object patches feed CLIP. A clean background may instead be captured for inference."
+    },
+    {
+      "id": "e08",
+      "sourceId": "primary",
+      "location": "PDF p. 10 (supplement p. 1), Sections 7.1–7.2",
+      "detail": "Approximately 24k training and 1.6k evaluation clips at 10 Hz/30 frames; SVD fine-tuning at 640×384 per view, AdamW 3×10^-5, batch 8, 70k steps; 30 EDM steps and classifier-free guidance. Object embeddings concatenate; width concatenation avoids a dedicated cross-view module."
+    },
+    {
+      "id": "e09",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.1, Evaluation Metrics and Geometry Consistency Analysis",
+      "detail": "Matched pixels compare wrist/head view pairs; depth metrics are scale-invariant; normal errors are angular. CLIP similarity assesses references, with wrist object similarity excluded for tracking problems. Framewise scores are averaged; FVD assesses generated versus real video. Head matched-pixel entries are omitted."
+    },
+    {
+      "id": "e10",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 2, all camera blocks; p. 6, geometry-analysis prose",
+      "detail": "Left/right full-model RMSE, matched pixels and FVD are 0.047/202.03/107.43 and 0.058/75.67/220.12. Raw depth gives 0.074/142.90/218.51 and 0.090/40.70/396.33. Head predicted-depth-only RMSE/FVD 0.132/95.89 outperform full-model 0.133/101.17 despite the universal-best caption."
+    },
+    {
+      "id": "e11",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Table 3; pp. 6–7, Appearance Consistency Analysis",
+      "detail": "The two binary conditions are background inpainting and object splitting. Head baseline background/object similarity and FVD are 0.712/0.847/108.65; joint conditions give 0.720/0.858/101.17. Full-model right RMSE is printed as 0.059."
+    },
+    {
+      "id": "e12",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–8, Figures 4–9; p. 7, Sections 4.2–4.4",
+      "detail": "Static panels illustrate background/object changes, simulated-to-realistic appearance transfer and diverse scenes. Comparisons with Cosmos-Transfer and RoboEngine are qualitative; the figures are not physical policy success tests."
+    },
+    {
+      "id": "e13",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5.1; p. 11 (supplement p. 2), Section 9.1",
+      "detail": "Cobot Magic has two PIPER arms and three D435i cameras. ACT uses 100 ALOHA demonstrations per task, excluding the generator's task dataset. Images become 640×360 at 10 Hz; state is downsampled to 50 Hz. Synthetic observations use real geometry and held-out appearance references."
+    },
+    {
+      "id": "e14",
+      "sourceId": "primary",
+      "location": "PDF p. 11 (supplement p. 2), Section 9.2",
+      "detail": "ACT predicts 100 states over two seconds. Real pretraining: 100k steps, batch 512, learning rate 10^-4; fine-tuning: 50k steps, 10^-5. The policy recipe reports eight NVIDIA H20 GPUs and approximately 24/12 hours."
+    },
+    {
+      "id": "e15",
+      "sourceId": "primary",
+      "location": "PDF p. 11 (supplement p. 2), Section 9.3",
+      "detail": "Each policy decision consumes three RGB frames and current state. All 100 actions execute at 50 Hz before new observations. Reported inference latency is 10 ms."
+    },
+    {
+      "id": "e16",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Table 4 and Section 5.2 task/effectiveness paragraphs",
+      "detail": "Spoon Diff-All real-only/domain-random/object/joint augmentation gives success 13.3/11.1/22.2/46.7% and scores 1.56/1.58/2.04/2.98. Towel joint augmentation gives 50.0%/2.60 (Diff-Obj), 28%/1.92 (Diff-All), versus 16.7%/1.81 and 12%/1.08. Four spoon and three towel phases define progression; no trial counts or uncertainty appear."
+    },
+    {
+      "id": "e17",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 10 and Section 5.2, Effect of Synthetic Data Proportions",
+      "detail": "Spoon Diff-All peaks at the tested 50/50 mixture, with 46.7% success versus 13.3% at zero synthetic and 40.0% at all synthetic. The authors adopt 50/50 for Table 4 and suggest physical-fidelity loss at high synthetic proportions."
+    },
+    {
+      "id": "e18",
+      "sourceId": "primary",
+      "location": "PDF p. 12 (supplement p. 3), Figure 13, Algorithms 1–2; p. 10, Section 8.2",
+      "detail": "Algorithm 1 initializes positive-depth masks, performs two scale/shift fits and filters at the 80th percentile. Line 5 forms aligned depth; line 7 nevertheless uses unaligned predicted-minus-sensor depth. Algorithm 2 supplies least-squares fitting. Epsilon and degenerate-fit handling are unspecified."
+    },
+    {
+      "id": "e19",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–13 (supplement pp. 3–4), Sections 10.1–10.3",
+      "detail": "Discussion positions appearance references as style conditions anchored by geometry, outlines RGB-D/RGB-only and simulator condition acquisition, promises code release and permits clean captured inference backgrounds."
+    },
+    {
+      "id": "e20",
+      "sourceId": "primary",
+      "location": "PDF p. 1, Figure 1, towel Diff-All score bars; p. 9, Table 4, Towel Folding / Diff-All / Score",
+      "detail": "Figure 1's real-only/object-augmentation towel Diff-All bars read 1.04/1.20, whereas Table 4 reports 1.08/1.24. This report preserves Table 4 values and discloses the disagreement."
+    }
+  ]
+}

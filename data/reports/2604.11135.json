@@ -1,0 +1,405 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2604.11135",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T11:35:20.589Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2604.11135",
+      "title": "AIM: Intent-Aware Unified world action Modeling with Spatial Value Maps",
+      "kind": "pdf",
+      "sha256": "5fe76983f3e41065f018930c8bae57d7422cdedfc63c565934b706e944aea040",
+      "wordCount": 5477,
+      "accessedAt": "2026-09-10T10:25:05.500494+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Title, authors, affiliations and Abstract (p. 1)",
+      "1 Introduction (pp. 1–2)",
+      "2 Related Work (pp. 2–3)",
+      "3 Overview (p. 3)",
+      "4 Method and 4.1 Model Architecture (pp. 4–5)",
+      "4.2 Intent-Causal Self-Attention (p. 6)",
+      "4.3 Self-Distillation RL Post-Training (p. 6)",
+      "5 Dataset and Value-Map Annotation (p. 8)",
+      "6 Experiments (pp. 8–9); complete Tables 1–2 (pp. 7–8)",
+      "7 Conclusion (p. 9)",
+      "References [1]–[27] (pp. 10–11)"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "The extraction's figure omission was addressed by visually inspecting all eleven PDF pages and all five final original crops.",
+      "The inspected source is arXiv:2604.11135v1 [cs.RO], 13 April 2026, marked 'Preprint. Under review.' Its title and all six authors match the catalog; no revision or edition difference was observed. No other version was supplied or compared.",
+      "No appendix is present in the supplied eleven-page PDF. No separate supplement was supplied.",
+      "Code and external resources were not inspected; no training, robot execution or benchmark reproduction was performed."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 3): conceptual spatial interface",
+      "Figure 2 (p. 4): framework, arrows and post-training label",
+      "Figure 3 (p. 9): Easy/Hard execution examples"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 7): all 50 task rows and averages",
+      "Table 2 (p. 8): all baseline and Stage1/AIM entries"
+    ],
+    "appendix": "not-present"
+  },
+  "synopsis": "AIM jointly generates future RGB observations, spatial contact maps and continuous robot actions. A masked mixture-of-transformers architecture makes the predicted maps the action head's only route to future information. Supervised learning uses simulator-derived contact labels; post-training freezes world/value prediction and refines actions using map responses plus task rewards. The paper reports 94.0% Easy and 92.1% Hard success on RoboTwin 2.0, but the small post-training improvement, missing mechanism ablations and inconsistent schematic require careful interpretation.",
+  "readingTimeMinutes": 9,
+  "problem": {
+    "text": "The authors argue that predicting scene appearance leaves manipulation intent implicit: a controller still needs to identify where useful contact should occur. AIM inserts an aligned spatial representation between visual foresight and action generation to concentrate this information. Whether that interface itself causes the performance gains requires controls beyond the reported baseline comparisons.",
+    "kind": "author-claim",
+    "evidenceIds": [
+      "e-motivation",
+      "e-overview",
+      "e-protocol"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "A video-prior model predicts future RGB and contact-oriented value maps, coupled to a narrower action transformer through shared masked attention. The map is used during action generation, rather than serving only as an auxiliary training target.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-architecture",
+        "e-mask"
+      ]
+    },
+    {
+      "text": "A two-stage learning procedure combines supervised frame/map/action objectives with action-only RL, supported by 30K simulated trajectories with synchronized observations, actions and per-step map annotations.",
+      "kind": "source",
+      "evidenceIds": [
+        "e-loss",
+        "e-rl",
+        "e-data"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Synchronized head and two wrist RGB views, current/recent observations and recent actions",
+      "Language instruction encoded by pretrained T5"
+    ],
+    "outputs": [
+      "A future chunk of RGB frames and spatially aligned three-channel value maps",
+      "Continuous dual-arm action vectors"
+    ],
+    "steps": [
+      {
+        "name": "Encode aligned observations and maps",
+        "detail": "Pack head and wrist views into a T-pose canvas. Encode RGB and identically packed maps with the pretrained Wan2.2 VAE; project continuous actions through a lightweight MLP. T5 instruction features condition the video model through cross-attention. The text describes a black map input at initialization, separately from future-token Gaussian-noise initialization.",
+        "evidenceIds": [
+          "e-tokenization",
+          "e-architecture"
+        ]
+      },
+      {
+        "name": "Couple specialized streams",
+        "detail": "Initialize from Wan2.2-TI2V-5B. The action head has the same depth and smaller width. Streams use their own Q/K/V projections, a common attention dimension, shared masked attention, and separate feed-forward transformations. RGB and map tokens follow a joint flow-matching trajectory; the value stream also receives a learned value-noise token.",
+        "evidenceIds": [
+          "e-overview",
+          "e-architecture"
+        ]
+      },
+      {
+        "name": "Restrict future access",
+        "detail": "Equation (10) lets future RGB attend current/past observations, past actions, language and its own stream. Value tokens see current/past observations, future RGB and their own stream. Action tokens see current observations, past actions, future maps and their own stream. Direct future-RGB and direct language access are absent from the action visibility set.",
+        "evidenceIds": [
+          "e-mask"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "Pick labels project effective grasp-contact vertices through calibrated cameras and apply Gaussian smoothing adapted to camera parameters and depth. Place labels project object/support contact after stabilization under a small center-of-mass velocity threshold. These supervise interaction heat maps; the paper supplies no Bellman-return target for them.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-data"
+        ]
+      },
+      {
+        "text": "Stage1 minimizes weighted RGB flow-matching, map flow-matching and inverse-dynamics action losses. RL starts from Stage1, freezes the video generator and value head, and updates only the action head using the combined dense/sparse reward. Section 4.3 calls the clipped-ratio update GRPO.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-loss",
+          "e-rl"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Initialize future RGB, map and action tokens from noise and denoise the coupled streams under the mask. Decode a world/action chunk and roll out autoregressively with a KV cache; newly appended real observations and predicted tokens receive fresh computation. The distribution factorization describes information dependence, not a separately documented serial sampling schedule.",
+        "kind": "source",
+        "evidenceIds": [
+          "e-overview",
+          "e-architecture",
+          "e-mask"
+        ]
+      },
+      {
+        "text": "Evaluation measures simulated task execution. Future-frame quality alone does not establish control success. The source does not specify how many actions are executed before feedback, denoising-step counts or measured control latency.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "e-architecture",
+          "e-protocol"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "p(X^+,M^+,A^+\\mid\\mathcal H_t)=p(X^+,M^+\\mid\\mathcal H_t)\\,p(A^+\\mid\\mathcal H_t,M^+)",
+        "explanation": "Equation (1): X+, M+ and A+ are future RGB, maps and actions over horizon h; history H_t contains observations o from t−k through t and actions a through t−1. The action factor receives future information through M+.",
+        "evidenceIds": [
+          "e-overview"
+        ]
+      },
+      {
+        "expression": "\\mathcal L=\\mathcal L_{\\mathrm{rgb}}+\\lambda_m\\mathcal L_{\\mathrm{map}}+\\lambda_a\\mathcal L_{\\mathrm{act}}",
+        "explanation": "Equation (9): RGB/map losses supervise denoising velocity fields; the action loss supervises inverse dynamics. The map and action weights are lambda_m and lambda_a; their numerical values are not reported.",
+        "evidenceIds": [
+          "e-loss"
+        ]
+      },
+      {
+        "expression": "r_t=\\lambda_d r_t^{\\mathrm{dense}}+\\lambda_s r_t^{\\mathrm{sparse}},\\qquad r_t^{\\mathrm{dense}}=M_t\\!\\left(\\Pi(p_t)\\right)",
+        "explanation": "Equation (12): p_t is the predicted landing point or end-effector target; Pi projects it into the camera image; M_t is the predicted map. Sparse reward signals task success/completion, and lambda_d/lambda_s weight the components. Multi-view/channel reduction is unspecified.",
+        "evidenceIds": [
+          "e-rl"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "RoboTwin 2.0 aggregate manipulation success",
+      "setting": "50 simulation tasks, Easy/Hard; 30K training trajectories. Section 6 states common data, task definitions and success criteria; split details are absent.",
+      "metric": "Reported average success rate (SR; higher is better)",
+      "value": "AIM: Easy 94.0%, Hard 92.1%; Table 2 combined Average 93.1%.",
+      "comparison": "Table 2: LingBot-VA 92.9%/91.6%, Fast-WAM 91.9%/91.8%, Motus 88.7%/87.0%, π0.5 82.7%/76.8% (Easy/Hard).",
+      "interpretation": "AIM leads the reported aggregate comparison. Differences from Motus are 5.3/5.1 percentage points using Table 2's rounded entries; the prose says +5.0 for Hard. No uncertainty or significance test is supplied.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-aggregate"
+      ]
+    },
+    {
+      "task": "Effect of RL post-training",
+      "setting": "Stage1 supervised checkpoint versus final AIM; same Easy/Hard simulation benchmark.",
+      "metric": "Reported average SR and percentage-point difference",
+      "value": "Stage1 93.0%/92.0%; AIM 94.0%/92.1%: reported gains +1.0/+0.1 points.",
+      "comparison": "Reader calculation from the 50 displayed integer task cells gives Hard means of 92.1% for both Stage1 and AIM.",
+      "interpretation": "The reported Hard gain cannot be reconciled from displayed rows alone; rounding or aggregation details are unspecified. This comparison changes the complete RL stage and does not isolate dense rewards or the attention mask.",
+      "evidenceIds": [
+        "e-stage",
+        "e-row-arithmetic",
+        "e-rl"
+      ]
+    },
+    {
+      "task": "Place Mouse Pad",
+      "setting": "Table 1, Easy/Hard RoboTwin task evaluation.",
+      "metric": "Task SR",
+      "value": "AIM 97%/95%.",
+      "comparison": "Motus 66%/68%; Stage1 97%/96%.",
+      "interpretation": "A large baseline advantage coexists with a one-point Hard decrease after RL. The gain over Motus therefore cannot be attributed primarily to post-training.",
+      "evidenceIds": [
+        "e-task-contrast",
+        "e-protocol"
+      ]
+    },
+    {
+      "task": "Blocks Ranking Size",
+      "setting": "Table 1, Easy/Hard RoboTwin task evaluation.",
+      "metric": "Task SR",
+      "value": "AIM 47%/43%.",
+      "comparison": "Motus 75%/63%; X-VLA 67%/74%.",
+      "interpretation": "The high aggregate result does not imply uniformly successful manipulation or dominance on every task.",
+      "evidenceIds": [
+        "e-task-contrast",
+        "e-protocol"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "Figure 2 draws future-frame-to-action and action-to-map arrows, conflicting with the future-RGB → map → action dependence in Equation (10). Its 'PPO Post-Training' label also conflicts with its GRPO caption and Section 4.3. The equations/text specify the intended mechanism; the diagram is not a reliable wiring specification.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-figure-conflict",
+        "e-mask",
+        "e-rl"
+      ]
+    },
+    {
+      "text": "The study is simulation-only. No isolated map-removal, mask, reward-component or frozen-branch ablation is reported. Figure 3 contains execution strips without predicted-map overlays or target markers, so it cannot establish the authors' claimed map localization or exclusion of shortcut correlations.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-data",
+        "e-protocol",
+        "e-qualitative"
+      ]
+    },
+    {
+      "text": "Evaluation trial counts, seeds, confidence intervals, train/test split details and exact Easy/Hard configurations are missing. These omissions matter especially for the reported 0.1-point Hard post-training improvement.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-protocol",
+        "e-stage",
+        "e-row-arithmetic"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "Reproduction needs the Wan2.2 initialization, calibrated three-view simulator data, contact extraction, packed-map encoding and action representation. The paper leaves the Gaussian-width rule, stability threshold, channel semantics and annotation rules beyond pick/place insufficiently specified.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-tokenization",
+        "e-data"
+      ]
+    },
+    {
+      "text": "Training budgets, hardware, optimizer settings, action-head width, loss/reward weights, flow sampling schedule, GRPO group construction and policy-likelihood computation are not supplied. Clarify these alongside the diagram/text conflicts before treating an implementation as an exact reproduction.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-architecture",
+        "e-loss",
+        "e-mask",
+        "e-rl",
+        "e-protocol",
+        "e-figure-conflict"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The recorded catalog fields are all 'Not assigned', so no existing quadrant can be confirmed. Architecture evidence supports a unified One Model interpretation at the coupled-network level: specialized branches share masked attention during generation. Its prediction mechanism combines joint future RGB/map/action denoising with value-conditioned inverse-dynamics action prediction and later action-only RL. This assessment does not assign or overwrite a catalog quadrant.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "e-overview",
+        "e-architecture",
+        "e-mask",
+        "e-rl"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "Would disabling direct RGB access still help when map supervision, parameter count and training budget are controlled? (e-mask; e-protocol)",
+    "Does the frozen map reward improve true task success, or can an action policy exploit erroneous high-value regions? (e-rl; e-stage)"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "e-identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/byline, affiliations and arXiv margin stamp",
+      "detail": "Exact catalog title; authors Liaoyuan Fan, Zetian Xu, Chen Cao, Wenyao Zhang, Mingqi Yuan and Jiayu Chen. Affiliations name INFIFORCE Intelligent Technology Co., Ltd.; The University of Hong Kong; Shanghai Jiao Tong University. Stamp: arXiv:2604.11135v1 [cs.RO], 13 Apr 2026."
+    },
+    {
+      "id": "e-motivation",
+      "sourceId": "primary",
+      "location": "PDF pp. 1–2, Abstract and Section 1",
+      "detail": "The authors motivate explicit spatial interaction intent as an interface between dense future appearance and control."
+    },
+    {
+      "id": "e-overview",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Figure 1 and Section 3, Equation (1), Architecture Overview",
+      "detail": "History-conditioned horizon chunks contain future RGB, aligned three-channel maps and actions. The action factor conditions on future maps. Figure 1 adds Future Value and a Self-Distillation arrow to Action; its input diagram labels State and Prop. Tokenizer."
+    },
+    {
+      "id": "e-tokenization",
+      "sourceId": "primary",
+      "location": "PDF pp. 4–5, Section 4.1 Tokenization, Equations (2)–(4)",
+      "detail": "Head/wrist views use a common T-pose layout. RGB/maps share the Wan VAE. The text mentions black-map initialization, an action MLP, T5 features and a history prefix of observations/actions/language."
+    },
+    {
+      "id": "e-architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1 Architecture, Equations (5)–(8), final inference paragraph",
+      "detail": "Gaussian-noise future streams, learned value-noise token, joint RGB/map flow matching and continuous action decoding. Branches share attention but retain specialized projections and feed-forward layers. Language conditions video; rollout supports cached history and new real observations."
+    },
+    {
+      "id": "e-loss",
+      "sourceId": "primary",
+      "location": "PDF p. 5, Section 4.1, Equation (9) and explanation",
+      "detail": "The objective sums RGB flow-matching, weighted map flow-matching and weighted inverse-dynamics action losses; coefficient values and detailed training configuration are absent."
+    },
+    {
+      "id": "e-mask",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.2, Equations (10)–(11) and following paragraph",
+      "detail": "Explicit visibility sets route future RGB into maps and future maps into actions, forbidding direct future-RGB attention by the action stream. Current observations and past actions remain visible to actions."
+    },
+    {
+      "id": "e-rl",
+      "sourceId": "primary",
+      "location": "PDF p. 6, Section 4.3, Equations (12)–(13)",
+      "detail": "Only the action head is updated; video/value prediction is frozen. Dense reward samples the predicted map at a camera-projected action target and combines with sparse task feedback. The text names GRPO and provides a clipped probability-ratio objective."
+    },
+    {
+      "id": "e-data",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Section 5, all three paragraphs",
+      "detail": "30K synchronized RoboTwin simulation trajectories; contact projection and adaptive Gaussian smoothing for pick maps; stability detection and support contact for place maps. Numerical annotation thresholds, channel encoding and other task-specific annotation rules are not supplied."
+    },
+    {
+      "id": "e-protocol",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Section 6, Experimental Setup through Main Results and Analysis; Tables 1–2 on pp. 7–8",
+      "detail": "50 Easy/Hard simulation tasks, success-rate metric, stated common 30K training data and success criteria; Stage1 is the supervised pre-RL control. No trial counts, uncertainty, detailed split, isolated map/mask/reward controls or hardware/training budget are reported."
+    },
+    {
+      "id": "e-aggregate",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2, Easy/Hard/Average rows; Section 6 Main Results; p. 7 Table 1 Average row",
+      "detail": "Table 2 reports AIM 94.0/92.1/93.1, LingBot-VA 92.9/91.6/92.2, Fast-WAM 91.9/91.8/91.8, Motus 88.7/87.0/87.8 and π0.5 82.7/76.8/79.8 percent. Prose claims +5.0 over Motus on Hard, whereas displayed Table 2 entries differ by 5.1 points; Table 1 Motus Hard is 87.02%."
+    },
+    {
+      "id": "e-stage",
+      "sourceId": "primary",
+      "location": "PDF p. 8, Table 2, Stage1 and AIM columns; Section 6 Baselines and Metrics",
+      "detail": "Stage1 has 93.0/92.0/92.5 percent Easy/Hard/Average; AIM has 94.0/92.1/93.1. Section 6 identifies initialization from Stage1 and frozen video/value branches."
+    },
+    {
+      "id": "e-row-arithmetic",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, all 50 Stage1 Hard and AIM Hard cells and Average row",
+      "detail": "Reader arithmetic on displayed integer percentages: both Hard columns sum to 4605, yielding an equal-task mean of 92.1%. The printed aggregate is Stage1 92.0% versus AIM 92.1%; raw precision or alternative weighting is not explained."
+    },
+    {
+      "id": "e-task-contrast",
+      "sourceId": "primary",
+      "location": "PDF p. 7, Table 1, Place Mouse Pad, Blocks Ranking Size, Scan Object, Turn Switch, Hanging Mug and Press Stapler rows",
+      "detail": "Place Mouse Pad: AIM 97/95, Stage1 97/96, Motus 66/68. Blocks Ranking Size: AIM 47/43, Motus 75/63, X-VLA 67/74. Scan Object: AIM 100/98 versus Motus 67/66. Turn Switch: AIM 100/98 versus Motus 84/78. Hanging Mug: AIM 43/42. Press Stapler: AIM 96/94. All are Easy/Hard percentages."
+    },
+    {
+      "id": "e-figure-conflict",
+      "sourceId": "primary",
+      "location": "PDF p. 4, Figure 2 graphic and caption; p. 6, Equations (10), (12)–(13)",
+      "detail": "The graphic includes a Future Frame Generation → Action Head arrow, an Action Head → Spatial Value Map arrow and a PPO Post-Training box. Its caption and Section 4.3 instead say GRPO; Section 4.2 formally excludes direct future RGB from action visibility."
+    },
+    {
+      "id": "e-qualitative",
+      "sourceId": "primary",
+      "location": "PDF p. 9, Figure 3 and caption; Section 6 continuation and Section 7",
+      "detail": "Execution strips show place mouse pad, press stapler, scan object, turn switch and open laptop, with Easy left and Hard right. No map overlays, projected-target markers, numerical map-quality diagnostic or predicted-versus-observed comparison is shown. The adjoining prose attributes gains to meaningful map localization and argues against shortcuts."
+    }
+  ]
+}

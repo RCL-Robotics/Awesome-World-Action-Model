@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2503.22020",
+  "shortTitle": "CoT-VLA",
+  "thesis": "A shared multimodal model predicts an image of the desired future before generating robot actions, improving several manipulation results at the cost of slow image generation and delayed feedback.",
+  "standfirst": "CoT-VLA places a visible prediction between an instruction and a robot command: an image of a future subgoal. That image then conditions an action chunk, after which a fresh camera observation restarts the process. This provides a way to train on captioned videos without pretending those videos contain robot action labels. The important evidence is therefore not just whether predicted images look plausible, but whether conditioning on them helps executed manipulation. Read the architecture alongside the component ablations and the ground-truth-goal intervention. Together they support a useful control interface while leaving open how much improvement comes specifically from video data, semantic goal quality or additional computation.",
+  "evidenceIds": [
+    "e-problem",
+    "e-architecture",
+    "e-formulation",
+    "e-control",
+    "e-components",
+    "e-oracle",
+    "e-limitations"
+  ],
+  "featuredResultTask": "Franka-Tabletop adaptation",
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 3,
+      "asset": "report-assets/2503.22020/architecture.png",
+      "width": 1380,
+      "height": 420,
+      "sourceSha256": "20081e8c7efca4e4bf7f8d6e83ee69793a30961b5069975c0980dddb2cf211f0",
+      "sourceUrl": "https://arxiv.org/pdf/2503.22020#page=3",
+      "crop": [
+        0.095,
+        0.095,
+        0.907,
+        0.286
+      ],
+      "alt": "CoT-VLA combines prior multimodal training, robot demonstrations and action-less video; blue goal-image outputs precede yellow action outputs, with a dotted execution-to-observation loop.",
+      "caption": "Predict a visual target, generate an action chunk, execute, and observe again.",
+      "readingGuide": "Begin with the blue observation tokens and green instruction below the shared CoT-VLA block. The upper blue branch represents the generated subgoal image; the yellow branch represents a chunk of actions. The left-hand boxes describe training sources, rather than three separate deployment inputs. Follow the dotted line on the right from action execution back to a new observation: Algorithm 1 obtains that observation after executing the chunk. The caption and Equations (2)–(3) establish the sequential dependence of actions on the generated goal, even though the overview places both output branches above the same block.",
+      "takeaway": "The architecture supports a one-model interpretation: the shared multimodal model generates both goals and actions. Action-less videos can supervise the image branch, while demonstrated actions supervise control. The predicted image is used during deployment, so its role extends beyond an auxiliary training objective.",
+      "caution": "Figure 2 labels the action endpoint a_n, whereas Section 3.1 uses n for the image horizon and m for actions. Algorithm 1 also uses inclusive m+1 indexing. Treat these as unresolved notation inconsistencies, not distinct verified horizons.",
+      "evidenceIds": [
+        "e-architecture",
+        "e-formulation",
+        "e-backbone",
+        "e-control"
+      ]
+    },
+    {
+      "id": "hybrid-attention",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 4,
+      "asset": "report-assets/2503.22020/hybrid-attention.png",
+      "width": 983,
+      "height": 893,
+      "sourceSha256": "20081e8c7efca4e4bf7f8d6e83ee69793a30961b5069975c0980dddb2cf211f0",
+      "sourceUrl": "https://arxiv.org/pdf/2503.22020#page=4",
+      "crop": [
+        0.146,
+        0.088,
+        0.435,
+        0.291
+      ],
+      "alt": "Attention matrix with a dark causal staircase for image and text positions and fully dark lower rows for the x, theta and g action queries; right-side arrows label causal and full attention.",
+      "caption": "Image generation remains causal while action queries share full attention.",
+      "readingGuide": "Read the mask from its upper image/text portion to the bottom yellow action-query rows. The dark staircase in the upper portion matches the caption's causal attention, while the lower action rows extend across all action columns as well as the preceding context. The special tokens labeled x, theta and g stand for parallel decoding slots in the figure; the paper states that a complete action uses seven tokens. Section 3.3 discretizes each action dimension independently into 256 bins, but lets the queries interact through attention. Thus independent discretization does not imply that the model ignores relationships among action dimensions.",
+      "takeaway": "The mask provides a concrete architectural change beyond generating a subgoal: action outputs need not be decoded one token at a time. Figure 6 tests adding this hybrid mechanism before adding visual CoT, allowing the reader to distinguish those successive system changes.",
+      "caution": "This schematic does not specify every implementation detail of query construction or loss reduction. Equation (5) repeats a probability term without an explicit dependence on its summation index; the exact action-loss reduction should be resolved before reproduction.",
+      "evidenceIds": [
+        "e-attention",
+        "e-objectives",
+        "e-components"
+      ]
+    },
+    {
+      "id": "libero-results",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 5,
+      "asset": "report-assets/2503.22020/libero-results.png",
+      "width": 1198,
+      "height": 209,
+      "sourceSha256": "20081e8c7efca4e4bf7f8d6e83ee69793a30961b5069975c0980dddb2cf211f0",
+      "sourceUrl": "https://arxiv.org/pdf/2503.22020#page=5",
+      "crop": [
+        0.147,
+        0.088,
+        0.852,
+        0.183
+      ],
+      "alt": "LIBERO success-rate table comparing Diffusion Policy, fine-tuned Octo, fine-tuned OpenVLA and CoT-VLA across average, Spatial, Object, Goal and Long columns, with standard errors.",
+      "caption": "CoT-VLA leads three suite columns, but the reported aggregate is internally inconsistent.",
+      "readingGuide": "Compare rows within a suite before reading the leftmost Average column. The source caption reports mean success and standard error across three seeds, each with 500 episodes per suite. CoT-VLA is highest in Spatial, Goal and Long; Diffusion Policy is highest in Object. LIBERO's four suites each contain ten tasks with fifty demonstrations per task, and the evaluation follows the stated pause-removal, resizing and rotation pipeline. The 69.0% Long result is an executed simulation-task outcome, not an image-quality score. Bold and underlined formatting denote first and second place in the original table.",
+      "takeaway": "The printed average is 81.13 ± 0.6% versus OpenVLA's 76.5 ± 0.6%, an apparent gain of 4.63 percentage points, about 6.1% relative. The Long column shows a larger difference: 69.0% versus 53.7%. The Object column prevents a claim of dominance across every suite.",
+      "caution": "The four displayed CoT-VLA suite means average 83.925%, rather than the printed 81.13%. Both are preserved without selecting a corrected value. The source provides no reconciliation, so its aggregate needs verification before use as a benchmark reference.",
+      "evidenceIds": [
+        "e-libero",
+        "e-evaluation"
+      ]
+    },
+    {
+      "id": "franka-results",
+      "kind": "figure",
+      "section": "results",
+      "sourceLabel": "Figure 4",
+      "page": 6,
+      "asset": "report-assets/2503.22020/franka-results.png",
+      "width": 1385,
+      "height": 332,
+      "sourceSha256": "20081e8c7efca4e4bf7f8d6e83ee69793a30961b5069975c0980dddb2cf211f0",
+      "sourceUrl": "https://arxiv.org/pdf/2503.22020#page=6",
+      "crop": [
+        0.095,
+        0.09,
+        0.91,
+        0.241
+      ],
+      "alt": "Six Franka tabletop task photographs beside grouped success-rate bars for Diffusion Policy, Octo, OpenVLA and CoT-VLA; task groups distinguish single instructions from multiple instructions.",
+      "caption": "Real-robot gains depend on the task and instruction setting.",
+      "readingGuide": "Use the small task photographs to identify the six settings, then read the labeled bars with the legend above them. The dashed group is the cross-task average. The arrows below split the remaining groups into three single-instruction tasks and three multi-instruction tasks; each task has its own trained model. CoT-VLA's yellow bars show strong average performance, but competing methods win individual tasks: Diffusion Policy on putting corn in a bowl, OpenVLA on flipping the pot upright, and Octo on covering an object. The source describes ten to 150 demonstrations per task on a Franka setup absent from pretraining.",
+      "takeaway": "CoT-VLA averages 78.8%, compared with OpenVLA's 67.3%, Diffusion Policy's 51.2% and Octo's 41.5%. The OpenVLA gap is 11.5 percentage points, approximately 17.1% relative. These values contextualize the abstract's roughly 17% real-world improvement rather than implying a 17-point increase.",
+      "caution": "Figure 4 supplies no uncertainty bars or per-task trial counts. Section 4.2 incorrectly refers to these results as Table 4; the actual Table 4 contains dataset weights. Preserve the distinction between the six task-specific models and one universal deployment policy.",
+      "evidenceIds": [
+        "e-franka",
+        "e-evaluation"
+      ]
+    },
+    {
+      "id": "component-ablations",
+      "kind": "figure",
+      "section": "ablation",
+      "sourceLabel": "Figure 6(a–b)",
+      "page": 8,
+      "asset": "report-assets/2503.22020/component-ablations.png",
+      "width": 995,
+      "height": 723,
+      "sourceSha256": "20081e8c7efca4e4bf7f8d6e83ee69793a30961b5069975c0980dddb2cf211f0",
+      "sourceUrl": "https://arxiv.org/pdf/2503.22020#page=8",
+      "crop": [
+        0.095,
+        0.087,
+        0.485,
+        0.306
+      ],
+      "alt": "Panel a shows successive additions of action chunking, hybrid attention and visual CoT on LIBERO-Spatial and Goal; panel b shows Franka success without and with pretraining.",
+      "caption": "Visual goals add gains after chunking and hybrid attention, while the pretraining experiment changes an entire stage.",
+      "readingGuide": "Panel a should be read in legend order within each suite: vanilla VLA, action chunking, hybrid attention and finally CoT. Section 4.3 says the variants share the VILA-U backbone. Compare the blue and yellow bars to examine the incremental visual-CoT addition after the other two modifications. Panel b asks a different question: it compares direct Franka fine-tuning against the complete OpenX-plus-video pretraining stage followed by fine-tuning. The supplement records Bridge at 24.14% of that mixture and each action-less video dataset at 3.45%; panel b does not provide a robot-only pretraining control.",
+      "takeaway": "Adding CoT increases Spatial from 81.8% to 87.5% and Goal from 79.7% to 87.6%, gains of 5.7 and 7.9 percentage points. The separate pretraining comparison rises from 53.7% to 78.8%, a 25.1-point gain, described by the authors as 46.7% relative.",
+      "caution": "The bars show no uncertainty. Successive additions are not a full factorial ablation, and panel b jointly changes robot/video pretraining. It cannot establish the marginal benefit of action-less videos or disentangle extra training compute from data composition.",
+      "evidenceIds": [
+        "e-components",
+        "e-pretrain-ablation",
+        "e-data"
+      ]
+    },
+    {
+      "id": "oracle-goals",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 3",
+      "page": 8,
+      "asset": "report-assets/2503.22020/oracle-goals.png",
+      "width": 966,
+      "height": 218,
+      "sourceSha256": "20081e8c7efca4e4bf7f8d6e83ee69793a30961b5069975c0980dddb2cf211f0",
+      "sourceUrl": "https://arxiv.org/pdf/2503.22020#page=8",
+      "crop": [
+        0.521,
+        0.131,
+        0.9,
+        0.197
+      ],
+      "alt": "Two-column table labeled Sub-task 1 and Sub-task 2: generated goals yield 20% and 0% success; ground-truth goals yield 60% and 40%.",
+      "caption": "Supplying demonstrated goals improves performance, but leaves many failures.",
+      "readingGuide": "Read vertically within each column: the model acts with its generated goal in the first row and with a ground-truth goal in the second. Section 4.4 describes two unseen task compositions involving moving a scallion to an apple-covered book and a cauliflower to a bear-covered book. For each task, one demonstration supplies ground-truth goals and five evaluation trials are conducted per condition. The table calls its columns Sub-task 1 and Sub-task 2, while the prose describes two tasks; retain those printed labels without inferring an undocumented finer-grained scoring protocol. This is a goal substitution experiment rather than training a better generator.",
+      "takeaway": "The reported change is 20% to 60% in one column and 0% to 40% in the other: forty percentage points each. Better goals can expose action capabilities that generated goals fail to activate. Residual failure with demonstrated goals shows that goal prediction is not the sole bottleneck.",
+      "caution": "Five trials per condition provide little precision. Demonstrated goals are privileged information and may improve several properties at once, including task identity and geometry. This comparison does not prove that visual realism alone causes better control or that new-task generalization is solved.",
+      "evidenceIds": [
+        "e-oracle",
+        "e-objectives",
+        "e-control"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Use the future image as a control interface",
+      "kind": "source",
+      "text": "Start with the two conditionals in Section 3.1. The first predicts a future observation from the current image and instruction; it never receives the actions whose consequences it would simulate. The second predicts actions from the current observation, instruction and that future image. Both conditionals use the same model, but their supervision differs: captioned videos suffice for image prediction, whereas robot demonstrations provide action labels. At deployment, Algorithm 1 generates the goal before sampling the action chunk and observes again after executing it. Consequently, the visible sequence of goal images in Figure 5 is repeatedly conditioned on new observations. Those generated intermediate images should be distinguished from the figure's observed initial and final states; selected successful examples do not measure overall reliability.",
+      "evidenceIds": [
+        "e-formulation",
+        "e-architecture",
+        "e-control",
+        "e-qualitative"
+      ]
+    },
+    {
+      "heading": "Separate spatial image positions, residual codes and action queries",
+      "kind": "source",
+      "text": "The model's image representation has two levels: a 16 × 16 grid of visual positions and four residual codes at each position. The LLM supplies code embeddings and the depth transformer predicts residual tokens. Reader interpretation: the 256 spatial positions help explain the limitations section's reference to generating 256 image tokens, while the backbone section counts four residual codes per position. During CoT-VLA training, the vision tower is frozen while the LLM, projector and depth transformer are optimized. Image generation remains causal; action queries use full attention and each action dimension is discretized into a bin. Parallel action decoding therefore reduces one computational burden without removing autoregressive image generation, which the authors identify as the main latency bottleneck.",
+      "evidenceIds": [
+        "e-backbone",
+        "e-objectives",
+        "e-attention",
+        "e-limitations"
+      ]
+    },
+    {
+      "heading": "Ask which intervention the experiments actually isolate",
+      "kind": "analysis",
+      "text": "Reader analysis: the strongest mechanism question is whether the predicted goal contributes useful information beyond chunking and attention. Figure 6(a) addresses this incrementally, because the CoT variant is compared with a model that already has both additions. Table 3 addresses a complementary question: can the existing policy do better when supplied with demonstrated goals? Its positive result indicates room at the goal interface, but does not tell us which generator property matters. Figure 6(b) is broader still, changing the entire pretraining stage, including robot and action-less data. The supplement makes that mixture reproducible in outline, but supplies no robot-only control with matched compute. These interventions support different conclusions and should not be combined into a single causal claim that human video improves robotic reasoning.",
+      "evidenceIds": [
+        "e-components",
+        "e-oracle",
+        "e-pretrain-ablation",
+        "e-data",
+        "e-compute"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Hold the policy fixed and intervene on goal content",
+      "text": "Reader-proposed experiment, not performed: fix a downstream checkpoint, action queries, chunk length, initial-state set and instruction. Compare generated goals, demonstrated goals, and goals shuffled across tasks; also include an unchanged current-image goal. Use equal trial counts over several seeds and record task success, wrong-object actions and grasp failures. Match goal resolution and measure inference latency separately so privileged image supply does not hide its speed advantage. A reproducible demonstrated-over-generated gain would confirm remaining goal-interface headroom; a fall under shuffled goals would show that goal content influences control. Little change under either intervention would challenge the claimed role of the visual intermediate.",
+      "evidenceIds": [
+        "e-oracle",
+        "e-formulation",
+        "e-control",
+        "e-bridge",
+        "e-limitations"
+      ]
+    },
+    {
+      "title": "Isolate action-less video from the rest of pretraining",
+      "text": "Reader-proposed experiment, not performed: initialize both models from the same VILA-U checkpoint, use the same trainable modules, losses, token budget and optimizer-update count, and compare the published robot/video mixture with a robot-only mixture that reallocates the two 3.45% video weights proportionally to robot datasets. Retain each robot dataset's documented horizon range, then fine-tune on identical Franka demonstrations for the reported 150 epochs. Record held-out goal task correctness, robot success and compute. Include multiple seeds and confidence intervals. Higher success for the mixed-video model at matched compute would support a video-specific benefit; equal results would weaken that interpretation of Figure 6(b), even if pretraining still helps.",
+      "evidenceIds": [
+        "e-pretrain-ablation",
+        "e-data",
+        "e-pretraining",
+        "e-backbone",
+        "e-objectives",
+        "e-compute"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      13
+    ],
+    "notes": "Visually inspected the title, all six figures, all five tables, Equations (1)–(6), Algorithm 1, evaluation protocols, limitations and the embedded implementation supplement on PDF pp. 1–8 and 13. Each of the six final original crops was opened and checked for readable labels, complete content and source fidelity. Figure 2's arrows and Figure 3's mask were checked against captions, equations and control pseudocode; notation and aggregation discrepancies are disclosed in the guides. Full-page images include the uncropped Bridge-V2 results, qualitative examples and appendix data/compute details needed to review retained claims. Reference pages 9–12 were read as text only. Separate videos, external resources and any later edition remain uninspected."
+  }
+}

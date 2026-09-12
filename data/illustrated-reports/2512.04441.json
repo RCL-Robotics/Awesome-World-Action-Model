@@ -1,0 +1,259 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2512.04441",
+  "shortTitle": "MindDrive",
+  "thesis": "MindDrive predicts action-conditioned BEV futures to refine trajectory anchors, then uses a VLM scorer to select a plan, with stronger benchmark scores but an incomplete training recipe.",
+  "standfirst": "Planning has two distinct failure points: the useful maneuver may never enter the candidate set, or the selector may rank it poorly. MindDrive links a future-aware generator to a vision–language evaluator so that both stages can use predicted scene context. Follow the figures from sensor fusion to hypothetical futures, anchor refinement and score-token readout. Then examine the tables as separate evaluation protocols: ordinary Navtest, synthetic-future Navhard, and component removal. The paper reports improvements across these settings, but its strongest interpretation requires care: numerical inconsistencies, ambiguous diagram details and missing training specifications remain in the supplied v2 edition.",
+  "evidenceIds": [
+    "e-identity",
+    "e-problem",
+    "e-overview",
+    "e-navtest",
+    "e-navhard",
+    "e-components",
+    "e-implementation"
+  ],
+  "visuals": [
+    {
+      "id": "architecture",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 2",
+      "page": 5,
+      "asset": "report-assets/2512.04441/architecture.png",
+      "width": 1306,
+      "height": 519,
+      "sourceSha256": "8e88ab1750dace5965a6bb683fad8ac5e020c0f21fe48ba0b5569bf1212c1bee",
+      "sourceUrl": "https://arxiv.org/pdf/2512.04441#page=5",
+      "crop": [
+        0.105,
+        0.13,
+        0.895,
+        0.352
+      ],
+      "alt": "Camera and LiDAR perception feed current and future scene branches, a trajectory decoder, and a language-conditioned evaluator whose scores select the final trajectory.",
+      "caption": "Future context reaches both candidate generation and candidate evaluation.",
+      "readingGuide": "Start at the upper left: image and LiDAR backbones form BEV features, while ego status and anchor intent supply the ego representation. FaTG builds a separate scene variant for each intent and evolves future features before decoding candidate trajectories. The current/future join indicates feature combination; Eq. (8) specifically uses concatenation. Follow the downward scene-token branch and the trajectory-token branch into LaST-Former, where they meet the prompt embedding. VLM-Critic and the score head then supply the safety, compliance, comfort and progress evaluations shown at the right. The final plan depends on candidate construction and composite selection together.",
+      "takeaway": "The architecture makes predicted scene context available at inference in two places: anchor refinement and candidate scoring. This supports reading MindDrive as a connected generation–selection pipeline. It does not, by itself, establish a single network that jointly predicts world states and executed actions.",
+      "caution": "The green pre-transition block says Scene Decoder, but Figure 3 and Eq. (5) identify an encoder. Use that formulation. The perception snowflake suggests freezing, yet no legend or training schedule establishes its exact scope.",
+      "evidenceIds": [
+        "e-overview",
+        "e-wam",
+        "e-decoder",
+        "e-alignment",
+        "e-critic",
+        "e-implementation"
+      ]
+    },
+    {
+      "id": "world-model",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 3",
+      "page": 6,
+      "asset": "report-assets/2512.04441/world-model.png",
+      "width": 1251,
+      "height": 1451,
+      "sourceSha256": "8e88ab1750dace5965a6bb683fad8ac5e020c0f21fe48ba0b5569bf1212c1bee",
+      "sourceUrl": "https://arxiv.org/pdf/2512.04441#page=6",
+      "crop": [
+        0.105,
+        0.129,
+        0.483,
+        0.439
+      ],
+      "alt": "Current scene-variant features pass through a scene encoder, two pre-normalized Mamba blocks and a scene decoder; a separate simulator supplies current and future supervision.",
+      "caption": "A learned BEV transition is trained against simulator-derived scene targets.",
+      "readingGuide": "Read the central column downward from the green current scene-variant features to the blue future features. The caption and equations assign spatial modeling to a Transformer encoder and decoder, with two Mamba blocks between them for temporal propagation. Eq. (6) defines a residual update around each pre-normalized Mamba block. The dashed training column is separate: a simulator supplies current and future BEV semantic map features, while the black Sample Projection arrows connect predictions with that supervision. The right inset expands the Mamba block's linear, convolution and state-space processing. It is a structural diagram, not an empirical visualization of forecast accuracy.",
+      "takeaway": "The model predicts scene features conditioned on an initial ego intent, providing context for the later trajectory decoder. The simulator in the training branch supplies supervision; the deployed planning path instead uses the learned feature transition. This distinction prevents confusing data-generation supervision with an online external simulator.",
+      "caution": "The drawn shortcuts do not clearly match Eq. (6): the long left shortcut reaches the second Mamba block rather than depicting a separate addition after the first. Follow the explicit per-block residual equations; the figure alone leaves implementation ambiguity.",
+      "evidenceIds": [
+        "e-anchors",
+        "e-wam",
+        "e-decoder"
+      ]
+    },
+    {
+      "id": "evaluator",
+      "kind": "figure",
+      "section": "mechanism",
+      "sourceLabel": "Figure 4",
+      "page": 8,
+      "asset": "report-assets/2512.04441/evaluator.png",
+      "width": 1251,
+      "height": 1839,
+      "sourceSha256": "8e88ab1750dace5965a6bb683fad8ac5e020c0f21fe48ba0b5569bf1212c1bee",
+      "sourceUrl": "https://arxiv.org/pdf/2512.04441#page=8",
+      "crop": [
+        0.517,
+        0.13,
+        0.895,
+        0.523
+      ],
+      "alt": "Trajectory and scene embeddings are compressed into contexts, inserted into a language sequence, and passed through a VLM whose score-token feature feeds a numerical head.",
+      "caption": "The VLM is used as a learned trajectory evaluator.",
+      "readingGuide": "Follow the yellow trajectory tokens and green/blue scene tokens down their separate branches. Scene tokens receive spatial convolution before projection and cross-attention; the trajectory branch projects candidates and uses metric queries described in Eq. (13). The diagram marks two cross-attention repetitions in each branch. Sentinel insertion places the resulting contexts into the language stream at the corresponding <scene> and <traj> placeholders. The red score-token arrow introduces the dedicated evaluation token. At the bottom, critic hidden states converge on the score latent feature, which the score head converts into numerical evaluations. Eqs. (14)–(15) specify the score-token readout.",
+      "takeaway": "The relevant output is an evaluation feature and numerical score, rather than a displayed verbal rationale. The paper's use of a language backbone therefore establishes a multimodal scoring mechanism; it does not demonstrate that a human can inspect a faithful explanation for every chosen trajectory.",
+      "caution": "The exact attention mask and complete evaluation prompt are absent. Token-count notation also shifts between N and K in Section 3.3.1. Figure 4's schematic alignment is insufficient to reconstruct token packing, candidate-score indexing or supervision.",
+      "evidenceIds": [
+        "e-alignment",
+        "e-critic",
+        "e-overview"
+      ]
+    },
+    {
+      "id": "navtest",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 1",
+      "page": 9,
+      "asset": "report-assets/2512.04441/navtest.png",
+      "width": 1293,
+      "height": 676,
+      "sourceSha256": "8e88ab1750dace5965a6bb683fad8ac5e020c0f21fe48ba0b5569bf1212c1bee",
+      "sourceUrl": "https://arxiv.org/pdf/2512.04441#page=9",
+      "crop": [
+        0.108,
+        0.13,
+        0.89,
+        0.419
+      ],
+      "alt": "NAVSIM-v1 Navtest comparison across learned planners and a human reference, with sensor inputs, five component metrics and PDMS; MindDrive reports 88.9.",
+      "caption": "The best listed learned PDMS does not imply a win on every component.",
+      "readingGuide": "Read the shaded PDMS column first, then return to the component columns to see how the aggregate result is supported. C denotes camera and L denotes LiDAR; MindDrive uses both. NC measures no at-fault collision, DAC drivable-area compliance, EP ego progress, TTC time-to-collision, and Comf. comfort. The caption states a shared ResNet-34 backbone, although sensor modalities differ between rows. Compare MindDrive with the strongest camera-plus-LiDAR baselines near the bottom. Keep the Human row visible as a separate reference. These values belong to NAVSIM-v1 Navtest's non-reactive evaluation, not the synthetic-future Navhard protocol.",
+      "takeaway": "MindDrive reports PDMS 88.9, versus 88.3 for WoTE and DIVER and 88.1 for DiffusionDrive. Its 97.0 DAC, 82.8 EP and 95.1 TTC lead the listed learned rows. The 0.6-point advantage over WoTE/DIVER is an aggregate planning-score improvement, without reported seed uncertainty.",
+      "caution": "Section 4.3.1 says MindDrive surpasses previous methods across all components, but NC is 98.4 versus 98.5 for WoTE/DIVER and comfort is 99.9 versus several 100 entries. Human PDMS remains higher at 94.8.",
+      "evidenceIds": [
+        "e-navtest",
+        "e-protocol"
+      ]
+    },
+    {
+      "id": "navhard",
+      "kind": "table",
+      "section": "results",
+      "sourceLabel": "Table 3",
+      "page": 10,
+      "asset": "report-assets/2512.04441/navhard.png",
+      "width": 1293,
+      "height": 540,
+      "sourceSha256": "8e88ab1750dace5965a6bb683fad8ac5e020c0f21fe48ba0b5569bf1212c1bee",
+      "sourceUrl": "https://arxiv.org/pdf/2512.04441#page=10",
+      "crop": [
+        0.108,
+        0.35,
+        0.89,
+        0.581
+      ],
+      "alt": "Each Navhard method has Stage I and Stage II component rows and one final EPDMS cell; MindDrive's final cell is 30.5.",
+      "caption": "Read the merged EPDMS cell as a two-stage aggregate.",
+      "readingGuide": "Each method occupies two rows. Stage I evaluates a plan from real initial observations; Stage II repeats evaluation on synthetic future observations. The rightmost merged cell is the final Gaussian-weighted EPDMS, not the score of the second row alone. Compare stage-specific columns before interpreting that aggregate. NC is collision avoidance; DAC, DDC and TLC concern drivable area, driving direction and traffic lights; EP is progress; TTC concerns time to collision; LK, HC and EC concern lane keeping and comfort. The caption states a shared ResNet-34 backbone. Section 4.4 separates this setup from multimodal Stage-I-only robustness evaluation.",
+      "takeaway": "The table reports final EPDMS 30.5 for MindDrive and 27.1 for GuideFlow. MindDrive's Stage-II DAC is 79.1, but NC falls from 96.1 to 82.6 and LK from 94.4 to 49.2 across stages. The aggregate lead coexists with large weaknesses under synthetic future observations.",
+      "caution": "Section 4.3.3 instead reports EPDMS 30.9 and misstates Stage-I TTC/HC as 99.3/94.4; the table gives 95.6/97.6. These are unresolved source conflicts. Table 5's multimodal 72.7 Stage-I score belongs to another configuration.",
+      "evidenceIds": [
+        "e-navhard",
+        "e-protocol",
+        "e-robustness"
+      ]
+    },
+    {
+      "id": "components",
+      "kind": "table",
+      "section": "ablation",
+      "sourceLabel": "Table 6",
+      "page": 12,
+      "asset": "report-assets/2512.04441/components.png",
+      "width": 1234,
+      "height": 295,
+      "sourceSha256": "8e88ab1750dace5965a6bb683fad8ac5e020c0f21fe48ba0b5569bf1212c1bee",
+      "sourceUrl": "https://arxiv.org/pdf/2512.04441#page=12",
+      "crop": [
+        0.108,
+        0.13,
+        0.481,
+        0.193
+      ],
+      "alt": "Four combinations of FaTG and VLoE report PDMS 84.1, 86.6, 87.7 and 88.9, alongside collision, compliance, progress, TTC and comfort metrics.",
+      "caption": "Generation and evaluation each improve this ablation baseline.",
+      "readingGuide": "Use the two checkmark columns as a small factorial comparison. The first row disables both FaTG and VLoE. The second adds only future-aware generation; the third adds only the VLM-oriented evaluator; the last includes both. All rows use Navtest under NAVSIM-v1 metrics. Read PDMS vertically, then compare DAC, EP and TTC to see that gains span several components. To assess FaTG within the complete system, compare the third and fourth rows; to assess VLoE within that system, compare the second and fourth. This avoids treating each isolated gain over the first row as automatically additive.",
+      "takeaway": "PDMS rises from 84.1 to 86.6 with FaTG alone and to 87.7 with VLoE alone; both reach 88.9. The combined increase is 4.8 points. Each component improves the other component's configuration, supporting their usefulness together within the reported setup.",
+      "caution": "The combined gain is smaller than the sum of the two isolated gains. No matched-capacity baseline, seed variability, candidate oracle score or ranking-error analysis is provided, so the table does not isolate a unique causal mechanism.",
+      "evidenceIds": [
+        "e-components"
+      ]
+    }
+  ],
+  "walkthrough": [
+    {
+      "heading": "Turn an anchor into a hypothesis about the scene",
+      "kind": "source",
+      "text": "The anchor is more than a trajectory that will later receive a score. MindDrive first derives anchors from expert trajectories in the training data, encodes each anchor together with ego status, and injects that action token into the current BEV feature map. Bilinear injection makes the conditioning spatial: the token contributes at grid locations along the anchor. Consequently, the same observation can yield several scene variants corresponding to different intended maneuvers. WAM forecasts future features for these variants, and the decoder then uses those forecasts to modify the original anchors through attention and offset prediction. This ordering matters: a future is conditioned on initial intent before the final trajectory is refined. The source does not specify re-simulating every refined candidate to enforce consistency with its original conditioning anchor.",
+      "evidenceIds": [
+        "e-anchors",
+        "e-wam",
+        "e-decoder"
+      ]
+    },
+    {
+      "heading": "Separate numerical evaluation from verbal reasoning",
+      "kind": "analysis",
+      "text": "LaST-Former makes structured driving information usable by the VLM through embeddings rather than a complete textual description of each scene. Current and future scene features are compressed; trajectory embeddings are attended by learnable metric queries; the resulting contexts replace multimodal sentinels in a prompt. A dedicated score token then provides the hidden feature read by a numerical head. Reader analysis: this design can transfer useful semantic representations into ranking without producing a visible chain of reasoning. The reported VLM ablations are consistent with a benefit from the added evaluator, but they do not establish whether that benefit specifically depends on meaningful language, extra capacity, or training differences. Nor do they validate the faithfulness of a human-readable rationale. Such claims would require additional controlled evaluations beyond the score improvements reported here.",
+      "evidenceIds": [
+        "e-alignment",
+        "e-critic",
+        "e-vlm-ablation"
+      ]
+    },
+    {
+      "heading": "Compare only scores from the same evaluation contract",
+      "kind": "analysis",
+      "text": "Start by fixing the split, sensors and stage definition. Navtest v1 uses PDMS in a non-reactive simulation setting; Navtest v2 reports Stage-I EPDMS because it lacks the synthetic observations needed for Stage II. Navhard's two-stage table instead aggregates evaluation before and after synthetic future observations. Its final score cannot be interpreted on the same basis as the separate camera-plus-LiDAR Stage-I robustness table. Reader analysis: preserving these distinctions changes what the headline numbers establish. A high multimodal Stage-I score does not remove the Stage-II degradation visible in Table 3. Likewise, the component ablation concerns Navtest v1 only. Finally, table/prose conflicts should remain visible rather than being reconciled by choosing whichever value best supports the paper's narrative.",
+      "evidenceIds": [
+        "e-protocol",
+        "e-navhard",
+        "e-robustness",
+        "e-components"
+      ]
+    }
+  ],
+  "reproductionChecks": [
+    {
+      "title": "Does action-conditioned forecasting improve candidate quality?",
+      "text": "Reader-proposed check: fix training scenes, anchors, candidate count, perception initialization and evaluator. Compare the normal WAM with an equal-budget model whose action tokens are shuffled among anchors during both training and evaluation, preserving token statistics. Also compare direct 0→4 s with recurrent 0→2→4 s forecasts at matched compute. Measure future BEV prediction error, the best simulator-scored candidate, and the selected candidate's PDMS on Navtest v1. If correct conditioning improves neither prediction accuracy nor candidate quality across repeated seeds, the claimed what-if mechanism is weakened even if total PDMS changes.",
+      "evidenceIds": [
+        "e-anchors",
+        "e-wam",
+        "e-decoder",
+        "e-wam-ablation"
+      ]
+    },
+    {
+      "title": "Does meaningful language improve ranking on identical candidates?",
+      "text": "Reader-proposed check: cache identical FaTG candidates and scene features, then train scorers with the meaningful evaluation prompt, a token-length-matched neutral prompt, and a capacity/compute-matched nonlanguage scoring control. Keep labels, data and optimization budget fixed; disclose the missing score-target and aggregation recipe before testing. On Navsafe, compare selected PDMS, candidate-pair ranking accuracy and each component's calibration, holding the oracle candidate score constant. A reproducible advantage for meaningful prompts would support a language-specific contribution; no advantage would favor capacity or feature-processing explanations. These checks are proposals, not executed reproductions.",
+      "evidenceIds": [
+        "e-alignment",
+        "e-critic",
+        "e-vlm-ablation",
+        "e-components"
+      ]
+    }
+  ],
+  "visualAudit": {
+    "inspectedPages": [
+      1,
+      2,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "notes": "Visually inspected the title/author/version page; Figure 1; all method pages and Figures 2–4; all ten quantitative tables, their captions and surrounding result explanations; and Figure 5 with the conclusion. All six final original crops were individually viewed. Diagram labels, residual shortcuts, sentinel flow and score-token readout were cross-checked with the text and equations. Pages 11–13 are included for uncropped robustness results, ablations, discrepancies and proposed-check premises; pages 9–10 cover implementation details. All six text chunks, including references through page 16, were read. Page 3 and reference-only pages 14–16 were not visually inspected; no retained scientific claim relies on those page images. No separate appendix or supplement was supplied."
+  },
+  "featuredResultTask": "NAVSIM-v1 Navtest planning"
+}

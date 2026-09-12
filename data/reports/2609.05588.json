@@ -1,0 +1,516 @@
+{
+  "schemaVersion": 1,
+  "paperId": "2609.05588",
+  "reportStatus": "full-text-reviewed",
+  "resourceType": "paper",
+  "generatedAt": "2026-09-10T10:23:45.724Z",
+  "sources": [
+    {
+      "id": "primary",
+      "url": "https://arxiv.org/pdf/2609.05588",
+      "title": "GE-Act 2.0: Pretraining and Scaling a World-Action Model for Robotic Manipulation",
+      "kind": "pdf",
+      "sha256": "4e6e98d3a1c30739e968afff7be63898de8bec0442c15a2ab63706d6498c0248",
+      "wordCount": 23064,
+      "accessedAt": "2026-09-10T10:23:35.631799+00:00"
+    }
+  ],
+  "coverage": {
+    "scope": "full-paper",
+    "sectionsRead": [
+      "Abstract; 1 Introduction; 2 Related Work (2.1–2.5)",
+      "3 GE-Act 2.0: system, CoAE, SVP, conditional MeanFlow, IDM, validity gap, KASO, Algorithm 1, and controlled ablation (3.1–3.4.5)",
+      "4 Training Data and Mixture Composition",
+      "5 Evaluation: zero-shot protocol, data/skill scaling, grounding/conflicts, and simulation (5.1–5.4)",
+      "6 Conclusion; 7 Limitations and Outlook; 8 Contributions and Acknowledgments; References",
+      "Appendix A.1–A.3: all simulation protocols and comparisons",
+      "Appendix B.1–B.7: architectures, sampling, training, deployment, and toy controls",
+      "Appendix C.1–C.3: full taxonomy, both-embodiment task results, instruction prompts/results, and descriptor matching"
+    ],
+    "omissions": [
+      "Text extraction does not reconstruct figure images; inspect the retained PDF for figures and equation/table layout.",
+      "Separate supplemental material availability has not been fully verified.",
+      "Identity verified as arXiv:2609.05588v1 [cs.RO], 4 September 2026. The exact title matches the catalog. The title-page byline is AgiBot Research Team; the catalog also appends individuals credited by role in Section 8, rather than listed as a separate title-page byline. Metadata preserves the collective byline. No later revision or alternative edition was supplied or reviewed.",
+      "The supplied text's figure-image omission was addressed by inspecting the retained PDF: all 13 text chunks were read; PDF pages 1–25 and 30–39 were visually inspected, including every figure and table. Bibliography-only pages 26–29 were read as text.",
+      "Separate supplemental material availability has not been fully verified. External project material, code, datasets, and videos were not inspected; no experiments were reproduced.",
+      "No institutional affiliations are explicitly listed in the inspected identity/credit blocks; affiliations are omitted."
+    ],
+    "identityVerified": true,
+    "figuresReviewed": [
+      "Figure 1 (p. 2)",
+      "Figure 2 (p. 5)",
+      "Figure 3 (p. 6)",
+      "Figure 4 (p. 7)",
+      "Figure 5 (p. 11)",
+      "Figure 6 (p. 12)",
+      "Figure 7 (p. 13)",
+      "Figure 8 (p. 16)",
+      "Figure 9 (p. 17)",
+      "Figure 10 (p. 18)",
+      "Figure 11 (p. 19)",
+      "Figure 12 (p. 20)",
+      "Figure 13 (p. 21)",
+      "Figure 14 (p. 22)",
+      "Figure 15 (p. 23)"
+    ],
+    "tablesReviewed": [
+      "Table 1 (p. 7)",
+      "Table 2 (p. 15)",
+      "Table 3 (p. 30)",
+      "Table 4 (p. 31)",
+      "Table 5 (p. 31)",
+      "Table 6 (p. 32)",
+      "Table 7 (p. 35)",
+      "Table 8 (pp. 36–37)",
+      "Table 9 (pp. 38–39)",
+      "Table 10 (p. 39)"
+    ],
+    "appendix": "reviewed"
+  },
+  "synopsis": "GE-Act 2.0 connects a compact visual representation, a one-step future generator, and a separate inverse dynamics model. Its central training problem is pairing generated futures with compatible recorded actions. KASO selects futures using the current action model before updating both modules. Real-robot experiments show broader manipulation capability as co-training data grows, with persistent weaknesses in fine manipulation and ordinal language; simulation comparisons use a separate adaptation protocol.",
+  "readingTimeMinutes": 10,
+  "problem": {
+    "text": "A future can look plausible yet depict a different grasp, timing, or target from the recorded demonstration. Supervising that future with the recorded action creates the paper's validity gap. GE-Act also addresses a data-access problem: instruction–video pairs and instruction-free action trajectories can pretrain different components, but their connection must handle generated inputs while preserving useful pretrained behavior.",
+    "kind": "source",
+    "evidenceIds": [
+      "validity-gap",
+      "svp-conditioning"
+    ]
+  },
+  "contributions": [
+    {
+      "text": "CoAE supplies a compact, decodable control representation; the differentiable one-step SVP provides an explicit completed-future interface to a separately pretrained IDM.",
+      "kind": "source",
+      "evidenceIds": [
+        "coae",
+        "meanflow",
+        "architecture"
+      ]
+    },
+    {
+      "text": "KASO selectively applies generated-future action supervision while retaining both original objectives. The study evaluates practical data scaling and fine-grained grounding through executed real-robot trials.",
+      "kind": "source",
+      "evidenceIds": [
+        "kaso",
+        "real-protocol",
+        "grounding-results"
+      ]
+    }
+  ],
+  "method": {
+    "inputs": [
+      "Current left/head/right camera images",
+      "Language instruction",
+      "Current proprioceptive state and embodiment identity"
+    ],
+    "outputs": [
+      "Dense and sparse predicted multi-view future latents",
+      "Dense absolute-joint-position action chunk; sparse auxiliary action predictions"
+    ],
+    "steps": [
+      {
+        "name": "Compress observations for control",
+        "detail": "Framewise CoAE maps each 256×384 image to a 4×6 grid of 512-channel latents. Reconstruction combines pixel, perceptual, and adversarial losses; alignment heads match frozen SigLIP 2, V-JEPA 2.1, and DINOv3 features. Compatible DC-AE weights are inherited, with new parameters initialized randomly.",
+        "evidenceIds": [
+          "coae"
+        ]
+      },
+      {
+        "name": "Ground the instruction and predict a future",
+        "detail": "Frozen Qwen3.5-2B sees the head image and instruction. A learned layer gate fuses image-contextualized text states for every DiT block. Conditional MeanFlow predicts four dense and two sparse future frames per view. The latter extend toward the step-caption segment's end; they are not six equally spaced control-rate frames.",
+        "evidenceIds": [
+          "svp-conditioning",
+          "meanflow",
+          "training-recipe"
+        ]
+      },
+      {
+        "name": "Convert visual change into actions",
+        "detail": "The separate IDM attends to current and predicted visual tokens together with proprioception and an embodiment embedding. It predicts 52 dense actions plus two sparse actions. Language reaches this module through generated visual futures, allowing its standalone pretraining to omit instructions.",
+        "evidenceIds": [
+          "architecture",
+          "svp-conditioning",
+          "idm",
+          "training-recipe"
+        ]
+      },
+      {
+        "name": "Select compatible supervision",
+        "detail": "For each training context, KASO generates four candidates without gradients. The active IDM scores their dense-token velocity disagreement with its response to the recorded future, using shared action noise at probe time 0.95. The lowest-energy candidate is regenerated from its retained noise with gradients, then trained using fresh action noise and time.",
+        "evidenceIds": [
+          "kaso",
+          "training-recipe"
+        ]
+      }
+    ],
+    "training": [
+      {
+        "text": "The SVP flow generator and IDM start from random initialization; this does not mean all components lack pretrained knowledge. CoAE transfers DC-AE weights, its teachers are pretrained, and the VLM stays frozen. SVP and IDM have 2.51B and 0.56B parameters; the frozen VLM is reported separately as 2.72B.",
+        "kind": "source",
+        "evidenceIds": [
+          "coae",
+          "architecture",
+          "training-recipe"
+        ]
+      },
+      {
+        "text": "SVP pretraining uses 39,000 instruction–video hours, including 3,000 ego/human-video hours. IDM pretraining uses 32,000 action-labeled hours, including 2,000 rollout/failure hours. The 30,000-hour co-training mixture contains 61.7% G1-OP and 1.7% G2-90D. These are overlapping stage mixtures, not additive unique-data totals.",
+        "kind": "source",
+        "evidenceIds": [
+          "data-mixtures"
+        ]
+      },
+      {
+        "text": "MeanFlow uses mean-velocity and auxiliary instantaneous-velocity heads, masked future-coordinate losses, and a stopped-gradient Jacobian–vector correction. Co-training retains the SVP, recorded-future IDM, and selected-future action losses with coefficients 1, 0.1, and 1. Three micro-step gradients are accumulated and divided by three; the generator/IDM train while CoAE/VLM remain frozen.",
+        "kind": "source",
+        "evidenceIds": [
+          "meanflow",
+          "kaso",
+          "training-recipe"
+        ]
+      }
+    ],
+    "inference": [
+      {
+        "text": "Encode three views, ground the instruction, sample future latents in one SVP pass, and integrate the IDM action flow with five Euler steps without guidance. Execute the first 30 dense actions at 30 Hz before predicting again. Sparse actions are training auxiliaries. Thus one-step visual generation does not make the entire policy a single network evaluation or establish measured real-time latency.",
+        "kind": "analysis",
+        "evidenceIds": [
+          "idm",
+          "training-recipe"
+        ]
+      }
+    ],
+    "equations": [
+      {
+        "expression": "\\hat z^{(i)}=z_1^{(i)}-m_i u_\\theta^{(i)}(z_1,r=0,t=1)",
+        "explanation": "Eq. (14): z₁ contains clean conditioning latents and Gaussian future noise; mᵢ is zero for observed frames and one for future frames. The learned mean-velocity field uθ traverses the full interval from noise time t=1 to data endpoint r=0. Observed slots pass through unchanged.",
+        "evidenceIds": [
+          "meanflow"
+        ]
+      },
+      {
+        "expression": "E_n=\\frac{1}{|\\mathcal D|}\\sum_{i\\in\\mathcal D}\\left\\|v_{\\phi,i}(\\tilde a,t_p;o,s,\\hat z_n)-v_{\\phi,i}(\\tilde a,t_p;o,s,z)\\right\\|_2^2,\\qquad \\tilde a=t_p\\varepsilon+(1-t_p)a",
+        "explanation": "Eq. (19): D denotes dense action tokens, vφ the IDM velocity, o current observation latents, s proprioception, z recorded future latents, and ẑₙ a candidate. The same noised recorded action ã and probe time tₚ isolate the effect of visual conditioning. Low energy means agreement under this IDM, not independently verified physical validity.",
+        "evidenceIds": [
+          "kaso",
+          "idm"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "Real-robot zero-shot OOD atomic manipulation",
+      "setting": "100 tasks, 20 groups, both embodiments; 10 trials per task/scale; held-out visual conditions and objects; no evaluation-task adaptation.",
+      "metric": "Suite success rate (%)",
+      "value": "At 300/1,200/5,000/30,000 co-training hours: G1-OP 17.1/22.6/27.3/44.1; G2-90D 13.4/21.0/23.5/31.1.",
+      "comparison": "300→30,000 hours: +27.0 and +17.7 percentage points; 19/20 and 18/20 groups improve.",
+      "interpretation": "Shared pretrained initialization supports a practical scaling comparison, but data and compute are not independently controlled.",
+      "evidenceIds": [
+        "real-protocol",
+        "scaling"
+      ]
+    },
+    {
+      "task": "Controlled KASO picking ablation",
+      "setting": "G2-90D; shared full-scale pretrained components, 300-hour alignment mixture including 30 embodiment hours; 40 four-object trials and 25 block trials per variant.",
+      "metric": "Follow score and completed-pick success (%)",
+      "value": "KASO: four-object follow 95, pick macro average 37.5; single-block pick 40.",
+      "comparison": "E2E+PT: 95, 22.5, 12; E2E: 87.5, 27.5, 12, respectively.",
+      "interpretation": "Selection improves pickup beyond an unchanged follow score versus E2E+PT; these reduced-stage results are not final full-model performance.",
+      "evidenceIds": [
+        "robot-ablation"
+      ]
+    },
+    {
+      "task": "Frozen representation probes",
+      "setting": "Action probe: 400 training/100 held-out shelf samples; caption probe: 5,000 GenieSim-Instruction episodes with VLM conditioning.",
+      "metric": "Action MAE; caption-match error (%)",
+      "value": "CoAE: 0.01673; 2.05.",
+      "comparison": "DC-AE: 0.02573; 2.71. DINOv3 has lower action MAE, 0.01273.",
+      "interpretation": "CoAE offers a compact compromise, not best action accuracy. Different channel widths and pretraining prevent isolating teacher alignment alone.",
+      "evidenceIds": [
+        "probes",
+        "coae"
+      ]
+    },
+    {
+      "task": "Fine-grained real-robot instruction grounding",
+      "setting": "Final G1-OP checkpoint, no adaptation; 59 Pick/Place instructions × five trials.",
+      "metric": "Overall Follow Score / full-task success (%)",
+      "value": "83.1 / 72.9.",
+      "comparison": "Object, color, direct position, and shape follow scores are ≥90% for both primitives; ordinal/middle references score only 13.3% Pick and 26.7% Place.",
+      "interpretation": "Correct contact and completed manipulation are distinct; strong attribute grounding does not establish general relational reasoning.",
+      "evidenceIds": [
+        "grounding-results"
+      ]
+    },
+    {
+      "task": "Skill coverage association",
+      "setting": "30,000-hour G1-OP checkpoint; 19 groups excluding Close; training hours summed across embodiments.",
+      "metric": "Pearson r; Spearman rho",
+      "value": "0.80; 0.85.",
+      "comparison": "Fitted slope: 1.94 logit success units per tenfold training-hours increase.",
+      "interpretation": "Coverage is associated with success, but the cross-skill comparison does not isolate causation.",
+      "evidenceIds": [
+        "skill-coverage"
+      ]
+    },
+    {
+      "task": "RoboTwin Clean-to-Random",
+      "setting": "Easy/Clean SFT followed by OOD combined-Hard simulation evaluation.",
+      "metric": "Task-averaged success (%)",
+      "value": "60.52.",
+      "comparison": "pi0.5: 47.90 (+12.62 percentage points for GE-Act).",
+      "interpretation": "Strong compounded-shift performance after adaptation; lighting remains a weaker column.",
+      "evidenceIds": [
+        "robotwin"
+      ]
+    },
+    {
+      "task": "GenieSim-Instruction",
+      "setting": "SFT on released training demonstrations; ten tasks under prescribed OOD scene configurations.",
+      "metric": "Average normalized task score",
+      "value": "0.770.",
+      "comparison": "ACoT-VLA 0.757; pi0.5 0.746.",
+      "interpretation": "Highest reported average, with leadership on four tasks rather than uniform superiority.",
+      "evidenceIds": [
+        "geniesim"
+      ]
+    },
+    {
+      "task": "LIBERO-Plus",
+      "setting": "Standard LIBERO adaptation; 10,030 perturbed task instances, weighted by axis instance counts.",
+      "metric": "Overall success (%)",
+      "value": "80.4.",
+      "comparison": "pi0.5 84.4; StarVLA 74.1.",
+      "interpretation": "Uneven robustness: background 60.5% and robot-state 50.7% remain weak.",
+      "evidenceIds": [
+        "libero"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "text": "The authors leave large-scale egocentric-video effects untested and position the system as low-level control without deliberative planning, memory, or task decomposition. Selected instruction-switch rollouts are illustrative, not quantitative robustness estimates.",
+      "kind": "source",
+      "evidenceIds": [
+        "limitations",
+        "instruction-conflicts"
+      ]
+    },
+    {
+      "text": "Ten trials per atomic task and the small ablation lack reported uncertainty intervals. Real-robot scaling has no matched cross-model baseline, and increasing own-embodiment data alongside other data prevents cleanly attributing G2-90D gains to transfer alone.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "real-protocol",
+        "scaling",
+        "data-mixtures",
+        "robot-ablation"
+      ]
+    },
+    {
+      "text": "The toy demonstrates a possible interface failure with a deterministic action regressor and deliberately amplified off-manifold sensitivity. It uses a multi-step generator and eight candidates, unlike the full system, and its displayed seed is not a seed-averaged benchmark or evidence of improved downstream reinforcement learning.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "toy",
+        "training-recipe"
+      ]
+    },
+    {
+      "text": "Descriptor frequency is lexical and overlapping, with different object-residual definitions across corpora and a simulation exception for size. Its relationship to grounding is observational, so rare-instruction frequency alone cannot explain all failures.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "descriptor-frequency",
+        "grounding-results"
+      ]
+    }
+  ],
+  "reproduction": [
+    {
+      "text": "A reconstruction requires the stage mixtures, aligned camera/action streams, per-source action statistics, per-channel CoAE statistics, and trained component checkpoints. Appendix B supplies bf16/ZeRO-2/AdamW and learning-rate recipes, but not GPU count/model, exact training duration, end-to-end latency, or fully specified temporal jitter/extension probabilities; complete CoAE optimization details also remain absent.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "coae",
+        "data-mixtures",
+        "training-recipe"
+      ]
+    },
+    {
+      "text": "Proposed checks should first isolate compatibility selection from retained losses under matched initialization and updates, then test whether the high-noise IDM score detects behavioral mismatches. Keep evaluation single-sample, retain both recorded-data losses, and measure physical pickup separately from target contact.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "kaso",
+        "training-recipe",
+        "robot-ablation"
+      ]
+    }
+  ],
+  "taxonomy": {
+    "assessment": "unclear",
+    "reasoning": {
+      "text": "The snapshot is unassigned, so there is no existing quadrant judgment to confirm. Architecture evidence supports a world-action model with separate visual-generation and inverse-dynamics modules: completed futures condition action prediction, and joint optimization does not merge their backbones. This is a two-model inverse-dynamics mechanism, not joint future/action generation in one shared model; sparse action supervision is auxiliary rather than a separate controller.",
+      "kind": "analysis",
+      "evidenceIds": [
+        "architecture",
+        "svp-conditioning",
+        "idm"
+      ]
+    },
+    "recordedClassification": {
+      "majorCategory": "Not assigned",
+      "subcategories": [],
+      "architecture": "Not assigned",
+      "predictionParadigm": "Not assigned",
+      "quadrant": "Not assigned",
+      "classificationStatus": "Not assigned",
+      "catalogUpdatedAt": "2026-09-10T10:16:19.184898+00:00",
+      "fingerprint": "a6737a958cb1656ff106654c5abd32bc2a7b83dafa0705e73d44461e6276e3c0"
+    }
+  },
+  "discussionQuestions": [
+    "Does compatibility selection remain reliable when the pretrained IDM misreads a physically valid future?",
+    "Would G2-90D gains persist if its own data were held fixed while only other embodiments grew?"
+  ],
+  "relatedPaperIds": [],
+  "evidence": [
+    {
+      "id": "identity",
+      "sourceId": "primary",
+      "location": "PDF p. 1, title/byline and arXiv margin; p. 25, Section 8 contributor credits",
+      "detail": "The exact title matches the supplied catalog. The PDF identifies arXiv:2609.05588v1 [cs.RO], 4 September 2026, and the collective byline AgiBot Research Team. Catalog-listed individuals appear under contributor, advisor, leader, or supervisor roles on p. 25; no institutional affiliation block is provided."
+    },
+    {
+      "id": "architecture",
+      "sourceId": "primary",
+      "location": "PDF p. 3, Section 2.1; pp. 4–5, Section 3.1 and Figure 2; p. 10, Section 3.4.1",
+      "detail": "A decoupled SVP predicts completed future visual latents; a separate IDM consumes current/future latents and proprioception to predict actions. Dense actions are executed; sparse actions are auxiliary training targets. This differs from GE-Act 1.0's parallel action branch."
+    },
+    {
+      "id": "coae",
+      "sourceId": "primary",
+      "location": "PDF pp. 5–6, Sections 3.2–3.2.1, Eqs. (1)–(2), Figure 3",
+      "detail": "CoAE compresses 256×384 frames to 24 tokens with 512 channels using 64-fold spatial downsampling per axis. Compatible DC-AE weights are transferred and new parameters randomly initialized. Reconstruction and alignment to frozen SigLIP 2, V-JEPA 2.1, and DINOv3 supervise training."
+    },
+    {
+      "id": "probes",
+      "sourceId": "primary",
+      "location": "PDF pp. 6–7, Section 3.2.2, Table 1 and Figure 4",
+      "detail": "The action probe trains on 400 shelf-task samples and tests on 100 held-out samples with frozen encoders. CoAE/DC-AE/DINOv3/V-JEPA 2.1/SigLIP action MAEs are 0.01673/0.02573/0.01273/0.01487/0.03138. A VLM-conditioned caption probe uses 5,000 GenieSim-Instruction episodes; corresponding errors are 2.05/2.71/2.75/4.15/3.28%."
+    },
+    {
+      "id": "svp-conditioning",
+      "sourceId": "primary",
+      "location": "PDF pp. 8–9, Sections 3.3.1–3.3.3, Eqs. (3)–(5); p. 32, Table 6 and Appendix B.2",
+      "detail": "A frozen VLM contextualizes instruction tokens using the current head image. A learned gate fuses text-span states across layers for DiT cross-attention; the IDM receives no direct language. Dense and sparse visual targets capture near-term control and longer-horizon intent."
+    },
+    {
+      "id": "meanflow",
+      "sourceId": "primary",
+      "location": "PDF pp. 9–10, Section 3.3.4, Eqs. (6)–(14); p. 32, Appendix B.3",
+      "detail": "Conditional MeanFlow holds observation coordinates fixed, masks future-coordinate supervision and the derivative tangent, and uses mean/instantaneous velocity heads with a stopped-gradient JVP correction. Eq. (14) generates futures in one pass from noise at r=0, t=1."
+    },
+    {
+      "id": "idm",
+      "sourceId": "primary",
+      "location": "PDF p. 10, Section 3.4.1, Eq. (15); p. 32, Table 6 and Appendices B.2/B.4; p. 33, Appendix B.6",
+      "detail": "IDM uses action flow matching with recorded compatible futures during pretraining. Actions are standardized absolute joint positions in zero-padded 32-dimensional vectors. Deployment uses five Euler steps and executes the first 30 of 52 dense actions before replanning."
+    },
+    {
+      "id": "validity-gap",
+      "sourceId": "primary",
+      "location": "PDF pp. 10–12, Sections 3.4.2–3.4.3, Eqs. (16)–(18), Figures 5–6",
+      "detail": "Retaining video and recorded-future action losses protects pretrained objectives but does not couple an independently sampled future to the recorded action's outcome mode. Even a correct future marginal can create incompatible imitation pairs."
+    },
+    {
+      "id": "kaso",
+      "sourceId": "primary",
+      "location": "PDF pp. 12–14, Section 3.4.4, Figure 7, Eqs. (19)–(21), Algorithm 1",
+      "detail": "KASO compares active-IDM velocities under generated and recorded futures at a shared high-noise action input, using dense-token squared disagreement. Lowest-energy candidates are replayed from identical generation noises with gradients; fresh action noise/time is used for the selected flow-matching loss. Both pretraining losses remain."
+    },
+    {
+      "id": "training-recipe",
+      "sourceId": "primary",
+      "location": "PDF pp. 32–33, Appendices B.1–B.6, Table 6",
+      "detail": "SVP/IDM have 2.51B/0.56B parameters; frozen Qwen3.5-2B has 2.72B. Defaults include bf16, ZeRO stage 2, AdamW, four dense/two sparse future frames, 30-Hz alignment, and a 52-action horizon. KASO uses N=4, k=1, probe time 0.95, loss coefficients (SVP,IDM,E2E)=(1,0.1,1), three accumulated micro-steps, and frozen CoAE/VLM. GPU models/counts and wall-clock training/inference timings are not supplied."
+    },
+    {
+      "id": "data-mixtures",
+      "sourceId": "primary",
+      "location": "PDF pp. 15–16, Section 4 and Figure 8",
+      "detail": "SVP/IDM/co-training mixtures contain 39,000/32,000/30,000 hours. SVP includes 3,000 hours of ego/human video; IDM includes 2,000 hours of rollout/failure data. Co-training shares are 61.7% G1-OP and 1.7% G2-90D; G1-OP is 47.4% of SVP pretraining. The stages reuse source categories and hours."
+    },
+    {
+      "id": "robot-ablation",
+      "sourceId": "primary",
+      "location": "PDF pp. 14–15, Section 3.4.5 and Table 2(a)–(b); p. 33, Appendix B.5, controlled ablation",
+      "detail": "All arms share full-scale pretrained components and a 300-hour alignment mixture including 30 G2-90D hours. Four-object evaluation uses 10 trials per target; single-block evaluation uses 25. E2E+PT/KASO follow scores are both 95%, four-object pick macro averages are 22.5/37.5%, and block success is 12/40%; E2E obtains 87.5%, 27.5%, and 12% respectively."
+    },
+    {
+      "id": "real-protocol",
+      "sourceId": "primary",
+      "location": "PDF p. 16, Section 5.1; p. 18, Section 5.2; pp. 33–35, Appendices B.6/C.1 and Table 7",
+      "detail": "One last checkpoint per data scale is evaluated without per-task fine-tuning, demonstrations, or checkpoint selection. The suite has 100 tasks in 20 groups, 10 trials per task/embodiment/scale, matched reset configurations, and held-out scenes, backgrounds, lighting, and physical object instances."
+    },
+    {
+      "id": "scaling",
+      "sourceId": "primary",
+      "location": "PDF pp. 18–19, Section 5.2.1 and Figure 10; pp. 36–37, Table 8",
+      "detail": "Nested co-training pools of 300/1,200/5,000/30,000 hours yield G1-OP suite success of 17.1/22.6/27.3/44.1% and G2-90D success of 13.4/21.0/23.5/31.1%. Improvements span 19/20 and 18/20 groups. Runs stop after an epoch or the compute limit; this is not matched-compute data scaling. Zip remains zero throughout both embodiments."
+    },
+    {
+      "id": "skill-coverage",
+      "sourceId": "primary",
+      "location": "PDF pp. 19–21, Section 5.2.2 and Figure 12",
+      "detail": "Across 19 skill groups, excluding Close, log training hours and logit G1-OP success have Pearson r=0.80 and Spearman rho=0.85; fitted slope is 1.94 logit units per decade. This is a cross-skill coverage association, not a randomized data-allocation intervention."
+    },
+    {
+      "id": "grounding-results",
+      "sourceId": "primary",
+      "location": "PDF pp. 21–22, Section 5.3.1 and Figures 13–14; pp. 37–39, Appendix C.3 and Table 9",
+      "detail": "The final G1-OP checkpoint is evaluated on 33 Pick and 26 Place instructions, five trials each. Overall Follow Score/SR are 83.1/72.9%. Object, color, direct position, and shape follow scores are at least 90% for both primitives; size is 82.5/65.7% and order is 13.3/26.7% for Pick/Place."
+    },
+    {
+      "id": "descriptor-frequency",
+      "sourceId": "primary",
+      "location": "PDF p. 22, Figure 14 and discussion; p. 39, Appendix C.3, Descriptor frequencies and Table 10",
+      "detail": "Frequency estimates use lexical matching over 95,010 RefCOCOg expressions and approximately 3.7 million GE Pick/Place segments. Non-object categories overlap; object identity has corpus-specific residual definitions. Simulation is normally excluded but included for size. GE size/shape/order shares are 0.96/0.67/0.13%; association does not establish causation."
+    },
+    {
+      "id": "instruction-conflicts",
+      "sourceId": "primary",
+      "location": "PDF pp. 22–23, Section 5.3.2 and Figure 15",
+      "detail": "Selected rollouts show target switching, arm switching, and placing a cup in a shoebox despite a conventional association. The caption explicitly calls these illustrative and outside the quantitative evaluation."
+    },
+    {
+      "id": "robotwin",
+      "sourceId": "primary",
+      "location": "PDF p. 24, Section 5.4; p. 30, Appendix A.1 and Table 3",
+      "detail": "After Easy/Clean SFT, GE-Act reaches 60.52% on RoboTwin Hard versus pi0.5 at 47.90%; it leads five of six columns but trails pi0.5 on lighting (65.92 versus 69.20%)."
+    },
+    {
+      "id": "geniesim",
+      "sourceId": "primary",
+      "location": "PDF pp. 30–31, Appendix A.2 and Table 4",
+      "detail": "After SFT on released training demonstrations, OOD GenieSim-Instruction average normalized score is 0.770 for GE-Act, 0.757 for ACoT-VLA, and 0.746 for pi0.5. GE-Act leads four of ten tasks rather than every category."
+    },
+    {
+      "id": "libero",
+      "sourceId": "primary",
+      "location": "PDF p. 31, Appendix A.3 and Table 5",
+      "detail": "After standard LIBERO adaptation, LIBERO-Plus overall success across 10,030 instances is 80.4% for GE-Act, 84.4% for pi0.5, and 74.1% for StarVLA. Aggregation weights axes by instance counts. GE-Act has 60.5% background and 50.7% robot-state success."
+    },
+    {
+      "id": "toy",
+      "sourceId": "primary",
+      "location": "PDF pp. 11–12, Section 3.4.3 and Figure 6; pp. 33–34, Appendix B.7",
+      "detail": "The four-mode toy uses a deterministic IDM proxy, a 48-step generator, eight training candidates, and one evaluation sample. The displayed seed-0 behavior is an off-manifold sensitivity stress test; Appendix B.7 reports substantial variation across seeds 0–4 and rejects a seed-averaged benchmark interpretation."
+    },
+    {
+      "id": "limitations",
+      "sourceId": "primary",
+      "location": "PDF p. 24, Section 7, Limitations and Outlook",
+      "detail": "The authors leave large-scale egocentric-video effects for future study and characterize the policy as low-level instruction-conditioned control without explicit deliberation, task decomposition, memory, or high-level planning."
+    }
+  ]
+}

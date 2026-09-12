@@ -15,7 +15,11 @@ const originalEdition = JSON.parse(await readFile(join(repo,'data/illustrated-re
 const template = JSON.parse(await readFile(join(repo,'schemas/illustrated-visual-review.schema.json')));
 const chromePath='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const playwrightPath='/Users/lzx/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.mjs';
-const runtime={chromePath,chromeSha256:digest(await readFile(chromePath)),browserVersion:'152.0.7977.83',playwrightPath,playwrightEntrySha256:digest(await readFile(playwrightPath)),nodePath:process.execPath};
+// Bind this synthetic recipe to the installed bundle, just as its executable
+// hash is captured below. The renderer still checks the live browser version.
+const {stdout:chromeVersion}=await execute('/usr/libexec/PlistBuddy',['-c','Print :CFBundleShortVersionString',join(dirname(dirname(chromePath)),'Info.plist')],{timeout:5000});
+const browserVersion=chromeVersion.trim();assert.match(browserVersion,/^\d+\.\d+\.\d+\.\d+$/);
+const runtime={chromePath,chromeSha256:digest(await readFile(chromePath)),browserVersion,playwrightPath,playwrightEntrySha256:digest(await readFile(playwrightPath)),nodePath:process.execPath};
 const css=originalHtmlLayoutCss([]);
 const title='<section id="identity"><h1>Fixture title</h1><p>Fixture author</p><p>Protocol: 10 synthetic trials, one synthetic device.</p></section>';
 const figure='<section id="fig-1"><svg role="img" viewBox="0 0 600 200" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="10" width="120" height="150" fill="#27684e"/><text x="160" y="80">Value 42</text><text x="160" y="140">Unit: synthetic points</text></svg><p>Figure 1. Synthetic fixture.</p><p>Footnote: not a scientific experiment.</p></section>';
