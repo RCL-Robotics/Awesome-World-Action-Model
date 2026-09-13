@@ -128,6 +128,7 @@ export function renderReadme(inputPapers, inputMeta) {
     `| Detailed paper analyses | [Reading reports](${website}reports/) |`,
     '| Machine-readable bibliography | [papers.json](data/papers.json) |',
     '| Category scope, corrections, and evidence | [Classification review](docs/CLASSIFICATION_REVIEW.md) |',
+    '| Build a survey website or awesome-list for another topic | [Reusable template and skills](docs/REUSING_TEMPLATE.md) |',
     '| Setup, catalog updates, and contribution workflow | [Maintainer guide](docs/MAINTAINING.md) |',
     `| Recommend a paper or report a correction | [Open an issue](${repository}/issues/new/choose) |`,
     '| Repository code license | [MIT License](LICENSE) |', '',

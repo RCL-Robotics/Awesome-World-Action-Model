@@ -1,0 +1,77 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { config, papers, type Paper } from '../../lib/project';
+import { dateLabel, filterPapers, labels, pathFor } from '../../../lib/catalog.mjs';
+const t = labels(config.language);
+const orderedPapers: Paper[] = filterPapers(papers, config);
+const years = [...new Set(papers.map(p => p.year).filter((y): y is number => y !== null))].sort((a, b) => b - a);
+---
+<Layout title={t.papers}>
+  <section class="page-heading"><p class="eyebrow">{config.title}</p><h1>{t.papers}</h1><p class="lead">{papers.length} {t.count}</p></section>
+  <div class="library-layout">
+    <aside class="category-sidebar"><h2>{t.categories}</h2><nav aria-label={t.categories}><a data-category="" href={pathFor(config, 'papers/')}><span>{t.all}</span><b>{papers.length}</b></a>{config.categories.map(c => <a data-category={c.id} href={`?category=${encodeURIComponent(c.id)}`}><span>{c.label}</span><b>{papers.filter(p => p.categories.includes(c.id)).length}</b></a>)}{papers.some(p => !p.categories.length) && <a data-category="__unassigned__" href="?category=__unassigned__"><span>{t.unassigned}</span><b>{papers.filter(p => !p.categories.length).length}</b></a>}</nav></aside>
+    <section class="results" aria-label={t.papers}>
+      <form id="filters" role="search"><label class="sr-only" for="search">{t.search}</label><input type="search" id="search" name="q" placeholder={t.search} autocomplete="off"/>
+        <div class="filter-row"><label>{t.categories}<select id="category" name="category"><option value="">{t.all}</option>{config.categories.map(c => <option value={c.id}>{c.label}</option>)}<option value="__unassigned__">{t.unassigned}</option></select></label><label>{t.year}<select id="year" name="year"><option value="">{t.allYears}</option>{years.map(y => <option value={y}>{y}</option>)}</select></label><label class="checkbox"><input id="code" type="checkbox"/>{t.withCode}</label><button class="text-button" id="clear" type="button">{t.clear}</button></div>
+      </form>
+      <div id="scope" class="scope" hidden><span id="scope-label"></span><button id="search-all" type="button" class="text-button">{t.allSearch}</button></div>
+      <div class="results-heading"><p id="count" role="status" aria-live="polite">{papers.length} {t.count}</p><label class="sr-only" for="sort">{t.sort}</label><select id="sort"><option value="oldest">{t.oldest}</option><option value="newest">{t.newest}</option><option value="relevance">{t.relevance}</option><option value="title">{t.title}</option></select></div>
+      <div id="paper-list">{orderedPapers.map(p => <article class="paper-card" data-paper-id={p.id}><h2><a href={pathFor(config, `papers/${p.id}/`)}>{p.title}</a></h2><p class="authors">{p.authors.join('; ')}</p><p class="paper-meta"><time>{dateLabel(p)}</time>{p.categories.map(id => <a data-category={id} href={`?category=${encodeURIComponent(id)}`}>{config.categories.find(c => c.id === id)?.label}</a>)}</p>{(p.summary || p.abstract) && <p class="excerpt">{p.summary || p.abstract}</p>}<div class="paper-links"><a href={p.url}>{t.paper} ↗</a>{p.codeUrl && <a href={p.codeUrl}>{t.code} ↗</a>}{p.projectUrl && <a href={p.projectUrl}>{t.project} ↗</a>}</div></article>)}</div>
+      <div id="empty" class="empty" hidden><h2>{t.empty}</h2><button id="empty-all" class="text-button" type="button" hidden>{t.allSearch}</button></div>
+      <nav id="pagination" class="pagination" aria-label={t.papers} hidden><button id="previous" type="button">← {t.previous}</button><span id="page-position"></span><button id="next" type="button">{t.next} →</button></nav>
+      <noscript><p>{config.language === 'zh' ? '启用 JavaScript 可搜索和筛选；全部文献已列出。' : 'Enable JavaScript to search and filter. All papers are listed above.'}</p></noscript>
+    </section>
+  </div>
+</Layout>
+<script>
+  import { config, papers } from '../../lib/project';
+  import { defaultSort, filterPapers, labels, SORTS } from '../../../lib/catalog.mjs';
+  const t = labels(config.language), size = 12;
+  const search = document.querySelector<HTMLInputElement>('#search')!, category = document.querySelector<HTMLSelectElement>('#category')!, year = document.querySelector<HTMLSelectElement>('#year')!, code = document.querySelector<HTMLInputElement>('#code')!, sort = document.querySelector<HTMLSelectElement>('#sort')!;
+  const list = document.querySelector<HTMLElement>('#paper-list')!, cards = new Map([...list.querySelectorAll<HTMLElement>('[data-paper-id]')].map(el => [el.dataset.paperId!, el]));
+  const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-category]')];
+  let page = 1, explicitSort = false, totalPages = 1;
+  function readURL() {
+    const q = new URLSearchParams(location.search);
+    search.value = q.get('q') || ''; category.value = [...category.options].some(o => o.value === q.get('category')) ? q.get('category')! : '';
+    year.value = q.get('year') || ''; code.checked = q.get('code') === '1';
+    explicitSort = SORTS.includes(q.get('sort') || ''); sort.value = explicitSort ? q.get('sort')! : defaultSort(config, category.value, search.value);
+    page = Math.max(1, Math.floor(Number(q.get('page')) || 1));
+  }
+  function render(writeURL = true) {
+    if (!explicitSort) sort.value = defaultSort(config, category.value, search.value);
+    const matches = filterPapers(papers, config, { query: search.value, category: category.value, sort: sort.value, year: year.value, code: code.checked });
+    totalPages = Math.max(1, Math.ceil(matches.length / size)); page = Math.min(page, totalPages);
+    for (const card of cards.values()) card.hidden = true;
+    const fragment = document.createDocumentFragment();
+    for (const p of matches.slice((page - 1) * size, page * size)) { const card = cards.get(p.id)!; card.hidden = false; fragment.append(card); }
+    list.append(fragment);
+    document.querySelector('#count')!.textContent = `${matches.length} / ${papers.length} ${t.count}`;
+    document.querySelector<HTMLElement>('#empty')!.hidden = matches.length > 0;
+    const scoped = Boolean(search.value.trim() && (category.value || year.value || code.checked));
+    document.querySelector<HTMLElement>('#scope')!.hidden = !scoped;
+    document.querySelector<HTMLElement>('#empty-all')!.hidden = !scoped;
+    document.querySelector('#scope-label')!.textContent = `${t.scope}: ${category.selectedOptions[0]?.textContent} · ${t.globalMatches}: ${filterPapers(papers, config, { query: search.value }).length}`;
+    for (const link of links) { if (link.dataset.category === category.value) link.setAttribute('aria-current', 'true'); else link.removeAttribute('aria-current'); }
+    document.querySelector<HTMLElement>('#pagination')!.hidden = totalPages === 1;
+    document.querySelector('#page-position')!.textContent = `${page} / ${totalPages}`;
+    document.querySelector<HTMLButtonElement>('#previous')!.disabled = page === 1;
+    document.querySelector<HTMLButtonElement>('#next')!.disabled = page === totalPages;
+    if (writeURL) {
+      const q = new URLSearchParams(); if (search.value) q.set('q', search.value); if (category.value) q.set('category', category.value); if (year.value) q.set('year', year.value); if (code.checked) q.set('code', '1'); if (explicitSort) q.set('sort', sort.value); if (page > 1) q.set('page', String(page));
+      history.replaceState(null, '', location.pathname + (q.size ? '?' + q : ''));
+    }
+  }
+  function clearFacets() { category.value = ''; year.value = ''; code.checked = false; page = 1; render(); }
+  search.addEventListener('input', () => { page = 1; render(); });
+  for (const input of [category, year, code]) input.addEventListener('change', () => { page = 1; render(); });
+  sort.addEventListener('change', () => { explicitSort = true; page = 1; render(); });
+  for (const link of links) link.addEventListener('click', event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); category.value = link.dataset.category || ''; page = 1; render(); });
+  document.querySelector('#filters')!.addEventListener('submit', event => { event.preventDefault(); page = 1; render(); });
+  document.querySelector('#clear')!.addEventListener('click', () => { search.value = ''; clearFacets(); });
+  for (const id of ['#search-all', '#empty-all']) document.querySelector(id)!.addEventListener('click', clearFacets);
+  document.querySelector('#previous')!.addEventListener('click', () => { page--; render(); list.scrollIntoView(); });
+  document.querySelector('#next')!.addEventListener('click', () => { page++; render(); list.scrollIntoView(); });
+  window.addEventListener('popstate', () => { readURL(); render(false); });
+  readURL(); render(false);
+</script>
