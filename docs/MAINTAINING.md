@@ -180,6 +180,8 @@ A PR created with `GITHUB_TOKEN` may require a maintainer to select **Approve wo
 
 The repository owner has approved public release. The repository and its GitHub Pages website are public. Website updates use an explicit manual deployment from `main`; pushes and merges do not trigger deployment.
 
+The homepage's bottom-right **Website updated** timestamp is captured in UTC when the static site is built and travels with that deployment artifact. It is separate from **Collection updated**, which describes the catalog data. Refreshing the browser does not change the deployed timestamp; the next published build does.
+
 To publish a reviewed update:
 
 1. Merge the reviewed website, data, lockfile, and workflows into `main`.
