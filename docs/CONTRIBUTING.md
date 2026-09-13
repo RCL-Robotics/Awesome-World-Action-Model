@@ -2,7 +2,7 @@
 
 We welcome paper recommendations, metadata corrections, and improvements to the website. Please write contribution descriptions in English.
 
-Browse the [public project website](https://rcl-robotics.github.io/Awesome-World-Action-Model/) and contribute through GitHub Issues or pull requests.
+Browse the [public project website](https://rcl-robotics.github.io/Awesome-World-Action-Models/) and contribute through GitHub Issues or pull requests.
 
 ## Recommend or correct a paper
 
@@ -35,6 +35,6 @@ npm run build
 
 If the exported paper data or README generator changes, also run `npm run generate:readme` and include the generated README. Preserve `package-lock.json` and commit it with dependency changes. No Notion token is needed to build the site or contribute website code.
 
-Please check keyboard navigation, meaningful link labels, readable contrast, and the `/Awesome-World-Action-Model/` path when relevant. The PR workflow performs validation. After merging to `main`, a maintainer publishes the website update through the manual Pages workflow.
+Please check keyboard navigation, meaningful link labels, readable contrast, and the `/Awesome-World-Action-Models/` path when relevant. The PR workflow performs validation. After merging to `main`, a maintainer publishes the website update through the manual Pages workflow.
 
 For Notion export, local preview, and website deployment, see [Maintenance and synchronization](MAINTAINING.md).

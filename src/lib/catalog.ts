@@ -36,7 +36,7 @@ export interface Paper {
 export const papers = (rawPapers as Paper[]).toSorted(comparePapers);
 export const categoryReviewFor = (id: string) => classificationOverrides.entries.find(entry => entry.paperId === id);
 export { meta };
-export const repoUrl = 'https://github.com/RCL-Robotics/Awesome-World-Action-Model';
+export const repoUrl = 'https://github.com/RCL-Robotics/Awesome-World-Action-Models';
 export const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 export const pathFor = (path = '') => `${base}/${path.replace(/^\//, '')}`;
 export const paperPath = (id: string) => pathFor(`papers/${id}/`);

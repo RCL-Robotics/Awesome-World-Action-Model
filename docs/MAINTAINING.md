@@ -1,6 +1,6 @@
 # Maintenance and synchronization
 
-The public project website is hosted at [rcl-robotics.github.io/Awesome-World-Action-Model](https://rcl-robotics.github.io/Awesome-World-Action-Model/). Deployments are manual: syncing data or merging a PR updates the repository, and a maintainer publishes the reviewed `main` branch through the Pages workflow.
+The public project website is hosted at [rcl-robotics.github.io/Awesome-World-Action-Models](https://rcl-robotics.github.io/Awesome-World-Action-Models/). Deployments are manual: syncing data or merging a PR updates the repository, and a maintainer publishes the reviewed `main` branch through the Pages workflow.
 
 The **Awesome-World-Action-Model** database in Notion is the editorial source. Reviewed arXiv additions can also be retained in `data/local-papers.json`. The exporter merges both into `data/papers.json` and `data/meta.json`; the website and generated README use the same catalog.
 
@@ -112,7 +112,7 @@ npm run dev
 Open the URL printed in the terminal, normally:
 
 ```text
-http://localhost:4321/Awesome-World-Action-Model/
+http://localhost:4321/Awesome-World-Action-Models/
 ```
 
 Before submitting a change:
@@ -187,7 +187,7 @@ PR checks validate and build. The deployment workflow repeats these checks befor
 
 ## Repository paths and future domains
 
-`astro.config.mjs` retains `site: https://rcl-robotics.github.io` and `base: /Awesome-World-Action-Model`. These build settings do not enable hosting. Keep the base path's capitalization consistent with the repository name.
+`astro.config.mjs` retains `site: https://rcl-robotics.github.io` and `base: /Awesome-World-Action-Models`. These build settings do not enable hosting. Keep the base path's capitalization consistent with the repository name.
 
 For a future approved rename, fork, or domain change, update `site`, `base`, and external project links before building. A site at a custom domain's root normally uses `/` as its base. Verify detail pages and assets against the resulting paths. [Astro GitHub Pages configuration](https://docs.astro.build/en/guides/deploy/github/)
 
@@ -201,7 +201,7 @@ For a future approved rename, fork, or domain change, update `site`, `base`, and
 | A category, abstract, or date is missing, or the quadrant is Pending verification | Preserve the recorded state. Review the source in Notion before changing it. |
 | A URL, duplicate identity, or recorded field fails validation | Review the named field or duplicate records. Taxonomy labels must match the shared definitions; missing new fields may be null or empty lists. |
 | `npm ci` fails | Check the Node version, network access, and consistency between `package.json` and the lockfile. |
-| The Pages address returns 404 | Check Pages settings and the latest deployment run. Use the URL reported by the completed deployment, including `/Awesome-World-Action-Model/`. |
+| The Pages address returns 404 | Check Pages settings and the latest deployment run. Use the URL reported by the completed deployment, including `/Awesome-World-Action-Models/`. |
 | Details or styles return 404 in preview | Check `site` and `base`, then rebuild and restart local preview. |
 | A sync branch exists without a PR | Use the run Summary's compare link and check Actions PR permissions. |
 
