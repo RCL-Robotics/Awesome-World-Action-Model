@@ -47,6 +47,68 @@ function componentReview() {
     evidenceIds: ['e1'], reportSha256: 'a'.repeat(64) }] };
 }
 
+function categoryReview(classification = { majorCategory: 'WAM', subcategories: ['三维表示与状态估计'], architecture: 'Dual-system', predictionParadigm: '其他机制', quadrant: '四象限外' }) {
+  return { schemaVersion: 2, reviewedAt: '2026-09-13T10:00:00.000Z', entries: [{ paperId: paper().id,
+    classification, reason: 'Separate policy and dynamics networks define a specialized predictive-control system.',
+    evidenceIds: ['e-method'], reportSha256: 'b'.repeat(64),
+    ...(classification.majorCategory === '奠基性工作' ? { firstPublicationYear: 2024 } : {}) }] };
+}
+
+test('category reviews correct major and evidenced axes without changing bibliography or source-review status', () => {
+  const original = { ...paper(), majorCategory: '奠基性工作', subcategories: ['神经世界模拟器'], architecture: '不适用', predictionParadigm: '不适用', quadrant: '不适用', classificationStatus: '部分待核实' };
+  const saved = structuredClone(original);
+  const review = categoryReview();
+  const result = applyClassificationOverrides([original], review);
+  assert.deepEqual(result, [{ ...original, ...review.entries[0].classification }]);
+  assert.deepEqual(original, saved);
+  assert.deepEqual(applyClassificationOverrides(result, review), result);
+  assert.deepEqual(applyClassificationOverrides([], review), []);
+  const categoryOnly = categoryReview({ majorCategory: 'Related resources', subcategories: ['综述与技术资源'] });
+  assert.equal(applyClassificationOverrides([original], categoryOnly)[0].architecture, original.architecture);
+});
+
+test('curated categories reject unreviewed additions and post-2025 foundations', () => {
+  const original = { ...paper(), majorCategory: '奠基性工作' };
+  const empty = { ...categoryReview(), entries: [] };
+  assert.throws(() => applyClassificationOverrides([original], empty), /explicit scope review/);
+  assert.throws(() => applyClassificationOverrides([{ ...original, majorCategory: 'WAM Components' }], empty), /explicit scope review/);
+  const foundational = categoryReview({ majorCategory: '奠基性工作', subcategories: ['理论与规划'] });
+  assert.equal(applyClassificationOverrides([original], foundational)[0].majorCategory, '奠基性工作');
+  foundational.entries[0].firstPublicationYear = 2026;
+  assert.throws(() => validateClassificationOverrides(foundational), /before 2026/);
+  const inconsistent = categoryReview();
+  inconsistent.entries[0].classification.quadrant = QUADRANTS[0];
+  assert.throws(() => validateClassificationOverrides(inconsistent), /Inconsistent quadrant/);
+  const privateField = categoryReview();
+  privateField.entries[0].classification.privateNotes = 'private';
+  assert.throws(() => validateClassificationOverrides(privateField), /Invalid classification fields/);
+});
+
+test('offline Notion sync retains corrected categories while updating source bibliography', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'wam-category-v2-sync-test-'));
+  try {
+    const repository = join(dir, 'repo');
+    await copyImportRuntime(repository);
+    await mkdir(join(repository, 'data'));
+    const reviews = categoryReview();
+    await writeFile(join(repository, 'data/classification-overrides.json'), JSON.stringify(reviews));
+    const source = fixture();
+    source.properties['大类'] = select('奠基性工作');
+    const inputPath = join(dir, 'input.json');
+    const sync = () => execFileSync(process.execPath, [join(repository, 'scripts/sync-notion.mjs'), '--input', inputPath], { encoding: 'utf8', timeout: 10000, stdio: 'pipe' });
+    await writeFile(inputPath, JSON.stringify({ results: [source], fetchedAt: '2026-09-13T10:00:00.000Z' }));
+    sync();
+    source.properties['Paper Name'].title = [text('A corrected source title')];
+    await writeFile(inputPath, JSON.stringify({ results: [source], fetchedAt: '2026-09-13T11:00:00.000Z' }));
+    sync();
+    const actual = JSON.parse(await readFile(join(repository, 'data/papers.json'), 'utf8'));
+    assert.deepEqual(actual, applyClassificationOverrides([mapNotionPage(source)], reviews));
+    assert.equal(actual[0].title, 'A corrected source title');
+    assert.equal(actual[0].majorCategory, 'WAM');
+    assert.equal(actual[0].architecture, 'Dual-system');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
 test('component reviews preserve source fields, avoid duplicate translated subtypes and never resurrect deleted papers', () => {
   const original = { ...paper(), majorCategory: '奠基性工作', subcategories: ['视觉编码器与表征', '视觉表征迁移基准'], quadrant: '不适用', classificationStatus: '部分待核实' };
   const before = structuredClone(original);

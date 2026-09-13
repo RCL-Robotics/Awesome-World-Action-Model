@@ -21,13 +21,14 @@ const quadrantLabel = (quadrant) => {
   return index >= 0 ? `Q${index + 1}` : quadrant === null ? 'Quadrant not recorded' : taxonomyLabel(quadrant);
 };
 const categoryDescriptions = {
-  'Foundational work': 'World models, model-based RL, planning, theory, and surveys',
+  'Foundational work': 'Pre-2026 foundations in world models, model-based RL, planning, and theory',
   VLA: 'Vision-language-action policies and their learning methods',
   WAMs: 'Models connecting world prediction with action generation and control',
   Datasets: 'Robot demonstrations, interaction data, video, and multimodal resources',
   'Evaluation metrics': 'Prediction quality, action consistency, and control performance',
   'Benchmarks & simulators': 'Evaluation tasks, environments, and simulation platforms',
-  'Components of WAMs': 'Encoders, predictive backbones, action interfaces, and training methods',
+  'Components of WAMs': 'Core pretrained encoders, generative backbones, tokenizers, and action heads',
+  'Related resources': 'Related surveys, runtimes, representations, and supporting research',
 };
 
 function catalog(inputPapers, inputMeta) {
@@ -126,6 +127,7 @@ export function renderReadme(inputPapers, inputMeta) {
     `| Visual category and architecture maps | [Research map](${website}map/) |`,
     `| Detailed paper analyses | [Reading reports](${website}reports/) |`,
     '| Machine-readable bibliography | [papers.json](data/papers.json) |',
+    '| Category scope, corrections, and evidence | [Classification review](docs/CLASSIFICATION_REVIEW.md) |',
     '| Setup, catalog updates, and contribution workflow | [Maintainer guide](docs/MAINTAINING.md) |',
     `| Recommend a paper or report a correction | [Open an issue](${repository}/issues/new/choose) |`,
     '| Repository code license | [MIT License](LICENSE) |', '',

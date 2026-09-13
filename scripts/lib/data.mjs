@@ -197,21 +197,40 @@ export function sortPapers(papers) {
 
 export const CATALOG_SOURCES = Object.freeze(['Notion', 'Notion + arXiv discovery']);
 
-// These explicit editorial decisions affect only category placement. Source
-// verification status, quadrant axes, bibliography and reading snapshots stay intact.
+// Explicit editorial decisions preserve bibliography and source-review status.
+// Version 2 also permits independently evidenced architecture/transition corrections.
 export function validateClassificationOverrides(manifest) {
   const exact = (value, fields) => value && !Array.isArray(value) && typeof value === 'object'
     && Object.keys(value).length === fields.length && fields.every(key => Object.hasOwn(value, key));
-  if (!exact(manifest, ['schemaVersion', 'reviewedAt', 'entries']) || manifest.schemaVersion !== 1) throw new Error('Classification overrides must contain exactly the version 1 manifest fields');
+  if (!exact(manifest, ['schemaVersion', 'reviewedAt', 'entries']) || ![1, 2].includes(manifest.schemaVersion)) throw new Error('Classification overrides must contain exactly the supported manifest fields');
   if (typeof manifest.reviewedAt !== 'string' || Number.isNaN(Date.parse(manifest.reviewedAt)) || new Date(manifest.reviewedAt).toISOString() !== manifest.reviewedAt) throw new Error('Classification overrides reviewedAt must be an ISO UTC timestamp');
   if (!Array.isArray(manifest.entries)) throw new Error('Classification override entries must be an array');
   const ids = new Set();
   for (const entry of manifest.entries) {
-    if (!exact(entry, ['paperId', 'componentArea', 'reason', 'evidenceIds', 'reportSha256'])) throw new Error('Classification override must contain exactly the public review fields');
+    const fields = ['paperId', manifest.schemaVersion === 1 ? 'componentArea' : 'classification', 'reason', 'evidenceIds', 'reportSha256'];
+    if (manifest.schemaVersion === 2 && entry.classification?.majorCategory === '奠基性工作') fields.push('firstPublicationYear');
+    if (!exact(entry, fields)) throw new Error('Classification override must contain exactly the public review fields');
     if (typeof entry.paperId !== 'string' || !/^(?:\d{4}\.\d{4,5}|ref-[a-f0-9]{20})$/.test(entry.paperId)) throw new Error('Classification override has an invalid paperId');
     if (ids.has(entry.paperId)) throw new Error(`Duplicate classification override: ${entry.paperId}`);
     ids.add(entry.paperId);
-    if (!COMPONENT_AREAS.includes(entry.componentArea)) throw new Error(`Unknown componentArea for ${entry.paperId}`);
+    if (manifest.schemaVersion === 1) {
+      if (!COMPONENT_AREAS.includes(entry.componentArea)) throw new Error(`Unknown componentArea for ${entry.paperId}`);
+    } else {
+      const classification = entry.classification;
+      const axes = ['architecture', 'predictionParadigm', 'quadrant'];
+      const hasAxes = axes.some(key => Object.hasOwn(classification || {}, key));
+      if (!exact(classification, ['majorCategory', 'subcategories', ...(hasAxes ? axes : [])])) throw new Error(`Invalid classification fields for ${entry.paperId}`);
+      if (classification.majorCategory !== null && !MAJOR_CATEGORIES.includes(classification.majorCategory)) throw new Error(`Unknown majorCategory for ${entry.paperId}`);
+      if (!Array.isArray(classification.subcategories) || classification.subcategories.some(value => typeof value !== 'string' || !value.trim()) || new Set(classification.subcategories.map(taxonomyLabel)).size !== classification.subcategories.length) throw new Error(`Invalid subcategories for ${entry.paperId}`);
+      if (hasAxes) {
+        for (const [field, allowed] of [['architecture', ARCHITECTURES], ['predictionParadigm', PREDICTION_PARADIGMS], ['quadrant', QUADRANT_STATUSES]]) {
+          if (classification[field] !== null && !allowed.includes(classification[field])) throw new Error(`Unknown ${field} for ${entry.paperId}`);
+        }
+        const quadrant = QUADRANT_AXES[classification.quadrant];
+        if (quadrant && (quadrant.architecture !== classification.architecture || quadrant.predictionParadigm !== classification.predictionParadigm)) throw new Error(`Inconsistent quadrant axes for ${entry.paperId}`);
+      }
+      if (classification.majorCategory === '奠基性工作' && (!Number.isInteger(entry.firstPublicationYear) || entry.firstPublicationYear < 1800 || entry.firstPublicationYear >= 2026)) throw new Error(`Foundational work requires an evidenced publication year before 2026: ${entry.paperId}`);
+    }
     if (typeof entry.reason !== 'string' || !entry.reason.trim()) throw new Error(`Missing classification reason for ${entry.paperId}`);
     if (!Array.isArray(entry.evidenceIds) || !entry.evidenceIds.length || entry.evidenceIds.some(id => typeof id !== 'string' || !id.trim()) || new Set(entry.evidenceIds).size !== entry.evidenceIds.length) throw new Error(`Invalid classification evidenceIds for ${entry.paperId}`);
     if (typeof entry.reportSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(entry.reportSha256)) throw new Error(`Invalid reportSha256 for ${entry.paperId}`);
@@ -224,12 +243,18 @@ export function applyClassificationOverrides(papers, manifest) {
   validateClassificationOverrides(manifest);
   const reviews = new Map(manifest.entries.map(entry => [entry.paperId, entry]));
   // A review cannot resurrect a paper deleted from both catalog sources.
-  return papers.map(paper => {
+  const result = papers.map(paper => {
     const review = reviews.get(paper.id);
-    if (!review) return paper;
+    if (!review) {
+      if (manifest.schemaVersion === 2 && ['奠基性工作', 'WAM Components'].includes(paper.majorCategory)) throw new Error(`Curated category requires an explicit scope review: ${paper.id}`);
+      return paper;
+    }
+    if (manifest.schemaVersion === 2) return { ...paper, ...review.classification, subcategories: [...review.classification.subcategories] };
     return { ...paper, majorCategory: 'WAM Components', subcategories: [componentSubcategory(review.componentArea),
       ...paper.subcategories.filter(value => !COMPONENT_AREAS.includes(value) && taxonomyLabel(value) !== review.componentArea)] };
   });
+  validatePapers(result, { allowEmpty: true });
+  return result;
 }
 
 // Local discoveries persist across exports; an editor's current Notion record

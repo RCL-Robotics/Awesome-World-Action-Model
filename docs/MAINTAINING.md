@@ -8,7 +8,7 @@ The **Awesome-World-Action-Model** database in Notion is the editorial source. R
 
 The 85-paper reading batch integrated on 2026-09-11 adds 85 full-paper reports and illustrated editions with 497 original figure/table crops. Its entries are retained in `data/local-papers.json` so a later Notion export preserves papers that have not yet been added to Notion.
 
-Local titles, authors and affiliations come from the reviewed original title blocks. Contribution summaries are the accepted reports' synopses; they are not paper abstracts. Missing abstracts and unassigned classifications remain unfilled. The original reading-time classification snapshots and report evidence are preserved. These entries appear under **Not assigned** in the research map until classification is recorded.
+Local titles, authors and affiliations come from the reviewed original title blocks. Contribution summaries are the accepted reports' synopses; they are not paper abstracts. Missing abstracts remain unfilled. The original reading-time classification snapshots and report evidence are preserved. The 2026-09-13 scope review supplies catalog classifications for all 85 additions through the review manifest without rewriting their historical snapshots.
 
 The overlay uses the same 25 public fields and validation as the main catalog. During synchronization, a Notion record with the same ID takes precedence, allowing later editorial updates without duplicate entries. The sync reads but never rewrites the local overlay. Metadata identifies catalogs with local-only entries as `Notion + arXiv discovery`. A missing overlay for an existing mixed-source catalog is an error; restore the file before syncing. Empty-export and large-decrease guards still apply.
 
@@ -16,7 +16,7 @@ To add another reviewed local batch, validate its bibliographic records, merge i
 
 ## Sources and missing information
 
-Synchronization reads the entire Notion data source by default, including arXiv, DOI, publisher, PDF, and other recorded research sources. It does not write to Notion, infer classifications, or exclude records because an abstract, classification, or submission date is missing. Explicit component-category reviews are applied after the source merge.
+Synchronization reads the entire Notion data source by default, including arXiv, DOI, publisher, PDF, and other recorded research sources. It does not write to Notion, infer classifications, or exclude records because an abstract, classification, or submission date is missing. Explicit classification reviews are applied after the source merge.
 
 The 2026-09-07 taxonomy snapshot contains 479 entries, all with a major category. Of these, 180 have non-arXiv sources, 305 lack the original `Primary Category` and abstract, and 191 lack `Submitted Date`. An absent original research topic does not mean the new major category, subcategories, or quadrant are missing. These counts describe that snapshot; current totals are calculated from the exported data.
 
@@ -40,7 +40,7 @@ The catalog has 25 explicit fields: the original 19 bibliographic and research f
 
 Entries with missing information remain in the collection. Validation still checks URLs, duplicate identities, recorded field formats, empty exports, and unexpectedly large decreases.
 
-Taxonomy definitions and English display labels are shared in `src/lib/taxonomy.mjs`. The website and README use `taxonomyLabel()` for presentation; source labels remain unchanged except for explicit component-category reviews. Update the shared module when introducing a valid source label rather than maintaining separate definitions in pages or scripts.
+Taxonomy definitions and English display labels are shared in `src/lib/taxonomy.mjs`. The website and README use `taxonomyLabel()` for presentation; source labels remain unchanged except for explicit classification reviews. Update the shared module when introducing a valid source label rather than maintaining separate definitions in pages or scripts.
 
 ## Notion field mapping
 
@@ -82,23 +82,27 @@ The quadrant view crosses **architecture × prediction paradigm**: One Model or 
 
 The research map provides `mode=major` (default), `mode=quadrants`, and `mode=topics`. The library combines major-category, subcategory, and quadrant filters. `Uncategorized` applies only to the original Primary Category, not to the overall taxonomy status.
 
-Synchronization displays the recorded Notion classifications with the explicit local component reviews described below. Other corrections should be recorded in Notion before exporting. Inspect the diff and local preview after either kind of change.
+Library browsing defaults to oldest first, except **Foundational work**, which uses an editorial relevance order: world models/model-based RL and latent-action modeling, action-policy foundations, planning/state-estimation theory, diffusion/flow foundations, then general training methods. This order uses the reviewed primary subcategory, with chronological ordering within each group. Keyword searches prioritize title/identifier matches; explicit sort choices in the menu or URL override the defaults.
 
-## WAM component category reviews
+Synchronization displays the recorded Notion classifications with the explicit local reviews described below. Record source corrections in Notion or evidence-backed classification corrections in the review manifest, then inspect the diff and local preview.
 
-The 2026-09-11 review examined all 139 Foundational work entries and moved 80 into WAM Components, leaving 59 in Foundational work. All 564 catalog records and the 85 unassigned local additions were retained.
+## Classification scope reviews
 
-**WAM Components** collects reusable parts of a world-action-model stack. Its seven component areas are visual encoders and representations; language and vision-language backbones; generative modeling and tokenizers; video and world prediction backbones; spatial perception and geometry; action representations and policies; and training and inference methods. This is a contribution-role category: it does not assert that every component paper implements a complete WAM, or that every backbone has been validated in every WAM system.
+The 2026-09-13 scope review replaces the earlier broad “reusable contribution” rule. It audits all 224 entries previously in Foundational work, WAM Components, or without a major category. The collection retains 564 source records. See [the review and before/after counts](CLASSIFICATION_REVIEW.md).
 
-**Foundational work** retains theory, planning, surveys, classic complete model-based RL systems, and works whose component role is not established by the available reading. The component review does not force complete systems or uncertain records into this category simply to reduce the foundation count.
+**WAM Components** is a curated set of core encoders, pretrained language/vision/video backbones, tokenizers, spatial representations, and canonical action heads, including VAE, CLIP, DINOv2/v3, Wan, and Cosmos backbones. A task-specific WAM, policy adaptation method, runtime, or visual simulator does not become a component merely because it could be reused. Distinguish a backbone from a control system built on it, and self-supervised DINO from the unrelated DINO DETR name.
 
-`data/classification-overrides.json` stores versioned, explicit component placements by stable paper ID. Each entry names one component area and gives an English rationale, evidence IDs from the existing reading report, and that report's SHA-256 at review time. The hash identifies the reviewed edition; it is not a claim that a later report edition has been reviewed. Keep private paths and source retrieval logs out of this public manifest.
+**Foundational work** is curated historical theory, planning, representation, optimization, and model-based learning published before 2026. Age is necessary but not sufficient: the reason must establish a foundational role. Use the evidenced first release, rather than a later journal publication or revision year. The manifest records this review year without changing source bibliography.
 
-The exporter first merges Notion with `data/local-papers.json`, then applies these placements to existing matching papers. Only `majorCategory` and `subcategories` change. The reviewed primary component area comes first; other source subcategories remain unless they duplicate its English label. Component-area filter counts include retained cross-role tags, so the areas can overlap. Bibliography, original research topics, architecture, prediction paradigm, quadrant, and source review status stay intact. A review never restores a paper absent from both sources. The catalog source in `meta.json` continues to describe its bibliographic inputs.
+Diffusion Policy belongs here as an action-policy foundation dating to RSS 2023; its later journal edition is not classified as a generic component.
 
-Placements remain authoritative until explicitly edited or retired. To retire one, update Notion to the intended category and remove its manifest entry before the next export. A missing manifest with existing component entries aborts synchronization to prevent an accidental rollback. The importer never writes to Notion or to the review manifest. `validate:data` checks that the catalog reflects the saved placements; the normal sync or `applyClassificationOverrides` from `scripts/lib/data.mjs` applies them.
+**Related resources** contains relevant surveys, robotics runtimes, supporting representations, security studies, and other adjacent research outside the more specific categories. Dedicated learned simulators belong in **Benchmarks & simulators**. Unrelated or identity-uncertain records stay explicitly unassigned for removal review; they are not forced into Related resources.
 
-Paper detail pages show the current category and its review rationale. Reading reports retain their historical taxonomy snapshots and display the current major category when it differs. Do not rewrite source evidence or reading snapshots just to make the old classification agree with the catalog.
+`data/classification-overrides.json` version 2 records each stable paper ID, reviewed category and subcategories, an English rationale, valid evidence IDs, and the SHA-256 of the reading report actually reviewed. Architecture, prediction paradigm, and quadrant may be overridden only as a complete, independently evidenced triplet. Foundational entries also require `firstPublicationYear < 2026`. Version 1 remains readable for compatibility, but it is not the current editorial policy.
+
+The exporter merges Notion with `data/local-papers.json`, then applies these explicit reviews. Source titles, dates, abstracts, original research topics, source-review status, and historical reading snapshots remain intact. Reviewed fields take precedence over stale source classifications and are reapplied on every sync. New Foundational or Component entries require an explicit scope review, so an unchecked import cannot silently broaden these curated categories. A review never restores a paper absent from both catalog sources. The importer does not write to Notion or to the review manifest.
+
+`validate:data` verifies the applied decisions, report fingerprints, and evidence references. A changed evidence report requires reviewing and refreshing the affected decision before building. Remove or update a decision only after checking its replacement. Paper detail pages show the current category and review rationale; reading reports preserve their historical taxonomy snapshots and identify when the current classification differs.
 
 ## Local preview
 

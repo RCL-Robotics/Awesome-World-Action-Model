@@ -12,6 +12,20 @@ function compact(text) {
   return normalize(text ?? '').replace(/[\s\p{Pd}\p{Pc}\p{Cf}]/gu, '');
 }
 
+export function defaultSort(filters = {}) {
+  return String(filters.query || '').trim() || filters.major === '奠基性工作' ? 'relevance' : 'oldest';
+}
+
+// Reading order by the reviewed primary subcategory's relationship to WAMs.
+// This is an editorial scope order, not a citation or popularity score.
+const foundationOrder = new Map([
+  ['经典WM与模型式RL', 0], ['潜动作预训练', 0], ['潜空间预测与JEPA', 0],
+  ['动作策略基础', 1],
+  ['理论与规划', 2], ['三维表示与状态估计', 2],
+  ['扩散与流匹配基础', 3], ['训练优化与蒸馏', 4],
+]);
+const foundationRank = paper => foundationOrder.get(paper.subcategories?.[0]) ?? 5;
+
 // A recorded year is enough to order a paper, but is never turned into a date.
 // Within a year, dated records precede year-only records. Missing dates and years
 // stay last in both chronological directions.
@@ -31,6 +45,7 @@ export function comparePapers(a, b, sort = 'newest') {
 }
 
 export function filterPapers(papers, filters) {
+  const sort = filters.sort || defaultSort(filters);
   const words = normalize(filters.query || '').split(/\s+/).map(compact).filter(Boolean);
   const result = papers.filter(paper => {
     if (filters.major && (filters.major === '__unassigned__' ? Boolean(paper.majorCategory) : paper.majorCategory !== filters.major)) return false;
@@ -48,5 +63,17 @@ export function filterPapers(papers, filters) {
     const searchable = [paper.title, paper.authors, paper.affiliations, paper.contribution, paper.abstract, paper.id, paper.bibtexKey, paper.bibtex, paper.paperUrl, paper.arxivUrl, paper.pdfUrl, paper.doi, paper.publicationYear, paper.venue, paper.venue ? venueLabel(paper.venue) : '', ...taxonomy, ...taxonomy.map(taxonomyLabel), ...topics, ...topics.map(taxonomyLabel)].map(compact).join('\0');
     return words.every(word => searchable.includes(word));
   });
-  return result.sort((a, b) => comparePapers(a, b, filters.sort));
+  // A name search should surface the paper itself before newer papers that
+  // mention it in their abstracts. Explicit chronological sorts still apply.
+  const relevance = words.length > 0 && sort === 'relevance';
+  const foundationRelevance = sort === 'relevance' && filters.major === '奠基性工作';
+  const queryKey = words.join('');
+  const score = paper => {
+    if ([paper.id, paper.bibtexKey].some(value => compact(value) === queryKey)) return 2;
+    const title = compact(paper.title);
+    return words.every(word => title.includes(word)) ? 1 : 0;
+  };
+  return result.sort((a, b) => (relevance ? score(b) - score(a) : 0)
+    || (foundationRelevance ? foundationRank(a) - foundationRank(b) : 0)
+    || comparePapers(a, b, sort === 'relevance' ? 'oldest' : sort));
 }

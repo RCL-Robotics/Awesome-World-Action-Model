@@ -41,7 +41,7 @@ export const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 export const pathFor = (path = '') => `${base}/${path.replace(/^\//, '')}`;
 export const paperPath = (id: string) => pathFor(`papers/${id}/`);
 export const paperSourceUrl = (paper: Paper) => paper.paperUrl || paper.arxivUrl || '';
-const majorColors = ['#7b8997', '#597eac', '#579483', '#b69b51', '#8b78aa', '#b78457', '#507e86'];
+const majorColors = ['#7b8997', '#597eac', '#579483', '#b69b51', '#8b78aa', '#b78457', '#507e86', '#8b7f77'];
 const quadrantColors = ['#597eac', '#8b78aa', '#579483', '#b78457', '#97836c', '#8b96a1', '#baa051'];
 export const majorCategories = MAJOR_CATEGORIES.map((name, index) => ({ name, label: taxonomyLabel(name), color: majorColors[index], count: papers.filter(p => p.majorCategory === name).length }));
 export const quadrantStatuses = QUADRANT_STATUSES.map((name, index) => ({ name, label: QUADRANTS.includes(name) ? name.split(' · ')[0] : taxonomyLabel(name), color: quadrantColors[index], count: papers.filter(p => p.quadrant === name).length }));

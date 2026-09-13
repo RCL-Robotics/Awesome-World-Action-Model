@@ -83,7 +83,7 @@ The collection covers complete World-Action Models alongside foundations, VLA po
 
 [Project website](https://rcl-robotics.github.io/Awesome-World-Action-Models/) · [Full paper catalog](docs/PAPERS.md) · [Reading reports](https://rcl-robotics.github.io/Awesome-World-Action-Models/reports/)
 
-**564 entries · 7 major categories** · Catalog updated 2026-09-11
+**564 entries · 8 major categories** · Catalog updated 2026-09-13
 
 ## Major categories
 
@@ -91,14 +91,15 @@ Click a category to jump to its paper list in this repository. Use **Browse** to
 
 | Category | What you will find | Entries | Interactive view |
 | --- | --- | ---: | --- |
-| [Foundational work](docs/PAPERS.md#major-foundational-work) | World models, model-based RL, planning, theory, and surveys | 59 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=%E5%A5%A0%E5%9F%BA%E6%80%A7%E5%B7%A5%E4%BD%9C#library>) |
-| [VLA](docs/PAPERS.md#major-vla) | Vision-language-action policies and their learning methods | 35 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=VLA#library>) |
-| [WAMs](docs/PAPERS.md#major-wam) | Models connecting world prediction with action generation and control | 227 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=WAM#library>) |
-| [Datasets](docs/PAPERS.md#major-datasets) | Robot demonstrations, interaction data, video, and multimodal resources | 32 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=%E6%95%B0%E6%8D%AE%E9%9B%86#library>) |
-| [Evaluation metrics](docs/PAPERS.md#major-evaluation-metrics) | Prediction quality, action consistency, and control performance | 14 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87%EF%BC%88Metrics%EF%BC%89#library>) |
-| [Benchmarks &amp; simulators](docs/PAPERS.md#major-benchmarks-simulators) | Evaluation tasks, environments, and simulation platforms | 32 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=%E8%AF%84%E6%B5%8B%E5%9F%BA%E5%87%86%E4%B8%8E%E6%A8%A1%E6%8B%9F%E5%99%A8#library>) |
-| [Components of WAMs](docs/PAPERS.md#major-wam-components) | Encoders, predictive backbones, action interfaces, and training methods | 80 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=WAM%20Components#library>) |
-| [Major category not recorded](docs/PAPERS.md#major-not-recorded) | Entries awaiting a recorded major category | 85 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=__unassigned__#library>) |
+| [Foundational work](docs/PAPERS.md#major-foundational-work) | Pre-2026 foundations in world models, model-based RL, planning, and theory | 42 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=%E5%A5%A0%E5%9F%BA%E6%80%A7%E5%B7%A5%E4%BD%9C#library>) |
+| [VLA](docs/PAPERS.md#major-vla) | Vision-language-action policies and their learning methods | 46 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=VLA#library>) |
+| [WAMs](docs/PAPERS.md#major-wam) | Models connecting world prediction with action generation and control | 296 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=WAM#library>) |
+| [Datasets](docs/PAPERS.md#major-datasets) | Robot demonstrations, interaction data, video, and multimodal resources | 38 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=%E6%95%B0%E6%8D%AE%E9%9B%86#library>) |
+| [Evaluation metrics](docs/PAPERS.md#major-evaluation-metrics) | Prediction quality, action consistency, and control performance | 15 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87%EF%BC%88Metrics%EF%BC%89#library>) |
+| [Benchmarks &amp; simulators](docs/PAPERS.md#major-benchmarks-simulators) | Evaluation tasks, environments, and simulation platforms | 63 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=%E8%AF%84%E6%B5%8B%E5%9F%BA%E5%87%86%E4%B8%8E%E6%A8%A1%E6%8B%9F%E5%99%A8#library>) |
+| [Components of WAMs](docs/PAPERS.md#major-wam-components) | Core pretrained encoders, generative backbones, tokenizers, and action heads | 30 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=WAM%20Components#library>) |
+| [Related resources](docs/PAPERS.md#major-related-resources) | Related surveys, runtimes, representations, and supporting research | 31 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=Related%20resources#library>) |
+| [Major category not recorded](docs/PAPERS.md#major-not-recorded) | Entries awaiting a recorded major category | 3 | [Browse](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?major=__unassigned__#library>) |
 
 ## Architecture index
 
@@ -106,8 +107,8 @@ We compare two design choices: **One Model or Dual-system** architecture, and **
 
 | Architecture | Joint prediction | Inverse dynamics (IDM) |
 | --- | --- | --- |
-| One Model | [Q1](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?quadrant=Q1%20%C2%B7%20One%20Model%20%C3%97%20%E8%81%94%E5%90%88%E9%A2%84%E6%B5%8B#library>) · 38 entries | [Q2](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?quadrant=Q2%20%C2%B7%20One%20Model%20%C3%97%20IDM#library>) · 9 entries |
-| Dual-system | [Q3](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?quadrant=Q3%20%C2%B7%20Dual-system%20%C3%97%20%E8%81%94%E5%90%88%E9%A2%84%E6%B5%8B#library>) · 27 entries | [Q4](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?quadrant=Q4%20%C2%B7%20Dual-system%20%C3%97%20IDM#library>) · 54 entries |
+| One Model | [Q1](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?quadrant=Q1%20%C2%B7%20One%20Model%20%C3%97%20%E8%81%94%E5%90%88%E9%A2%84%E6%B5%8B#library>) · 46 entries | [Q2](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?quadrant=Q2%20%C2%B7%20One%20Model%20%C3%97%20IDM#library>) · 11 entries |
+| Dual-system | [Q3](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?quadrant=Q3%20%C2%B7%20Dual-system%20%C3%97%20%E8%81%94%E5%90%88%E9%A2%84%E6%B5%8B#library>) · 30 entries | [Q4](<https://rcl-robotics.github.io/Awesome-World-Action-Models/papers/?quadrant=Q4%20%C2%B7%20Dual-system%20%C3%97%20IDM#library>) · 62 entries |
 
 Joint training alone does not establish a One Model architecture. [Other classification states](docs/PAPERS.md#classification-summary) retain entries outside the four quadrants, entries for which the taxonomy does not apply, and cases awaiting verification.
 
@@ -120,6 +121,7 @@ Joint training alone does not establish a One Model architecture. [Other classif
 | Visual category and architecture maps | [Research map](https://rcl-robotics.github.io/Awesome-World-Action-Models/map/) |
 | Detailed paper analyses | [Reading reports](https://rcl-robotics.github.io/Awesome-World-Action-Models/reports/) |
 | Machine-readable bibliography | [papers.json](data/papers.json) |
+| Category scope, corrections, and evidence | [Classification review](docs/CLASSIFICATION_REVIEW.md) |
 | Setup, catalog updates, and contribution workflow | [Maintainer guide](docs/MAINTAINING.md) |
 | Recommend a paper or report a correction | [Open an issue](https://github.com/RCL-Robotics/Awesome-World-Action-Models/issues/new/choose) |
 | Repository code license | [MIT License](LICENSE) |

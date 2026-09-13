@@ -1,6 +1,6 @@
 // Exact editorial labels shared by import validation and the website.
 export const MAJOR_CATEGORIES = Object.freeze([
-  '奠基性工作', 'VLA', 'WAM', '数据集', '评估指标（Metrics）', '评测基准与模拟器', 'WAM Components',
+  '奠基性工作', 'VLA', 'WAM', '数据集', '评估指标（Metrics）', '评测基准与模拟器', 'WAM Components', 'Related resources',
 ]);
 
 export const COMPONENT_AREAS = Object.freeze([

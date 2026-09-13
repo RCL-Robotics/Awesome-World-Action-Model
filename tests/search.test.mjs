@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { filterPapers } from '../src/lib/search.mjs';
+import { defaultSort, filterPapers } from '../src/lib/search.mjs';
 import { MAJOR_CATEGORIES, QUADRANTS, QUADRANT_STATUSES } from '../src/lib/taxonomy.mjs';
 
 const make = (id, overrides = {}) => ({ id, title: 'World model', authors: 'José García', affiliations: 'Research lab', contribution: 'Planning from pixels', abstract: 'Predictive control with latent dynamics.', bibtexKey: 'Model', bibtex: '', submittedDate: '2026-08-10', publicationYear: null, paperUrl: `https://arxiv.org/abs/${id}`, arxivUrl: `https://arxiv.org/abs/${id}`, pdfUrl: null, doi: null, venue: null, primaryCategory: 'Memory WAM', secondaryCategories: ['WAM + RL'], codeUrls: [], majorCategory: null, subcategories: [], architecture: null, predictionParadigm: null, quadrant: null, classificationStatus: null, ...overrides });
@@ -36,13 +36,43 @@ test('normalized name searches still respect selected quadrants', () => {
   assert.equal(filterPapers(records, { query: 'FASTWAM', quadrant: QUADRANTS[3] }).length, 0);
   assert.deepEqual(filterPapers(records, { query: 'FASTWAM' }).map(p => p.id), ['fast']);
 });
+test('a paper name ranks before newer abstract mentions while explicit date sorting is retained', () => {
+  const records = [
+    make('newer', { title: 'A later robot policy', abstract: 'Builds on Fast-WAM.', submittedDate: '2026-09-01', majorCategory: 'Related resources' }),
+    make('2603.16666', { title: 'Fast-WAM: Do World Action Models Need Test-time Future Imagination?', bibtexKey: 'fastwam', submittedDate: '2026-03-17', majorCategory: 'WAM' }),
+  ];
+  for (const query of ['fastwam', 'Fast WAM', 'FAST-WAM']) {
+    assert.deepEqual(filterPapers(records, { query }).map(p => p.id), ['2603.16666', 'newer']);
+    assert.deepEqual(filterPapers(records, { query, sort: 'relevance' }).map(p => p.id), ['2603.16666', 'newer']);
+    assert.deepEqual(filterPapers(records, { query, sort: 'newest' }).map(p => p.id), ['newer', '2603.16666']);
+    assert.deepEqual(filterPapers(records, { query, major: 'Related resources' }).map(p => p.id), ['newer']);
+  }
+  assert.deepEqual(filterPapers(records, {}).map(p => p.id), ['2603.16666', 'newer']);
+});
+test('category browsing defaults to oldest first, with foundation relevance and keyword search taking precedence', () => {
+  assert.equal(defaultSort({}), 'oldest');
+  for (const major of MAJOR_CATEGORIES) assert.equal(defaultSort({ major }), major === '奠基性工作' ? 'relevance' : 'oldest');
+  assert.equal(defaultSort({ major: 'WAM', query: 'fastwam' }), 'relevance');
+  assert.equal(defaultSort({ major: 'WAM', query: '  ' }), 'oldest');
+  const records = [
+    make('theory', { title: 'Planning theory', majorCategory: '奠基性工作', submittedDate: null, publicationYear: 1989, subcategories: ['理论与规划'] }),
+    make('policy', { title: 'Diffusion Policy', majorCategory: '奠基性工作', submittedDate: null, publicationYear: 2023, subcategories: ['动作策略基础'] }),
+    make('world', { title: 'World Models', majorCategory: '奠基性工作', submittedDate: null, publicationYear: 2018, subcategories: ['经典WM与模型式RL'] }),
+  ];
+  assert.deepEqual(filterPapers(records, { major: '奠基性工作' }).map(p => p.id), ['world', 'policy', 'theory']);
+  assert.deepEqual(filterPapers(records, { major: '奠基性工作', sort: 'oldest' }).map(p => p.id), ['theory', 'world', 'policy']);
+  assert.equal(filterPapers(records, { major: '奠基性工作', query: 'planning' })[0].id, 'theory');
+  assert.deepEqual(filterPapers(records, {}).map(p => p.id), ['theory', 'world', 'policy']);
+  assert.equal(records[0].id, 'theory');
+});
 test('primary, secondary, date and code constraints combine', () => {
   assert.equal(filterPapers(collection, { category: '3D/4D WAM', secondary: 'WAM + RL', month: '2026-09', code: true }).length, 1);
   assert.equal(filterPapers(collection, { category: 'Memory WAM', code: true }).length, 0);
   assert.equal(filterPapers(collection, { secondary: 'General WAM' }).length, 0);
 });
 test('sorting is deterministic and leaves source order intact', () => {
-  assert.deepEqual(filterPapers(collection, {}).map(p => p.id), ['2609.00001', '2608.00002', '2608.00001']);
+  assert.deepEqual(filterPapers(collection, {}).map(p => p.id), ['2608.00001', '2608.00002', '2609.00001']);
+  assert.deepEqual(filterPapers(collection, { sort: 'newest' }).map(p => p.id), ['2609.00001', '2608.00002', '2608.00001']);
   assert.equal(filterPapers(collection, { sort: 'oldest' })[0].id, '2608.00001');
   assert.equal(filterPapers(collection, { sort: 'title' })[0].title, 'Action transformer');
   assert.equal(collection[0].id, '2608.00002');
@@ -55,7 +85,8 @@ test('chronological sorting combines recorded dates and years, keeping unknown r
     make('year-1989', { submittedDate: null, publicationYear: 1989 }),
     make('dated-2026'),
   ];
-  assert.deepEqual(filterPapers(mixed, {}).map(p => p.id), ['dated-2026', 'year-2026', 'year-1989', 'unknown']);
+  assert.deepEqual(filterPapers(mixed, {}).map(p => p.id), ['year-1989', 'dated-2026', 'year-2026', 'unknown']);
+  assert.deepEqual(filterPapers(mixed, { sort: 'newest' }).map(p => p.id), ['dated-2026', 'year-2026', 'year-1989', 'unknown']);
   assert.deepEqual(filterPapers(mixed, { sort: 'oldest' }).map(p => p.id), ['year-1989', 'dated-2026', 'year-2026', 'unknown']);
   assert.equal(filterPapers(mixed, { sort: 'title' })[0].id, 'unknown');
   assert.equal(mixed[0].submittedDate, null);

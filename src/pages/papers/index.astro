@@ -84,13 +84,13 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
         <p id="result-count" aria-live="polite" aria-atomic="true"><strong>{papers.length}</strong> papers in the collection</p>
         <div class="results-controls">
           <label class="sr-only" for="sort-order">Sort papers</label>
-          <select id="sort-order"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="title">Title A–Z</option></select>
+          <select id="sort-order"><option value="relevance" hidden>Best match</option><option value="oldest" selected>Oldest first</option><option value="newest">Newest first</option><option value="title">Title A–Z</option></select>
           <span class="toolbar-divider"></span>
           <div class="view-toggle" aria-label="List density"><button class="selected" type="button" data-view="detailed" aria-label="Detailed view" aria-pressed="true">Detailed</button><button type="button" data-view="compact" aria-label="Compact view" aria-pressed="false">Compact</button></div>
         </div>
       </div>
       <div id="paper-list" class="paper-list">{papers.map((paper, index) => <PaperCard paper={paper} index={index}/>)}</div>
-      <div id="empty-state" class="empty-state" hidden><h3>No papers found</h3><p>Try another keyword or broaden your filters.</p><button type="button" id="empty-reset" class="button button-secondary">Clear all filters</button></div>
+      <div id="empty-state" class="empty-state" hidden><h3 id="empty-title">No papers found</h3><p id="empty-description">Try another keyword or broaden your filters.</p><button type="button" id="empty-reset" class="button button-secondary">Clear search and filters</button></div>
       <nav class="pagination" id="pagination" aria-label="Paper list pages" hidden><span id="page-range"></span><div><button id="previous-page" type="button" aria-label="Previous page">← Previous</button><span id="page-position"></span><button id="next-page" type="button" aria-label="Next page">Next →</button></div></nav>
       <div class="contribute-strip"><p>Missing a paper, or found a correction?</p><a href={`${repoUrl}/issues/new/choose`} target="_blank" rel="noopener noreferrer">Suggest an update on GitHub ↗</a></div>
     </div>
@@ -98,7 +98,7 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
 </BaseLayout>
 <script>
   import { papers, categories, uncategorizedCategory, majorCategories, quadrantStatuses, subtypes } from '../../lib/catalog';
-  import { filterPapers } from '../../lib/search.mjs';
+  import { defaultSort, filterPapers } from '../../lib/search.mjs';
   import { taxonomyLabel } from '../../lib/taxonomy.mjs';
   const PAGE_SIZE = 12;
   const search = document.querySelector<HTMLInputElement>('#paper-search')!;
@@ -123,6 +123,7 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
   let page = 1;
   let view = 'detailed';
   let totalPages = 1;
+  let explicitSort = false;
 
   function readURL() {
     const params = new URLSearchParams(location.search);
@@ -135,7 +136,8 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
     year.value = params.get('year') || '';
     secondary.value = params.get('secondary') || '';
     code.checked = params.get('code') === '1';
-    sort.value = ['newest', 'oldest', 'title'].includes(params.get('sort') || '') ? params.get('sort')! : 'newest';
+    explicitSort = ['relevance', 'newest', 'oldest', 'title'].includes(params.get('sort') || '');
+    sort.value = explicitSort ? params.get('sort')! : defaultSort({ query: search.value, major: major.value });
     page = Math.max(1, Math.floor(Number(params.get('page')) || 1));
     view = params.get('view') === 'compact' ? 'compact' : 'detailed';
     if (category) document.querySelector<HTMLDetailsElement>('#research-topic-filters')!.open = true;
@@ -143,6 +145,11 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
   }
 
   function render(writeURL = true) {
+    const hasQuery = Boolean(search.value.trim());
+    if (!explicitSort) sort.value = defaultSort({ query: search.value, major: major.value });
+    const relevanceOption = sort.querySelector<HTMLOptionElement>('[value="relevance"]')!;
+    relevanceOption.hidden = !hasQuery && major.value !== '奠基性工作' && sort.value !== 'relevance';
+    relevanceOption.textContent = !hasQuery && major.value === '奠基性工作' ? 'Relevance to WAMs' : 'Best match';
     const matching = filterPapers(papers, { query: search.value, major: major.value, quadrant: quadrant.value, subtype: subtype.value, category, month: month.value, year: year.value, secondary: secondary.value, code: code.checked, sort: sort.value });
     totalPages = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
     page = Math.min(page, totalPages);
@@ -175,8 +182,17 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
       year.value && `Year: ${year.value}`, secondary.value && `Also explores: ${taxonomyLabel(secondary.value)}`,
       code.checked && 'With code',
     ].filter(Boolean);
-    document.querySelector<HTMLElement>('#search-scope')!.hidden = !search.value.trim() || scopes.length === 0;
-    document.querySelector<HTMLElement>('#search-scope-label')!.textContent = `Searching within ${scopes.join(' · ')}`;
+    const scopedSearch = hasQuery && scopes.length > 0;
+    const globalCount = scopedSearch ? filterPapers(papers, { query: search.value }).length : matching.length;
+    const globalMatches = `${globalCount} ${globalCount === 1 ? 'match' : 'matches'}`;
+    document.querySelector<HTMLElement>('#search-scope')!.hidden = !scopedSearch;
+    document.querySelector<HTMLElement>('#search-scope-label')!.textContent = `Searching within ${scopes.join(' · ')}. ${globalMatches} in the full library.`;
+    document.querySelector<HTMLButtonElement>('#search-all')!.textContent = `Search all papers (${globalMatches})`;
+    document.querySelector<HTMLElement>('#empty-title')!.textContent = scopedSearch ? 'No papers match these filters' : 'No papers found';
+    document.querySelector<HTMLElement>('#empty-description')!.textContent = scopedSearch && globalCount > 0
+      ? `${globalMatches} for “${search.value.trim()}” are available in the full library. Keep your search and remove the filters to see them.`
+      : 'Try another keyword or broaden your filters.';
+    document.querySelector<HTMLButtonElement>('#empty-reset')!.textContent = scopedSearch ? `Search all papers (${globalMatches})` : 'Clear search and filters';
     categoryLinks.forEach(link => {
       const active = link.dataset.category === category;
       link.classList.toggle('selected', active);
@@ -204,7 +220,7 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
       if (year.value) params.set('year', year.value);
       if (secondary.value) params.set('secondary', secondary.value);
       if (code.checked) params.set('code', '1');
-      if (sort.value !== 'newest') params.set('sort', sort.value);
+      if (explicitSort) params.set('sort', sort.value);
       if (view !== 'detailed') params.set('view', view);
       if (page > 1) params.set('page', String(page));
       const query = params.toString();
@@ -215,13 +231,17 @@ const rangeCaption = years.length ? 'recorded publication years' : 'known submis
   function clearFilters() { search.value = ''; clearFacets(); }
   let debounce: ReturnType<typeof setTimeout>;
   search.addEventListener('input', () => { clearTimeout(debounce); debounce = setTimeout(() => { page = 1; render(); }, 120); });
-  [major, quadrant, subtype, month, year, secondary, code, sort].forEach(input => input.addEventListener('change', () => { page = 1; render(); }));
+  [major, quadrant, subtype, month, year, secondary, code].forEach(input => input.addEventListener('change', () => { page = 1; render(); }));
+  sort.addEventListener('change', () => { explicitSort = true; page = 1; render(); });
   categoryLinks.forEach(link => link.addEventListener('click', event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); category = link.dataset.category || ''; page = 1; render(); }));
   majorLinks.forEach(link => link.addEventListener('click', event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); major.value = link.dataset.major || ''; page = 1; render(); }));
   quadrantLinks.forEach(link => link.addEventListener('click', event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); quadrant.value = link.dataset.quadrant || ''; page = 1; render(); }));
   document.querySelector<HTMLFormElement>('#catalog-form')!.addEventListener('submit', event => { event.preventDefault(); clearTimeout(debounce); page = 1; render(); });
   reset.addEventListener('click', clearFilters);
-  document.querySelector('#empty-reset')!.addEventListener('click', clearFilters);
+  document.querySelector('#empty-reset')!.addEventListener('click', () => {
+    if (search.value.trim() && (major.value || quadrant.value || subtype.value || category || month.value || year.value || secondary.value || code.checked)) clearFacets();
+    else clearFilters();
+  });
   document.querySelector('#search-all')!.addEventListener('click', clearFacets);
   document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(button => button.addEventListener('click', () => { view = button.dataset.view!; render(); }));
   previous.addEventListener('click', () => { page--; render(); document.querySelector('#library')!.scrollIntoView({ behavior: 'auto' }); });
