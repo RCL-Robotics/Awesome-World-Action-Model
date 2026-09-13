@@ -138,7 +138,19 @@ const r=JSON.parse(await fs.readFile(path.join(control,'base.json')));r.paperId=
 const e=JSON.parse(await fs.readFile(path.join(control,'edition.json')));e.paperId=c.paper.id;e.visuals=[{...e.visuals[0],id:'figure',asset:'report-assets/fixture/figure.png',sourceLabel:'Figure 1',sourceSha256:c.manifest.sha256,sourceUrl:c.manifest.canonicalUrl+'#fig-1',width:image.width,height:image.height,htmlSource:image.locator,sourceRendering:rendered.descriptor.wrapperDisclosure}];delete e.visuals[0].page;delete e.visuals[0].crop;e.visualLimitations={kind:'analysis',text:'Synthetic isolated integration fixture only; not scientific approval.',evidenceIds:[r.evidence[0].id]};e.visualAudit={inspectedSections:['identity'],htmlEvidence:Object.fromEntries(r.evidence.map(x=>[x.id,['identity']])),notes:'Simulated evidence map for a private integration fixture only.'};
 for(const [n,v] of Object.entries({'report.json':r,'edition.json':e,'metadata.json':{title:c.manifest.observedTitle,authors:'Fixture author',sourceSha256:c.manifest.sha256,location:'identity'},'receipt.json':{schemaVersion:1,paperId:c.paper.id,outcome:'illustrated',reason:'Synthetic isolated integration fixture only.',evidenceIds:[r.evidence[0].id],baseReportPath:'report.json',editionPath:'edition.json',metadataPath:'metadata.json'}}))await fs.writeFile(n,JSON.stringify(v));
 `);await chmod(fake,0o755);
- await execute(process.execPath,[join(r,'scripts/reading/run-illustrated.mjs'),'--work-dir',w,'--ids','fixture','--concurrency','1','--html-visual-bundle',join(f.root,'descriptor.json'),'--html-visual-sha256',f.config.htmlVisuals.sha256],{env:{...process.env,CODEX_BIN:fake,HTML_FIXTURE_CONTROL:control},timeout:60_000});
+ try {
+  await execute(process.execPath,[join(r,'scripts/reading/run-illustrated.mjs'),'--work-dir',w,'--ids','fixture','--concurrency','1','--html-visual-bundle',join(f.root,'descriptor.json'),'--html-visual-sha256',f.config.htmlVisuals.sha256],{env:{...process.env,CODEX_BIN:fake,HTML_FIXTURE_CONTROL:control},timeout:60_000});
+ } catch (error) {
+  // Preserve the synthetic worker's diagnostic before the private fixture is removed.
+  try {
+   const status=JSON.parse(await readFile(join(w,'illustrated-runs/fixture/status.json')));
+   t.diagnostic(JSON.stringify(status));
+   for(const directory of [status.attempt,status.visualReviewPath].filter(Boolean)) {
+    t.diagnostic(await readFile(join(directory,'stderr.log'),'utf8'));
+   }
+  } catch (diagnosticError) { t.diagnostic(`Worker diagnostic unavailable: ${diagnosticError.message}`); }
+  throw error;
+ }
  const status=JSON.parse(await readFile(join(w,'illustrated-runs/fixture/status.json')));assert.equal(status.state,'complete');assert.equal(status.validationRepairs,0);assert.equal(await readFile(join(control,'calls.txt'),'utf8'),'writer\nreview\n');
  const review=JSON.parse(await readFile(join(control,'review-context.json'))),schema=JSON.parse(await readFile(join(control,'review-schema.json')));assert.equal(review.policy.version,'wam-original-html-evidence-v1');assert.equal(review.sourceKind,'html');assert.equal(digest(await readFile(join(status.visualReviewPath,'html-render-descriptor.json'))),review.htmlRendering.descriptorSha256);assert.match(review.htmlRendering.rendererCodeSha256,/^[a-f0-9]{64}$/);assert.deepEqual(review.images.map(i=>i.reviewRole),['supporting-html-section','selected-original-html-figure']);assert.deepEqual(schema.properties.paperId.enum,['fixture']);assert.deepEqual(schema.properties.sourceSha256.enum,[f.manifest.sha256]);assert.deepEqual(schema.properties.images.items.properties.imageId.enum,review.images.map(i=>i.imageId));assert.deepEqual(schema.properties.images.items.properties.sha256.enum,[...new Set(review.images.map(i=>i.sha256))]);
  assert.ok(status.files.some(i=>i.path==='data/illustrated-reports/fixture.json'));assert.equal(JSON.parse(await readFile(join(r,'data/reading-index.json'))).entries[0].readingStatus,'resource');await assert.rejects(readFile(join(w,'illustrated-runs/illustrated.lock')),/ENOENT/);
