@@ -2,6 +2,8 @@
 
 The public project website is hosted at [rcl-robotics.github.io/Awesome-World-Action-Models](https://rcl-robotics.github.io/Awesome-World-Action-Models/). Deployments are manual: syncing data or merging a PR updates the repository, and a maintainer publishes the reviewed `main` branch through the Pages workflow.
 
+The separately authorized [weekly literature task](WEEKLY_UPDATE.md) performs incremental arXiv discovery, illustrated reading, classification and publication. It explicitly dispatches the same Pages workflow after validation; an ordinary push still does not deploy. Its schedule lives in Codex, with reusable topics and execution settings in `config/weekly-update.json`.
+
 The **Awesome-World-Action-Model** database in Notion is the editorial source. Reviewed arXiv additions can also be retained in `data/local-papers.json`. The exporter merges both into `data/papers.json` and `data/meta.json`; the website and generated README use the same catalog.
 
 ## Reviewed local additions

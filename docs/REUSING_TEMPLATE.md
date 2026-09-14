@@ -2,13 +2,14 @@
 
 This repository includes a topic-independent starter for academic survey websites and awesome-list repositories. Its own configuration and bibliography are separate from the starter. Generating a project does not copy the host collection or change its website.
 
-## Three reusable skills
+## Reusable skills
 
 | Skill | Job |
 | --- | --- |
 | [survey-repo-builder](../skills/survey-repo-builder/SKILL.md) | Create a new repository-only project, website, or both |
 | [survey-catalog-manager](../skills/survey-catalog-manager/SKILL.md) | Preview/import supplied JSON or BibTeX, deduplicate sources and maintain the configured taxonomy |
 | [survey-site-publisher](../skills/survey-site-publisher/SKILL.md) | Verify a chosen remote, configure hosting paths and perform a requested push or deployment |
+| [survey-weekly-updater](../skills/survey-weekly-updater/SKILL.md) | Coordinate incremental arXiv discovery, reading, classification and an authorized release; includes a private resumable candidate queue |
 
 Canonical skill directories live in `skills/`; `.agents/skills/` links to them for repository discovery in Codex. The builder includes its own template and scripts, so it can also be installed as a standalone skill. The generated project runs using ordinary Node.js/npm commands; an AI assistant is optional. Other assistants can read the same `SKILL.md` instructions or use their own supported installation method.
 
@@ -65,6 +66,8 @@ npm run generate
 The first command previews the change; the second applies it after review. Use JSON for classifications, summaries and other detailed metadata. Updating existing entries additionally requires `--update` in both commands. Import preserves unspecified fields, rejects duplicate/conflicting identities, and never removes existing records. The supported BibTeX subset and identity limits are documented in each generated project's `docs/MAINTAINING.md`.
 
 Metadata collection, reading, taxonomy decisions, repository push and website publication are separate operations. No automatic paper discovery or external database synchronization is configured by this starter.
+
+To add recurring updates, adapt the weekly updater to the new project's own queries, schema, primary-source reader and release destination, then schedule it explicitly. The current collection's [weekly runbook](WEEKLY_UPDATE.md) is an integration example, not a transferable publishing authorization or subject taxonomy.
 
 ## Publish your own site
 
