@@ -119,6 +119,11 @@ def search_plan(config, state, now):
     fingerprint = hashlib.sha256(json.dumps(config['queries'], ensure_ascii=False).encode()).hexdigest()
     previous = state.get('lastSuccessfulScan') if state.get('queryFingerprint') == fingerprint else None
     since = utc(previous) - timedelta(days=config['overlapDays']) if previous else now - timedelta(days=config['initialLookbackDays'])
+    if not state.get('lastSuccessfulScan') and config.get('firstScanFrom'):
+        initial = utc(config['firstScanFrom'])
+        if initial > now:
+            raise ValueError('firstScanFrom cannot be in the future')
+        since = min(since, initial)
     incomplete = state.get('lastAttempt', {})
     if incomplete.get('queryFingerprint') == fingerprint and incomplete.get('status') in ('running', 'incomplete'):
         since = min(since, utc(incomplete['from']))

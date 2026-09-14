@@ -107,6 +107,11 @@ class WeeklyQueueTest(unittest.TestCase):
         delayed = Q.search_plan(self.config, self.state, self.now + timedelta(days=7))
         self.assertEqual(delayed['from'], Q.stamp(self.now - timedelta(days=9)))
 
+    def test_first_scheduled_run_keeps_the_configured_setup_window(self):
+        self.config['firstScanFrom'] = '2026-09-05T00:00:00Z'
+        delayed = Q.search_plan(self.config, self.state, self.now + timedelta(days=7))
+        self.assertEqual(delayed['from'], self.config['firstScanFrom'])
+
     def test_accepted_revision_stays_pinned_and_newly_cataloged_pending_is_existing(self):
         rows = Q.parse_feed(feed(['2609.11111v1', '2609.22222v1']))[2]
         Q.merge_candidates(self.state, rows, [], Q.stamp(self.now))

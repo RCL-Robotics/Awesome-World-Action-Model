@@ -32,6 +32,8 @@ python3 skills/survey-weekly-updater/scripts/arxiv_queue.py status \
 
 Use Python 3.10 or newer. `discover --plan` validates configuration and prints the UTC window without network or writes. `discover --probe` checks a real first page without consuming the discovery cursor; it is only a connectivity check. A normal discovery stores its candidate records in `queue/state.json` and advances `lastSuccessfulScan` only after every configured query is completely paginated. The first scan covers nine days; later scans overlap the previous complete scan by two days. A query change restarts the configured initial window. This is a new-submission monitor, not a complete historical backfill or a monitor of revisions to old submissions.
 
+For this setup, `firstScanFrom` extends the first scan back to 2026-09-05 UTC even if the first scheduled execution is later. This avoids missing papers between configuration and the first run. Once a complete scan is recorded, the saved cursor controls subsequent windows. Forks should select their own initial date.
+
 An incomplete scan retains fetched candidates but not a successful cursor. Investigate the recorded failure; bounded retries or a legitimate primary-source lookup can resolve it. Do not replace an API error with a fabricated empty result. If recovery cannot complete this run, finish already verified work and report the incomplete search window.
 
 ## 2. Screen and stage candidates
